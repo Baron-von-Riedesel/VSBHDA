@@ -1,6 +1,7 @@
 #ifndef _DPMI_H_
 #define _DPMI_H_
 #include <PLATFORM.H>
+#include <dpmi.h>
 
 //configs
 #define DPMI_USE_XMS_HEAP 0
@@ -193,7 +194,8 @@ uint32_t DPMI_CallRealModeOldISR(DPMI_ISR_HANDLE* inputp handle);
 
 //allocate realmode callback. return: hiword: segment, lowword: offset. return 0 if fail
 //input: Fn is a common function with normal return. the RMCB will use RETF finally
-uint32_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg);
+uint16_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg, __dpmi_raddr * );
+uint16_t DPMI_FreeRMCB( __dpmi_raddr * );
 uint32_t DPMI_AllocateRMCB_IRET(void(*Fn)(void), DPMI_REG* reg);
 
 //virtual interrupt states

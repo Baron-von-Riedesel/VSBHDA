@@ -22,7 +22,19 @@
 //register index trhough mixer port
 #define SBEMU_MIXERREG_RESET        0x00
 #define SBEMU_MIXERREG_MASTERVOL    0x02
-#define SBEMU_MIXERREG_MASTERSTEREO 0x22
+#define SBEMU_MIXERREG_VOICESTEREO  0x04    //SBPro.
+#define SBEMU_MIXERREG_MIDIVOL      0x06    //SB2.0
+#define SBEMU_MIXERREG_VOICEVOL     0x0A    //SB2.0
+#define SBEMU_MIXERREG_MASTERSTEREO 0x22    //SBPro
+#define SBEMU_MIXERREG_MIDISTEREO   0x26    //SBPro 
+//SB16
+#define SBEMU_MIXRREG_MASTERL       0x30
+#define SBEMU_MIXRREG_MASTERR       0x31
+#define SBEMU_MIXRREG_VOICEL        0x32
+#define SBEMU_MIXRREG_VOICER        0x33
+#define SBEMU_MIXRREG_MIDIL         0x34
+#define SBEMU_MIXRREG_MIDIR         0x35
+//-SB16
 #define SBEMU_MIXERREG_MODEFILTER   0x0E
 #define SBEMU_MIXERREG_INT_SETUP    0x80
 #define SBEMU_MIXERREG_DMA_SETUP    0x81
@@ -32,10 +44,13 @@
 #define SBEMU_CMD_SET_TIMECONST     0x40
 #define SBEMU_CMD_SET_SIZE          0x48 //size-1
 #define SBEMU_CMD_SET_SAMPLERATE    0x41 //set sample rate
+#define SBEMU_CMD_SET_SAMPLERATE_I  0x42 //intput sample rate
 #define SBEMU_CMD_HALT_DMA          0xD0
 #define SBEMU_CMD_DAC_SPEAKER_ON    0xD1
 #define SBEMU_CMD_DAC_SPEAKER_OFF   0xD3
 #define SBEMU_CMD_CONTINUE_DMA      0xD4
+#define SBEMU_CMD_HALT_DMA16        0xD5
+#define SBEMU_CMD_CONTINUE_DMA16    0xD6
 #define SBEMU_CMD_DSP_ID            0xE0
 #define SBEMU_CMD_DSP_GETVER        0xE1 //1st byte major, 2nd byte minor
 #define SBEMU_CMD_DSP_COPYRIGHT     0xE3
@@ -50,7 +65,7 @@
 #define SBEMU_CMD_8BIT_OUT_AUTO_HS  0x90
 
 //sample rate used
-#define SBEMU_CMD_8OR16_OUT_1       0x41
+//#define SBEMU_CMD_8OR16_OUT_1       0x41
 //fllowing commands
 #define SBEMU_CMD_8OR16_8_OUT_1     0xC0
 #define SBEMU_CMD_8OR16_8_OUT_AUTO  0xC6
@@ -77,19 +92,17 @@ extern "C"
 #endif
 
 //generic IO functions
-void SBEMU_Mixer_WriteAddr(int16_t port, uint8_t value);
-void SBEMU_Mixer_Write(uint16_t port, uint8_t value);
-uint8_t SBEMU_Mixer_Read(uint16_t port);
-
-void SBEMU_DSP_Reset(uint16_t port, uint8_t value);
-void SBEMU_DSP_Write(uint16_t port, uint8_t value);
-uint8_t SBEMU_DSP_Read(uint16_t port);
-uint8_t SBEMU_DSP_WriteStatus(uint16_t port);
-uint8_t SBEMU_DSP_ReadStatus(uint16_t port); //read buffer status. 
-uint8_t SBEMU_DSP_INT16ACK(uint16_t port);
+uint32_t SBEMU_SB_MixerAddr(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_MixerData(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_DSP_Reset(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_DSP_Read(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_DSP_Write(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_DSP_ReadStatus(uint32_t port, uint32_t val, uint32_t out);
+uint32_t SBEMU_SB_DSP_ReadINT16BitACK(uint32_t port, uint32_t val, uint32_t out);
 
 //used by emulations
-void SBEMU_Init(int irq, int dma, void(*startCB)(void));
+void SBEMU_Init(int irq, int dma, int hdma, int DSPVer, void(*startCB)(void));
+//void SBEMU_Init(int irq, int dma, void(*startCB)(void));
 uint8_t SBEMU_GetIRQ();
 uint8_t SBEMU_GetDMA();
 int SBEMU_HasStarted();
@@ -103,6 +116,9 @@ int SBEMU_GetSampleBytes();
 int SBEMU_GetAuto();
 int SBEMU_GetPos(); //get pos in bytes
 int SBEMU_SetPos(int pos); //set pos in bytes
+int SBEMU_IRQTriggered();
+void SBEMU_SetIRQTriggered(int triggered);
+uint8_t SBEMU_GetMixerReg(uint8_t index);
 
 #ifdef __cplusplus
 }

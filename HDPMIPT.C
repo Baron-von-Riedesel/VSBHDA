@@ -13,6 +13,11 @@
 #define HDPMIPT_SWITCH_STACK 1 //TODO: debug
 #define HDPMIPT_STACKSIZE 16384
 
+BOOL _hdpmi_InstallISR(uint8_t i, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle, void* pStack );
+BOOL _hdpmi_UninstallISR( DPMI_ISR_HANDLE* inputp handle );
+BOOL _hdpmi_InstallInt31( DPMI_ISR_HANDLE* inputp handle );
+BOOL _hdpmi_UninstallInt31( void );
+
 typedef struct
 {
     uint32_t edi;
@@ -23,9 +28,11 @@ extern uint32_t __djgpp_stack_top;
 
 static const char* VENDOR_HDPMI = "HDPMI";    //vendor string
 static HDPMIPT_ENTRY HDPMIPT_Entry;
+/* stored DS segment value */
+
 #if HDPMIPT_SWITCH_STACK
-uint32_t HDPMIPT_OldESP[2];
-uint32_t HDPMIPT_NewStack[2];
+void SwitchStackIO( uint32_t(*pFunc)(void), int mode, uint32_t[] );
+uint32_t HDPMIPT_NewStack[4];
 #endif
 
 static QEMM_IODT_LINK HDPMIPT_IODT_header;
@@ -36,12 +43,17 @@ void HDPMI_PrintPorts( void )
 {
     QEMM_IODT_LINK* link = HDPMIPT_IODT_header.next;
     for ( ; link; link = link->next ) {
+        printf( "ports: " );
         for ( int i = 0, start = 0; i < link->count; i++ ) {
             if ( i == (link->count - 1) || link->iodt[i].port != (link->iodt[i+1].port - 1) ) {
-                printf("ports: %X-%X\n", link->iodt[start].port, link->iodt[i].port );
-                start = i+1;
+                if ( i == start )
+                    printf( "%X ", link->iodt[start].port );
+                else
+                    printf( "%X-%X ", link->iodt[start].port, link->iodt[i].port );
+                start = i + 1;
             }
         }
+        printf( "\n" );
     }
     return;
 }
@@ -79,21 +91,15 @@ static uint32_t __attribute__((noinline)) HDPMIPT_TrapHandler()
     return value;
 }
 
-/* stored DS segment value */
-
-static uint32_t dsseg;
-
-void SwitchStack( uint32_t(*pFunc)(void), int mode, uint32_t *pDS );
-
 static void __attribute__((naked)) HDPMIPT_TrapHandlerWrapperIn()
 {
-    SwitchStack( &HDPMIPT_TrapHandler, 0, &dsseg );
+    SwitchStackIO( &HDPMIPT_TrapHandler, 0, HDPMIPT_NewStack );
     asm("lret"); //retf
 }
 
 static void __attribute__((naked)) HDPMIPT_TrapHandlerWrapperOut()
 {
-    SwitchStack( &HDPMIPT_TrapHandler, 1, &dsseg );
+    SwitchStackIO( &HDPMIPT_TrapHandler, 1, HDPMIPT_NewStack );
     asm("lret"); //retf
 }
 
@@ -144,21 +150,21 @@ static uint32_t HDPMI_Internal_InstallTrap(const HDPMIPT_ENTRY* entry, int start
         "push %%ebx \n\t"
         "push %%esi \n\t"
         "push %%edi \n\t"
-        "mov %%ds, %5 \n\t"   //DS: save in dsseg
         "mov %1, %%edx \n\t"  //DX: starting port
         "mov %2, %%ecx \n\t"  //CX: port count
         "lea %3, %%esi \n\t"  //ESI: handler addr, IN, OUT
+        "movw %%cs, %5 \n\t"
         "movw %%cs, %6 \n\t"
-        "movw %%cs, %7 \n\t"
         "mov $6, %%eax \n\t"  //AX=6, install port trap
         "lcall *%4\n\t"
-        "jc 1f \n\t"
+        "movl $0, %0 \n\t"
+        "jb 1f \n\t"
         "mov %%eax, %0 \n\t"
         "1: pop %%edi \n\t"
         "pop %%esi \n\t"
         "pop %%ebx \n\t"
     :"=m"(handle)
-    :"m"(start),"m"(count),"m"(traphandler),"m"(ent),"m"(dsseg),"m"(traphandler.segIn),"m"(traphandler.segOut)
+    :"m"(start),"m"(count),"m"(traphandler),"m"(ent),"m"(traphandler.segIn),"m"(traphandler.segOut)
     :"eax","ebx","ecx","edx","memory"
     );
     return handle;
@@ -194,6 +200,11 @@ BOOL HDPMIPT_Install_IOPortTrap(uint16_t start, uint16_t end, QEMM_IODT* inputp 
     assert(iopt);
     if(HDPMIPT_IODT_header.next == NULL)
     {
+#if HDPMIPT_SWITCH_STACK
+        HDPMIPT_NewStack[0] = (uintptr_t)malloc( HDPMIPT_STACKSIZE ) + HDPMIPT_STACKSIZE - 8;
+        HDPMIPT_NewStack[1] = HDPMIPT_GetDS();
+#endif
+
         if(!HDPMIPT_GetVendorEntry(&HDPMIPT_Entry))
         {
             HDPMIPT_Entry.es = 0;
@@ -207,16 +218,7 @@ BOOL HDPMIPT_Install_IOPortTrap(uint16_t start, uint16_t end, QEMM_IODT* inputp 
     uint32_t handle = HDPMI_Internal_InstallTrap(&HDPMIPT_Entry, start, end, &HDPMIPT_TrapHandlerWrapperIn, &HDPMIPT_TrapHandlerWrapperOut);
     if(!handle)
     {
-        puts("Failed to install HDPMI io port trap.\n");
         return FALSE;
-    }
-    
-    if(HDPMIPT_IODT_header.next == NULL)
-    {
-        #if HDPMIPT_SWITCH_STACK
-        HDPMIPT_NewStack[0] = (uintptr_t)malloc(HDPMIPT_STACKSIZE) + HDPMIPT_STACKSIZE - 8;
-        HDPMIPT_NewStack[1] = HDPMIPT_GetDS();
-        #endif
     }
     
     QEMM_IODT* Iodt = (QEMM_IODT*)malloc(sizeof(QEMM_IODT)*count);
@@ -254,6 +256,21 @@ BOOL HDPMIPT_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt)
         #endif
     }
     return TRUE;
+}
+
+BOOL HDPMIPT_InstallISR( uint8_t interrupt, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle )
+{
+    if ( _hdpmi_InstallISR( interrupt, ISR, handle, (void *)(HDPMIPT_NewStack[0] - HDPMIPT_STACKSIZE/2) ) ) {
+        return ( _hdpmi_InstallInt31( handle ) );
+    }
+    return FALSE;
+}
+
+BOOL HDPMIPT_UninstallISR( DPMI_ISR_HANDLE* inputp handle )
+{
+    /* first uninstall int 31h, then ISR! */
+    _hdpmi_UninstallInt31();
+    return ( _hdpmi_UninstallISR( handle ) );
 }
 
 void HDPMIPT_UntrappedIO_Write(uint16_t port, uint8_t value)

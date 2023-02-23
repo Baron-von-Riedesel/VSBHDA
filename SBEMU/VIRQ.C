@@ -12,7 +12,7 @@ static uint8_t VIRQ_OCW[2];
 
 #define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
 
-void VIRQ_Write(uint16_t port, uint8_t value)
+static void VIRQ_Write(uint16_t port, uint8_t value)
 {
     //_LOG("VIRQW:%x,%x\n",port,value);
     if(VIRQ_IS_VIRTUALIZING())
@@ -34,15 +34,11 @@ void VIRQ_Write(uint16_t port, uint8_t value)
         }
         return;
     }
-    // in case interrupts got enabled disable them before sending EOI to PIC.
-    // the interrupt proc will ( should? ) run an STI just before the IRET.
-    //  else if ( (port == 0x20 || port == 0xa0 ) && value == 0x20 )
-    //      asm("cli");
 
     UntrappedIO_OUT(port, value);
 }
 
-uint8_t VIRQ_Read(uint16_t port)
+static uint8_t VIRQ_Read(uint16_t port)
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
@@ -52,7 +48,6 @@ uint8_t VIRQ_Read(uint16_t port)
             int index = ((port==0x20) ? 0 : 1);
             if(VIRQ_OCW[index] == 0x0B)//ISR
             {
-                //_LOG("VIRQRV: %x\n",VIRQ_ISR[index]);
                 return VIRQ_ISR[index];
             }
             //return VIRQ_OCW[index] == 0x0B ? VIRQ_ISR[index] : UntrappedIO_IN(port);
@@ -63,12 +58,14 @@ uint8_t VIRQ_Read(uint16_t port)
     return UntrappedIO_IN(port);
 }
 
+#define CHANGEPICMASK 1
+
 void VIRQ_Invoke(uint8_t irq)
 {
-    _LOG("CALLINT %d\n", irq);
-    //CLIS();
+#if CHANGEPICMASK
     int mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
+#endif
     VIRQ_ISR[0] = VIRQ_ISR[1] = 0;
     if(irq < 8) //master
         VIRQ_ISR[0] = 1 << irq;
@@ -80,29 +77,22 @@ void VIRQ_Invoke(uint8_t irq)
     
     VIRQ_Irq = irq;
 #if 0
-    DPMI_REG r = {0};
-    r.w.flags = 0;
-    r.w.ss = r.w.sp = 0;
     /* this approach makes HDPMI call the "previous" real-mode handler, that is the handler
      * that was installed when HDPMI has been launched. That's why this strategy isn't successful here.
      */
+    static DPMI_REG r = {0};
     DPMI_CallRealModeINT(PIC_IRQ2VEC(irq), &r);
-#elif 1
-    DPMI_REG r = {0};
-    r.w.flags = 0;
-    r.w.ss = r.w.sp = 0;
+#elif 0
     /* this approach works so long as HDPMI=1 is NOT set. It has the other disadvantage that, if a protected-mode
      * handler is installed, 4 extra mode switches are triggered (PM->RM->RMCB->RM->PM).
      */
+    static DPMI_REG r = {0};
     int n = PIC_IRQ2VEC(irq);
     r.w.ip = DPMI_LoadW(n*4);
     r.w.cs = DPMI_LoadW(n*4+2);
     DPMI_CallRealModeIRET(&r);
 #else
-    /* launching INTs directly would avoid 4 mode switches if a protected-mode handler has been installed.
-     * the problem is that real-mode handlers installed in real-mode won't get called then, because HDPMI
-     * routes these calls to the interrupt handlers found when HDPMI was installed.
-     *
+    /*
      * A general problem: if the interrupt is handled in real mode, EOIs sent to the PICs cannot be trapped!
      */
     if(irq == 7)
@@ -113,12 +103,14 @@ void VIRQ_Invoke(uint8_t irq)
 
     VIRQ_Irq = -1;
     CLIS(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
-
-    _LOG("CPU FLAGS: %x\n", CPU_FLAGS());
-    PIC_SetIRQMask(mask);
-    /* don't enable interrupts - this proc is called by
-     * the real sound hw interrupt proc.
-     */
-    //STIL();
-    _LOG("CALLINTEND\n");
+#if CHANGEPICMASK
+    PIC_SetIRQMask(mask);  /* restore masks */
+#endif
 }
+
+uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)
+{
+    return out ? (VIRQ_Write(port, val), val) : (val &=~0xFF, val |= VIRQ_Read(port));
+}
+
+

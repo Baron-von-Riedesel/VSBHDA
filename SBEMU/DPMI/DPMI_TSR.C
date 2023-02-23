@@ -243,6 +243,7 @@ switch_back:
 
 BOOL DPMI_TSR()
 {
+    __djgpp_exception_toggle();
 #if DPMI_USE_XMS_HEAP
     __djgpp_exception_toggle();
     //free all old app memory

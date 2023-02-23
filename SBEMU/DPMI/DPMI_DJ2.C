@@ -196,8 +196,8 @@ void DPMI_Init(void)
     atexit(&DPMI_Shutdown);
     signal(SIGINT, sig_handler);
 
-	__djgpp_set_ctrl_c( 0 );
-	_go32_want_ctrl_break( 1 );
+	//__djgpp_set_ctrl_c( 0 );
+	//_go32_want_ctrl_break( 1 );
     //signal(SIGABRT, sig_handler);
 
     DPMI_InitFlat();
@@ -421,6 +421,8 @@ uint16_t DPMI_CallRealModeIRET(DPMI_REG* reg)
     return (uint16_t)__dpmi_simulate_real_mode_procedure_iret((__dpmi_regs*)reg);
 }
 
+#if 0
+
 uint16_t DPMI_InstallISR(uint8_t i, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle)
 {
     if(i < 0 || i > 255 || handle == NULL || ISR == NULL)
@@ -535,19 +537,6 @@ uint32_t DPMI_CallRealModeOldISR(DPMI_ISR_HANDLE* inputp handle)
     return DPMI_CallRealModeINT(handle->n,&r);
 }
 
-uint32_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg)
-{
-    _go32_dpmi_seginfo info;
-    info.pm_selector = (uint16_t)_my_cs();
-    info.pm_offset = (uintptr_t)Fn;
-    if(_go32_dpmi_allocate_real_mode_callback_retf(&info, (_go32_dpmi_registers*)reg) == 0)
-    {
-        return (((uint32_t)info.rm_segment)<<16) | (info.rm_offset);
-    }
-    else
-        return 0;
-}
-
 uint32_t DPMI_AllocateRMCB_IRET(void(*Fn)(void), DPMI_REG* reg)
 {
     _go32_dpmi_seginfo info;
@@ -560,6 +549,31 @@ uint32_t DPMI_AllocateRMCB_IRET(void(*Fn)(void), DPMI_REG* reg)
     else
         return 0;
 }
+#endif
+
+uint16_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg, __dpmi_raddr *rmcb )
+{
+    _go32_dpmi_seginfo info;
+    info.pm_selector = (uint16_t)_my_cs();
+    info.pm_offset = (uintptr_t)Fn;
+    if(_go32_dpmi_allocate_real_mode_callback_retf(&info, (_go32_dpmi_registers*)reg) == 0)
+    {
+        rmcb->offset16 = info.rm_offset;
+        rmcb->segment  = info.rm_segment;
+        return 1;
+    }
+    else
+        return 0;
+}
+
+uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
+{
+    if(__dpmi_free_real_mode_callback( rmcb ) == 0)
+        return ( 1 );
+    else
+        return 0;
+}
+
 
 uint8_t DPMI_DisableInterrupt()
 {

@@ -36,12 +36,9 @@ typedef struct QEMM_IODT_LINK
 uint16_t QEMM_GetVersion(void);
 
 //I/O virtualize
-BOOL QEMM_Install_IOPortTrap(QEMM_IODT* inputp iodt, uint16_t count, QEMM_IOPT* outputp iopt);
-
-BOOL QEMM_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt);
-
-void QEMM_UntrappedIO_Write(uint16_t port, uint8_t value);
-uint8_t QEMM_UntrappedIO_Read(uint16_t port);
+BOOL QEMM_Prepare_IOPortTrap(void);
+BOOL QEMM_Install_IOPortTrap(QEMM_IODT* inputp iodt, uint16_t count, QEMM_IOPT* outputp iopt, QEMM_IODT_LINK* inputp link );
+BOOL QEMM_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt, BOOL bFree );
 
 #ifdef __cplusplus
 }

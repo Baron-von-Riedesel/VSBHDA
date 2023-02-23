@@ -56,7 +56,8 @@ OBJFILES=output/ac97_def.o output/au_cards.o output/cv_bits.o\
 	output/sc_inthd.o output/sc_via82.o output/string.o output/test.o\
 	output/threads.o output/time.o output/timer.o output/untrapio.o\
 	output/vdma.o output/virq.o output/xms.o \
-	output/stackio.o output/stackisr.o output/int31.o
+	output/stackio.o output/stackisr.o output/int31.o output/dprintf.o\
+	output/output.o
 
 ALL_OBJFILES=output/ac97_def.o output/au_cards.o output/cv_bits.o\
 	output/cv_chan.o output/cv_freq.o output/dbgutil.o output/dbopl.o\
@@ -67,7 +68,8 @@ ALL_OBJFILES=output/ac97_def.o output/au_cards.o output/cv_bits.o\
 	output/sc_inthd.o output/sc_via82.o output/string.o output/test.o\
 	output/threads.o output/time.o output/timer.o output/untrapio.o\
 	output/vdma.o output/virq.o output/xms.o\
-	output/stackio.o output/stackisr.o output/int31.o
+	output/stackio.o output/stackisr.o output/int31.o output/dprintf.o\
+	output/output.o
 LIBRARIES=
 SOURCE_NAME=$<
 OUTFILE=$@
@@ -76,7 +78,6 @@ SPECIAL_LDFLAGS=
 PROG_ARGS=
 SRC_DIRS=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu sbemu/dpmi
 WUC=
-EDITORS=
 MAIN_TARGET=output/sbemu.exe
 PROJECT_ITEMS=ac97_def.c au_cards.c cv_bits.c cv_chan.c cv_freq.c dbgutil.c\
 	dbopl.cpp dmairq.c dpmi.c dpmi_dj2.c dpmi_tsr.c fpu.c hdpmipt.c\
@@ -87,7 +88,6 @@ DEFAULT_MASK=*.[acfghimnops]*
 PASCAL_TYPE=GPC
 GET_HOME=$(HOME)
 CLEAN_FILES=$(MAIN_TARGET) $(OBJFILES)
-DEFAULT_GREP_MASK=*.[cfhmnps]*
 RHIDE_ADA_BIND_FILE=$(addprefix _,$(setsuffix .c,$(OUTFILE)))
 RHIDE_AR=ar
 RHIDE_ARFLAGS=rcs
@@ -115,7 +115,6 @@ RHIDE_COMPILE.cxx.o=$(RHIDE_COMPILE.cc.o)
 RHIDE_COMPILE.cxx.s=$(RHIDE_COMPILE.cc.s)
 RHIDE_COMPILE.i.s=$(RHIDE_COMPILE.c.s)
 RHIDE_COMPILE.ii.s=$(RHIDE_COMPILE.cc.s)
-RHIDE_COMPILE.nsm.o=$(RHIDE_COMPILE_NASM)
 RHIDE_COMPILE.s.o=$(RHIDE_COMPILE_ASM)
 RHIDE_COMPILE_ARCHIVE=$(RHIDE_AR) $(RHIDE_ARFLAGS) $(OUTFILE)\
 	$(ALL_OBJFILES)
@@ -158,11 +157,6 @@ RHIDE_COMPILE_LINK_FPC_AUTOMAKE=$(RHIDE_FPC) -o$(OUTFILE) $(SOURCE_NAME)\
 RHIDE_COMPILE_LINK_GPC=$(RHIDE_LD_PASCAL) $(RHIDE_LIBDIRS) $(C_EXTRA_FLAGS)\
 	-o $(OUTFILE)  $(OBJFILES) $(LIBRARIES) $(RHIDE_LDFLAGS) $(LDFLAGS)\
 	$(RHIDE_LIBS)
-RHIDE_COMPILE_LINK_GPC_AUTOMAKE=$(RHIDE_LD_PASCAL) $(RHIDE_LIBDIRS)  -o\
-	$(OUTFILE) --automake $(RHIDE_GPC_FLAGS)  $(SOURCE_NAME)\
-	$(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS) $(RHIDE_LIBS)
-RHIDE_COMPILE_NASM=$(RHIDE_NASM) -f $(RHIDE_NASM_TARGET) $(LOCAL_OPT) -o\
-	$(OUTFILE)  $(SOURCE_NAME)
 RHIDE_COMPILE_JWASM=jwasm.exe -nologo -coff -Fo$(OUTFILE) $(SOURCE_NAME)
 RHIDE_CONFIG_DIRS=. $(RHIDE_SHARE) $(GET_HOME)   $(RHIDE_CONFIG_DIRS_COMMON)\
 	 $(addsuffix /SET,$(RHIDE_CONFIG_DIRS_COMMON))  $(SET_FILES)
@@ -171,7 +165,6 @@ RHIDE_EMPTY=
 RHIDE_FSDB=fsdb $(OUTFILE) $(addprefix -p ,$(SRC_DIRS)) $(PROG_ARGS)
 RHIDE_GCC=gcc
 RHIDE_GPROF=gprof $(OUTFILE)
-RHIDE_GREP=grep -n $(prompt arguments for GREP,$(WUC) $(DEFAULT_GREP_MASK))
 RHIDE_GXX=$(RHIDE_GCC)
 RHIDE_INCLUDES=$(SPECIAL_CFLAGS) $(addprefix -I,$(INCLUDE_DIRS))
 RHIDE_LD=$(RHIDE_GCC)
@@ -180,14 +173,10 @@ RHIDE_LD_FPC=$(RHIDE_FPC) -E+
 RHIDE_LD_PASCAL=gpc
 RHIDE_LIBDIRS=$(addprefix -L,$(LIB_DIRS))
 RHIDE_LIBS=$(addprefix -l,$(LIBS) $(RHIDE_TYPED_LIBS) $(RHIDE_OS_LIBS))
-RHIDE_NASM=nasm
-RHIDE_NASM_TARGET=$(RHIDE_NASM_TARGET_$(RHIDE_OS))
-RHIDE_NASM_TARGET_DJGPP=coff
 RHIDE_PATH_SEPARATOR=$(RHIDE_PATH_SEPARATOR_$(RHIDE_OS))
 RHIDE_PATH_SEPARATOR_$(RHIDE_OS)=:
 RHIDE_PATH_SEPARATOR_DJGPP=;
 RHIDE_PATH_SEPARATOR_DJGPP=:
-RHIDE_RLOG=$(shell rlog -R $(rlog_arg))
 RHIDE_RM=rm
 RHIDE_SHARED_LDFLAGS=$(RHIDE_SHARED_LDFLAGS_$(RHIDE_OS))
 RHIDE_SHARED_LDFLAGS_$(RHIDE_OS)=
@@ -216,9 +205,6 @@ RHIDE_TYPED_LIBS_DJGPP.cpp=stdcxx m
 RHIDE_TYPED_LIBS_DJGPP.cxx=stdcxx m
 RHIDE_TYPED_LIBS_SUFFIXES=$(sort $(foreach item,$(PROJECT_ITEMS),$(suffix\
 	$(item))))
-_RHIDE_COMPILE_LINK_ADA=$(RHIDE_COMPILE_LINK_ADA_BIND);\
-	$(RHIDE_COMPILE_LINK_ADA_LINK);   $(RHIDE_RM)\
-	$(RHIDE_ADA_BIND_FILE)
 %.o: %.c
 	$(RHIDE_COMPILE.c.o)
 %.o: %.i
@@ -287,12 +273,15 @@ DEPS_0= output/ac97_def.o	output/au_cards.o	output/cv_bits.o\
 		output/sc_inthd.o	output/sc_via82.o	output/string.o		output/test.o\
 		output/threads.o	output/time.o		output/timer.o		output/untrapio.o\
 		output/vdma.o		output/virq.o		output/xms.o\
-		output/stackio.o	output/stackisr.o	output/int31.o
+		output/stackio.o	output/stackisr.o	output/int31.o		output/dprintf.o\
+		output/output.o
 NO_LINK=
 LINK_FILES=$(filter-out $(NO_LINK),$(DEPS_0))
 
 output/sbemu.exe:: $(DEPS_0)
 	$(RHIDE_COMPILE_LINK)
+	strip -s $(OUTFILE)
+	stubedit $(OUTFILE) minstack=64k
 
 DEPS_1=ac97_def.c ./mpxplay/au_cards/ac97_def.h ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h ./mpxplay/playlist/playlist.h
@@ -310,6 +299,25 @@ DEPS_7=dbopl.cpp ./sbemu/dbopl.h
 DEPS_8=dmairq.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_cards/dmairq.h ./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h ./mpxplay/playlist/playlist.h
 DEPS_9=dpmi.c ./sbemu/dpmi/dpmi.h ./sbemu/dpmi/xms.h ./sbemu/platform.h
+DEPS_10=dpmi_dj2.c ./sbemu/dpmi/dbgutil.h ./sbemu/dpmi/dlmalloc.h\
+	./sbemu/dpmi/dpmi.h ./sbemu/dpmi/xms.h ./sbemu/platform.h
+DEPS_11=dpmi_tsr.c ./sbemu/dpmi/coff.h ./sbemu/dpmi/dbgutil.h ./sbemu/dpmi/dpmi.h ./sbemu/platform.h
+DEPS_12=fpu.c
+DEPS_13=hdpmipt.c ./hdpmipt.h ./qemm.h ./sbemu/dpmi/dbgutil.h ./sbemu/dpmi/dpmi.h ./sbemu/platform.h\
+	./sbemu/untrapio.h
+DEPS_14=main.c ./hdpmipt.h\
+	./mpxplay/au_cards/au_cards.h\
+	./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/au_mixer/mix_func.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h\
+	./mpxplay/playlist/playlist.h ./qemm.h\
+	./sbemu/dpmi/dbgutil.h\
+	./sbemu/dpmi/dpmi.h ./sbemu/opl3emu.h\
+	./sbemu/pic.h ./sbemu/platform.h\
+	./sbemu/sbemu.h ./sbemu/sbemucfg.h\
+	./sbemu/untrapio.h ./sbemu/vdma.h\
+	./sbemu/virq.h
 
 output/ac97_def.o:: $(DEPS_1)
 	$(RHIDE_COMPILE.c.o)
@@ -338,41 +346,21 @@ output/dmairq.o:: $(DEPS_8)
 output/dpmi.o:: $(DEPS_9)
 	$(RHIDE_COMPILE.c.o)
 
-DEPS_10=dpmi_dj2.c ./sbemu/dpmi/dbgutil.h\
-	./sbemu/dpmi/dlmalloc.h\
-	./sbemu/dpmi/dpmi.h ./sbemu/dpmi/xms.h\
-	./sbemu/platform.h
 output/dpmi_dj2.o:: $(DEPS_10)
 	$(RHIDE_COMPILE.c.o)
-DEPS_11=dpmi_tsr.c ./sbemu/dpmi/coff.h\
-	./sbemu/dpmi/dbgutil.h\
-	./sbemu/dpmi/dpmi.h ./sbemu/platform.h
+
 output/dpmi_tsr.o:: $(DEPS_11)
 	$(RHIDE_COMPILE.c.o)
-DEPS_12=fpu.c
+
 output/fpu.o:: $(DEPS_12)
 	$(RHIDE_COMPILE.c.o)
-DEPS_13=hdpmipt.c ./hdpmipt.h ./qemm.h\
-	./sbemu/dpmi/dbgutil.h\
-	./sbemu/dpmi/dpmi.h ./sbemu/platform.h\
-	./sbemu/untrapio.h
+
 output/hdpmipt.o:: $(DEPS_13)
 	$(RHIDE_COMPILE.c.o)
-DEPS_14=main.c ./hdpmipt.h\
-	./mpxplay/au_cards/au_cards.h\
-	./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/au_mixer/mix_func.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h\
-	./mpxplay/playlist/playlist.h ./qemm.h\
-	./sbemu/dpmi/dbgutil.h\
-	./sbemu/dpmi/dpmi.h ./sbemu/opl3emu.h\
-	./sbemu/pic.h ./sbemu/platform.h\
-	./sbemu/sbemu.h ./sbemu/sbemucfg.h\
-	./sbemu/untrapio.h ./sbemu/vdma.h\
-	./sbemu/virq.h
+
 output/main.o:: $(DEPS_14)
 	$(RHIDE_COMPILE.c.o)
+
 DEPS_15=memory.c ./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\

@@ -24,7 +24,7 @@ EXCFRAME struct
 		dd ?	; ret addr
 pProc   dd ?	; pProc
 dwMode  dd ?	; dwMode
-pDS 	dd ?	; pDS
+pStack 	dd ?	; pNewStack
 		dd ?	; ??? GCC has created a "push eax" ???
 		dd ?	; DPMI ret 
 		dd ?	; DPMI ret
@@ -36,22 +36,17 @@ dwEsp	dd ?
 wSS		dw ?,?
 EXCFRAME ends
 
-
-	.data
-
-externdef c HDPMIPT_OldESP:fword
-externdef c HDPMIPT_NewStack:fword
-
 	.code
 
-	assume ds:_DATA
+;--- switch stack, then call protected-mode port trap handler;
+;--- handler expects port in dx, flags in cx and value in ax
 
-SwitchStack proc public
+SwitchStackIO proc public
 
 	pushad
 	mov ebp, esp
 	mov ecx, [ebp].EXCFRAME.dwErr
-	mov ebx, [ebp].EXCFRAME.pDS
+	mov ebx, [ebp].EXCFRAME.pStack
 	and ecx, 7
 	add [ebp].EXCFRAME.dwEip, ecx
 	mov ecx, [ebp].EXCFRAME.dwErr
@@ -63,19 +58,42 @@ SwitchStack proc public
 	jz @F
 	movzx dx, ch
 @@:
+	cld
+	movzx edx, dx
 	push ds
 	push es
-	mov ds, cs:[ebx]
-	mov es, cs:[ebx]
-	mov dword ptr HDPMIPT_OldESP+0, esp
-	mov word ptr  HDPMIPT_OldESP+4, ss
-	mov ebx, [ebp].EXCFRAME.pProc
-	lss esp, HDPMIPT_NewStack
-	movzx edx, dx
-	call ebx
-	lss esp, HDPMIPT_OldESP
+
+	push eax
+	push edx
+	mov eax, cs:[ebx+4]
+	mov edx, ss
+	mov ds, eax
+	mov es, eax
+	cmp ax, dx
+	pop edx
+	pop eax
+	jz noswitch
+	mov dword ptr [ebx+2*4], esp
+	mov word ptr  [ebx+3*4], ss
+	mov ebp, [ebp].EXCFRAME.pProc
+	lss esp, [ebx]
+	call ebp
+	lss esp, [ebx+2*4]
+	jmp switchdone
+noswitch:
+if 0
+	mov ax, 3
+	int 10h
+	mov ax, 0E58h
+	mov bh,0
+	int 10h
+	jmp $
+endif
+	call [ebp].EXCFRAME.pProc
+switchdone:
 	pop es
 	pop ds
+	mov ebp, esp
 	test byte ptr [ebp].EXCFRAME.dwErr, 8h	; string?
 	jnz isstring
 	cmp [ebp].EXCFRAME.dwMode, 0			; IN?
@@ -91,12 +109,14 @@ SwitchStack proc public
 isstring:
 	mov [ebp].EXCFRAME._edi, edi
 	mov [ebp].EXCFRAME._esi, esi
-	mov [ebp].EXCFRAME._ecx, ecx
+	test byte ptr [ebp].EXCFRAME.dwMode, 80h	; REP prefix?
+	jz done
+	mov [ebp].EXCFRAME._ecx, 0
 done:
 	popad
 	retn 4*4	; the caller does not clean the stack!
 
-SwitchStack endp
+SwitchStackIO endp
 
 if 0
 

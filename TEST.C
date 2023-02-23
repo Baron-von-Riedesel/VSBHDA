@@ -23,12 +23,10 @@ typedef struct WAVHEADER {
     unsigned long data_size;                         // NumSamples * NumChannels * BitsPerSample/8 - size of the next chunk that will be read
 }WAVHEADER;
 
-extern mpxplay_audioout_info_s aui;
-
 int16_t* TEST_Sample;
 unsigned int TEST_SampleLen;
 
-void TestSound(BOOL play)
+void TestSound(BOOL play, mpxplay_audioout_info_s *aui )
 {
     FILE* fp = fopen("test.wav", "rb");
     if(!fp)
@@ -81,24 +79,24 @@ void TestSound(BOOL play)
     header.channels = 2;
 
     mpxplay_audio_decoder_info_s adi = {NULL, 0, 1, SBEMU_SAMPLERATE, header.channels, header.channels, NULL, header.bits_per_sample, header.bits_per_sample/8, 0};
-    AU_setrate(&aui, &adi);
+    AU_setrate( aui, &adi);
     
-    if(aui.freq_card != header.sample_rate) //soundcard not supported
+    if(aui->freq_card != header.sample_rate) //soundcard not supported
     {
-        printf("frequency: %d => %d\n", header.sample_rate, aui.freq_card);
-        samplecount = mixer_speed_lq(samples, samplecount, header.channels, header.sample_rate, aui.freq_card);
+        printf("frequency: %d => %d\n", header.sample_rate, aui->freq_card);
+        samplecount = mixer_speed_lq(samples, samplecount, header.channels, header.sample_rate, aui->freq_card);
     }
     TEST_Sample = samples;
     TEST_SampleLen = samplecount;
 
     if(play)
     {
-        AU_prestart(&aui);
-        AU_start(&aui);
+        AU_prestart( aui );
+        AU_start( aui );
     
-        aui.samplenum = samplecount;
-        aui.pcm_sample = samples;
-        AU_writedata(&aui);
-        AU_wait_and_stop(&aui);
+        aui->samplenum = samplecount;
+        aui->pcm_sample = samples;
+        AU_writedata( aui );
+        AU_wait_and_stop( aui );
     }
 }

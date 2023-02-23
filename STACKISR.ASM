@@ -1,8 +1,5 @@
 
 ;--- ISR handling
-;--- note that jwasm's coff output isn't fully compatible with DJGPP's LD
-;--- the problem are "offset xxx" expressions.
-
 
 	.386
 	.MODEL small, c
@@ -28,6 +25,8 @@ handle dd ?
 
 	assume ds:_DATA
 
+;--- ISR for sound hw interrupt occuring in protected-mode
+
 SwitchStackISR proc
 
 	pushad
@@ -35,29 +34,33 @@ SwitchStackISR proc
 	push es
 	mov eax, cs:[handle]
 	mov ds, cs:[eax].DPMI_ISR_HANDLE.dwDS
-	mov es, cs:[eax].DPMI_ISR_HANDLE.dwDS
-	mov ecx, esp
+	mov es, [eax].DPMI_ISR_HANDLE.dwDS
 	mov edx, ss
+	cmp dx, word ptr [eax].DPMI_ISR_HANDLE.dwDS
+	jz noswitch
+	mov ecx, esp
 	lss esp, fword ptr [eax].DPMI_ISR_HANDLE.dwStack
+	cld
 	push edx
 	push ecx
 	call [eax].DPMI_ISR_HANDLE.dwISR
-if 0
-	pushfd
-	pop eax
-	test ah, 2
-	jz @F
-	int 3
-@@:
-endif
 	lss esp, [esp]
+	jmp switchdone
+noswitch:
+if 0
+	mov ax, 3
+	int 10h
+	mov ax, 0E5Ah
+	mov bh,0
+	int 10h
+	jmp $
+endif
+	call [eax].DPMI_ISR_HANDLE.dwISR
+switchdone:
 	pop es
 	pop ds
 	popad
-;	test byte ptr [esp+2*4+1], 2	; interrupts disabled? ( may be if called by another ISR )
-;	jz @F
 	sti
-@@:
 	iretd
 
 SwitchStackISR endp
@@ -70,7 +73,7 @@ _hdpmi_CallOldISR proc public hdl:ptr
 _hdpmi_CallOldISR endp
 
 ;--- install the sound ISR
-;--- the approach is to hide this ISR from the ring3 DOS exender;
+;--- the idea is to hide this ISR from the ring3 DOS extender;
 
 _hdpmi_InstallISR proc public uses ebx intno:dword, isr:dword, pHdl:ptr, pStack:ptr
 
@@ -93,10 +96,10 @@ _hdpmi_InstallISR proc public uses ebx intno:dword, isr:dword, pHdl:ptr, pStack:
 	mov ax, 205h
 	int 31h
 	jc error
-	xor eax, eax
+	mov eax, 1
 	ret
 error:
-	or eax, -1
+	xor eax, eax
 	ret
 _hdpmi_InstallISR endp
 
@@ -108,10 +111,10 @@ _hdpmi_UninstallISR proc public uses ebx pHdl:ptr
 	mov ax, 205h
 	int 31h
 	jc error
-	xor eax, eax
+	mov eax, 1
 	ret
 error:
-	or eax, -1
+	xor eax, eax
 	ret
 _hdpmi_UninstallISR endp
 

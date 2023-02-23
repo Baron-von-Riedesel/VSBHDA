@@ -12,13 +12,10 @@ void OPL3EMU_Init(int samplerate);
 int OPL3EMU_GetMode();
 int OPL3EMU_GenSamples(int16_t* pcm16, int count);
 
-uint32_t OPL3EMU_PrimaryRead(uint32_t val);
-uint32_t OPL3EMU_PrimaryWriteIndex(uint32_t val);
-uint32_t OPL3EMU_PrimaryWriteData(uint32_t val);
-
-uint32_t OPL3EMU_SecondaryRead(uint32_t val);
-uint32_t OPL3EMU_SecondaryWriteIndex(uint32_t val);
-uint32_t OPL3EMU_SecondaryWriteData(uint32_t val);
+uint32_t OPL3EMU_OPL3_388(uint32_t port, uint32_t val, uint32_t out);
+uint32_t OPL3EMU_OPL3_389(uint32_t port, uint32_t val, uint32_t out);
+uint32_t OPL3EMU_OPL3_38A(uint32_t port, uint32_t val, uint32_t out);
+uint32_t OPL3EMU_OPL3_38B(uint32_t port, uint32_t val, uint32_t out);
 
 #ifdef __cplusplus
 }

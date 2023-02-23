@@ -1,8 +1,6 @@
 
-;--- ISR handling
-;--- note that jwasm's coff output isn't fully compatible with DJGPP's LD
-;--- that's why all procs must be in their own source file
-
+;--- Int31 hook
+;--- this is used to hide the sound hw IRQ from client
 
 	.386
 	.MODEL small, c
@@ -25,7 +23,11 @@ DPMI_ISR_HANDLE ends
 
 XXX struct
 oldint31 df ?
+	dw ?
+oldint21 df ?
+	dw ?
 currsndint df ?	; current vector for sound ISR
+	dw ?
 dsseg dw ?
 intno db ?
 XXX ends
@@ -69,6 +71,37 @@ is05:
 
 myint31 endp
 
+myint21 proc
+
+	cmp ah, 25h
+	jz is25
+	cmp ah, 35h
+	jz is35
+prevint:
+	jmp cs:[vars.oldint21]
+is25:
+is35:
+	cmp al, cs:[vars.intno]
+	jnz prevint
+	cmp ah, 25h
+	jz isset
+	mov ebx, dword ptr cs:[vars.currsndint+0]
+	mov es, word ptr cs:[vars.currsndint+4]
+	and byte ptr [esp+2*4], 0feh
+	iretd
+isset:
+	push eax
+	push ds
+	mov ds, cs:[vars.dsseg]
+	mov dword ptr [vars.currsndint+0], edx
+	mov word ptr [vars.currsndint+4], cx
+	pop ds
+	pop eax
+	and byte ptr [esp+2*4], 0feh
+	iretd
+
+myint21 endp
+
 ;--- install int 31h handler
 
 _hdpmi_InstallInt31 proc public uses ebx handle:dword
@@ -86,6 +119,18 @@ _hdpmi_InstallInt31 proc public uses ebx handle:dword
 	int 31h
 	jc error
 
+	mov bl, 21h
+	mov ax, 204h
+	int 31h
+	jc error
+	mov dword ptr vars.oldint21+0, edx
+	mov word ptr vars.oldint21+4, cx
+	mov ecx, cs
+	mov edx, offset myint21
+	mov ax, 205h
+	int 31h
+	jc error
+
 	mov eax, handle
 	mov edx, [eax].DPMI_ISR_HANDLE.dwOfsPM
 	mov cx, [eax].DPMI_ISR_HANDLE.wSegPM
@@ -94,25 +139,33 @@ _hdpmi_InstallInt31 proc public uses ebx handle:dword
 	mov word ptr [vars.currsndint+4], cx
 	mov [vars.intno], bl
 	mov [vars.dsseg], ds
-	xor eax, eax
+	mov eax, 1
 	ret
 error:
-	or eax, -1
+	xor eax, eax
 	ret
 _hdpmi_InstallInt31 endp
 
 _hdpmi_UninstallInt31 proc public uses ebx
 
-	mov edx, dword ptr [vars.oldint31+0]
-	mov cx, word ptr [vars.oldint31+4]
-	mov bl, [vars.intno]
+	mov edx, dword ptr [vars.oldint21+0]
+	mov cx, word ptr [vars.oldint21+4]
+	mov bl, 21h
 	mov ax, 205h
 	int 31h
 	jc error
-	xor eax, eax
+
+	mov edx, dword ptr [vars.oldint31+0]
+	mov cx, word ptr [vars.oldint31+4]
+	mov bl, 31h
+	mov ax, 205h
+	int 31h
+	jc error
+
+	mov eax, 1
 	ret
 error:
-	or eax, -1
+	xor eax, eax
 	ret
 _hdpmi_UninstallInt31 endp
 
