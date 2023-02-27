@@ -9,8 +9,7 @@
 #include <sys/ioctl.h>
 #endif
 #include "QEMM.h"
-#include <DPMI/DPMI.H>
-#include <DPMI/DBGUTIL.H>
+#include "DPMI_.H"
 #include <UNTRAPIO.H>
 
 #define HANDLE_IN_388H_DIRECTLY 1
@@ -182,10 +181,10 @@ BOOL QEMM_Prepare_IOPortTrap()
         return FALSE;
 
 #if HANDLE_IN_388H_DIRECTLY
-	/* copy 16-bit code to DOS memory
-	 * bytes 0-3 are the realmode callback
+    /* copy 16-bit code to DOS memory
+     * bytes 0-3 are the realmode callback
      * bytes 4-5 are used as data
-	 */
+     */
     uint32_t codesize = (uintptr_t)&QEMM_RM_WrapperEnd - (uintptr_t)&QEMM_RM_Wrapper;
     uint32_t dosmem = DPMI_HighMalloc((codesize + 4 + 2 + 15)>>4, TRUE);
     DPMI_CopyLinear(DPMI_SEGOFF2L(dosmem, 0), DPMI_PTR2L(&rmcb), 4);

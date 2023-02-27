@@ -17,9 +17,6 @@
 //#define MPXPLAY_USE_DEBUGF 1
 #define MPXPLAY_DEBUG_OUTPUT stdout
 
-#ifdef SBEMU
-#include <DPMI/DBGUTIL.H>
-#endif
 #include "mpxplay.h"
 #include <math.h>
 #include <stdlib.h>

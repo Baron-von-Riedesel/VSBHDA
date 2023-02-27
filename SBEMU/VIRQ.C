@@ -1,10 +1,10 @@
 #include "VIRQ.H"
 #include "PIC.H"
-#include "DPMI/DPMI.H"
+#include "DPMI_.H"
 #include "UNTRAPIO.H"
-#include "DPMI/DBGUTIL.H"
 #include <dos.h>
-#include <dpmi.h>
+
+#define dbgprintf
 
 static int VIRQ_Irq = -1;
 static uint8_t VIRQ_ISR[2];
@@ -14,10 +14,10 @@ static uint8_t VIRQ_OCW[2];
 
 static void VIRQ_Write(uint16_t port, uint8_t value)
 {
-    //_LOG("VIRQW:%x,%x\n",port,value);
+    //dbgprintf("VIRQW:%x,%x\n",port,value);
     if(VIRQ_IS_VIRTUALIZING())
     {
-        _LOG("VIRQW:%x,%x\n",port,value);
+        dbgprintf("VIRQW:%x,%x\n",port,value);
         if((port&0x0F) == 0x00)
         {
             int index = ((port==0x20) ? 0 : 1);
@@ -42,7 +42,7 @@ static uint8_t VIRQ_Read(uint16_t port)
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
-        _LOG("VIRQR:%x\n",port);
+        dbgprintf("VIRQR:%x\n",port);
         if((port&0x0F) == 0x00)
         {
             int index = ((port==0x20) ? 0 : 1);
@@ -52,7 +52,7 @@ static uint8_t VIRQ_Read(uint16_t port)
             }
             //return VIRQ_OCW[index] == 0x0B ? VIRQ_ISR[index] : UntrappedIO_IN(port);
         }
-        //_LOG("VIRQRV: 0\n");
+        //dbgprintf("VIRQRV: 0\n");
         return 0;
     }
     return UntrappedIO_IN(port);

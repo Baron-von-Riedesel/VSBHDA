@@ -420,23 +420,25 @@ jump_back:
 
 void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
 {
- aucards_writedata_func=&aucards_writedata_normal;
- if(aui->card_handler->infobits&SNDCARD_INT08_ALLOWED){
-  newfunc_newhandler08_init();
-  if(aui->card_handler->cardbuf_int_monitor)
-   mpxplay_timer_addfunc(&aucards_dma_monitor,NULL,MPXPLAY_TIMERTYPE_INT08|MPXPLAY_TIMERTYPE_REPEAT|MPXPLAY_TIMERFLAG_OWNSTACK|MPXPLAY_TIMERFLAG_STI,0);
-  if(intsoundconfig&INTSOUND_DECODER){
-   #ifndef SBEMU
-   mpxplay_timer_addfunc(&aucards_interrupt_decoder,NULL,MPXPLAY_TIMERTYPE_INT08|MPXPLAY_TIMERTYPE_REPEAT|MPXPLAY_TIMERFLAG_OWNSTCK2|MPXPLAY_TIMERFLAG_STI,0);
-   #endif
-   aucards_writedata_func=&aucards_writedata_intsound;
-  }
- }
-  #ifdef SBEMU
-  if(intsoundconfig&INTSOUND_NOBUSYWAIT){
-    aucards_writedata_func = &aucards_writedata_nowait;
-  }
-  #endif 
+	aucards_writedata_func=&aucards_writedata_normal;
+#if 0
+	if(aui->card_handler->infobits&SNDCARD_INT08_ALLOWED){
+		newfunc_newhandler08_init();
+		if(aui->card_handler->cardbuf_int_monitor)
+			mpxplay_timer_addfunc(&aucards_dma_monitor,NULL,MPXPLAY_TIMERTYPE_INT08|MPXPLAY_TIMERTYPE_REPEAT|MPXPLAY_TIMERFLAG_OWNSTACK|MPXPLAY_TIMERFLAG_STI,0);
+		if(intsoundconfig&INTSOUND_DECODER){
+#ifndef SBEMU
+			mpxplay_timer_addfunc(&aucards_interrupt_decoder,NULL,MPXPLAY_TIMERTYPE_INT08|MPXPLAY_TIMERTYPE_REPEAT|MPXPLAY_TIMERFLAG_OWNSTCK2|MPXPLAY_TIMERFLAG_STI,0);
+#endif
+			aucards_writedata_func=&aucards_writedata_intsound;
+		}
+	}
+#endif
+#ifdef SBEMU
+	if(intsoundconfig&INTSOUND_NOBUSYWAIT){
+		aucards_writedata_func = &aucards_writedata_nowait;
+	}
+#endif
 }
 
 void AU_del_interrupts(struct mpxplay_audioout_info_s *aui)
@@ -463,20 +465,20 @@ void AU_prestart(struct mpxplay_audioout_info_s *aui)
 
 void AU_start(struct mpxplay_audioout_info_s *aui)
 {
- unsigned int intsoundcntrl_save;
- if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING)){
-  MPXPLAY_INTSOUNDDECODER_DISALLOW;
+	unsigned int intsoundcntrl_save;
+	if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING)){
+		MPXPLAY_INTSOUNDDECODER_DISALLOW;
 
-  if(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_DMACLEAR)
-   AU_clearbuffs(aui);
-  if(aui->card_handler->card_start)
-   aui->card_handler->card_start(aui);
-  funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_PLAYING);
+		if(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_DMACLEAR)
+			AU_clearbuffs(aui);
+		if(aui->card_handler->card_start)
+			aui->card_handler->card_start(aui);
+		funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_PLAYING);
 
-  MPXPLAY_INTSOUNDDECODER_ALLOW;
- }
- funcbit_smp_enable(playcontrol,PLAYC_RUNNING);
- funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAFULL);
+		MPXPLAY_INTSOUNDDECODER_ALLOW;
+	}
+	funcbit_smp_enable(playcontrol,PLAYC_RUNNING);
+	funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAFULL);
 }
 
 void AU_stop(struct mpxplay_audioout_info_s *aui)

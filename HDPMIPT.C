@@ -5,10 +5,11 @@
 #ifndef __GNUC__ //make vscode happy
 #define __attribute__(x)
 #endif
-#include <DPMI/DBGUTIL.H>
 #include <UNTRAPIO.H>
-
+#include "DPMI_.H"
 #include "HDPMIPT.H"
+
+#define dbgprintf
 
 #define HDPMIPT_SWITCH_STACK 1 //TODO: debug
 #define HDPMIPT_STACKSIZE 16384
@@ -28,7 +29,6 @@ extern uint32_t __djgpp_stack_top;
 
 static const char* VENDOR_HDPMI = "HDPMI";    //vendor string
 static HDPMIPT_ENTRY HDPMIPT_Entry;
-/* stored DS segment value */
 
 #if HDPMIPT_SWITCH_STACK
 void SwitchStackIO( uint32_t(*pFunc)(void), int mode, uint32_t[] );
@@ -79,7 +79,7 @@ static uint32_t __attribute__((noinline)) HDPMIPT_TrapHandler()
     );
 
     //if(port >= 0 && port <= 0xF)
-        //_LOG("Trapped PM: %s %x\n", out ? "out" : "in", port);
+        //dbgprintf("Trapped PM: %s %x\n", out ? "out" : "in", port);
     QEMM_IODT_LINK* link = HDPMIPT_IODT_header.next;
     while(link)
     {
@@ -212,7 +212,7 @@ BOOL HDPMIPT_Install_IOPortTrap(uint16_t start, uint16_t end, QEMM_IODT* inputp 
             puts("Failed to get HDPMI Vendor entry point.\n");
             return FALSE;
         }
-        _LOG("HDPMI vendor entry: %04x:%08x\n", HDPMIPT_Entry.es, HDPMIPT_Entry.edi);
+        dbgprintf("HDPMI vendor entry: %04x:%08x\n", HDPMIPT_Entry.es, HDPMIPT_Entry.edi);
     }
 
     uint32_t handle = HDPMI_Internal_InstallTrap(&HDPMIPT_Entry, start, end, &HDPMIPT_TrapHandlerWrapperIn, &HDPMIPT_TrapHandlerWrapperOut);

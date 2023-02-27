@@ -3,7 +3,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <dos.h>
-#include <DPMI/DBGUTIL.H>
 #include <SBEMUCFG.H>
 #include <PIC.H>
 #include <OPL3EMU.H>
@@ -11,6 +10,7 @@
 #include <VIRQ.H>
 #include <SBEMU.H>
 #include <UNTRAPIO.H>
+#include "DPMI_.H"
 #include "QEMM.H"
 #include "HDPMIPT.H"
 
@@ -19,10 +19,11 @@
 
 #define SB16 1
 #define QEMMPICTRAPDYN 1
+#define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
 
 int dbgprintf(const char *fmt, ... );
-#define dbgprintf dbgprintf
+#define dbgprintf
 
 #ifdef _DEBUG
 extern void TestSound(BOOL play, mpxplay_audioout_info_s *);
@@ -36,10 +37,14 @@ static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
 static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
 
 static DPMI_ISR_HANDLE MAIN_TimerIntHandlePM;
+#if PREMAPDMA
+static uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
+#else
 static uint32_t MAIN_DMA_Addr = 0;
 static uint32_t MAIN_DMA_Size = 0;
 static uint32_t MAIN_DMA_MappedAddr = 0;
-static uint16_t MAIN_SB_VOL = 0; //intial set volume will cause interrupt missing?
+#endif
+static uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
 static uint16_t MAIN_GLB_VOL = 0; //TODO: add hotkey
 
 static void MAIN_Interrupt();
@@ -154,7 +159,6 @@ struct {
     "/A", "Specify IO address, valid value: 220,240", 0x220,
     "/I", "Specify IRQ number, valud value: 5,7", 7,
     "/D", "Specify DMA channel, valid value: 0,1,3", 1,
-    "/T", "Specify SB Type, valid value: 0-6", 5,
 #if SB16
     "/T", "Specify SB Type, valid value: 0-6", 5,
     "/H", "Specify High DMA channel, valid value: 5,6,7", -1,
@@ -218,9 +222,31 @@ static int MAIN_SB_DSPVersion[] =
 #endif
 };
 
+#if PREMAPDMA
+static uint32_t MapFirst16M( void )
+{
+    /* ensure the mapping doesn't cover linear address 4M.
+     * to make this work, allocated uncommitted memory block of 63 MB.
+     */
+    uint16_t tmp;
+    uint32_t result;
+    __dpmi_meminfo info;
+
+    /* ensure the mapping returns linear address beyond 64M*/
+    info.address = 0;
+    info.size = 0x3F00000;
+    tmp = __dpmi_allocate_linear_memory( &info, 0 );
+    result = DPMI_MapMemory( 0, 0x1000000 ); /* map the whole region that may be used by ISA DMA */
+    if ( tmp != -1 )
+        __dpmi_free_memory( info.handle );
+    return( result );
+}
+#endif
+
 int main(int argc, char* argv[])
 {
-    if((argc == 2 && stricmp(argv[1],"/?") == 0))
+    //dbgprintf("main argc=%u\n argv[1]=%s\n", argc, argv[1] ? argv[1] : "NULL" );
+    if( argc >= 2 && (*argv[1] == '/' || *argv[1] == '-') && ( *(argv[1]+1) == '?' || *(argv[1]+1) == 'h' ) )
     {
         printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
         int i = 0;
@@ -322,7 +348,7 @@ int main(int argc, char* argv[])
     if(MAIN_Options[OPT_RM].value)
     {
         int bcd = QEMM_GetVersion();
-        _LOG("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
+        //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
         if(bcd < 0x703)
         {
             printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd>>8, bcd&0xFF);
@@ -474,7 +500,20 @@ int main(int argc, char* argv[])
     AU_prestart(&aui);
     AU_start(&aui);
 
-    BOOL TSR = TRUE;
+    /* memory adjustments:
+     * 1. Map the full first 16M to simplify DMA mem access
+     * 2. temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
+     *    while another client is active will result in problems, since that memory is released when
+     *    the client exits.
+     */
+#if PREMAPDMA
+    MAIN_MappedBase = MapFirst16M();
+    dbgprintf("MappedBase=%x\n", MAIN_MappedBase );
+#endif
+    void * p;
+    if (p = malloc( 0x10000 ) )
+        free( p );
+
     if(!PM_ISR
        || ( enableRM && ( !QEMMInstalledVDMA || !QEMMInstalledVIRQ || !QEMMInstalledSB ) )
        || ( enablePM && ( !HDPMIInstalledVDMA1 || !HDPMIInstalledVDMA2
@@ -483,8 +522,7 @@ int main(int argc, char* argv[])
 #endif
        || !HDPMIInstalledVIRQ1
        || ( MAIN_Options[OPT_IRQ].value > 7 && !HDPMIInstalledVIRQ2 )
-       || !HDPMIInstalledSB ) )
-       || !(TSR=DPMI_TSR()) )
+       || !HDPMIInstalledSB ) ) )
     {
         if (PM_ISR) HDPMIPT_UninstallISR( &MAIN_TimerIntHandlePM );
 
@@ -509,8 +547,8 @@ int main(int argc, char* argv[])
             if ( HDPMIInstalledVIRQ2 )  HDPMIPT_Uninstall_IOPortTrap( &MAIN_VIRQ_IOPT_PM2 );
             if ( HDPMIInstalledSB )     HDPMIPT_Uninstall_IOPortTrap( &MAIN_SB_IOPT_PM );
         }
-        if(!TSR) printf("Error: Failed installing TSR.\n");
-    }
+    } else if ( 0 == DPMI_TSR() )
+        printf("Error: Failed installing TSR.\n");
     return 1;
 }
 
@@ -534,14 +572,14 @@ static void MAIN_Interrupt()
 #if 0
     aui.card_outbytes = aui.card_dmasize;
     int space = AU_cardbuf_space(&aui)+2048;
-    //_LOG("int space: %d\n", space);
+    //dbgprintf("int space: %d\n", space);
     int samples = space / sizeof(int16_t) / 2 * 2;
     //int samples = 22050/18*2;
-    _LOG("samples: %d %d\n", 22050/18*2, space/4*2);
+    //dbgprintf("samples: %d %d\n", 22050/18*2, space/4*2);
     static int cur = 0;
     aui.samplenum = min(samples, TEST_SampleLen-cur);
     aui.pcm_sample = TEST_Sample + cur;
-    //_LOG("cur: %d %d\n",cur,aui.samplenum);
+    //dbgprintf("cur: %d %d\n",cur,aui.samplenum);
     cur += aui.samplenum;
     cur -= AU_writedata(&aui);
 #else
@@ -560,7 +598,7 @@ static void MAIN_Interrupt()
         vol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MASTERSTEREO)>>4)*256/15; //4:4
         voicevol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_VOICESTEREO)>>4)*256/15; //4:4
         midivol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MIDISTEREO)>>4)*256/15; //4:4
-        //_LOG("vol: %d, voicevol: %d, midivol: %d\n", vol, voicevol, midivol);        
+        //dbgprintf("vol: %d, voicevol: %d, midivol: %d\n", vol, voicevol, midivol);        
     }
     else //SBPro
     {
@@ -570,21 +608,27 @@ static void MAIN_Interrupt()
     }
     if(MAIN_SB_VOL != vol*MAIN_GLB_VOL/9)
     {
-        _LOG("set sb volume:%d %d\n", MAIN_SB_VOL, vol*MAIN_GLB_VOL/9);
+        //dbgprintf("set sb volume:%d %d\n", MAIN_SB_VOL, vol*MAIN_GLB_VOL/9);
         MAIN_SB_VOL = vol*MAIN_GLB_VOL/9;
         AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol*100/256);
     }
 
     aui.card_outbytes = aui.card_dmasize;
     int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
-    //_LOG("samples:%d\n",samples);
+    //dbgprintf("samples:%d\n",samples);
 
     if(samples == 0)
         return;
 
     BOOL digital = SBEMU_HasStarted();
-    int dma = SBEMU_GetDMA();
-    int32_t DMA_Count = VDMA_GetCounter(dma); //count in bytes (8bit dma)
+    int dma;
+    if ( (SBEMU_GetBits() == 8 || MAIN_Options[OPT_TYPE].value < 6 ) )
+        dma = SBEMU_GetDMA();
+    else {
+        if ( 0xff == ( dma = SBEMU_GetHDMA() ) )
+            dma = SBEMU_GetDMA();
+    }
+    int32_t DMA_Count = VDMA_GetCounter(dma);
 
     if(digital)//&& DMA_Count != 0x10000) //-1(0xFFFF)+1=0
     {
@@ -595,34 +639,34 @@ static void MAIN_Interrupt()
         uint32_t SB_Rate = SBEMU_GetSampleRate();
         int samplesize = SBEMU_GetBits()/8;
         int channels = SBEMU_GetChannels();
-        //_LOG("sample rate: %d %d\n", SB_Rate, aui.freq_card);
-        //_LOG("DMA index: %x\n", DMA_Index);
-        //_LOG("digital start\n");
+        dbgprintf("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels );
+        //dbgprintf("DMA index: %x\n", DMA_Index);
         int pos = 0;
 #if QEMMPICTRAPDYN
         BOOL bTrapPic = FALSE;
 #endif
         do {
+#if !PREMAPDMA
             /* check if the current DMA address is within the mapped region.
              * if no, release current mapping region.
              */
-            if(MAIN_DMA_MappedAddr != 0
-             && !(DMA_Addr >= MAIN_DMA_Addr && DMA_Addr+DMA_Index+DMA_Count <= MAIN_DMA_Addr+MAIN_DMA_Size))
+            if( MAIN_DMA_MappedAddr != 0
+             && !(DMA_Addr >= MAIN_DMA_Addr && DMA_Addr + DMA_Index + DMA_Count <= MAIN_DMA_Addr + MAIN_DMA_Size ))
             {
                 if(MAIN_DMA_MappedAddr > 1024*1024)
-                    DPMI_UnmappMemory(MAIN_DMA_MappedAddr);
+                    DPMI_UnmapMemory( MAIN_DMA_MappedAddr );
                 MAIN_DMA_MappedAddr = 0;
             }
             /* if there's no mapped region, create one that covers current DMA op
              */
-            if(MAIN_DMA_MappedAddr == 0)
-            {
-                MAIN_DMA_Addr = DMA_Addr&~0xFFF;
-                MAIN_DMA_Size = align(max(DMA_Addr-MAIN_DMA_Addr+DMA_Index+DMA_Count, 64*1024*2), 4096);
-                MAIN_DMA_MappedAddr = (DMA_Addr+DMA_Index+DMA_Count <= 1024*1024) ? (DMA_Addr&~0xFFF) : DPMI_MapMemory(MAIN_DMA_Addr, MAIN_DMA_Size);
+            if(MAIN_DMA_MappedAddr == 0) {
+                MAIN_DMA_Addr = DMA_Addr & ~0xFFF;
+                MAIN_DMA_Size = align( max( DMA_Addr - MAIN_DMA_Addr + DMA_Index + DMA_Count, 64*1024*2 ), 4096);
+                MAIN_DMA_MappedAddr = (DMA_Addr + DMA_Index + DMA_Count <= 1024*1024) ? ( DMA_Addr & ~0xFFF) : DPMI_MapMemory( MAIN_DMA_Addr, MAIN_DMA_Size );
+                dbgprintf("ISR: chn=%d DMA_Addr/Index/Count=%x/%x/%x MAIN_DMA_Addr/Size/MappedAddr=%x/%x/%x\n",
+                        dma, DMA_Addr, DMA_Index, DMA_Count, MAIN_DMA_Addr, MAIN_DMA_Size, MAIN_DMA_MappedAddr );
             }
-            //_LOG("DMA_ADDR:%x, %x, %x\n",DMA_Addr, MAIN_DMA_Addr, MAIN_DMA_MappedAddr);
-
+#endif
             int count = samples - pos;
             BOOL resample = TRUE; //don't resample if sample rates are close
             if(SB_Rate < aui.freq_card)
@@ -632,37 +676,37 @@ static void MAIN_Interrupt()
                 //count *= (SB_Rate + aui.freq_card/2)/aui.freq_card;
                 count = count * SB_Rate / aui.freq_card;
             else
-            	resample = FALSE;
+                resample = FALSE;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
-            _LOG("samples:%d %d %d, %d %d, %d %d\n", samples, pos+count, count, DMA_Count, DMA_Index, SB_Bytes, SB_Pos);
             int bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer
              */
-            if(MAIN_DMA_MappedAddr == 0) //map failed?
+#if PREMAPDMA
+            DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM+pos*2), MAIN_MappedBase + DMA_Addr + DMA_Index, bytes);
+#else
+            if( MAIN_DMA_MappedAddr == 0) {//map failed?
                 memset(MAIN_PCM+pos*2, 0, bytes);
-            else
+            } else
                 DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM+pos*2), MAIN_DMA_MappedAddr+(DMA_Addr-MAIN_DMA_Addr)+DMA_Index, bytes);
+#endif
 
             /* format conversion needed? */
             if( samplesize != 2 )
-                cv_bits_n_to_m(MAIN_PCM+pos*2, count*channels, samplesize, 2);
-            if( resample ) /*SB_Rate != aui.freq_card*/
-                count = mixer_speed_lq(MAIN_PCM+pos*2, count*channels, channels, SB_Rate, aui.freq_card)/channels;
+                cv_bits_n_to_m( MAIN_PCM + pos * 2, count * channels, samplesize, 2);
+            if( resample ) /* SB_Rate != aui.freq_card*/
+                count = mixer_speed_lq( MAIN_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
             if( channels == 1) //should be the last step
-                cv_channels_1_to_n(MAIN_PCM+pos*2, count, 2, 2);
+                cv_channels_1_to_n( MAIN_PCM + pos * 2, count, 2, 2);
             pos += count;
-            //_LOG("samples:%d %d %d\n", count, pos, samples);
+            //dbgprintf("samples:%d %d %d\n", count, pos, samples);
             DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index+bytes, DMA_Count-bytes);
             //int LastDMACount = DMA_Count;
-            DMA_Count = VDMA_GetCounter(dma);
-            SB_Pos = SBEMU_SetPos(SB_Pos+bytes);
-            //_LOG("SB bytes: %d %d\n", SB_Pos, SB_Bytes);
+            DMA_Count = VDMA_GetCounter( dma );
+            SB_Pos = SBEMU_SetPos( SB_Pos + bytes );
             if(SB_Pos >= SB_Bytes)
             {
-                //_LOG("INT:%d,%d,%d,%d\n",MAIN_SBBytes,SBEMU_GetSampleBytes(),MAIN_DMAIndex,DMA_Count);
-                //_LOG("SBEMU: Auto: %d\n",SBEMU_GetAuto());
                 if(!SBEMU_GetAuto())
                     SBEMU_Stop();
                 SB_Pos = SBEMU_SetPos(0);
@@ -677,9 +721,6 @@ static void MAIN_Interrupt()
                 SB_Bytes = SBEMU_GetSampleBytes();
                 SB_Pos = SBEMU_GetPos();
                 SB_Rate = SBEMU_GetSampleRate();
-                //if(LastDMACount <= 32) //detection routine?
-                    //break; fix crash in virtualbox.
-                //    pos = 0;
                 //incase IRQ handler re-programs DMA
                 DMA_Index = VDMA_GetIndex(dma);
                 DMA_Count = VDMA_GetCounter(dma);
@@ -691,7 +732,7 @@ static void MAIN_Interrupt()
             QEMM_Uninstall_IOPortTrap(&MAIN_VIRQ_IOPT, FALSE );
 #endif
 
-        //_LOG("digital end %d %d\n", samples, pos);
+        //dbgprintf("digital end %d %d\n", samples, pos);
         //for(int i = pos; i < samples; ++i)
         //    MAIN_PCM[i*2+1] = MAIN_PCM[i*2] = 0;
         samples = min(samples, pos);
@@ -732,6 +773,6 @@ static void MAIN_Interrupt()
 
     AU_writedata(&aui);
 
-    _LOG("MAIN INT END\n");
+    //dbgprintf("MAIN INT END\n");
 #endif
 }

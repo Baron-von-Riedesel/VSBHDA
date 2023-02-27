@@ -147,7 +147,7 @@ typedef struct au_cardconfig_v0154_s{
 
 //link low level soundcard routines
 #ifdef MPXPLAY_LINK_FULL
- #ifdef AU_CARDS_LINK_ISA
+ #if AU_CARDS_LINK_ISA
   #define AU_CARDS_LINK_SB16    1
   #define AU_CARDS_LINK_ESS     1
   #define AU_CARDS_LINK_WSS     1
@@ -169,7 +169,7 @@ typedef struct au_cardconfig_v0154_s{
   #define AU_CARDS_LINK_WINWAVOUT 1
  #endif
 #else
- #ifdef AU_CARDS_LINK_ISA
+ #if AU_CARDS_LINK_ISA
   #define AU_CARDS_LINK_SB16    1
   #define AU_CARDS_LINK_ESS     1
   #define AU_CARDS_LINK_WSS     1

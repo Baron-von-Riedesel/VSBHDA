@@ -17,6 +17,8 @@ uint32_t OPL3EMU_OPL3_389(uint32_t port, uint32_t val, uint32_t out);
 uint32_t OPL3EMU_OPL3_38A(uint32_t port, uint32_t val, uint32_t out);
 uint32_t OPL3EMU_OPL3_38B(uint32_t port, uint32_t val, uint32_t out);
 
+
+
 #ifdef __cplusplus
 }
 #endif

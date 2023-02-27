@@ -1,5 +1,5 @@
 
-;--- set PVI bit in CR4
+;--- reset PVI bit in CR4
 
 	.286
 	.model tiny

@@ -1,5 +1,5 @@
-#include "DPMI.H"
-#include "XMS.H"
+
+#include "DPMI_.H"
 #include <conio.h>
 #include <stdlib.h>
 
@@ -23,7 +23,8 @@ void DPMI_SetAddressing(DPMI_ADDRESSING* inputp newaddr, DPMI_ADDRESSING* output
 
 #elif defined(__DJ2__)
 
-#define UNMAP_ADDR(addr) ((DPMI_Addressing.physical) ? DPMI_L2P(addr) : addr) //must be called before ds change
+//#define UNMAP_ADDR(addr) ((DPMI_Addressing.physical) ? DPMI_L2P(addr) : addr) //must be called before ds change
+#define UNMAP_ADDR(addr) (addr)
 #define LOAD_DS() _ASM_BEGIN _ASM(push ds) _ASM(push dword ptr _DPMI_Addressing) _ASM(pop ds) _ASM_END
 #define RESTORE_DS() _ASM_BEGIN _ASM(pop ds) _ASM_END
 
@@ -537,18 +538,10 @@ static uint32_t DPMI_DOSUMB(uint32_t input, BOOL alloc, BOOL UMB)
 
 uint32_t DPMI_HighMalloc(uint16_t size, BOOL UMB)
 {
-    //try XMS first. UMB support is only optional by XMS3.0
-    uint16_t segment = UMB ? XMS_AllocUMB(size) : 0;
-    if(segment)
-        return 0xFFFF0000L | (uint32_t)segment;
-    else //not supported, or UMB taken over by DOS (DOS=UMB in config.sys)
-        return DPMI_DOSUMB(size, TRUE, UMB);
+    return DPMI_DOSUMB(size, TRUE, UMB);
 }
 
 void DPMI_HighFree(uint32_t segment)
 {
-    if((segment&0xFFFF0000L) == 0xFFFF0000L)
-        XMS_FreeUMB((uint16_t)segment);
-    else
-        DPMI_DOSUMB(segment, FALSE, TRUE);
+    DPMI_DOSUMB(segment, FALSE, TRUE);
 }

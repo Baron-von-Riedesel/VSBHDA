@@ -43,48 +43,50 @@
 //DSP commands
 #define SBEMU_CMD_SET_TIMECONST     0x40
 #define SBEMU_CMD_SET_SIZE          0x48 //size-1
-#define SBEMU_CMD_SET_SAMPLERATE    0x41 //set sample rate
+#define SBEMU_CMD_SET_SAMPLERATE    0x41 /* SB16 set sample rate */
 #define SBEMU_CMD_SET_SAMPLERATE_I  0x42 //intput sample rate
+#define SBEMU_CMD_CONT_8BIT_AUTO    0x45 /* SB16 */
+#define SBEMU_CMD_CONT_16BIT_AUTO   0x47 /* SB16 */
+#define SBEMU_CMD_PAUSE_DAC         0x80 //pause by samples
 #define SBEMU_CMD_HALT_DMA          0xD0
 #define SBEMU_CMD_DAC_SPEAKER_ON    0xD1
 #define SBEMU_CMD_DAC_SPEAKER_OFF   0xD3
 #define SBEMU_CMD_CONTINUE_DMA      0xD4
-#define SBEMU_CMD_HALT_DMA16        0xD5
-#define SBEMU_CMD_CONTINUE_DMA16    0xD6
+#define SBEMU_CMD_HALT_DMA16        0xD5 /* SB16 */
+#define SBEMU_CMD_CONTINUE_DMA16    0xD6 /* SB16 */
+#define SBEMU_CMD_EXIT_16BIT_AUTO   0xD9 /* SB16 */
+#define SBEMU_CMD_EXIT_8BIT_AUTO    0xDA
 #define SBEMU_CMD_DSP_ID            0xE0
 #define SBEMU_CMD_DSP_GETVER        0xE1 //1st byte major, 2nd byte minor
 #define SBEMU_CMD_DSP_COPYRIGHT     0xE3
 #define SBEMU_CMD_TRIGGER_IRQ       0xF2
-#define SBEMU_CMD_TRIGGER_IRQ16     0xF3
+#define SBEMU_CMD_TRIGGER_IRQ16     0xF3 /* SB16 */
 
 //time constant used
 #define SBEMU_CMD_8BIT_DIRECT       0x10
 #define SBEMU_CMD_8BIT_OUT_1        0x14 //single cycle
 #define SBEMU_CMD_8BIT_OUT_AUTO     0x1C
-#define SBEMU_CMD_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(acutally restore to previous) to exit hs mode
+#define SBEMU_CMD_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(actually restore to previous) to exit hs mode
 #define SBEMU_CMD_8BIT_OUT_AUTO_HS  0x90
 
 //sample rate used
 //#define SBEMU_CMD_8OR16_OUT_1       0x41
-//fllowing commands
+//following commands
+// SB16: 0Bxh=16-bit, 0Cxh=8-bit
+// bits 0-3: bit0=0, bit1=FIFO mode, bit2=DMA mode (single, auto), bit3=DAC/ADC (0/1)
+//
 #define SBEMU_CMD_8OR16_8_OUT_1     0xC0
 #define SBEMU_CMD_8OR16_8_OUT_AUTO  0xC6
 #define SBEMU_CMD_8OR16_8_OUT_AUTO_NOFIFO 0xC4 //undocumented, FIFO bit(bit 1) off. from DOSBox source comments
 #define SBEMU_CMD_8OR16_16_OUT_1    0xB0
 #define SBEMU_CMD_8OR16_16_OUT_AUTO 0xB6
-//fllowiing modes
+//following modes
+// bit 4: 1=signed
+// bit 5: 1=stereo
 #define SBEMU_CMD_MODE_PCM8_MONO    0x00
 #define SBEMU_CMD_MODE_PCM8_STEREO  0x20
 #define SBEMU_CMD_MODE_PCM16_MONO   0x10
 #define SBEMU_CMD_MODE_PCM16_STEREO 0x30
-
-#define SBEMU_CMD_EXIT_8BIT_AUTO    0xDA
-#define SBEMU_CMD_EXIT_16BIT_AUTO   0xD9
-#define SBEMU_CMD_PAUSE_8BIT        0xD0
-#define SBEMU_CMD_CONTINUE_8BIT     0xD4
-#define SBEMU_CMD_PAUSE_16BIT       0xD5
-#define SBEMU_CMD_CONTINUE_16BIT    0xD6
-#define SBEMU_CMD_PAUSE_DAC         0x80 //pause by samples
 
 #ifdef __cplusplus
 extern "C"
@@ -102,9 +104,9 @@ uint32_t SBEMU_SB_DSP_ReadINT16BitACK(uint32_t port, uint32_t val, uint32_t out)
 
 //used by emulations
 void SBEMU_Init(int irq, int dma, int hdma, int DSPVer, void(*startCB)(void));
-//void SBEMU_Init(int irq, int dma, void(*startCB)(void));
 uint8_t SBEMU_GetIRQ();
 uint8_t SBEMU_GetDMA();
+uint8_t SBEMU_GetHDMA();
 int SBEMU_HasStarted();
 void SBEMU_Stop();
 

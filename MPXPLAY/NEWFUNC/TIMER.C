@@ -75,37 +75,6 @@ volatile unsigned long int08counter;
 #endif
 volatile unsigned long mpxplay_signal_events;
 
-#ifndef __DOS__
-#if defined(PDS_THREADS_POSIX_THREAD)
-static void *newfunc_timer_threadfunc(void *tharg)
-#else
-static unsigned int newfunc_timer_threadfunc(void *tharg)
-#endif
-{
- mpxplay_timed_s *mtf = (mpxplay_timed_s *)tharg;
- mpxplay_debugf(MPXPLAY_DEBUG_OUTPUT,"newfunc_timer_threadfunc START data:%8.8X", (unsigned int)mtf->data);
- do{
-  if(mtf->func){
-   if(mtf->data)
-    ((call_timedfunc_withdata)(mtf->func))(mtf->data);
-   else
-    ((call_timedfunc_nodata)(mtf->func))();
-  }
-  if(!funcbit_test(mtf->timer_flags, MPXPLAY_TIMERTYPE_REPEAT))
-   break;
-  pds_threads_sleep(mtf->refresh_delay * 10); // FIXME
- }while(!funcbit_test(mtf->timer_flags, MPXPLAY_TIMERFLAG_THEXITEVENT));
- mpxplay_debugf(MPXPLAY_DEBUG_OUTPUT,"newfunc_timer_threadfunc END data:%8.8X", (unsigned int)mtf->data);
- funcbit_enable(mtf->timer_flags, MPXPLAY_TIMERFLAG_THEXITDONE);
- pds_threads_sleep(MPXPLAY_TIMER_MUTEXLOCK_TIMEOUT);  // required for pds_threads_thread_close -> TerminateThread
-#if defined(PDS_THREADS_POSIX_THREAD)
- return NULL;
-#else
- return 0;
-#endif
-}
-#endif // ifndef __DOS__
-
 static unsigned int newfunc_timer_alloc(void)
 {
  unsigned int newsize;
@@ -480,12 +449,12 @@ void mpxplay_timer_execute_maincycle_funcs(void) // not reentrant!
     }
    }else{
     if(pds_threads_timer_tick_get() >= (funcbit_smp_int32_get(mtf->refresh_counter) + funcbit_smp_int32_get(mtf->refresh_delay))){
-     #ifndef SBEMU
+#ifndef SBEMU
      if(funcbit_smp_test(mtf->timer_flags,MPXPLAY_TIMERFLAG_LOWPRIOR)){
       if(!mpxplay_check_buffers_full(&mvps))
        continue;
      }
-     #endif
+#endif
 
 #if defined(__DOS__) && !defined(SBEMU)
      if(funcbit_test(mtf->timer_flags,MPXPLAY_TIMERFLAG_INDOS)){ // ???
@@ -528,46 +497,6 @@ void mpxplay_timer_execute_maincycle_funcs(void) // not reentrant!
   funcbit_smp_enable(mpxplay_signal_events,MPXPLAY_SIGNALTYPE_REALTIME);
  }
 }
-
-#if defined(__DOS__) && defined(__WATCOMC__)
-
-void call_func_ownstack_withdata(void *data,void *func,void far **oldstack,char far **newstack);
-#pragma aux call_func_ownstack_withdata parm [eax][edx][ebx][ecx] = \
-  "mov word ptr [ebx+4],ss" \
-  "mov dword ptr [ebx],esp" \
-  "lss esp,[ecx]" \
-  "call edx" \
-  "lss esp,[ebx]"
-
-void call_func_ownstack_withdata_sti(void *data,void *func,void far **oldstack,char far **newstack);
-#pragma aux call_func_ownstack_withdata_sti parm [eax][edx][ebx][ecx] = \
-  "mov word ptr [ebx+4],ss" \
-  "mov dword ptr [ebx],esp" \
-  "lss esp,[ecx]" \
-  "sti"\
-  "call edx" \
-  "cli"\
-  "lss esp,[ebx]"
-
-void call_func_ownstack_nodata(void *func,void far **oldstack,char far **newstack);
-#pragma aux call_func_ownstack_nodata parm [eax][edx][ebx] = \
-  "mov word ptr [edx+4],ss" \
-  "mov dword ptr [edx],esp" \
-  "lss esp,[ebx]" \
-  "call eax" \
-  "lss esp,[edx]"
-
-void call_func_ownstack_nodata_sti(void *func,void far **oldstack,char far **newstack);
-#pragma aux call_func_ownstack_nodata_sti parm [eax][edx][ebx] = \
-  "mov word ptr [edx+4],ss" \
-  "mov dword ptr [edx],esp" \
-  "sti"\
-  "lss esp,[ebx]" \
-  "call eax" \
-  "lss esp,[edx]"\
-  "cli"
-
-#endif // __DOS__ && __WATCOMC__
 
 #define MPXPLAY_TIMER_MAX_PARALELL_INT08_THREADS 8
 
@@ -672,133 +601,6 @@ static void mpxplay_timer_delete_int08_funcs(void)
 // INT08 and win32 thread handling (interrupt decoder/dma_monitor/etc.)
 
 #ifdef MPXPLAY_WIN32
-
-static mpxp_thread_id_type int08_thread_handle;
-static mpxp_thread_id_type handle_maincycle1,handle_maincycle2;
-static void *timer_maincycle_init, *main_cycle1, *main_cycle2;
-static mpxp_thread_id_type int08_thread_id;
-//static unsigned int int08_timer_handle;
-static int int08_timer_period;
-
-#if defined(PDS_THREADS_POSIX_THREAD)
-static void *newhandler_08_thread(void)
-#else
-static unsigned int newhandler_08_thread(void *unused)
-#endif
-{
- int08_thread_id = pds_threads_threadid_current();
-
- do{
-  funcbit_smp_enable(intsoundcontrol,INTSOUND_INT08RUN);
-  intdec_timer_counter = pds_threads_timer_tick_get();
-  pds_threads_thread_suspend(handle_maincycle1);
-  pds_threads_thread_suspend(handle_maincycle2);
-  do{
-   mpxplay_timer_execute_int08_funcs();
-  }while((mvps.aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING) && !funcbit_test(mvps.aui->card_infobits,AUINFOS_CARDINFOBIT_DMAFULL) && (mvps.idone == MPXPLAY_ERROR_OK));// || (mvps.idone == MPXPLAY_ERROR_INFILE_SYNC_IN)));
-  funcbit_smp_disable(intsoundcontrol,INTSOUND_INT08RUN);
-  pds_threads_thread_resume(handle_maincycle1, MPXPLAY_THREAD_PRIORITY_NORMAL);
-  pds_threads_thread_resume(handle_maincycle2, MPXPLAY_THREAD_PRIORITY_NORMAL);
-  pds_threads_sleep(5);  // FIXME: on windows only and assuming more than 1/200 timer period
-   //pds_threads_timer_waitable_lock(int08_timer_handle, int08_timer_period);
- }while(mpxplay_timed_functions);
- return 0;
-}
-
-void newfunc_newhandler08_init(void)
-{
- int08_timer_period = pds_threads_timer_period_set((int)(1000.0 / (float)INT08_CYCLES_NEW));
- //int08_timer_handle = pds_threads_timer_waitable_create(int08_timer_period);
- pds_threads_set_singlecore();
-#if defined(MPXPLAY_THREADS_HYPERTREADING_DISABLE)
- pds_threads_hyperthreading_disable();
-#endif
- int08_thread_handle = pds_threads_thread_create((mpxp_thread_func)newhandler_08_thread, NULL, MPXPLAY_THREAD_PRIORITY_HIGHER, MPXPLAY_AUDIODECODER_THREAD_AFFINITY_MASK);
-}
-
-unsigned int newfunc_newhandler08_is_current_thread(void)
-{
- if(pds_threads_threadid_current()==int08_thread_id)
-  return 1;
- return 0;
-}
-
-void newfunc_newhandler08_waitfor_threadend(void)
-{
- if(!newfunc_newhandler08_is_current_thread()){
-  unsigned int retry=10;
-  while(funcbit_smp_test(intsoundcontrol,INTSOUND_INT08RUN) && (--retry))
-   pds_threads_sleep(0);
- }
-}
-
-void newfunc_timer_threads_suspend(void)
-{
- funcbit_smp_disable(intsoundcontrol,INTSOUND_DECODER);
- if(int08_thread_handle){
-  newfunc_newhandler08_waitfor_threadend();
-  pds_threads_thread_suspend(int08_thread_handle);
- }
- pds_threads_thread_suspend(handle_maincycle1);
- pds_threads_thread_suspend(handle_maincycle2);
-}
-
-void newfunc_newhandler08_close(void)
-{
- newfunc_timer_threads_suspend();
- mpxplay_timer_close();
- pds_threads_thread_close(int08_thread_handle);
- pds_threads_thread_close(handle_maincycle1);
- pds_threads_thread_close(handle_maincycle2);
- //pds_threads_timer_waitable_close(int08_timer_handle);
- pds_threads_timer_period_reset(int08_timer_period);
-}
-
-#if defined(PDS_THREADS_POSIX_THREAD)
-static void *thread_maincycle_1(void *mvp_p)
-#else
-static unsigned int thread_maincycle_1(void *mvp_p)
-#endif
-{
- if(timer_maincycle_init)
-  ((call_timedfunc_nodata)(timer_maincycle_init))();
- do{
-  ((call_timedfunc_nodata)(main_cycle1))();
-  if(main_cycle2 || funcbit_test(intsoundcontrol, INTSOUND_INT08RUN))
-   pds_threads_sleep(0);
- }while(mvps.partselect);
- return 0;
-}
-
-#if defined(PDS_THREADS_POSIX_THREAD)
-static void *thread_maincycle_2(void *mvp_p)
-#else
-static unsigned int thread_maincycle_2(void *mvp_p)
-#endif
-{
- do{
-  ((call_timedfunc_nodata)(main_cycle2))();
-  if(!funcbit_smp_test(mpxplay_signal_events, MPXPLAY_SIGNALMASK_OTHER))
-   pds_threads_sleep(1000 / INT08_CYCLES_NEW);
-  else
-   pds_threads_sleep(0);
- }while(mvps.partselect);
- return 0;
-}
-
-unsigned int newfunc_newhandler08_maincycles_init(struct mainvars *mvp,void *cycleinit, void *cycle1,void *cycle2)
-{
- if(cycle1){
-  timer_maincycle_init = cycleinit;
-  main_cycle1 = cycle1;
-  handle_maincycle1 = pds_threads_thread_create((mpxp_thread_func)thread_maincycle_1, (void *)mvp, MPXPLAY_THREAD_PRIORITY_NORMAL, MPXPLAY_AUDIODECODER_THREAD_AFFINITY_MASK);
- }
- if(cycle2){
-  main_cycle2 = cycle2;
-  handle_maincycle2 = pds_threads_thread_create((mpxp_thread_func)thread_maincycle_2, (void *)mvp, MPXPLAY_THREAD_PRIORITY_NORMAL, MPXPLAY_AUDIODECODER_THREAD_AFFINITY_MASK);
- }
- return 1;
-}
 
 #elif defined(__DOS__)
 

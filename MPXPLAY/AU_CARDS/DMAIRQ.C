@@ -33,7 +33,7 @@ extern unsigned int intsoundconfig,intsoundcontrol;
 // DMA functions
 //**************************************************************************
 
-#ifdef AU_CARDS_LINK_ISA
+#if AU_CARDS_LINK_ISA
 typedef struct{
  unsigned char dma_disable;
  unsigned char dma_enable;
@@ -63,20 +63,20 @@ static DMA_ENTRY dmatable[8] = {
 #ifdef __DOS__
 cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 {
- cardmem_t *dm;
- dm=calloc(1,sizeof(cardmem_t));
- if(!dm)
-  exit(MPXERROR_XMS_MEM);
-  #ifndef DJGPP
- if(!pds_dpmi_dos_allocmem(dm,buffsize)){
-  #else
-  if(!pds_dpmi_xms_allocmem(dm,buffsize)){
-  #endif
-  free(dm);
-  exit(MPXERROR_CONVENTIONAL_MEM);
- }
- memset(dm->linearptr,0,buffsize);
- return dm;
+	cardmem_t *dm;
+	dm=calloc(1,sizeof(cardmem_t));
+	if(!dm)
+		exit(MPXERROR_XMS_MEM);
+#ifndef DJGPP
+	if(!pds_dpmi_dos_allocmem(dm,buffsize)){
+#else
+	if(!pds_dpmi_xms_allocmem(dm,buffsize)){
+#endif
+		free(dm);
+		exit(MPXERROR_CONVENTIONAL_MEM);
+	}
+	memset(dm->linearptr,0,buffsize);
+	return dm;
 }
 
 void MDma_free_cardmem(cardmem_t *dm)
@@ -214,7 +214,7 @@ void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui)
 
 //------------------------------------------------------------------------
 //ISA
-#ifdef AU_CARDS_LINK_ISA
+#if AU_CARDS_LINK_ISA
 
 #define MDMA_ISA_DMABUFSIZE_MAX 65535
 #define MDMA_ISA_BLOCKSIZE       4608 // PCM_OUTSAMPLES*2*2  (4608%256==0 for GUS!)

@@ -31,9 +31,9 @@
 extern "C" {
 #endif
 
-#define MPXPLAY_LINK_FULL     1
+#define MPXPLAY_LINK_FULL     0
 #ifdef __DOS__
- #define MPXPLAY_LINK_SWSCK32  1    // with SWSCK32 lib
+ //#define MPXPLAY_LINK_SWSCK32  1    // with SWSCK32 lib
  //#define MPXPLAY_LINK_WATTCP32 1    // with WATTCP32 lib
 #endif
 

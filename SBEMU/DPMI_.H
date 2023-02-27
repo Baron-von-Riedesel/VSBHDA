@@ -3,9 +3,6 @@
 #include <PLATFORM.H>
 #include <dpmi.h>
 
-//configs
-#define DPMI_USE_XMS_HEAP 0
-
 //a DPMI wrapper for different compilers. Borland C++, DJGPP, WatCom etc.
 //the porpose of this file is to hide all __dpmi* or int 31h calls from outside
 
@@ -91,67 +88,20 @@ extern "C"
 {
 #endif
 
-#if defined(__BC__)
-
-//convert a linear (virtual) addr to physical addr (current segment)
-//only working with memory allocated with DPMI_DMAMalloc, or DPMI_MapMemory
-#define DPMI_L2P(addr) (addr)
-
-//convert a physical addr to linear addr (current segment)
-//only working with memory allocated with DPMI_DMAMalloc, or DPMI_MapMemory
-#define DPMI_P2L(addr) (addr)
-
-//convert a DATA ptr to linear (page mapped) addr
-//ptr must in data segment, not code, i.e. function address
-uint32_t DPMI_PTR2L(void* ptr);
-
-void* DPMI_L2PTR(uint32_t addr);
-
-#elif defined(__DJ2__)
-
 //note: DJGPP use paged flat mode linear address.
 
 //convert a linear (virtual) addr to physical addr
-//only working with memory allocated with DPMI_DMAMalloc, or DPMI_MapMemory
-uint32_t DPMI_L2P(uint32_t vaddr);
+//only working with memory allocated with DPMI_MapMemory
+//uint32_t DPMI_L2P(uint32_t vaddr);
 
 //convert a physical addr to linear addr
-//only working with memory allocated with DPMI_DMAMalloc, or DPMI_MapMemory
-uint32_t DPMI_P2L(uint32_t paddr);
+//only working with memory allocated with DPMI_MapMemory
+//uint32_t DPMI_P2L(uint32_t paddr);
 
 //convert a ptr to linear (page mapped) addr
 uint32_t DPMI_PTR2L(void* ptr);
 
 void* DPMI_L2PTR(uint32_t addr);
-
-#elif defined(__WC__)
-
-//flat mode for Watcom, on real mode or v86 mode.
-//since ds,cs segment base is 0 on DOS/4GW
-//we can directly access linear address as near pointer (PTR==L)
-
-//convert a linear (virtual) addr to physical addr
-#define DPMI_L2P(addr) (addr)   /*temporary implementation*/
-
-//convert a physical addr to linear addr
-#define DPMI_P2L(addr) (addr)   /*temporary implementation*/
-
-//convert a ptr to linear (page mapped) addr
-#define DPMI_PTR2L(ptr) ((uint32_t)ptr)
-
-#define DPMI_L2PTR(addr) ((void*)(addr))
-
-#else //stub
-
-//convert a linear (virtual) addr to physical addr
-uint32_t DPMI_L2P(uint32_t addr);
-//convert a physical addr to linear addr
-uint32_t DPMI_P2L(uint32_t addr);
-//convert a ptr to linear (page mapped) addr
-uint32_t DPMI_PTR2L(void* ptr);
-void* DPMI_L2PTR(uint32_t addr);
-
-#endif
 
 //convert ptr to physical addr
 #define DPMI_PTR2P(ptr) DPMI_L2P(DPMI_PTR2L(ptr))
@@ -163,14 +113,7 @@ void* DPMI_L2PTR(uint32_t addr);
 //input physical addr must < 1M (0x100000)
 //http://www.delorie.com/djgpp/v2faq/faq18_7.html
 uint32_t DPMI_MapMemory(uint32_t physicaladdr, uint32_t size);
-BOOL DPMI_UnmappMemory(uint32_t mappedaddr);
-
-//the 'DMA' here doesn't involve DMA controller, but device directly accessing physical RAM, i.e. PCI bus master
-//memory allocated with this function is guaranteed to work with DPMI_L2P/DPMI_P2L
-//use this function if you want map between virtual addr and physical addr, meant for driver/device MMIO
-//malloc is recommended for normal memory allocation.
-void* DPMI_DMAMalloc(unsigned int size, unsigned int alignment);
-void DPMI_DMAFree(void* ptr);
+BOOL DPMI_UnmapMemory(uint32_t mappedaddr);
 
 //allocate DOS conventional memory (below 640K)
 //input: size in paragraphs (16 bytes)
@@ -180,23 +123,17 @@ uint32_t DPMI_DOSMalloc(uint16_t size);
 void DPMI_DOSFree(uint32_t segment);
 
 //RM call. return 0 on succeed.
-uint16_t DPMI_CallRealModeRETF(DPMI_REG* reg);
 uint16_t DPMI_CallRealModeINT(uint8_t i, DPMI_REG* reg);
+uint16_t DPMI_CallRealModeRETF(DPMI_REG* reg);
 uint16_t DPMI_CallRealModeIRET(DPMI_REG* reg);
 //install interrupt service routine. ISR use normal return, no need to do IRET.
 //return 0 if succeed
-uint16_t DPMI_InstallISR(uint8_t i, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle);
-uint16_t DPMI_InstallRealModeISR(uint8_t i, void(*ISR_RM)(void), DPMI_REG* RMReg, DPMI_ISR_HANDLE* outputp handle);
-
-uint16_t DPMI_UninstallISR(DPMI_ISR_HANDLE* inputp handle);
-uint32_t DPMI_CallOldISR(DPMI_ISR_HANDLE* inputp handle);
-uint32_t DPMI_CallRealModeOldISR(DPMI_ISR_HANDLE* inputp handle);
 
 //allocate realmode callback. return: hiword: segment, lowword: offset. return 0 if fail
 //input: Fn is a common function with normal return. the RMCB will use RETF finally
 uint16_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg, __dpmi_raddr * );
-uint16_t DPMI_FreeRMCB( __dpmi_raddr * );
 uint32_t DPMI_AllocateRMCB_IRET(void(*Fn)(void), DPMI_REG* reg);
+uint16_t DPMI_FreeRMCB( __dpmi_raddr * );
 
 //virtual interrupt states
 uint8_t DPMI_DisableInterrupt();
