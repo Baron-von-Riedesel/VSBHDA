@@ -2,7 +2,7 @@
 # created with the command:
 # gpr2mak \projects\sbemu\sbemu.gpr
 
-OUTD=build
+OUTD=buildsbl
 
 vpath_src=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu
 vpath %.c $(vpath_src)
@@ -45,7 +45,7 @@ C_F_LANG_FLAGS=
 C_ADA_LANG_FLAGS=
 LIBS=
 LD_EXTRA_FLAGS=-Map $(OUTD)/sbemu.map
-C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU -DDEBUG=0
+C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU -DSBLSUPP -DDEBUG=0
 LOCAL_OPT=$(subst ___~~~___, ,$(subst $(notdir $<)___,,$(filter $(notdir\
 	$<)___%,$(LOCAL_OPTIONS))))
 
@@ -57,8 +57,8 @@ OBJFILES=$(OUTD)/main.o $(OUTD)/hdpmipt.o $(OUTD)/qemm.o    $(OUTD)/sbemu.o\
 	$(OUTD)/dmairq.o   $(OUTD)/dpmi.o     $(OUTD)/dpmi_dj2.o\
 	$(OUTD)/ac97_def.o $(OUTD)/au_cards.o\
 	$(OUTD)/cv_bits.o  $(OUTD)/cv_chan.o  $(OUTD)/cv_freq.o\
-	$(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
-	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o\
+	$(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o	$(OUTD)/sc_sbliv.o\
+	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o $(OUTD)/sc_sbl24.o\
 	$(OUTD)/string.o\
 	$(OUTD)/fpu.o      $(OUTD)/memory.o   $(OUTD)/nf_dpmi.o $(OUTD)/pcibios.o\
 	$(OUTD)/threads.o  $(OUTD)/time.o     $(OUTD)/timer.o
@@ -68,10 +68,12 @@ ALL_OBJFILES=$(OUTD)/ac97_def.o $(OUTD)/au_cards.o $(OUTD)/cv_bits.o\
 	$(OUTD)/dmairq.o $(OUTD)/dpmi.o $(OUTD)/dpmi_dj2.o\
 	$(OUTD)/fpu.o $(OUTD)/hdpmipt.o $(OUTD)/main.o $(OUTD)/memory.o\
 	$(OUTD)/nf_dpmi.o $(OUTD)/opl3emu.o $(OUTD)/pcibios.o $(OUTD)/pic.o\
-	$(OUTD)/qemm.o $(OUTD)/sbemu.o $(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
-	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o $(OUTD)/string.o\
+	$(OUTD)/qemm.o $(OUTD)/sbemu.o\
+	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o    $(OUTD)/sc_inthd.o\
+	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o  $(OUTD)/sc_sbl24.o\
+	$(OUTD)/string.o\
 	$(OUTD)/threads.o $(OUTD)/time.o $(OUTD)/timer.o $(OUTD)/untrapio.o\
-	$(OUTD)/vdma.o $(OUTD)/virq.o\
+	$(OUTD)/vdma.o	$(OUTD)/virq.o\
 	$(OUTD)/stackio.o $(OUTD)/stackisr.o $(OUTD)/int31.o $(OUTD)/dprintf.o\
 	$(OUTD)/vioout.o
 LIBRARIES=
@@ -85,9 +87,10 @@ WUC=
 MAIN_TARGET=$(OUTD)/sbemu.exe
 PROJECT_ITEMS=ac97_def.c au_cards.c cv_bits.c cv_chan.c cv_freq.c\
 	dbopl.cpp dmairq.c dpmi.c dpmi_dj2.c fpu.c hdpmipt.c\
-	main.c memory.c nf_dpmi.c opl3emu.cpp pcibios.c pic.c qemm.c\
-	sbemu.c sc_e1371.c sc_ich.c sc_inthd.c sc_via82.c string.c\
-	threads.c time.c timer.c untrapio.c vdma.c virq.c
+	main.c sbemu.c memory.c nf_dpmi.c opl3emu.cpp pcibios.c pic.c qemm.c\
+	sc_e1371.c sc_ich.c sc_inthd.c sc_via82.c sc_sbliv.c\
+	string.c threads.c time.c timer.c\
+	untrapio.c vdma.c virq.c
 DEFAULT_MASK=*.[acfghimnops]*
 PASCAL_TYPE=GPC
 GET_HOME=$(HOME)
@@ -151,7 +154,7 @@ RHIDE_COMPILE_LINK=$(RHIDE_LD) $(RHIDE_LIBDIRS) $(C_EXTRA_FLAGS) -o\
 	$(OUTFILE)  $(OBJFILES) $(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS)\
 	$(RHIDE_LIBS)
 
-RHIDE_COMPILE_JWASM=jwasm.exe -nologo -coff -Fo$(OUTFILE) $(SOURCE_NAME)
+RHIDE_COMPILE_JWASM=jwasm.exe -nologo -djgpp -Fo$(OUTFILE) $(SOURCE_NAME)
 RHIDE_CONFIG_DIRS=. $(RHIDE_SHARE) $(GET_HOME)   $(RHIDE_CONFIG_DIRS_COMMON)\
 	 $(addsuffix /SET,$(RHIDE_CONFIG_DIRS_COMMON))  $(SET_FILES)
 RHIDE_CONFIG_DIRS_DJGPP=$(DJDIR)/share/rhide
@@ -265,7 +268,8 @@ DEPS_0= $(OUTD)/main.o   $(OUTD)/hdpmipt.o	$(OUTD)/qemm.o	$(OUTD)/opl3emu.o	$(OU
 	$(OUTD)/threads.o	$(OUTD)/time.o		$(OUTD)/timer.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
-	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o		$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/string.o\
+	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o		$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
+	$(OUTD)/string.o\
 	$(OUTD)/dmairq.o		$(OUTD)/fpu.o		$(OUTD)/pcibios.o	$(OUTD)/memory.o		$(OUTD)/nf_dpmi.o\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
@@ -355,6 +359,24 @@ DEPS_30=timer.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mp
 DEPS_31=untrapio.c untrapio.h
 DEPS_32=vdma.c dpmi_.h platform.h untrapio.h vdma.h
 DEPS_33=virq.c dpmi_.h pic.h      platform.h untrapio.h virq.h
+DEPS_34=sc_sbliv.c ./mpxplay/au_cards/ac97_def.h\
+	./mpxplay/au_cards/sc_sbliv.h\
+	./mpxplay/au_cards/emu10k1.h\
+	./mpxplay/au_cards/au_cards.h\
+	./mpxplay/au_cards/dmairq.h\
+	./mpxplay/au_cards/pcibios.h\
+	./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_35=sc_sbl24.c ./mpxplay/au_cards/ac97_def.h\
+	./mpxplay/au_cards/sc_sbl24.h\
+	./mpxplay/au_cards/emu10k1.h\
+	./mpxplay/au_cards/au_cards.h\
+	./mpxplay/au_cards/dmairq.h\
+	./mpxplay/au_cards/pcibios.h\
+	./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
 
 $(OUTD)/ac97_def.o:: $(DEPS_1)
 	$(RHIDE_COMPILE.c.o)
@@ -416,5 +438,19 @@ $(OUTD)/vdma.o:: $(DEPS_32)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/virq.o:: $(DEPS_33)
 	$(RHIDE_COMPILE.c.o)
+$(OUTD)/sc_sbliv.o:: $(DEPS_34)
+	$(RHIDE_COMPILE.c.o)
+$(OUTD)/sc_sbl24.o:: $(DEPS_35)
+	$(RHIDE_COMPILE.c.o)
+$(OUTD)/stackio.o:: stackio.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/stackisr.o:: stackisr.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/int31.o:: int31.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/dprintf.o:: dprintf.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/vioout.o:: vioout.asm
+	$(RHIDE_COMPILE.asm.o)
 
 all:: $(OUTD)/sbemu.exe

@@ -1,6 +1,5 @@
 
 #include "DPMI_.H"
-#if defined(__DJ2__)
 #include <conio.h>
 #include <stdlib.h>
 #include <go32.h>
@@ -21,7 +20,6 @@ int _crt0_startup_flags = _CRT0_FLAG_PRESERVE_FILENAME_CASE | _CRT0_FLAG_KEEP_QU
 
 static uint32_t DPMI_DSBase = 0;
 static uint32_t DPMI_DSLimit = 0;
-static BOOL DPMI_TSR_Inited = 0;
 static uint16_t DPMI_Selector4G;
 
 typedef struct _AddressMap
@@ -32,7 +30,7 @@ typedef struct _AddressMap
     uint32_t Size;
 }AddressMap;
 
-#define ADDRMAP_TABLE_SIZE (256 / sizeof(AddressMap))
+#define ADDRMAP_TABLE_SIZE (64 / sizeof(AddressMap))
 
 static AddressMap AddresMapTable[ADDRMAP_TABLE_SIZE];
 
@@ -61,26 +59,6 @@ static int FindAddressMap(uint32_t linearaddr)
     return -1;
 }
 
-static void DPMI_Shutdown(void);
-
-#define NEW_IMPL 1
-
-#if NEW_IMPL
-//extern uint32_t DPMI_InitTSR(uint32_t base, uint32_t newbase, uint32_t* poffset, uint32_t* psize);
-//extern BOOL DPMI_ShutdownTSR();
-static uint32_t XMS_Bias;
-#else
-static __dpmi_meminfo XMS_Info;
-#endif
-
-#define ONLY_MSPACES 1
-#define NO_MALLOC_STATS 1
-#define USE_LOCKS 1
-#define LACKS_SCHED_H 1
-#define HAVE_MMAP 0
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wsign-conversion"
-
 static void sig_handler(int signal)
 {
     dbgprintf("SIGNAL: %x\n", signal);
@@ -101,78 +79,11 @@ static void DPMI_InitFlat()
 
 void DPMI_Init(void)
 {
-    atexit(&DPMI_Shutdown);
     signal(SIGINT, sig_handler);
     //signal(SIGABRT, sig_handler);
 
     DPMI_InitFlat();
-
-    __dpmi_meminfo info;    //1:1 map DOS memory. (0~640K). TODO: get 640K~1M mapping from VCPI
-    info.handle = -1;
-    info.address = 1024;    //skip IVT and expose NULL ptr
-    info.size = 640L*1024L - 1024;
-    AddAddressMap(&info, 1024);
 }
-
-static void DPMI_Shutdown(void)
-{
-
-    dbgprintf("Free mapped space...\n");
-    for(int i = 0; i < ADDRMAP_TABLE_SIZE; ++i)
-    {
-        AddressMap* map = &AddresMapTable[i];
-        if(!map->Handle)
-            continue;
-        if(map->Handle == ~0UL)//XMS mapped
-            continue;
-        __dpmi_meminfo info;
-        info.handle = map->Handle;
-        info.address = map->LinearAddr;
-        info.size = map->Size;
-        __dpmi_free_physical_address_mapping(&info);
-    }
-    dbgprintf("DPMI_Shutdown done.\n");
-}
-
-#if 0
-uint32_t DPMI_L2P(uint32_t vaddr)
-{
-    for(int i = 0; i < ADDRMAP_TABLE_SIZE; ++i)
-    {
-        AddressMap* map = &AddresMapTable[i];
-        if(!map->Handle)
-            continue;
-        if(map->LinearAddr <= vaddr && vaddr <= map->LinearAddr + map->Size)
-        {
-            int32_t offset = vaddr - map->LinearAddr;
-            return map->PhysicalAddr + offset;
-        }
-    }
-    //dbgprintf("Error mapping linear address to physical: %08lx (%08lx,%08lx).\n", vaddr, DPMI_DSBase, DPMI_DSBase+DPMI_DSLimit);
-    //dbgprintf("Exit\n");
-    //exit(1);
-    return 0; //make compiler happy
-}
-
-uint32_t DPMI_P2L(uint32_t paddr)
-{
-    for(int i = 0; i < ADDRMAP_TABLE_SIZE; ++i)
-    {
-        AddressMap* map = &AddresMapTable[i];
-        if(!map->Handle)
-            continue;
-        if(map->PhysicalAddr <= paddr && paddr <= map->PhysicalAddr + map->Size)
-        {
-            int32_t offset = paddr - map->PhysicalAddr;
-            return map->LinearAddr + offset;
-        }
-    }
-    //dbgprintf("Error mapping physical address to linear: %08lx.\n", paddr);
-    //assert(FALSE);
-    //exit(1);
-    return 0; //make compiler happy
-}
-#endif
 
 uint32_t DPMI_PTR2L(void* ptr)
 {
@@ -271,7 +182,6 @@ uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
         return 0;
 }
 
-
 uint8_t DPMI_DisableInterrupt()
 {
     return __dpmi_get_and_disable_virtual_interrupt_state();
@@ -282,4 +192,3 @@ void DPMI_RestoreInterrupt(uint8_t state)
     __dpmi_get_and_set_virtual_interrupt_state(state);
 }
 
-#endif

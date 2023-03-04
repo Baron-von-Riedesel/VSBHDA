@@ -431,6 +431,10 @@ int pds_xms_free(unsigned short handle)
     return r.x.ax == 1;
 }
 
+/* djgpp style to alloc XMS memory.
+ * it's done so the memory can be accessed with near pointers.
+ * the djgpp DS segment limit is adjusted to cover the new mem block.
+ */
 
 int pds_dpmi_xms_allocmem(xmsmem_t * mem,unsigned int size)
 {

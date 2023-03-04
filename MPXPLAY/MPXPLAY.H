@@ -389,7 +389,7 @@ struct mpxpframe_s {
  struct mpxpframe_s *fro; // crosslink (fr[0]->fr[1],fr[1]->fr[0])
 };
 
-#include "playlist\playlist.h"
+//#include "playlist\playlist.h"
 #include "au_mixer\au_mixer.h"
 
 struct mainvars{
@@ -431,8 +431,8 @@ struct mainvars{
 
  unsigned int editorside_selected;  // 0: left 1:right
  unsigned int editorside_all_tabs;
- unsigned int editorsides_num_tabs[PLAYLIST_MAX_SIDES];
- unsigned int editorsides_selected_tab[PLAYLIST_MAX_SIDES];
+// unsigned int editorsides_num_tabs[PLAYLIST_MAX_SIDES];
+// unsigned int editorsides_selected_tab[PLAYLIST_MAX_SIDES];
 
  struct mpxp_aumixer_main_info_s mmi;
 };

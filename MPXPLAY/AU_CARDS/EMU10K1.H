@@ -109,7 +109,7 @@
                         /* the bit in H/CLIPL or H/CLIPH corresponding    */
                         /* to the CIN value written will be cleared.    */
 
-#define INTE            0x0c        /* Interrupt enable register            */
+#define EMU10K_INTENABLE            0x0c        /* Interrupt enable register            */
 #define INTE_VIRTUALSB_MASK    0xc0000000    /* Virtual Soundblaster I/O port capture    */
 #define INTE_VIRTUALSB_220    0x00000000    /* Capture at I/O base address 0x220-0x22f    */
 #define INTE_VIRTUALSB_240    0x40000000    /* Capture at I/O base address 0x240        */
@@ -281,7 +281,7 @@
                         /* 0x00000100 Playback. Only in once per period.
                          * 0x00110000 Capture. Int on half buffer.
                          */
-#define INTE2            0x2c        /* P16V Interrupt enable register.     */
+#define P16V_INTENABLE            0x2c        /* P16V Interrupt enable register.     */
 #define INTE2_PLAYBACK_CH_0_LOOP      0x00001000 /* Playback Channel 0 loop                               */
 #define INTE2_PLAYBACK_CH_0_HALF_LOOP 0x00000100 /* Playback Channel 0 half loop                          */
 #define INTE2_PLAYBACK_CH_1_LOOP      0x00002000 /* Playback Channel 1 loop                               */

@@ -1,6 +1,6 @@
 @echo off
-jwasm -nologo -djgpp -Floutput\stackio.lst  -Fooutput\stackio.o    stackio.asm
-jwasm -nologo -djgpp -Floutput\stackisr.lst -Fooutput\stackisr.o   stackisr.asm
-jwasm -nologo -djgpp -Floutput\int31.lst    -Fooutput\int31.o      int31.asm
-jwasm -nologo -djgpp -Floutput\dprintf.lst  -Fooutput\dprintf.o    dprintf.asm
-jwasm -nologo -djgpp -Floutput\vioout.lst   -Fooutput\vioout.o     vioout.asm
+jwasm -nologo -djgpp -Flbuild\stackio.lst  -Fobuild\stackio.o    sbemu\stackio.asm
+jwasm -nologo -djgpp -Flbuild\stackisr.lst -Fobuild\stackisr.o   sbemu\stackisr.asm
+jwasm -nologo -djgpp -Flbuild\int31.lst    -Fobuild\int31.o      sbemu\int31.asm
+jwasm -nologo -djgpp -Flbuild\dprintf.lst  -Fobuild\dprintf.o    sbemu\dprintf.asm
+jwasm -nologo -djgpp -Flbuild\vioout.lst   -Fobuild\vioout.o     sbemu\vioout.asm

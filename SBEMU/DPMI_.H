@@ -139,14 +139,10 @@ uint16_t DPMI_FreeRMCB( __dpmi_raddr * );
 uint8_t DPMI_DisableInterrupt();
 void DPMI_RestoreInterrupt(uint8_t state);
 
-//TSR/callback usage
-void DPMI_GetPhysicalSpace(DPMI_SPACE* outputp spc);
-BOOL DPMI_TSR(void);
 //switch addressing mode for linear functions, should use it temporarily and interrupt disabled.
 void DPMI_SetAddressing(DPMI_ADDRESSING* inputp newaddr, DPMI_ADDRESSING* outputp oldaddr);
 
 void DPMI_Init(void);
-//void DPMI_Shutdown(void); auto called atexit
 
 #if defined(__WC__)
 
@@ -199,7 +195,6 @@ void DPMI_MaskD(uint32_t addr, uint32_t mand, uint32_t mor);
 
 void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size);
 void DPMI_SetLinear(uint32_t dest, uint8_t val, uint32_t size);
-int32_t DPMI_CompareLinear(uint32_t addr1, uint32_t addr2, uint32_t size);
 
 //topdown allocation of DPMI_DOSMalloc, from high address (640K/1024K downwards).
 //input: size in paragraphs (16 bytes)

@@ -1,4 +1,6 @@
 
+;--- debug printf
+
 	.386
 	.model small
 

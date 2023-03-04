@@ -4,6 +4,8 @@
 int dbgprintf( const char * fmt, ... );
 #define dbgprintf
 
+void MAIN_Uninstall( void );
+
 #define SBEMU_RESET_START 0
 #define SBEMU_RESET_END 1
 #define SBEMU_RESET_POLL 2
@@ -130,6 +132,10 @@ static void SBEMU_DSP_Reset( uint8_t value )
     }
     if(value == 0 && SBEMU_ResetState == SBEMU_RESET_START)
         SBEMU_ResetState = SBEMU_RESET_POLL;
+
+    /* uninstall */
+    if( value == 0x55 && SBEMU_ResetState == SBEMU_RESET_START )
+        MAIN_Uninstall();
 }
 
 static void SBEMU_DSP_Write( uint8_t value )

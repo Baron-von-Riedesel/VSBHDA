@@ -864,6 +864,11 @@ static void snd_ihd_hw_close(struct intelhd_card_s *card)
  azx_sd_writel(card, SD_BDLPL, 0);
  azx_sd_writel(card, SD_BDLPU, 0);
  azx_sd_writel(card, SD_CTL, 0);
+
+ /* stop CORB/RIRB DMA engines */
+ azx_writeb(card, CORBCTL, 0);
+ azx_writeb(card, RIRBCTL, 0);
+ azx_writel(card, INTCTL, 0 ); /* disable all interrupts */
 }
 
 static void azx_setup_periods(struct intelhd_card_s *card)
@@ -1375,7 +1380,6 @@ static aucards_allmixerchan_s ihd_mixerset[]={
 one_sndcard_info IHD_sndcard_info={
  "Intel HDA",
  SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
-
  NULL,                  // card_config
  NULL,                  // no init
  &INTELHD_adetect,      // only autodetect

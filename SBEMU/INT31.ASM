@@ -1,24 +1,15 @@
 
-;--- Int31 hook
-;--- this is used to hide the sound hw IRQ from client
+;--- Int 31h/21h hook
+;--- purpose is to hide the sound hw IRQ from client
 
 	.386
 	.MODEL small, c
 	option casemap:none
 	option proc:private
 
-DPMI_ISR_HANDLE struct 4
-dwOfsPM	dd ?	; old sound ISR
-wSegPM	dw ?	; old sound ISR
-wOfsRM	dw ?
-wSegRM	dw ?
-intno	db ?
-dwISR	dd ?
-dwStack	dd ?
-dwDS    dd ?
-DPMI_ISR_HANDLE ends
-
 	.data
+
+externdef dfOldISR:fword
 
 oldint31 df ?
 	dw ?
@@ -97,7 +88,7 @@ myint21 endp
 
 ;--- install int 31h handler
 
-_hdpmi_InstallInt31 proc public uses ebx handle:dword
+_hdpmi_InstallInt31 proc public uses ebx interrupt:byte
 
 ;--- hook into DPMI int 31h
 	mov bl, 31h
@@ -124,10 +115,9 @@ _hdpmi_InstallInt31 proc public uses ebx handle:dword
 	int 31h
 	jc error
 
-	mov eax, handle
-	mov edx, [eax].DPMI_ISR_HANDLE.dwOfsPM
-	mov cx, [eax].DPMI_ISR_HANDLE.wSegPM
-	mov bl, [eax].DPMI_ISR_HANDLE.intno
+	mov edx, dword ptr dfOldISR+0
+	mov cx, word ptr dfOldISR+4
+	mov bl, interrupt
 	mov dword ptr [currsndint+0], edx
 	mov word ptr [currsndint+4], cx
 	mov [intno], bl

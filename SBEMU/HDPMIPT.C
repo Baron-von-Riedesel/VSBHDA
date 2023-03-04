@@ -14,9 +14,9 @@
 #define HDPMIPT_SWITCH_STACK 1 //TODO: debug
 #define HDPMIPT_STACKSIZE 16384
 
-BOOL _hdpmi_InstallISR(uint8_t i, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle, void* pStack );
-BOOL _hdpmi_UninstallISR( DPMI_ISR_HANDLE* inputp handle );
-BOOL _hdpmi_InstallInt31( DPMI_ISR_HANDLE* inputp handle );
+BOOL _hdpmi_InstallISR( uint8_t i, int(*ISR)(void), void* pStack );
+BOOL _hdpmi_UninstallISR( void );
+BOOL _hdpmi_InstallInt31( uint8_t );
 BOOL _hdpmi_UninstallInt31( void );
 
 typedef struct
@@ -258,19 +258,19 @@ BOOL HDPMIPT_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt)
     return TRUE;
 }
 
-BOOL HDPMIPT_InstallISR( uint8_t interrupt, void(*ISR)(void), DPMI_ISR_HANDLE* outputp handle )
+BOOL HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
 {
-    if ( _hdpmi_InstallISR( interrupt, ISR, handle, (void *)(HDPMIPT_NewStack[0] - HDPMIPT_STACKSIZE/2) ) ) {
-        return ( _hdpmi_InstallInt31( handle ) );
+    if ( _hdpmi_InstallISR( interrupt, ISR, (void *)(HDPMIPT_NewStack[0] - HDPMIPT_STACKSIZE/2) ) ) {
+        return ( _hdpmi_InstallInt31( interrupt ) );
     }
     return FALSE;
 }
 
-BOOL HDPMIPT_UninstallISR( DPMI_ISR_HANDLE* inputp handle )
+BOOL HDPMIPT_UninstallISR( void )
 {
     /* first uninstall int 31h, then ISR! */
     _hdpmi_UninstallInt31();
-    return ( _hdpmi_UninstallISR( handle ) );
+    return ( _hdpmi_UninstallISR() );
 }
 
 void HDPMIPT_UntrappedIO_Write(uint16_t port, uint8_t value)

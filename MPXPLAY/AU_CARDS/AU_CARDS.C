@@ -14,6 +14,9 @@
 //**************************************************************************
 //function: audio main functions
 
+int dbgprintf(const char *fmt, ... );
+#define dbgprintf
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
@@ -52,11 +55,13 @@ extern one_sndcard_info ES1371_sndcard_info;
 extern one_sndcard_info ICH_sndcard_info;
 extern one_sndcard_info IHD_sndcard_info;
 extern one_sndcard_info VIA82XX_sndcard_info;
+#ifdef SBLSUPP
+extern one_sndcard_info SBLIVE_sndcard_info;
+#endif
 #ifndef SBEMU
 extern one_sndcard_info ESS_sndcard_info;
 extern one_sndcard_info WSS_sndcard_info;
 extern one_sndcard_info SB16_sndcard_info;
-extern one_sndcard_info SBLIVE_sndcard_info;
 extern one_sndcard_info EMU20KX_sndcard_info;
 extern one_sndcard_info CMI8X38_sndcard_info;
 extern one_sndcard_info GUS_sndcard_info;
@@ -65,7 +70,9 @@ extern one_sndcard_info MIDAS_sndcard_info;
 #else
 #undef AU_CARDS_LINK_ESS
 #undef AU_CARDS_LINK_WSS
+#ifndef SBLSUPP
 #undef AU_CARDS_LINK_SBLIVE
+#endif
 #undef AU_CARDS_LINK_SB16
 #undef AU_CARDS_LINK_EMU20KX
 #undef AU_CARDS_LINK_CMI8X38
@@ -170,6 +177,7 @@ void AU_init(struct mpxplay_audioout_info_s *aui)
  char cardselectname[32]="";
  char sout[100];
 
+ dbgprintf("AU_init\n");
  aui->card_dmasize=aui->card_dma_buffer_size=MDma_get_max_pcmoutbufsize(aui,65535,4608,2,0);
 
 #ifndef MPXPLAY_GUI_CONSOLE
@@ -208,8 +216,8 @@ auinit_retry:
    }else
 #endif
    {
-    sprintf(sout,"Unknown soundcard (output module) name : %s",cardselectname);
-    pds_textdisplay_printf(sout);
+    dbgprintf("Unknown soundcard (output module) name : %s\n",cardselectname);
+    //pds_textdisplay_printf(sout);
     goto err_out_auinit;
    }
   }
@@ -227,7 +235,7 @@ auinit_retry:
    goto err_out_auinit;
   }
   if(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_TESTCARD){
-   pds_textdisplay_printf("Testing finished... Press ESC to exit, other key to start Mpxplay...");
+   //pds_textdisplay_printf("Testing finished... Press ESC to exit, other key to start Mpxplay...");
    #ifndef SBEMU
    if(pds_extgetch()==KEY_ESC){
     #else
@@ -420,9 +428,10 @@ jump_back:
 
 void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
 {
+    dbgprintf("AU_ini_interrupts\n");
 	aucards_writedata_func=&aucards_writedata_normal;
 #if 0
-	if(aui->card_handler->infobits&SNDCARD_INT08_ALLOWED){
+	if( aui->card_handler->infobits & SNDCARD_INT08_ALLOWED ){
 		newfunc_newhandler08_init();
 		if(aui->card_handler->cardbuf_int_monitor)
 			mpxplay_timer_addfunc(&aucards_dma_monitor,NULL,MPXPLAY_TIMERTYPE_INT08|MPXPLAY_TIMERTYPE_REPEAT|MPXPLAY_TIMERFLAG_OWNSTACK|MPXPLAY_TIMERFLAG_STI,0);
@@ -435,7 +444,7 @@ void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
 	}
 #endif
 #ifdef SBEMU
-	if(intsoundconfig&INTSOUND_NOBUSYWAIT){
+	if( intsoundconfig&INTSOUND_NOBUSYWAIT ) {
 		aucards_writedata_func = &aucards_writedata_nowait;
 	}
 #endif
@@ -443,12 +452,13 @@ void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
 
 void AU_del_interrupts(struct mpxplay_audioout_info_s *aui)
 {
- AU_close(aui);
+    dbgprintf("AU_del_interrupts\n");
+	AU_close(aui);
 #ifndef __DOS__
- mpxplay_timer_deletefunc(&aucards_dma_monitor,NULL);
- #ifndef SBEMU
- mpxplay_timer_deletefunc(&aucards_interrupt_decoder,NULL);
- #endif
+	mpxplay_timer_deletefunc(&aucards_dma_monitor,NULL);
+#ifndef SBEMU
+	mpxplay_timer_deletefunc(&aucards_interrupt_decoder,NULL);
+#endif
 #endif
 }
 
@@ -500,6 +510,7 @@ void AU_stop(struct mpxplay_audioout_info_s *aui)
  }
 }
 
+#if 0
 void AU_wait_and_stop(struct mpxplay_audioout_info_s *aui)
 {
  unsigned int intsoundcntrl_save;
@@ -530,6 +541,7 @@ void AU_wait_and_stop(struct mpxplay_audioout_info_s *aui)
  }
  funcbit_smp_disable(playcontrol,PLAYC_RUNNING);
 }
+#endif
 
 void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui)
 {
@@ -882,6 +894,8 @@ void AU_setmixer_all(struct mpxplay_audioout_info_s *aui)
  }
 }
 
+//////////////////////////////////////////////////////////
+
 //-------------------------------------------------------------------------
 #define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (requried for PCI cards)
 
@@ -890,97 +904,101 @@ static
 #endif
 unsigned int AU_cardbuf_space(struct mpxplay_audioout_info_s *aui)
 {
- unsigned long buffer_protection;
+	unsigned long buffer_protection;
 
- buffer_protection=SOUNDCARD_BUFFER_PROTECTION;     // rounding to bytespersign
- buffer_protection+=aui->card_bytespersign-1;
- buffer_protection-=(buffer_protection%aui->card_bytespersign);
+	buffer_protection=SOUNDCARD_BUFFER_PROTECTION;     // rounding to bytespersign
+	buffer_protection+=aui->card_bytespersign-1;
+	buffer_protection-=(buffer_protection%aui->card_bytespersign);
 
- if(aui->card_dmalastput>=aui->card_dmasize) // checking
-  aui->card_dmalastput=0;
+	if(aui->card_dmalastput>=aui->card_dmasize) // checking
+		aui->card_dmalastput=0;
 
- if(aui->card_handler->cardbuf_pos){
-  if(aui->card_handler->infobits&SNDCARD_CARDBUF_SPACE){
-   if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING){
-    aui->card_dmaspace=aui->card_handler->cardbuf_pos(aui);
-    aui->card_dmaspace-=(aui->card_dmaspace%aui->card_bytespersign); // round
-   }else
-    aui->card_dmaspace=(aui->card_dmaspace>aui->card_outbytes)? (aui->card_dmaspace-aui->card_outbytes):0;
-  }else{
-   unsigned long bufpos;
+	if(aui->card_handler->cardbuf_pos){
+		if(aui->card_handler->infobits&SNDCARD_CARDBUF_SPACE){
+			if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING){
+				aui->card_dmaspace=aui->card_handler->cardbuf_pos(aui);
+				aui->card_dmaspace-=(aui->card_dmaspace%aui->card_bytespersign); // round
+			}else
+				aui->card_dmaspace=(aui->card_dmaspace>aui->card_outbytes)? (aui->card_dmaspace-aui->card_outbytes):0;
+		}else{
+			unsigned long bufpos;
 
-   if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING){
-    bufpos=aui->card_handler->cardbuf_pos(aui);
-    if(bufpos>=aui->card_dmasize)  // checking
-     bufpos=0;
-    else
-     bufpos-=(bufpos%aui->card_bytespersign); // round
+			if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING){
+				bufpos=aui->card_handler->cardbuf_pos(aui);
+				if(bufpos>=aui->card_dmasize)  // checking
+					bufpos=0;
+				else
+					bufpos-=(bufpos%aui->card_bytespersign); // round
 
-    if(aui->card_infobits&AUINFOS_CARDINFOBIT_DMAUNDERRUN){   // sets a new put-pointer in this case
-     if(bufpos>=aui->card_outbytes)
-      aui->card_dmalastput=bufpos-aui->card_outbytes;
+				if(aui->card_infobits&AUINFOS_CARDINFOBIT_DMAUNDERRUN){   // sets a new put-pointer in this case
+					if(bufpos>=aui->card_outbytes)
+						aui->card_dmalastput=bufpos-aui->card_outbytes;
      else
-      aui->card_dmalastput=aui->card_dmasize+bufpos-aui->card_outbytes;
-     funcbit_smp_disable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAUNDERRUN);
-    }
-   }else{
-    bufpos=0;
-   }
+		 aui->card_dmalastput=aui->card_dmasize+bufpos-aui->card_outbytes;
+					funcbit_smp_disable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAUNDERRUN);
+				}
+			}else{
+				bufpos=0;
+			}
 
-   //if(aui->card_dmalastput>=aui->card_dmasize) // checking
-   // aui->card_dmalastput=0;
+			//if(aui->card_dmalastput>=aui->card_dmasize) // checking
+			// aui->card_dmalastput=0;
 
-   if(bufpos>aui->card_dmalastput)
-    aui->card_dmaspace=bufpos-aui->card_dmalastput;
-   else
-    aui->card_dmaspace=aui->card_dmasize-aui->card_dmalastput+bufpos;
-  }
- }else{
-  aui->card_dmaspace=aui->card_outbytes+buffer_protection;
-  funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAFULL);
- }
+			if(bufpos>aui->card_dmalastput)
+				aui->card_dmaspace=bufpos-aui->card_dmalastput;
+			else
+				aui->card_dmaspace=aui->card_dmasize-aui->card_dmalastput+bufpos;
+		}
+	}else{
+		aui->card_dmaspace=aui->card_outbytes+buffer_protection;
+		funcbit_smp_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAFULL);
+	}
 
- if(aui->card_dmaspace>aui->card_dmasize) // checking
-  aui->card_dmaspace=aui->card_dmasize;
+	if(aui->card_dmaspace>aui->card_dmasize) // checking
+		aui->card_dmaspace=aui->card_dmasize;
 
- aui->card_dmafilled=aui->card_dmasize-aui->card_dmaspace;
+	aui->card_dmafilled=aui->card_dmasize-aui->card_dmaspace;
 
- return (aui->card_dmaspace>buffer_protection)? (aui->card_dmaspace-buffer_protection):0;
+	return (aui->card_dmaspace>buffer_protection)? (aui->card_dmaspace-buffer_protection):0;
 }
+
+//////////////////////////////////////////////////////////
 
 int AU_writedata(struct mpxplay_audioout_info_s *aui)
 {
- unsigned int outbytes_left;
+	unsigned int outbytes_left;
 
- if(!aui->samplenum)
-  return 0;
+	if(!aui->samplenum)
+		return 0;
 
- if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_BITSTREAMOUT)){
-  aui->samplenum-=(aui->samplenum%aui->chan_card); // if samplenum is buggy (round to chan_card)
-  outbytes_left=aui->samplenum*aui->bytespersample_card;
- }else
-  outbytes_left=aui->samplenum;
+	if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_BITSTREAMOUT)){
+		aui->samplenum-=(aui->samplenum%aui->chan_card); // if samplenum is buggy (round to chan_card)
+		outbytes_left=aui->samplenum*aui->bytespersample_card;
+	}else
+		outbytes_left=aui->samplenum;
 
- #ifdef SBEMU
- aui->card_outbytes =min(outbytes_left,(aui->card_dmasize));
- #else
- aui->card_outbytes =min(outbytes_left,(aui->card_dmasize/4));
- #endif
+#ifdef SBEMU
+	aui->card_outbytes =min(outbytes_left,(aui->card_dmasize));
+#else
+	aui->card_outbytes =min(outbytes_left,(aui->card_dmasize/4));
+#endif
 
- if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_BITSTREAMOUT))
-  aui->card_outbytes-=(aui->card_outbytes%aui->card_bytespersign);
+	if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_BITSTREAMOUT))
+		aui->card_outbytes-=(aui->card_outbytes%aui->card_bytespersign);
 
- int left = aucards_writedata_func(aui,outbytes_left); // normal or intsound
+	int left = aucards_writedata_func(aui,outbytes_left); // normal or intsound
 
- aui->samplenum = 0;
+	aui->samplenum = 0;
 
- //slow processor test :)
- //{
- // unsigned int i;
- // for(i=0;i<0x0080ffff;i++);
- //}
- return left/aui->bytespersample_card;
+	//slow processor test :)
+	//{
+	// unsigned int i;
+	// for(i=0;i<0x0080ffff;i++);
+	//}
+	return left/aui->bytespersample_card;
 }
+
+//////////////////////////////////////////////////////////
 
 static int aucards_writedata_normal(struct mpxplay_audioout_info_s *aui,unsigned long outbytes_left)
 {
@@ -1059,43 +1077,43 @@ static int aucards_writedata_intsound(struct mpxplay_audioout_info_s *aui,unsign
 #ifdef SBEMU
 static int aucards_writedata_nowait(struct mpxplay_audioout_info_s *aui,unsigned long outbytes_left)
 {
- char *pcm_outdata=(char *)aui->pcm_sample;
- unsigned long buffer_protection,space;
+	char *pcm_outdata=(char *)aui->pcm_sample;
+	unsigned long buffer_protection,space;
 
- buffer_protection=SOUNDCARD_BUFFER_PROTECTION;
- buffer_protection+=aui->card_bytespersign-1;
- buffer_protection-=(buffer_protection%aui->card_bytespersign);
+	buffer_protection=SOUNDCARD_BUFFER_PROTECTION;
+	buffer_protection+=aui->card_bytespersign-1;
+	buffer_protection-=(buffer_protection%aui->card_bytespersign);
 
- space=(aui->card_dmaspace>buffer_protection)? (aui->card_dmaspace-buffer_protection):0;
+	space=(aui->card_dmaspace>buffer_protection)? (aui->card_dmaspace-buffer_protection):0;
 
- do{
-  if(space>=aui->card_bytespersign){
-   unsigned int outbytes_putblock=min(space,outbytes_left);
-   aui->card_handler->cardbuf_writedata(aui,pcm_outdata,outbytes_putblock);
-   pcm_outdata+=outbytes_putblock;
-   outbytes_left-=outbytes_putblock;
-   space-=outbytes_putblock;
+	do{
+		if(space>=aui->card_bytespersign){
+			unsigned int outbytes_putblock=min(space,outbytes_left);
+			aui->card_handler->cardbuf_writedata(aui,pcm_outdata,outbytes_putblock);
+			pcm_outdata+=outbytes_putblock;
+			outbytes_left-=outbytes_putblock;
+			space-=outbytes_putblock;
 
-   aui->card_dmafilled+=outbytes_putblock;
-   if(aui->card_dmafilled>aui->card_dmasize)
-    aui->card_dmafilled=aui->card_dmasize;
-   if(aui->card_dmaspace>outbytes_putblock)
-    aui->card_dmaspace-=outbytes_putblock;
-   else
-    aui->card_dmaspace=0;
-  }
-  if(!outbytes_left)
-   break;
-  //space=AU_cardbuf_space(aui); // post-checking (because aucards_interrupt_decoder also calls it)
- }while(space>=aui->card_bytespersign);
- return outbytes_left;
+			aui->card_dmafilled+=outbytes_putblock;
+			if(aui->card_dmafilled>aui->card_dmasize)
+				aui->card_dmafilled=aui->card_dmasize;
+			if(aui->card_dmaspace>outbytes_putblock)
+				aui->card_dmaspace-=outbytes_putblock;
+			else
+				aui->card_dmaspace=0;
+		}
+		if(!outbytes_left)
+			break;
+		//space=AU_cardbuf_space(aui); // post-checking (because aucards_interrupt_decoder also calls it)
+	}while(space>=aui->card_bytespersign);
+	return outbytes_left;
 }
 #endif
 
 //---------------------------------------------------------------------------
 static void aucards_dma_monitor(void)
 {
- struct mpxplay_audioout_info_s *aui=&au_infos;
+	struct mpxplay_audioout_info_s *aui=&au_infos;
  if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING)
   if(aui->card_handler->cardbuf_int_monitor)
    aui->card_handler->cardbuf_int_monitor(aui);

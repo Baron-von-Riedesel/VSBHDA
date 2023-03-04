@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <dpmi.h>
+#include <go32.h>
 #ifdef DJGPP
 #include <sys/ioctl.h>
 #endif
@@ -186,22 +187,16 @@ BOOL QEMM_Prepare_IOPortTrap()
      * bytes 4-5 are used as data
      */
     uint32_t codesize = (uintptr_t)&QEMM_RM_WrapperEnd - (uintptr_t)&QEMM_RM_Wrapper;
-    uint32_t dosmem = DPMI_HighMalloc((codesize + 4 + 2 + 15)>>4, TRUE);
-    DPMI_CopyLinear(DPMI_SEGOFF2L(dosmem, 0), DPMI_PTR2L(&rmcb), 4);
-    void* buf = malloc(codesize);
-    memcpy_c2d(buf, &QEMM_RM_Wrapper, codesize); //copy to ds seg in case cs&ds are not same
-    DPMI_CopyLinear(DPMI_SEGOFF2L(dosmem, 4+2), DPMI_PTR2L(buf), codesize);
-    free(buf);
+    uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
+    DPMI_CopyLinear( dosmem, DPMI_PTR2L(&rmcb), 4);
+    DPMI_CopyLinear( dosmem + 4 + 2, DPMI_PTR2L( &QEMM_RM_Wrapper ), codesize);
 
     /* set new trap handler ES:DI */
-    r.w.es = dosmem&0xFFFF;
+    r.w.es = dosmem >> 4;
     r.w.di = 4+2;
     r.w.ax = 0x1A07;
     if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags&CPU_CFLAG))
-    {
-        DPMI_HighFree(dosmem);
         return FALSE;
-    }
 #else
     r.w.es = rmcb.segment;
     r.w.di = rmcb.offset16;
