@@ -19,48 +19,58 @@
 #define SBEMU_PORT_DSP_RS       0x0E //read buffer status (R). reading this port also acknowledge 8bit interrupt 
 #define SBEMU_PORT_DSP_16ACK    0x0F //acknowledge 16bit interrupt
 
-//register index trhough mixer port
+//register index through mixer port
 #define SBEMU_MIXERREG_RESET        0x00
 #define SBEMU_MIXERREG_MASTERVOL    0x02
 #define SBEMU_MIXERREG_VOICESTEREO  0x04    //SBPro.
 #define SBEMU_MIXERREG_MIDIVOL      0x06    //SB2.0
 #define SBEMU_MIXERREG_VOICEVOL     0x0A    //SB2.0
-#define SBEMU_MIXERREG_MASTERSTEREO 0x22    //SBPro
-#define SBEMU_MIXERREG_MIDISTEREO   0x26    //SBPro 
-//SB16
-#define SBEMU_MIXRREG_MASTERL       0x30
-#define SBEMU_MIXRREG_MASTERR       0x31
-#define SBEMU_MIXRREG_VOICEL        0x32
-#define SBEMU_MIXRREG_VOICER        0x33
-#define SBEMU_MIXRREG_MIDIL         0x34
-#define SBEMU_MIXRREG_MIDIR         0x35
-//-SB16
-#define SBEMU_MIXERREG_MODEFILTER   0x0E
-#define SBEMU_MIXERREG_INT_SETUP    0x80
-#define SBEMU_MIXERREG_DMA_SETUP    0x81
-#define SBEMU_MIXERREG_INT_STS      0x82
+#define SBEMU_MIXERREG_MODEFILTER   0x0E /* SBPro only - Stereo select */
+#define SBEMU_MIXERREG_MASTERSTEREO 0x22 /* SBPro - Master volume? */
+#define SBEMU_MIXERREG_MIDISTEREO   0x26 /* SBPro - FM Level? */
+
+#if SB16
+#define SBEMU_MIX16REG_MASTERL      0x30 /* 3x, 4x: SB16 */
+#define SBEMU_MIX16REG_MASTERR      0x31
+#define SBEMU_MIX16REG_VOICEL       0x32
+#define SBEMU_MIX16REG_VOICER       0x33
+#define SBEMU_MIX16REG_MIDIL        0x34
+#define SBEMU_MIX16REG_MIDIR        0x35
+#endif
+#define SBEMU_MIXERREG_INT_STS      0x82 /* SB16 only, but used internally */
+#define SBEMU_MIXERREG_INT_SETUP    0x80 /* SB16 only, but used internally */
+#define SBEMU_MIXERREG_DMA_SETUP    0x81 /* SB16 only, but used internally */
 
 //DSP commands
 #define SBEMU_CMD_SET_TIMECONST     0x40
 #define SBEMU_CMD_SET_SIZE          0x48 //size-1
 #define SBEMU_CMD_SET_SAMPLERATE    0x41 /* SB16 set sample rate */
 #define SBEMU_CMD_SET_SAMPLERATE_I  0x42 //intput sample rate
+#if SB16
 #define SBEMU_CMD_CONT_8BIT_AUTO    0x45 /* SB16 */
 #define SBEMU_CMD_CONT_16BIT_AUTO   0x47 /* SB16 */
+#endif
 #define SBEMU_CMD_PAUSE_DAC         0x80 //pause by samples
 #define SBEMU_CMD_HALT_DMA          0xD0
 #define SBEMU_CMD_DAC_SPEAKER_ON    0xD1
 #define SBEMU_CMD_DAC_SPEAKER_OFF   0xD3
 #define SBEMU_CMD_CONTINUE_DMA      0xD4
+#if SB16
 #define SBEMU_CMD_HALT_DMA16        0xD5 /* SB16 */
 #define SBEMU_CMD_CONTINUE_DMA16    0xD6 /* SB16 */
 #define SBEMU_CMD_EXIT_16BIT_AUTO   0xD9 /* SB16 */
+#endif
 #define SBEMU_CMD_EXIT_8BIT_AUTO    0xDA
 #define SBEMU_CMD_DSP_ID            0xE0
 #define SBEMU_CMD_DSP_GETVER        0xE1 //1st byte major, 2nd byte minor
 #define SBEMU_CMD_DSP_COPYRIGHT     0xE3
 #define SBEMU_CMD_TRIGGER_IRQ       0xF2
-#define SBEMU_CMD_TRIGGER_IRQ16     0xF3 /* SB16 */
+#if SB16
+#define SBEMU_CMD_TRIGGER_IRQ16     0xF3 /* SB16 trigger interrupt */
+#define SBEMU_CMD_DSP_STATUS        0xFB /* SB16 DSP status */
+#define SBEMU_CMD_DSP_AUX_STATUS    0xFC /* SB16 DSP aux status */
+#define SBEMU_CMD_DSP_CMD_STATUS    0xFD /* SB16 DSP cmd status */
+#endif
 
 //time constant used
 #define SBEMU_CMD_8BIT_DIRECT       0x10
@@ -68,6 +78,18 @@
 #define SBEMU_CMD_8BIT_OUT_AUTO     0x1C
 #define SBEMU_CMD_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(actually restore to previous) to exit hs mode
 #define SBEMU_CMD_8BIT_OUT_AUTO_HS  0x90
+
+#if ADPCM
+#define SBEMU_CMD_4BIT_OUT_1        0x75 //4bit ADPCM
+#define SBEMU_CMD_4BIT_OUT_1_NREF   0x74
+#define SBEMU_CMD_4BIT_OUT_AUTO     0x7D
+#define SBEMU_CMD_3BIT_OUT_1        0x77 //3bit ADPCM
+#define SBEMU_CMD_3BIT_OUT_1_NREF   0x76
+#define SBEMU_CMD_3BIT_OUT_AUTO     0x7F
+#define SBEMU_CMD_2BIT_OUT_1        0x17 //2bit  ADPCM
+#define SBEMU_CMD_2BIT_OUT_1_NREF   0x16
+#define SBEMU_CMD_2BIT_OUT_AUTO     0x1F
+#endif
 
 //sample rate used
 //#define SBEMU_CMD_8OR16_OUT_1       0x41
@@ -121,6 +143,8 @@ int SBEMU_SetPos(int pos); //set pos in bytes
 int SBEMU_IRQTriggered();
 void SBEMU_SetIRQTriggered(int triggered);
 uint8_t SBEMU_GetMixerReg(uint8_t index);
+int SBEMU_DecodeADPCM(uint8_t* adpcm, int bytes); //decode in place
+
 
 #ifdef __cplusplus
 }

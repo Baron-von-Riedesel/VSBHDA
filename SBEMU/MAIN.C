@@ -5,13 +5,14 @@
 #include <dos.h>
 #include <go32.h>
 #include <sys/exceptn.h>
-#include <SBEMUCFG.H>
-#include <PIC.H>
-#include <OPL3EMU.H>
-#include <VDMA.H>
-#include <VIRQ.H>
-#include <SBEMU.H>
-#include <UNTRAPIO.H>
+
+#include "SBEMUCFG.H"
+#include "PIC.H"
+#include "OPL3EMU.H"
+#include "VDMA.H"
+#include "VIRQ.H"
+#include "SBEMU.H"
+#include "UNTRAPIO.H"
 #include "DPMI_.H"
 #include "QEMM.H"
 #include "HDPMIPT.H"
@@ -19,20 +20,9 @@
 #include <MPXPLAY.H>
 #include <AU_MIXER/MIX_FUNC.H>
 
-#define SB16 1
 #define QEMMPICTRAPDYN 1
 #define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
-#define TEST 0
-
-int dbgprintf(const char *fmt, ... );
-#define dbgprintf dbgprintf
-
-#if TEST
-extern void TestSound(BOOL play, mpxplay_audioout_info_s *);
-extern int16_t* TEST_Sample;
-extern unsigned long TEST_SampleLen;
-#endif
 
 static mpxplay_audioout_info_s aui = {0};
 
@@ -179,22 +169,20 @@ struct {
 {
     "/?", "Show help", FALSE,
     "/A", "Specify IO address, valid value: 220,240", 0x220,
-    "/I", "Specify IRQ number, valud value: 5,7", 7,
+    "/I", "Specify IRQ number, valid value: 5,7", 7,
     "/D", "Specify DMA channel, valid value: 0,1,3", 1,
 #if SB16
+    "/H", "Specify High DMA channel, valid value: 5,6,7", 0,
     "/T", "Specify SB Type, valid value: 0-6", 5,
-    "/H", "Specify High DMA channel, valid value: 5,6,7", -1,
 #else
     "/T", "Specify SB Type, valid value: 0-5", 5,
 #endif
     "/OPL", "Enable OPL3 emulation", TRUE,
-    "/PM", "Support protected mode games, you can try disable it when you have compatibility issues", TRUE,
+    "/PM", "Support protected mode games", TRUE,
     "/RM", "Support real mode games", TRUE,
-    "/O", "Select output. 0: headphone, 1: speaker. Intel HDA only", 1,
     "/VOL", "Set master volume (0-9)", 7,
-#if TEST
-    "/test", "Test sound and exit", FALSE,
-#endif
+    "/O", "Select output (HDA only); 0: headphone, 1: speaker", 1,
+    "/DEV", "Set device index (HDA only); in case there exist multiple devices", 0,
     NULL, NULL, 0,
 };
 enum EOption
@@ -203,18 +191,16 @@ enum EOption
     OPT_ADDR,
     OPT_IRQ,
     OPT_DMA,
-    OPT_TYPE,
 #if SB16
     OPT_HDMA,
 #endif
+    OPT_TYPE,
     OPT_OPL,
     OPT_PM,
     OPT_RM,
-    OPT_OUTPUT,
     OPT_VOL,
-#if TEST
-    OPT_TEST,
-#endif
+    OPT_OUTPUT,
+    OPT_DEVIDX,
     OPT_COUNT,
 };
 
@@ -341,27 +327,32 @@ void MAIN_Uninstall( void )
 	return;
 }
 
+#if SB16
+#define MAXTYPE 6
+#define HELPNOTE "\n if /A /I /D /H /T set, they will internally override the BLASTER values.\n"
+#else
+#define MAXTYPE 5
+#define HELPNOTE "\n if /A /I /D /T set, they will internally override the BLASTER values.\n"
+#endif
+
 int main(int argc, char* argv[])
 {
     //dbgprintf("main argc=%u\n argv[1]=%s\n", argc, argv[1] ? argv[1] : "NULL" );
-    if( argc >= 2 && (*argv[1] == '/' || *argv[1] == '-') && ( *(argv[1]+1) == '?' || *(argv[1]+1) == 'h' ) )
-    {
-        printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
-        int i = 0;
-        while(MAIN_Options[i].option)
-        {
-            printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, MAIN_Options[i].value);
-            ++i;
-        }
-        printf("\nNote: SBEMU will read BLASTER environment variable and use it, "
-        "\n if /A /I /D /T /H set, they will override the BLASTER values.\n");
-        printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
-        return 0;
-    }
-    //parse BLASTER env first.
-    {
-        char* blaster = getenv("BLASTER");
-        if(blaster != NULL)
+	if( argc >= 2 && (*argv[1] == '/' || *argv[1] == '-') && ( *(argv[1]+1) == '?' || *(argv[1]+1) == 'h' ) ) {
+		printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
+		int i = 0;
+		while(MAIN_Options[i].option) {
+			printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, MAIN_Options[i].value);
+			++i;
+		}
+		printf("\nNote: SBEMU will read BLASTER environment variable and use it, " HELPNOTE );
+		printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
+		return 0;
+	}
+	//parse BLASTER env first.
+	{
+		char* blaster = getenv("BLASTER");
+		if(blaster != NULL)
         {
             char c;
             while((c=toupper(*(blaster++))))
@@ -389,9 +380,10 @@ int main(int argc, char* argv[])
             int len = strlen(MAIN_Options[j].option);
             if(memicmp(argv[i], MAIN_Options[j].option, len) == 0)
             {
-                int arglen = strlen(argv[i]);
-                MAIN_Options[j].value = arglen == len ? 1 : strtol(&argv[i][len], NULL, 16);
-                break;
+                if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
+                    MAIN_Options[j].value = strtol(&argv[i][len], NULL, (j == OPT_ADDR) ? 16 : 10 );
+                    break;
+                }
             }
         }
     }
@@ -406,14 +398,21 @@ int main(int argc, char* argv[])
         printf("Error: invalid IRQ: %d.\n", MAIN_Options[OPT_IRQ].value);
         return 1;
     }
-    if(MAIN_Options[OPT_DMA].value != 0x0 && MAIN_Options[OPT_DMA].value != 0x1 && MAIN_Options[OPT_DMA].value != 0x3)
+    if(MAIN_Options[OPT_DMA].value != 0x0 && MAIN_Options[OPT_DMA].value != 1 && MAIN_Options[OPT_DMA].value != 3)
     {
         printf("Error: invalid DMA channel.\n");
         return 1;
     }
-    if(MAIN_Options[OPT_TYPE].value <= 0 || MAIN_Options[OPT_TYPE].value > 6)
+#if SB16
+    if(MAIN_Options[OPT_HDMA].value != 0x0 && ( MAIN_Options[OPT_HDMA].value <= 4 || MAIN_Options[OPT_HDMA].value > 7))
     {
-        printf("Error: invalid SB Type.\n");
+        printf("Error: invalid HDMA channel: %u\n", MAIN_Options[OPT_HDMA].value );
+        return 1;
+    }
+#endif
+    if(MAIN_Options[OPT_TYPE].value <= 0 || MAIN_Options[OPT_TYPE].value > MAXTYPE )
+    {
+        printf("Error: invalid SB Type: %u\n", MAIN_Options[OPT_TYPE].value );
         return 1;
     }
     if(MAIN_Options[OPT_OUTPUT].value != 0 && MAIN_Options[OPT_OUTPUT].value != 1)
@@ -427,20 +426,6 @@ int main(int argc, char* argv[])
         return 1;
     }
     //TODO: alter BLASTER env?
-#if TEST
-    if(MAIN_Options[OPT_TEST].value) //test
-    {
-        AU_init(&aui);
-        if(!aui.card_handler)
-            return 0;
-        AU_ini_interrupts(&aui);
-        AU_setmixer_init(&aui);
-        AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, 100);
-        TestSound( TRUE, &aui );
-        AU_del_interrupts(&aui);
-        return 0;
-    }
-#endif
 
     DPMI_Init();
 
@@ -475,6 +460,7 @@ int main(int argc, char* argv[])
     }
     
     aui.card_select_config = MAIN_Options[OPT_OUTPUT].value;
+    aui.card_select_devicenum = MAIN_Options[OPT_DEVIDX].value;
     AU_init(&aui);
     if(!aui.card_handler)
         return 0;
@@ -490,7 +476,8 @@ int main(int argc, char* argv[])
     MAIN_SB_VOL = 256*MAIN_GLB_VOL/9;
     AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, MAIN_GLB_VOL*100/9);
     //use fixed rate
-    mpxplay_audio_decoder_info_s adi = {NULL, 0, 1, SBEMU_SAMPLERATE, SBEMU_CHANNELS, SBEMU_CHANNELS, NULL, SBEMU_BITS, SBEMU_BITS/8, 0};
+	static mpxplay_audio_decoder_info_s adi = {
+		NULL, 0, MPXPLAY_WAVEID_PCM_SLE, SBEMU_SAMPLERATE, SBEMU_CHANNELS, SBEMU_CHANNELS, NULL, SBEMU_BITS, SBEMU_BITS/8, 0};
     AU_setrate(&aui, &adi);
 
     if( enableRM ) {
@@ -531,12 +518,12 @@ int main(int argc, char* argv[])
     SBEMU_Init(MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value,
                MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ], &MAIN_Interrupt);
 #else
-    SBEMU_Init(MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, -1,
+    SBEMU_Init(MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, 0,
                MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ], &MAIN_Interrupt);
 #endif
     VDMA_Virtualize(MAIN_Options[OPT_DMA].value, TRUE);
 #if SB16
-    if(MAIN_Options[OPT_TYPE].value == 6)
+    if( MAIN_Options[OPT_HDMA].value > 0 )
         VDMA_Virtualize(MAIN_Options[OPT_HDMA].value, TRUE);
 #endif
     for(int i = 0; i < countof(MAIN_SB_IODT); ++i)
@@ -544,9 +531,13 @@ int main(int argc, char* argv[])
 
     QEMM_IODT* SB_Iodt = MAIN_Options[OPT_OPL].value ? MAIN_SB_IODT : MAIN_SB_IODT+4;
     int SB_IodtCount = MAIN_Options[OPT_OPL].value ? countof(MAIN_SB_IODT) : countof(MAIN_SB_IODT)-4;
-    
-    printf("Sound Blaster emulation enabled at Address: %x, IRQ: %x, DMA: %x\n", MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value);
 
+#if SB16
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, TYPE=%d\n",
+           MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value, MAIN_Options[OPT_TYPE].value );
+#else
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u\n", MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value);
+#endif
     if ( enableRM ) {
         QEMMInstalledVDMA = QEMM_Install_IOPortTrap( MAIN_VDMA_IODT, countof(MAIN_VDMA_IODT), &MAIN_VDMA_IOPT, NULL );
         QEMMInstalledVIRQ = QEMM_Install_IOPortTrap( MAIN_VIRQ_IODT, countof(MAIN_VIRQ_IODT), &MAIN_VIRQ_IOPT, NULL );
@@ -572,7 +563,9 @@ int main(int argc, char* argv[])
         if ( MAIN_Options[OPT_IRQ].value > 7 )
             HDPMIInstalledVIRQ2  = HDPMIPT_Install_IOPortTrap(0xA0, 0xA0, MAIN_VIRQ_IODT+1,   1, &MAIN_VIRQ_IOPT_PM2);
         HDPMIInstalledSB     = HDPMIPT_Install_IOPortTrap(MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_ADDR].value+0x0F, SB_Iodt, SB_IodtCount, &MAIN_SB_IOPT_PM);
-        HDPMI_PrintPorts(); /* for debugging */
+#if PRINTPORTS
+        HDPMIPT_PrintPorts(); /* for debugging */
+#endif
         if( !HDPMIInstalledVDMA1 || !HDPMIInstalledVDMA2
 #if SB16
            || ( MAIN_Options[OPT_TYPE].value > 5 && !HDPMIInstalledVHDMA1 )
@@ -644,18 +637,6 @@ static int MAIN_InterruptPM( void )
 
 static void MAIN_Interrupt()
 {
-#if 0
-    aui.card_outbytes = aui.card_dmasize;
-    int space = AU_cardbuf_space(&aui)+2048;
-    int samples = space / sizeof(int16_t) / 2 * 2;
-    //int samples = 22050/18*2;
-    static int cur = 0;
-    aui.samplenum = min(samples, TEST_SampleLen-cur);
-    aui.pcm_sample = TEST_Sample + cur;
-    cur += aui.samplenum;
-    cur -= AU_writedata(&aui);
-#else
-
     int32_t vol;
     int32_t voicevol;
     int32_t midivol;
@@ -682,7 +663,9 @@ static void MAIN_Interrupt()
     {
         //dbgprintf("set sb volume:%d %d\n", MAIN_SB_VOL, vol*MAIN_GLB_VOL/9);
         MAIN_SB_VOL = vol*MAIN_GLB_VOL/9;
+        //asm("sub $200, %esp \n\tfsave (%esp)"); /* needed if AU_setmixer_one() uses floats */
         AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol*100/256);
+        //asm("frstor (%esp) \n\tadd $200, %esp \n\t");
     }
 
     aui.card_outbytes = aui.card_dmasize;
@@ -693,13 +676,7 @@ static void MAIN_Interrupt()
         return;
 
     BOOL digital = SBEMU_HasStarted();
-    int dma;
-    if ( (SBEMU_GetBits() == 8 || MAIN_Options[OPT_TYPE].value < 6 ) )
-        dma = SBEMU_GetDMA();
-    else {
-        if ( 0xff == ( dma = SBEMU_GetHDMA() ) )
-            dma = SBEMU_GetDMA();
-    }
+    int dma = SBEMU_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
 
     if(digital)//&& DMA_Count != 0x10000) //-1(0xFFFF)+1=0
@@ -709,7 +686,7 @@ static void MAIN_Interrupt()
         uint32_t SB_Bytes = SBEMU_GetSampleBytes();
         uint32_t SB_Pos = SBEMU_GetPos();
         uint32_t SB_Rate = SBEMU_GetSampleRate();
-        int samplesize = SBEMU_GetBits()/8;
+        int samplesize = max(1,SBEMU_GetBits()/8);
         int channels = SBEMU_GetChannels();
         //dbgprintf("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels );
         //dbgprintf("DMA index: %x\n", DMA_Index);
@@ -750,6 +727,8 @@ static void MAIN_Interrupt()
                 resample = FALSE;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
+            if(SBEMU_GetBits()<8) //ADPCM 8bit
+                count = max(1, count / (9 / SBEMU_GetBits()));
             int bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer
@@ -764,6 +743,8 @@ static void MAIN_Interrupt()
 #endif
 
             /* format conversion needed? */
+           if(SBEMU_GetBits()<8) //ADPCM  8bit
+                count = SBEMU_DecodeADPCM((uint8_t*)(MAIN_PCM+pos*2), bytes);
             if( samplesize != 2 )
                 cv_bits_n_to_m( MAIN_PCM + pos * 2, count * channels, samplesize, 2);
             if( resample ) /* SB_Rate != aui.freq_card*/
@@ -845,5 +826,4 @@ static void MAIN_Interrupt()
     AU_writedata(&aui);
 
     //dbgprintf("MAIN INT END\n");
-#endif
 }

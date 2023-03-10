@@ -815,7 +815,7 @@ static void EMU20KX_close(struct mpxplay_audioout_info_s *aui)
  if(card){
   if(card->iobase){
    snd_emu20kx_chip_close(card);
-   pds_dpmi_unmap_physycal_memory(card->iobase);
+   pds_dpmi_unmap_physical_memory(card->iobase);
   }
   MDma_free_cardmem(card->dm);
   if(card->pci_dev)

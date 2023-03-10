@@ -1,6 +1,6 @@
 #ifndef _DPMI_H_
 #define _DPMI_H_
-#include <PLATFORM.H>
+#include "PLATFORM.H"
 #include <dpmi.h>
 
 //a DPMI wrapper for different compilers. Borland C++, DJGPP, WatCom etc.

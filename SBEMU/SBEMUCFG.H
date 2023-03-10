@@ -3,9 +3,18 @@
 
 #define SBEMU_SAMPLERATE    22050
 //#define SBEMU_SAMPLERATE    44100
-
 #define SBEMU_CHANNELS 2
-
 #define SBEMU_BITS 16
+
+#define SB16 1        /* support SB16 */
+#define ADPCM 1       /* support ADPCM */
+#define PRINTPORTS 0  /* print trapped ports on init */
+
+int dbgprintf(const char *fmt, ... );
+#ifdef _DEBUG
+#define dbgprintf dbgprintf
+#else
+#define dbgprintf
+#endif
 
 #endif//_SBEMUCFG_H_

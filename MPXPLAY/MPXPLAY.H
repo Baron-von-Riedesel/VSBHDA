@@ -88,20 +88,6 @@ extern "C" {
 #define OUTMODE_CONTROL_SNDCARD_DDMA      (1 <<  8) // -ddma
 //#define OUTMODE_CONTROL_FILE_MASK (OUTMODE_CONTROL_FILE_BITSTREAMOUT|OUTMODE_CONTROL_FILE_FLOATOUT|OUTMODE_CONTROL_FILE_TAGLFN)
 
-//adone values
-#define ADONE_EOF     1   // end of file
-#define ADONE_RESTART 2   // open new file
-#define ADONE_REOPEN  3   // reopen the same file
-
-//su_startuptype flags
-#define MPXPLAY_STARTUP_FLAG_LOAD     1
-#define MPXPLAY_STARTUP_FLAG_SAVE     2
-#define MPXPLAY_STARTUP_FLAG_CMOS     4
-#define MPXPLAY_STARTUP_FLAG_RESDIR   8 // restore directory and song-pos at non-playlist mode
-#define MPXPLAY_STARTUP_FLAG_2SIDES  16 // restore both editorsides with all tabs
-#define MPXPLAY_STARTUP_FLAG_NEWFILE 32 // save position at every new file (into mpxtabs.ini)
-#define MPXPLAY_STARTUP_FLAGS_DEFAULT (MPXPLAY_STARTUP_FLAG_LOAD | MPXPLAY_STARTUP_FLAG_SAVE | MPXPLAY_STARTUP_FLAG_2SIDES) // for installer version only
-
 //mpxplay_programcontrol
 #define MPXPLAY_PROGRAMC_CONFIRMEXIT      (1 <<  0) // confirm exit (-xce)
 #define MPXPLAY_PROGRAMC_SHUTDOWNATX      (1 <<  1) // ATX/APM shutdown at exit
@@ -173,7 +159,6 @@ extern "C" {
 #define INTSOUND_INT08RUN  1024 // int08 process is running (has not finished)
 
 //timer settings
-#define MPXPLAY_TIMER_INT      0x08
 #define INT08_DIVISOR_DEFAULT  65536
 #define INT08_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
 #ifdef __DOS__
@@ -291,37 +276,11 @@ extern "C" {
 #define MPXPLAY_WAVEID_ALAC      0x00018005
 #define MPXPLAY_WAVEID_UNSUPPORTED 0x0001FFFF // !!! higher wave-ids blocked (fails) in decoder.c (modify it if it's required)
 
-enum mpxplay_video_player_types {
-    MPXPLAY_VIDEOPLAYERTYPE_NONE = 0,
-    MPXPLAY_VIDEOPLAYERTYPE_FFMPEG = 1,
-    MPXPLAY_VIDEOPLAYERTYPE_EXTERNAL = 5,
-    MPXPLAY_VIDEOPLAYERTYPE_QTMEDIA = 5,
-    MPXPLAY_VIDEOPLAYERTYPE_MAX
-};
-
 //------------------------------------------------------------------------
 //main structure definitions
 
-typedef struct crossfade_info{
- unsigned int usecrossfade;
- unsigned int crossfadepart;
- unsigned int crossfade_out_len;
- unsigned int crossfade_in_len;
- unsigned int crossfadepoint;
- unsigned int crossfadetype;
- unsigned int crossfadebegin;
- unsigned int crossfadeend;
- unsigned int crossfadelimit;
- unsigned int crosscounter;      // counter of crosswait
- unsigned int crosswait;         // don't start crossfade (ie: at rewind)
-}crossfade_info;
-
 #include "in_file.h"
 #include "au_cards\au_cards.h"
-#ifdef MPXPLAY_GUI_CONSOLE
-#include "display\visualpi.h"
-#include "videoout\videoout.h"
-#endif
 
 #define MPXPLAY_MPXPFRAME_FLAG_OWN_SRVFFMV_CALLBACK  (1 << 0)  // parser has own dispqt_worker callback function (in_ffmpeg.c)
 #define MPXPLAY_MPXPFRAME_FLAG_SRVFFMV_CALLBACK      (1 << 1)  // else we use a general callback (in_file.c)
@@ -373,11 +332,11 @@ struct mpxpframe_s {
  unsigned int pcmout_storedsamples;  // samplenum (with ch)
 
  struct mainvars *mvp;
- struct playlist_side_info *psi;
- struct playlist_entry_info *pei;
+// struct playlist_side_info *psi;
+// struct playlist_entry_info *pei;
  struct mpxp_aumixer_passinfo_s *mpi;
- void *mutexhnd_frame;
- void *mutexhnd_fillbuffer;
+// void *mutexhnd_frame;
+// void *mutexhnd_fillbuffer;
  int  last_errorcode;
  // for internal use only (DLL API break)
  unsigned int flags;      // MPXPLAY_MPXPFRAME_FLAG_
@@ -389,112 +348,24 @@ struct mpxpframe_s {
  struct mpxpframe_s *fro; // crosslink (fr[0]->fr[1],fr[1]->fr[0])
 };
 
-//#include "playlist\playlist.h"
 #include "au_mixer\au_mixer.h"
 
 struct mainvars{
- struct mpxpframe_s *fr_base;    // pointed to fr[0]
- struct mpxpframe_s *fr_primary; // currently playing file infos (secondary is frp->fro) (flip-flop between fr[0]/fr[1])
- struct mpxpframe_s *fr_check;   // used for pre-analyze a file
  struct mpxplay_audioout_info_s *aui;
-#ifdef MPXPLAY_GUI_CONSOLE
- struct mpxplay_videoout_info_s *voi;
-#endif
-
- struct playlist_side_info *psi0;    // side 0 info
- struct playlist_side_info *psie;    // editorside info
- struct playlist_side_info *psip;    // playside info
- struct playlist_side_info *psil;    // playlist side info
-
- struct playlist_entry_info *pei0;    // 0. side 0. entry (base entry of static playlist and pointers of current song)
- struct playlist_entry_info *aktfilenum;// currsong entry
- struct playlist_entry_info *newfilenum;// nextsong entry
-
- struct playlist_entry_info *newsong; // skip to newsong absolute
-
- long seek_absolute;                 // ie: with mouse on songposline
- long seek_relative;                 // rewind/forward
- unsigned int seek_frames;           // rewind/forward framenum
- int  step;                          // step (skip) -1/+1 song relative
- int  direction;                     // direction of step (skip)
-
  int idone;                          // end of decoding
- unsigned int fdone;                 // end of file
- unsigned int adone;                 // end of file + end of decoding
  unsigned int sndempty;              // no sound (above soundlimit)
- unsigned int partselect;            // open newfile or decoding
- unsigned int foundfile;             // found 1 playable audio file (at least) in the playlist
- struct crossfade_info *cfi;
-#ifdef MPXPLAY_GUI_CONSOLE
- display_visual_data_s *vds;
-#endif
-
- unsigned int editorside_selected;  // 0: left 1:right
- unsigned int editorside_all_tabs;
-// unsigned int editorsides_num_tabs[PLAYLIST_MAX_SIDES];
-// unsigned int editorsides_selected_tab[PLAYLIST_MAX_SIDES];
-
+ //unsigned int partselect;            // open newfile or decoding
+ //unsigned int foundfile;             // found 1 playable audio file (at least) in the playlist
+ //struct crossfade_info *cfi;
  struct mpxp_aumixer_main_info_s mmi;
 };
 
 //----------------------------------------------------------------------
-#define MPXPLAY_IS_FILE_OPEN(frp) ((frp)->filetype & HFT_FILE_ALL)
 
-#define MPXPLAY_STOPANDCLEAR_FLAG_STOPMEDIA          (1 << 0) // stop audio/video playing (else just pause)
-#define MPXPLAY_STOPANDCLEAR_FLAG_ENDWAIT            (1 << 1) // wait for end of (empty) soundcard buffer (don't stop soundcard before)
-#define MPXPLAY_STOPANDCLEAR_FLAG_DELAYEDFILECLOSE   (1 << 2) // delayed file closing (use mpxplay_timer_addfunc to close file)
-
-//mpxplay.c
-extern long mpxplay_calculate_timesec_to_framenum(struct mpxpframe_s *frp,char *pst);
-extern long mpxplay_calculate_index_start_end(struct mpxpframe_s *frp,struct mainvars *mvp,struct playlist_entry_info *pei); // return index_end
-extern void mpxplay_stop_and_clear(struct mainvars *,unsigned int stopclearflags);
-extern void mpxplay_playcontrol_pause(struct mainvars *mvp, unsigned int stopclearflags);
-extern void mpxplay_playcontrol_start(struct mainvars *mvp);
-extern void mpxplay_play_start_or_pause(struct mainvars *mvp);
-extern int  mpxplay_newsong_aktfilenum_set(struct mainvars *mvp, struct playlist_entry_info *pei);
-extern unsigned int mpxplay_check_buffers_full(struct mainvars *mvp);
-extern void crossfade_part_step(struct mainvars *);
-extern void crossfade_reset(struct mainvars *);
-extern void mpxplay_starttimes_clear(void);
-extern void mpxplay_close_program(unsigned int errorcode);
-
-//in_file.c
-extern int mpxplay_infile_decode(struct mpxplay_audioout_info_s *aui);
-extern int mpxplay_infile_get_infilefuncs_by_ext(struct mpxpframe_s *frp,struct mpxplay_diskdrive_data_s *mdds,char *filename,mpxp_uint32_t openmode);
-extern unsigned int mpxplay_infile_check_extension(char *filename,struct mpxplay_diskdrive_data_s *mdds);
-extern int  mpxplay_infile_get_header_by_ext(struct mpxpframe_s *frp,struct mpxplay_diskdrive_data_s *mdds,char *filename,mpxp_uint32_t openmode);
-extern int  mpxplay_infile_get_id3tag(struct mpxpframe_s *frp);
-extern int  mpxplay_infile_write_id3tag(struct mpxpframe_s *frp,char *filename,char **id3ip,unsigned long control);
-extern long mpxplay_infile_fseek(struct mpxpframe_s *frp,long newframenum);
-extern mpxp_int32_t mpxplay_infile_call_control_func(struct mpxpframe_s *frp, mpxp_uint32_t funcnum, mpxp_ptrsize_t arg1, mpxp_ptrsize_t arg2);
-extern int  mpxplay_infile_controlcb_modify_pei_by_filename(unsigned int cb_cmd, struct playlist_side_info *psi, struct playlist_entry_info *pei, char *filename, char *str_data, int str_len);
-
-unsigned int mpxplay_infile_get_samplenum_per_frame(unsigned int freq);
-void miis_to_frp(struct mpxplay_infile_info_s *miis,struct mpxpframe_s *frp);
-#ifdef MPXPLAY_LINK_VIDEO
-void mpxplay_infile_video_config_open(struct mpxplay_videoout_info_s *voi,struct mpxplay_video_decoder_info_s *vdi);
-#endif
 #ifdef MPXPLAY_GUI_QT
 extern void mpxplay_infile_duration_set(struct mpxpframe_s *frp, mpxp_int64_t duration_ms);
 extern void mpxplay_infile_framenum_refresh(struct mpxpframe_s *frp);
 #endif
-int  mpxplay_infile_open(struct mpxpframe_s *frp,char *filename,mpxp_uint32_t openmode);
-int  mpxplay_infile_avfile_open(struct mpxpframe_s *frp,char *filename,mpxp_uint32_t openmode,unsigned long framenum);
-void mpxplay_infile_suspend_close(struct mpxpframe_s *frp);
-void mpxplay_infile_nodrv_close(struct mpxpframe_s *frp);
-void mpxplay_infile_close(struct mpxpframe_s *frp);
-void mpxplay_infile_playing_close(void);
-void mpxplay_infile_reset(struct mpxpframe_s *frp);
-unsigned int mpxplay_infile_realloc_pcmoutdata(struct mpxplay_audio_decoder_info_s *adi,struct mpxpframe_s *frp);
-
-void mpxplay_infile_init(struct mainvars *mvp);
-void mpxplay_infile_deinit(struct mainvars *mvp);
-
-struct mpxpframe_s *mpxplay_infile_frame_alloc(struct mpxpframe_s *frp);
-void mpxplay_infile_frame_free(struct mpxpframe_s *frp);
-void *mpxplay_infile_filehandler_alloc(struct mpxplay_filehand_buffered_func_s **fbfs);
-void  mpxplay_infile_filehandler_free(void *frp);
-
 //newfunc
 extern int  mpxplay_bitstream_fill(struct mpxplay_bitstreambuf_s *bs,struct mpxplay_filehand_buffered_func_s *fbfs,void *fbds,unsigned int needbytes); // fill with a file-read
 extern unsigned int newfunc_newhandler08_maincycles_init(struct mainvars *mvp,void *cycleinit,void *cycle1,void *cycle2);

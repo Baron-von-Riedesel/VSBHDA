@@ -3,6 +3,9 @@
 # gpr2mak \projects\sbemu\sbemu.gpr
 
 OUTD=build
+C_DEBUG_FLAGS=
+#OUTD=debug
+#C_DEBUG_FLAGS=-D_DEBUG
 
 vpath_src=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu
 vpath %.c $(vpath_src)
@@ -35,7 +38,6 @@ endif
 
 INCLUDE_DIRS=./mpxplay ./sbemu
 LIB_DIRS=
-C_DEBUG_FLAGS=
 C_OPT_FLAGS=-Os
 C_C_LANG_FLAGS=
 C_CXX_LANG_FLAGS=
@@ -45,7 +47,7 @@ C_F_LANG_FLAGS=
 C_ADA_LANG_FLAGS=
 LIBS=
 LD_EXTRA_FLAGS=-Map $(OUTD)/sbemu.map
-C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU -DDEBUG=0
+C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU
 LOCAL_OPT=$(subst ___~~~___, ,$(subst $(notdir $<)___,,$(filter $(notdir\
 	$<)___%,$(LOCAL_OPTIONS))))
 
@@ -60,17 +62,17 @@ OBJFILES=$(OUTD)/main.o $(OUTD)/hdpmipt.o $(OUTD)/qemm.o    $(OUTD)/sbemu.o\
 	$(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
 	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o\
 	$(OUTD)/string.o\
-	$(OUTD)/fpu.o      $(OUTD)/memory.o   $(OUTD)/nf_dpmi.o $(OUTD)/pcibios.o\
-	$(OUTD)/threads.o  $(OUTD)/time.o     $(OUTD)/timer.o
+	$(OUTD)/memory.o   $(OUTD)/nf_dpmi.o $(OUTD)/pcibios.o\
+	$(OUTD)/time.o     $(OUTD)/timer.o
 
 ALL_OBJFILES=$(OUTD)/ac97_def.o $(OUTD)/au_cards.o $(OUTD)/cv_bits.o\
 	$(OUTD)/cv_chan.o $(OUTD)/cv_freq.o $(OUTD)/dbopl.o\
 	$(OUTD)/dmairq.o $(OUTD)/dpmi.o $(OUTD)/dpmi_dj2.o\
-	$(OUTD)/fpu.o $(OUTD)/hdpmipt.o $(OUTD)/main.o $(OUTD)/memory.o\
+	$(OUTD)/hdpmipt.o $(OUTD)/main.o $(OUTD)/memory.o\
 	$(OUTD)/nf_dpmi.o $(OUTD)/opl3emu.o $(OUTD)/pcibios.o $(OUTD)/pic.o\
 	$(OUTD)/qemm.o $(OUTD)/sbemu.o $(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
 	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o $(OUTD)/string.o\
-	$(OUTD)/threads.o $(OUTD)/time.o $(OUTD)/timer.o $(OUTD)/untrapio.o\
+	$(OUTD)/time.o $(OUTD)/timer.o $(OUTD)/untrapio.o\
 	$(OUTD)/vdma.o $(OUTD)/virq.o\
 	$(OUTD)/stackio.o $(OUTD)/stackisr.o $(OUTD)/int31.o $(OUTD)/dprintf.o\
 	$(OUTD)/vioout.o
@@ -84,10 +86,10 @@ SRC_DIRS=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu
 WUC=
 MAIN_TARGET=$(OUTD)/sbemu.exe
 PROJECT_ITEMS=ac97_def.c au_cards.c cv_bits.c cv_chan.c cv_freq.c\
-	dbopl.cpp dmairq.c dpmi.c dpmi_dj2.c fpu.c hdpmipt.c\
+	dbopl.cpp dmairq.c dpmi.c dpmi_dj2.c hdpmipt.c\
 	main.c memory.c nf_dpmi.c opl3emu.cpp pcibios.c pic.c qemm.c\
 	sbemu.c sc_e1371.c sc_ich.c sc_inthd.c sc_via82.c string.c\
-	threads.c time.c timer.c untrapio.c vdma.c virq.c
+	time.c timer.c untrapio.c vdma.c virq.c
 DEFAULT_MASK=*.[acfghimnops]*
 PASCAL_TYPE=GPC
 GET_HOME=$(HOME)
@@ -122,36 +124,34 @@ RHIDE_COMPILE.ii.s=$(RHIDE_COMPILE.cc.s)
 RHIDE_COMPILE.s.o=$(RHIDE_COMPILE_ASM)
 RHIDE_COMPILE_ARCHIVE=$(RHIDE_AR) $(RHIDE_ARFLAGS) $(OUTFILE)\
 	$(ALL_OBJFILES)
-RHIDE_COMPILE_ASM=$(RHIDE_AS) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_EXTRA_FLAGS) $(LOCAL_OPT)  -c\
-	$(SOURCE_NAME) -o $(OUTFILE)
-RHIDE_COMPILE_ASM_FORCE=$(RHIDE_AS) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_EXTRA_FLAGS) -x assembler\
-	$(LOCAL_OPT)  -c $(SOURCE_NAME) -o $(OUTFILE)
+RHIDE_COMPILE_ASM=$(RHIDE_AS) $(RHIDE_INCLUDES)\
+	$(C_OPT_FLAGS) $(LOCAL_OPT) -c $(SOURCE_NAME) -o $(OUTFILE)
+RHIDE_COMPILE_ASM_FORCE=$(RHIDE_AS) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -x assembler\
+	$(LOCAL_OPT) -c $(SOURCE_NAME) -o $(OUTFILE)
 RHIDE_COMPILE_C=$(RHIDE_GCC) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_C_LANG_FLAGS) $(C_EXTRA_FLAGS)\
-	$(RHIDE_OS_CFLAGS)  $(CPPFLAGS) $(CFLAGS) $(LOCAL_OPT) -c\
+	$(C_OPT_FLAGS) $(C_C_LANG_FLAGS) $(C_EXTRA_FLAGS)\
+	$(RHIDE_OS_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(LOCAL_OPT) -c\
 	$(SOURCE_NAME) -o $(OUTFILE)
 RHIDE_COMPILE_CC=$(RHIDE_GXX) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_C_LANG_FLAGS)\
-	$(C_CXX_LANG_FLAGS) $(C_EXTRA_FLAGS)  $(RHIDE_OS_CXXFLAGS)\
-	$(CPPFLAGS) $(CXXFLAGS) $(LOCAL_OPT)   -c $(SOURCE_NAME) -o\
+	$(C_OPT_FLAGS) $(C_C_LANG_FLAGS)\
+	$(C_CXX_LANG_FLAGS) $(C_EXTRA_FLAGS) $(RHIDE_OS_CXXFLAGS)\
+	$(CPPFLAGS) $(CXXFLAGS) $(LOCAL_OPT) -c $(SOURCE_NAME) -o\
 	$(OUTFILE)
 RHIDE_COMPILE_CC_FORCE=$(RHIDE_GXX) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_C_LANG_FLAGS)\
-	$(C_CXX_LANG_FLAGS) $(C_EXTRA_FLAGS)  $(RHIDE_OS_CXXFLAGS)\
-	$(CPPFLAGS) $(CXXFLAGS) -x c++ $(LOCAL_OPT)   -c $(SOURCE_NAME) -o\
+	$(C_OPT_FLAGS) $(C_C_LANG_FLAGS)\
+	$(C_CXX_LANG_FLAGS) $(C_EXTRA_FLAGS) $(RHIDE_OS_CXXFLAGS)\
+	$(CPPFLAGS) $(CXXFLAGS) -x c++ $(LOCAL_OPT) -c $(SOURCE_NAME) -o\
 	$(OUTFILE)
 RHIDE_COMPILE_C_FORCE=$(RHIDE_GCC) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
-	$(C_OPT_FLAGS)  $(C_C_LANG_FLAGS) $(C_EXTRA_FLAGS)\
-	-x c $(RHIDE_OS_CFLAGS)  $(CPPFLAGS) $(CFLAGS) $(LOCAL_OPT) -c\
+	$(C_OPT_FLAGS) $(C_C_LANG_FLAGS) $(C_EXTRA_FLAGS)\
+	-x c $(RHIDE_OS_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(LOCAL_OPT) -c\
 	$(SOURCE_NAME) -o $(OUTFILE)
 
 RHIDE_COMPILE_LINK=$(RHIDE_LD) $(RHIDE_LIBDIRS) $(C_EXTRA_FLAGS) -o\
-	$(OUTFILE)  $(OBJFILES) $(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS)\
+	$(OUTFILE) $(OBJFILES) $(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS)\
 	$(RHIDE_LIBS)
 
-RHIDE_COMPILE_JWASM=jwasm.exe -nologo -coff -Fo$(OUTFILE) $(SOURCE_NAME)
+RHIDE_COMPILE_JWASM=jwasm.exe -nologo -djgpp -Fo$(OUTFILE) $(SOURCE_NAME)
 RHIDE_CONFIG_DIRS=. $(RHIDE_SHARE) $(GET_HOME)   $(RHIDE_CONFIG_DIRS_COMMON)\
 	 $(addsuffix /SET,$(RHIDE_CONFIG_DIRS_COMMON))  $(SET_FILES)
 RHIDE_CONFIG_DIRS_DJGPP=$(DJDIR)/share/rhide
@@ -262,11 +262,11 @@ clean::
 DEPS_0= $(OUTD)/main.o   $(OUTD)/hdpmipt.o	$(OUTD)/qemm.o	$(OUTD)/opl3emu.o	$(OUTD)/dbopl.o\
 	$(OUTD)/dpmi.o		$(OUTD)/dpmi_dj2.o	$(OUTD)/pic.o	$(OUTD)/sbemu.o\
 	$(OUTD)/untrapio.o	$(OUTD)/vdma.o		$(OUTD)/virq.o\
-	$(OUTD)/threads.o	$(OUTD)/time.o		$(OUTD)/timer.o\
+	$(OUTD)/time.o		$(OUTD)/timer.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o		$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/string.o\
-	$(OUTD)/dmairq.o		$(OUTD)/fpu.o		$(OUTD)/pcibios.o	$(OUTD)/memory.o		$(OUTD)/nf_dpmi.o\
+	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o		$(OUTD)/nf_dpmi.o\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
 NO_LINK=
@@ -279,82 +279,92 @@ $(OUTD)/sbemu.exe:: $(DEPS_0)
 #	copy /b $(OUTD)\stub.bin + $(OUTD)\sbemu $(OUTD)\sbemu.exe
 	stubedit $(OUTFILE) minstack=64k
 
-DEPS_1=ac97_def.c ./mpxplay/au_cards/ac97_def.h ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
-DEPS_2=au_cards.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_cards/dmairq.h ./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
-DEPS_3=cv_bits.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h
-DEPS_4=cv_chan.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h
-DEPS_5=cv_freq.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h
 DEPS_7=dbopl.cpp dbopl.h
-DEPS_8=dmairq.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_cards/dmairq.h ./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
 DEPS_9=dpmi.c dpmi_.h platform.h
 DEPS_10=dpmi_dj2.c dpmi_.h platform.h
-DEPS_12=fpu.c
-DEPS_13=hdpmipt.c hdpmipt.h qemm.h dpmi_.h platform.h untrapio.h
+DEPS_13=hdpmipt.c hdpmipt.h qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
 DEPS_14=main.c hdpmipt.h qemm.h\
-	./mpxplay/au_cards/au_cards.h\
-	./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/au_mixer/mix_func.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h\
-	dpmi_.h opl3emu.h pic.h platform.h sbemu.h sbemucfg.h untrapio.h vdma.h virq.h
-DEPS_15=memory.c ./mpxplay/au_cards/au_cards.h\
-	./mpxplay/au_mixer/au_mixer.h\
-	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h
+	dpmi_.h opl3emu.h pic.h platform.h sbemu.h sbemucfg.h untrapio.h vdma.h virq.h\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/au_mixer/mix_func.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
 DEPS_16=nf_dpmi.c ./mpxplay/newfunc/newfunc.h
 DEPS_17=opl3emu.cpp dbopl.h opl3emu.h
-DEPS_18=pcibios.c ./mpxplay/au_cards/pcibios.h\
-	./mpxplay/newfunc/newfunc.h
 DEPS_19=pic.c pic.h platform.h untrapio.h
-DEPS_20=qemm.c qemm.h dpmi_.h platform.h untrapio.h
-DEPS_21=sbemu.c dpmi_.h platform.h sbemu.h
-DEPS_22=sc_e1371.c ./mpxplay/au_cards/ac97_def.h\
+DEPS_20=qemm.c qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
+DEPS_21=sbemu.c dpmi_.h platform.h sbemu.h sbemucfg.h
+DEPS_31=untrapio.c untrapio.h
+DEPS_32=vdma.c dpmi_.h platform.h untrapio.h vdma.h sbemucfg.h
+DEPS_33=virq.c dpmi_.h pic.h      platform.h untrapio.h virq.h
+
+DEPS_1=ac97_def.c\
+	./mpxplay/au_cards/ac97_def.h ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
+DEPS_2=au_cards.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_cards/dmairq.h ./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
+DEPS_3=cv_bits.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_4=cv_chan.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_5=cv_freq.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_8=dmairq.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_cards/dmairq.h ./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
+DEPS_15=memory.c\
+	./mpxplay/au_cards/au_cards.h\
+	./mpxplay/au_mixer/au_mixer.h\
+	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_18=pcibios.c\
+	./mpxplay/au_cards/pcibios.h\
+	./mpxplay/newfunc/newfunc.h
+DEPS_22=sc_e1371.c\
+	./mpxplay/au_cards/ac97_def.h\
 	./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_cards/dmairq.h\
 	./mpxplay/au_cards/pcibios.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_23=sc_ich.c ./mpxplay/au_cards/ac97_def.h\
+DEPS_23=sc_ich.c\
+	./mpxplay/au_cards/ac97_def.h\
 	./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_cards/dmairq.h\
 	./mpxplay/au_cards/pcibios.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_24=sc_inthd.c ./mpxplay/au_cards/au_cards.h\
+DEPS_24=sc_inthd.c\
+	./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_cards/dmairq.h\
 	./mpxplay/au_cards/pcibios.h\
 	./mpxplay/au_cards/sc_inthd.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_25=sc_via82.c ./mpxplay/au_cards/ac97_def.h\
+DEPS_25=sc_via82.c\
+	./mpxplay/au_cards/ac97_def.h\
 	./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_cards/dmairq.h\
 	./mpxplay/au_cards/pcibios.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_26=string.c ./mpxplay/au_cards/au_cards.h\
+DEPS_26=string.c\
+	./mpxplay/au_cards/au_cards.h\
 	./mpxplay/au_mixer/au_mixer.h\
 	./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_28=threads.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
+DEPS_29=time.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_29=time.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
-	./mpxplay/newfunc/newfunc.h
-DEPS_30=timer.c ./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxinbuf.h\
+DEPS_30=timer.c\
+	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h\
 	./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
-DEPS_31=untrapio.c untrapio.h
-DEPS_32=vdma.c dpmi_.h platform.h untrapio.h vdma.h
-DEPS_33=virq.c dpmi_.h pic.h      platform.h untrapio.h virq.h
 
 $(OUTD)/ac97_def.o:: $(DEPS_1)
 	$(RHIDE_COMPILE.c.o)
@@ -373,8 +383,6 @@ $(OUTD)/dmairq.o:: $(DEPS_8)
 $(OUTD)/dpmi.o:: $(DEPS_9)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/dpmi_dj2.o:: $(DEPS_10)
-	$(RHIDE_COMPILE.c.o)
-$(OUTD)/fpu.o:: $(DEPS_12)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/hdpmipt.o:: $(DEPS_13)
 	$(RHIDE_COMPILE.c.o)
@@ -404,8 +412,6 @@ $(OUTD)/sc_via82.o:: $(DEPS_25)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/string.o:: $(DEPS_26)
 	$(RHIDE_COMPILE.c.o)
-$(OUTD)/threads.o:: $(DEPS_28)
-	$(RHIDE_COMPILE.c.o)
 $(OUTD)/time.o:: $(DEPS_29)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/timer.o:: $(DEPS_30)
@@ -416,5 +422,15 @@ $(OUTD)/vdma.o:: $(DEPS_32)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/virq.o:: $(DEPS_33)
 	$(RHIDE_COMPILE.c.o)
+$(OUTD)/stackio.o:: stackio.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/stackisr.o:: stackisr.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/int31.o:: int31.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/dprintf.o:: dprintf.asm
+	$(RHIDE_COMPILE.asm.o)
+$(OUTD)/vioout.o:: vioout.asm
+	$(RHIDE_COMPILE.asm.o)
 
 all:: $(OUTD)/sbemu.exe

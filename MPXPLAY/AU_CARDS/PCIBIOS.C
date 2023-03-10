@@ -73,6 +73,38 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *
  return reg.h.ah;
 }
 
+uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex,
+								   pci_device_s devices[], pci_config_s *ppkey)
+{
+	union REGS reg;
+
+	pcibios_clear_regs(reg);
+
+	reg.h.ah = PCI_FUNCTION_ID;
+	reg.h.al = PCI_FIND_CLASS;
+	reg.d.ecx = bClass << 16 | bSubClass << 8 | bInterface;
+	reg.w.si = wIndex;
+
+	int386(PCI_SERVICE, &reg, &reg);
+
+	if(ppkey && (reg.h.ah==PCI_SUCCESSFUL)){
+		ppkey->bBus  = reg.h.bh;
+		ppkey->bDev  = PCIDEVNUM(reg.h.bl);
+		ppkey->bFunc = PCIFUNCNUM(reg.h.bl);
+		ppkey->vendor_id = pcibios_ReadConfig_Word( ppkey, PCIR_VID );
+		ppkey->device_id = pcibios_ReadConfig_Word( ppkey, PCIR_DID );
+		for( int i = 0; devices[i].vendor_id; i++ ){
+			if ( devices[i].vendor_id == ppkey->vendor_id && devices[i].device_id == ppkey->device_id ) {
+				ppkey->device_name = devices[i].device_name;
+				ppkey->device_type = devices[i].device_type;
+				break;
+			}
+		}
+		return( PCI_SUCCESSFUL );
+	}
+	return PCI_DEVICE_NOTFOUND;
+}
+
 uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 {
  if(pcibios_GetBus()){
@@ -92,6 +124,7 @@ uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 }
 
 #ifndef SBEMU //BIOS INT service may freeze on some PC (tested a 845M laptop), use pure IOs.
+
 uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
 {
  union REGS reg;

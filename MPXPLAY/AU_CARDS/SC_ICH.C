@@ -671,12 +671,11 @@ one_sndcard_info ICH_sndcard_info={
  &INTELICH_getbufpos,
  &MDma_clearbuf,
  NULL, // ICH doesn't need dma-monitor (LVI handles it)
- #ifdef SBEMU
+#ifdef SBEMU
  &INTELICH_IRQRoutine,
- #else
+#else
  NULL,
- #endif
-
+#endif
  &INTELICH_writeMIXER,
  &INTELICH_readMIXER,
  &mpxplay_aucards_ac97chan_mixerset[0]

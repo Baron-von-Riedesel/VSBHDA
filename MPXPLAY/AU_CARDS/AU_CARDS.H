@@ -15,7 +15,7 @@ extern "C" {
 #define AUINFOS_CARDCNTRLBIT_BITSTREAMNOFRH  64 // no-frame-header output is supported by decoder
 #define AUINFOS_CARDCNTRLBIT_BITSTREAMHEAD  128 // write main header (at wav out only)
 #define AUINFOS_CARDCNTRLBIT_AUTOTAGGING    256 // copy tags (id3infos) from infile to outfile (if possible)
-#define AUINFOS_CARDCNTRLBIT_AUTOTAGLFN     512 // create filename from id3infos (usually "NN. Artist - Title.ext"
+//#define AUINFOS_CARDCNTRLBIT_AUTOTAGLFN     512 // create filename from id3infos (usually "NN. Artist - Title.ext"
 #define AUINFOS_CARDCNTRLBIT_UPDATEFREQ    1024 // change/update soundcard freq
 
 //au_infos->card_infobits
@@ -206,7 +206,7 @@ typedef struct mpxplay_audioout_info_s{
  unsigned int   card_wave_id;    // 0x0001,0x0003,0x0055,0x2000,etc.
  char          *card_wave_name;  // currently file extension for -obs ("MP3","AC3")
  unsigned char *card_channelmap; // multichannel output mapping (WDS,WAV)
- unsigned long  card_select_devicenum;
+ unsigned long  card_select_devicenum; /* inp: for HDA to select one among multiples */
  long           card_select_config;
  unsigned long  card_controlbits;  // card control flags
  unsigned long  card_infobits;     // card info flags
@@ -269,10 +269,10 @@ extern void AU_ini_interrupts(struct mpxplay_audioout_info_s *);
 extern void AU_del_interrupts(struct mpxplay_audioout_info_s *aui);
 extern void AU_prestart(struct mpxplay_audioout_info_s *);
 extern void AU_start(struct mpxplay_audioout_info_s *);
-extern void AU_wait_and_stop(struct mpxplay_audioout_info_s *);
+//extern void AU_wait_and_stop(struct mpxplay_audioout_info_s *);
 extern void AU_stop(struct mpxplay_audioout_info_s *);
-extern void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui);
-extern void AU_resume_decoding(struct mpxplay_audioout_info_s *aui);
+//extern void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui);
+//extern void AU_resume_decoding(struct mpxplay_audioout_info_s *aui);
 extern void AU_close(struct mpxplay_audioout_info_s *);
 extern void AU_setrate(struct mpxplay_audioout_info_s *aui,struct mpxplay_audio_decoder_info_s *adi);
 extern void AU_setmixer_init(struct mpxplay_audioout_info_s *aui);

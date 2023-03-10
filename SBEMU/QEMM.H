@@ -1,6 +1,6 @@
 #ifndef _EMM_H_
 #define _EMM_H_ 1
-#include <PLATFORM.H>
+#include "PLATFORM.H"
 
 #ifdef __cplusplus
 extern "C"

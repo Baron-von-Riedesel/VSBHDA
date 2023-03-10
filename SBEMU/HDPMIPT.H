@@ -15,7 +15,8 @@ BOOL HDPMIPT_UninstallISR( void );
 void HDPMIPT_UntrappedIO_Write(uint16_t port, uint8_t value);
 uint8_t HDPMIPT_UntrappedIO_Read(uint16_t port);
 
-void HDPMI_PrintPorts( void ); /* display trapped ports in protected-mode */
-void _hdpmi_CallOldISR( DPMI_ISR_HANDLE* inputp handle );
+#if PRINTPORTS
+void HDPMIPT_PrintPorts( void ); /* display trapped ports in protected-mode */
+#endif
 
 #endif //_HDPMIPT_H_

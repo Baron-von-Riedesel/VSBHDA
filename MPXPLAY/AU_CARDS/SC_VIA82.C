@@ -606,12 +606,13 @@ one_sndcard_info VIA82XX_sndcard_info={
  &MDma_writedata,
  &VIA82XX_getbufpos,
  &VIA82XX_clearbuf,
- &MDma_interrupt_monitor,
- #ifdef SBEMU
- &VIA82XX_IRQRoutine,
- #else
+#ifdef SBEMU
  NULL,
- #endif
+ &VIA82XX_IRQRoutine,
+#else
+ &MDma_interrupt_monitor,
+ NULL,
+#endif
 
  &VIA82XX_writeMIXER,
  &VIA82XX_readMIXER,

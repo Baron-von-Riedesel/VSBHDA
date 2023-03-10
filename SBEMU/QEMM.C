@@ -9,15 +9,12 @@
 #ifdef DJGPP
 #include <sys/ioctl.h>
 #endif
+#include "SBEMUCFG.h"
 #include "QEMM.h"
 #include "DPMI_.H"
-#include <UNTRAPIO.H>
+#include "UNTRAPIO.H"
 
 #define HANDLE_IN_388H_DIRECTLY 1
-
-int dbgprintf(const char *fmt, ... );
-#define dbgprintf dbgprintf
-
 
 static QEMM_IODT_LINK QEMM_IODT_header;
 static QEMM_IODT_LINK* QEMM_IODT_Link = &QEMM_IODT_header;

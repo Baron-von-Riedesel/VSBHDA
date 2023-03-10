@@ -59,28 +59,28 @@ enum {
 #define AC_VERB_GET_STREAM_FORMAT        0x0a00
 #define AC_VERB_GET_AMP_GAIN_MUTE        0x0b00
 #define AC_VERB_GET_PROC_COEF            0x0c00
-#define AC_VERB_GET_COEF_INDEX            0x0d00
-#define AC_VERB_PARAMETERS            0x0f00
-#define AC_VERB_GET_CONNECT_SEL            0x0f01
-#define AC_VERB_GET_CONNECT_LIST        0x0f02
-#define AC_VERB_GET_PROC_STATE            0x0f03
-#define AC_VERB_GET_SDI_SELECT            0x0f04
-#define AC_VERB_GET_POWER_STATE            0x0f05
-#define AC_VERB_GET_CONV            0x0f06
-#define AC_VERB_GET_PIN_WIDGET_CONTROL        0x0f07
-#define AC_VERB_GET_UNSOLICITED_RESPONSE    0x0f08
+#define AC_VERB_GET_COEF_INDEX           0x0d00
+#define AC_VERB_PARAMETERS               0x0f00
+#define AC_VERB_GET_CONNECT_SEL          0x0f01
+#define AC_VERB_GET_CONNECT_LIST         0x0f02
+#define AC_VERB_GET_PROC_STATE           0x0f03
+#define AC_VERB_GET_SDI_SELECT           0x0f04
+#define AC_VERB_GET_POWER_STATE          0x0f05
+#define AC_VERB_GET_CONV                 0x0f06
+#define AC_VERB_GET_PIN_WIDGET_CONTROL   0x0f07
+#define AC_VERB_GET_UNSOLICITED_RESPONSE 0x0f08
 #define AC_VERB_GET_PIN_SENSE            0x0f09
-#define AC_VERB_GET_BEEP_CONTROL        0x0f0a
-#define AC_VERB_GET_EAPD_BTLENABLE        0x0f0c
-#define AC_VERB_GET_DIGI_CONVERT        0x0f0d
-#define AC_VERB_GET_VOLUME_KNOB_CONTROL        0x0f0f
+#define AC_VERB_GET_BEEP_CONTROL         0x0f0a
+#define AC_VERB_GET_EAPD_BTLENABLE       0x0f0c
+#define AC_VERB_GET_DIGI_CONVERT         0x0f0d
+#define AC_VERB_GET_VOLUME_KNOB_CONTROL  0x0f0f
 /* f10-f1a: GPIO */
 #define AC_VERB_GET_GPIO_DATA            0x0f15
 #define AC_VERB_GET_GPIO_MASK            0x0f16
-#define AC_VERB_GET_GPIO_DIRECTION        0x0f17
-#define AC_VERB_GET_CONFIG_DEFAULT        0x0f1c
+#define AC_VERB_GET_GPIO_DIRECTION       0x0f17
+#define AC_VERB_GET_CONFIG_DEFAULT       0x0f1c
 /* f20: AFG/MFG */
-#define AC_VERB_GET_SUBSYSTEM_ID        0x0f20
+#define AC_VERB_GET_SUBSYSTEM_ID         0x0f20
 
 /*
  * SET verbs
@@ -88,48 +88,48 @@ enum {
 #define AC_VERB_SET_STREAM_FORMAT        0x200
 #define AC_VERB_SET_AMP_GAIN_MUTE        0x300
 #define AC_VERB_SET_PROC_COEF            0x400
-#define AC_VERB_SET_COEF_INDEX            0x500
-#define AC_VERB_SET_CONNECT_SEL            0x701
-#define AC_VERB_SET_PROC_STATE            0x703
-#define AC_VERB_SET_SDI_SELECT            0x704
-#define AC_VERB_SET_POWER_STATE            0x705
-#define AC_VERB_SET_CHANNEL_STREAMID        0x706
-#define AC_VERB_SET_PIN_WIDGET_CONTROL        0x707
-#define AC_VERB_SET_UNSOLICITED_ENABLE        0x708
+#define AC_VERB_SET_COEF_INDEX           0x500
+#define AC_VERB_SET_CONNECT_SEL          0x701
+#define AC_VERB_SET_PROC_STATE           0x703
+#define AC_VERB_SET_SDI_SELECT           0x704
+#define AC_VERB_SET_POWER_STATE          0x705
+#define AC_VERB_SET_CHANNEL_STREAMID     0x706
+#define AC_VERB_SET_PIN_WIDGET_CONTROL   0x707
+#define AC_VERB_SET_UNSOLICITED_ENABLE   0x708
 #define AC_VERB_SET_PIN_SENSE            0x709
-#define AC_VERB_SET_BEEP_CONTROL        0x70a
-#define AC_VERB_SET_EAPD_BTLENABLE        0x70c
-#define AC_VERB_SET_DIGI_CONVERT_1        0x70d
-#define AC_VERB_SET_DIGI_CONVERT_2        0x70e
-#define AC_VERB_SET_VOLUME_KNOB_CONTROL        0x70f
+#define AC_VERB_SET_BEEP_CONTROL         0x70a
+#define AC_VERB_SET_EAPD_BTLENABLE       0x70c
+#define AC_VERB_SET_DIGI_CONVERT_1       0x70d
+#define AC_VERB_SET_DIGI_CONVERT_2       0x70e
+#define AC_VERB_SET_VOLUME_KNOB_CONTROL  0x70f
 #define AC_VERB_SET_GPIO_DATA            0x715
 #define AC_VERB_SET_GPIO_MASK            0x716
-#define AC_VERB_SET_GPIO_DIRECTION        0x717
+#define AC_VERB_SET_GPIO_DIRECTION       0x717
 #define AC_VERB_SET_CONFIG_DEFAULT_BYTES_0    0x71c
 #define AC_VERB_SET_CONFIG_DEFAULT_BYTES_1    0x71d
 #define AC_VERB_SET_CONFIG_DEFAULT_BYTES_2    0x71e
 #define AC_VERB_SET_CONFIG_DEFAULT_BYTES_3    0x71f
-#define AC_VERB_SET_CODEC_RESET            0x7ff
+#define AC_VERB_SET_CODEC_RESET          0x7ff
 
 /*
  * Parameter IDs
  */
-#define AC_PAR_VENDOR_ID        0x00
-#define AC_PAR_SUBSYSTEM_ID        0x01
+#define AC_PAR_VENDOR_ID         0x00
+#define AC_PAR_SUBSYSTEM_ID      0x01
 #define AC_PAR_REV_ID            0x02
 #define AC_PAR_NODE_COUNT        0x04
-#define AC_PAR_FUNCTION_TYPE        0x05
-#define AC_PAR_AUDIO_FG_CAP        0x08
-#define AC_PAR_AUDIO_WIDGET_CAP        0x09
-#define AC_PAR_PCM            0x0a
+#define AC_PAR_FUNCTION_TYPE     0x05
+#define AC_PAR_AUDIO_FG_CAP      0x08
+#define AC_PAR_AUDIO_WIDGET_CAP  0x09
+#define AC_PAR_PCM               0x0a
 #define AC_PAR_STREAM            0x0b
-#define AC_PAR_PIN_CAP            0x0c
+#define AC_PAR_PIN_CAP           0x0c
 #define AC_PAR_AMP_IN_CAP        0x0d
-#define AC_PAR_CONNLIST_LEN        0x0e
-#define AC_PAR_POWER_STATE        0x0f
-#define AC_PAR_PROC_CAP            0x10
-#define AC_PAR_GPIO_CAP            0x11
-#define AC_PAR_AMP_OUT_CAP        0x12
+#define AC_PAR_CONNLIST_LEN      0x0e
+#define AC_PAR_POWER_STATE       0x0f
+#define AC_PAR_PROC_CAP          0x10
+#define AC_PAR_GPIO_CAP          0x11
+#define AC_PAR_AMP_OUT_CAP       0x12
 
 /*
  * AC_VERB_PARAMETERS results (32bit)
@@ -427,68 +427,68 @@ enum {
 };
 
 // registers
-#define ICH6_REG_GCAP            0x00
-#define ICH6_REG_VMIN            0x02
-#define ICH6_REG_VMAJ            0x03
-#define ICH6_REG_OUTPAY            0x04
-#define ICH6_REG_INPAY            0x06
-#define ICH6_REG_GCTL            0x08
-#define ICH6_REG_WAKEEN            0x0c
-#define ICH6_REG_STATESTS        0x0e
-#define ICH6_REG_GSTS            0x10
-#define ICH6_REG_INTCTL            0x20
-#define ICH6_REG_INTSTS            0x24
-#define ICH6_REG_WALCLK            0x30
-#define ICH6_REG_SYNC            0x34    
-#define ICH6_REG_CORBLBASE        0x40
-#define ICH6_REG_CORBUBASE        0x44
-#define ICH6_REG_CORBWP            0x48
-#define ICH6_REG_CORBRP            0x4A
+#define ICH6_REG_GCAP           0x00
+#define ICH6_REG_VMIN           0x02
+#define ICH6_REG_VMAJ           0x03
+#define ICH6_REG_OUTPAY         0x04
+#define ICH6_REG_INPAY          0x06
+#define ICH6_REG_GCTL           0x08
+#define ICH6_REG_WAKEEN         0x0c
+#define ICH6_REG_STATESTS       0x0e
+#define ICH6_REG_GSTS           0x10
+#define ICH6_REG_INTCTL         0x20
+#define ICH6_REG_INTSTS         0x24
+#define ICH6_REG_WALCLK         0x30
+#define ICH6_REG_SYNC           0x34
+#define ICH6_REG_CORBLBASE      0x40
+#define ICH6_REG_CORBUBASE      0x44
+#define ICH6_REG_CORBWP         0x48
+#define ICH6_REG_CORBRP         0x4A
 #define ICH6_REG_CORBCTL        0x4c
 #define ICH6_REG_CORBSTS        0x4d
-#define ICH6_REG_CORBSIZE        0x4e
+#define ICH6_REG_CORBSIZE       0x4e
 
-#define ICH6_REG_RIRBLBASE        0x50
-#define ICH6_REG_RIRBUBASE        0x54
-#define ICH6_REG_RIRBWP            0x58
+#define ICH6_REG_RIRBLBASE      0x50
+#define ICH6_REG_RIRBUBASE      0x54
+#define ICH6_REG_RIRBWP         0x58
 #define ICH6_REG_RINTCNT        0x5a
 #define ICH6_REG_RIRBCTL        0x5c
 #define ICH6_REG_RIRBSTS        0x5d
-#define ICH6_REG_RIRBSIZE        0x5e
+#define ICH6_REG_RIRBSIZE       0x5e
 
 #define ICH6_REG_IC            0x60
 #define ICH6_REG_IR            0x64
-#define ICH6_REG_IRS            0x68
-#define   ICH6_IRS_VALID    (1<<1)
-#define   ICH6_IRS_BUSY        (1<<0)
+#define ICH6_REG_IRS           0x68
+#define ICH6_IRS_VALID       (1<<1)
+#define ICH6_IRS_BUSY        (1<<0)
 
 #define ICH6_REG_DPLBASE        0x70
 #define ICH6_REG_DPUBASE        0x74
-#define   ICH6_DPLBASE_ENABLE    0x1    /* Enable position buffer */
+#define ICH6_DPLBASE_ENABLE     0x1    /* Enable position buffer */
 
 /* stream register offsets from stream base */
 #define ICH6_REG_SD_CTL            0x00
 #define ICH6_REG_SD_STS            0x03
-#define ICH6_REG_SD_LPIB        0x04
+#define ICH6_REG_SD_LPIB           0x04
 #define ICH6_REG_SD_CBL            0x08
 #define ICH6_REG_SD_LVI            0x0c
-#define ICH6_REG_SD_FIFOW        0x0e
-#define ICH6_REG_SD_FIFOSIZE        0x10
-#define ICH6_REG_SD_FORMAT        0x12
-#define ICH6_REG_SD_BDLPL        0x18
-#define ICH6_REG_SD_BDLPU        0x1c
+#define ICH6_REG_SD_FIFOW          0x0e
+#define ICH6_REG_SD_FIFOSIZE       0x10
+#define ICH6_REG_SD_FORMAT         0x12
+#define ICH6_REG_SD_BDLPL          0x18
+#define ICH6_REG_SD_BDLPU          0x1c
 
 /*CORB & RIRB */
 #define HDA_CORB_MAXSIZE 1024
-#define HDA_CORB_ALIGN 128
+#define HDA_CORB_ALIGN    128
 #define HDA_RIRB_MAXSIZE 2048
-#define HDA_RIRB_ALGIN 128
+#define HDA_RIRB_ALGIN    128
 
 /* PCI space */
 #define ICH6_PCIREG_TCSEL    0x44
 
 #define MAX_AZX_DEV        16
-#define BDL_SIZE        8192
+#define BDL_SIZE           8192
 #define AZX_MAX_FRAG        (BDL_SIZE / (MAX_AZX_DEV * 16))
 
 #define STATESTS_INT_MASK    0x07
@@ -502,7 +502,7 @@ enum {
 
 /* SD_CTL bits */
 #define SD_CTL_STREAM_RESET    0x01    /* stream reset bit */
-#define SD_CTL_DMA_START    0x02    /* stream DMA start bit */
+#define SD_CTL_DMA_START       0x02    /* stream DMA start bit */
 #define SD_CTL_STREAM_TAG_MASK    (0xf << 20)
 #define SD_CTL_STREAM_TAG_SHIFT    20
 
@@ -516,8 +516,8 @@ enum {
 #define RIRB_INT_MASK        0x05
 
 /* INTCTL and INTSTS */
-#define ICH6_INT_ALL_STREAM    0xff       /* all stream interrupts */
-#define ICH6_INT_CTRL_EN    0x40000000 /* controller interrupt enable bit */
+#define ICH6_INT_ALL_STREAM   0xff       /* all stream interrupts */
+#define ICH6_INT_CTRL_EN      0x40000000 /* controller interrupt enable bit */
 #define ICH6_INT_GLOBAL_EN    0x80000000 /* global interrupt enable bit */
 
 /* Defines for ATI HD Audio support in SB450 south bridge */
@@ -537,7 +537,7 @@ enum {
 
 #define INTEL_HDA_HDBARL           0x10
 #define INTEL_HDA_HDBARU           0x14
-#define INTEL_HDA_HDCTL              0x40
+#define INTEL_HDA_HDCTL            0x40
 
 
 #define MAX_PCM_VOLS    2
@@ -552,7 +552,7 @@ enum {
 #define PIN_IN        0x20
 #define PIN_VREF80    0x24
 #define PIN_VREF50    0x21
-#define PIN_OUT        0x40
+#define PIN_OUT       0x40
 #define PIN_HP        0xc0
 #define PIN_HP_AMP    0x80
 

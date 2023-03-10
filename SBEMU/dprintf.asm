@@ -3,6 +3,8 @@
 
 	.386
 	.model small
+	option casemap:none
+	option proc:private
 
 VioPutChar proto
 
@@ -56,7 +58,7 @@ i64toa PROC stdcall uses esi edi number:qword, outb:ptr, base:dword
 
 i64toa ENDP
 
-dbgprintf PROC c uses ebx esi edi fmt:ptr sbyte, args:VARARG
+dbgprintf PROC c public uses ebx esi edi fmt:ptr sbyte, args:VARARG
 
 local flag:byte
 local longarg:byte
@@ -212,5 +214,59 @@ handle_char:
 	align 4
 
 dbgprintf ENDP
+
+if 0
+
+_GO32_INFO_BLOCK struct
+dwSize            dd ?
+dwPrimaryScreen   dd ?
+dwSecondaryScreen dd ?
+dwTransferBuffer  dd ?	; linear_address_of_transfer_buffer;
+dwSizeTransferBuf dd ?	; size_of_transfer_buffer; /* >= 4k */
+dwPid             dd ?
+bMasterPICBase    db ?	; master_interrupt_controller_base;
+bSlavePICBase     db ?	; slave_interrupt_controller_base;
+wFlat             dw ?	; selector_for_linear_memory;
+dwStubInfo        dd ?	; linear_address_of_stub_info_structure;
+dwPSP             dd ?	; linear_address_of_original_psp;
+wRunMode          dw ?	; run_mode;
+wRunModeInfo      dw ?	; run_mode_info;
+_GO32_INFO_BLOCK ends
+
+comm c _go32_info_block:_GO32_INFO_BLOCK
+
+;--- display 32-bit number on screen
+;--- low-level.
+
+dbgprintcnt proc c public number:dword, pos:dword
+
+	pushad
+	push ds
+	mov ds, cs:[_go32_info_block.wFlat]
+	mov ebx, pos
+	shl ebx, 1
+	add ebx, 0B8000h
+	mov eax, number
+	mov edi, 10
+@@nextdigit:
+	xor edx, edx
+	div edi
+	add dl,'0'
+	cmp dl,'9'
+	jbe @F
+	add dl,7+20h
+@@:
+	mov [ebx],dl
+	sub ebx, 2
+	and eax, eax
+	jne @@nextdigit
+	pop ds
+exit:
+	popad
+	ret
+
+dbgprintcnt endp
+
+endif
 
 	end

@@ -5,11 +5,10 @@
 #ifndef __GNUC__ //make vscode happy
 #define __attribute__(x)
 #endif
-#include <UNTRAPIO.H>
+#include "SBEMUCFG.H"
+#include "UNTRAPIO.H"
 #include "DPMI_.H"
 #include "HDPMIPT.H"
-
-#define dbgprintf
 
 #define HDPMIPT_SWITCH_STACK 1 //TODO: debug
 #define HDPMIPT_STACKSIZE 16384
@@ -25,7 +24,14 @@ typedef struct
     uint16_t es;
 }HDPMIPT_ENTRY;
 
-extern uint32_t __djgpp_stack_top;
+/* struct expected by HDPMI port trapping API ax=0006 in DS:ESI */
+
+static struct __attribute__((packed)) _traphandler {
+    uint32_t ofsIn;
+    uint16_t segIn;
+    uint32_t ofsOut;
+    uint16_t segOut;
+} traphandler;
 
 static const char* VENDOR_HDPMI = "HDPMI";    //vendor string
 static HDPMIPT_ENTRY HDPMIPT_Entry;
@@ -38,8 +44,8 @@ uint32_t HDPMIPT_NewStack[4];
 static QEMM_IODT_LINK HDPMIPT_IODT_header;
 static QEMM_IODT_LINK* HDPMIPT_IODT_Link = &HDPMIPT_IODT_header;
 
-#if 1
-void HDPMI_PrintPorts( void )
+#if PRINTPORTS
+void HDPMIPT_PrintPorts( void )
 {
     QEMM_IODT_LINK* link = HDPMIPT_IODT_header.next;
     for ( ; link; link = link->next ) {
@@ -130,15 +136,6 @@ static int HDPMIPT_GetVendorEntry(HDPMIPT_ENTRY* entry)
     return (result&0xFF) == 0; //al=0 to succeed
 }
 
-/* struct expected by HDPMI port trapping API ax=0006 in DS:ESI */
-
-static struct __attribute__((packed)) _traphandler {
-    uint32_t ofsIn;
-    uint16_t segIn;
-    uint32_t ofsOut;
-    uint16_t segOut;
-} traphandler;
-
 static uint32_t HDPMI_Internal_InstallTrap(const HDPMIPT_ENTRY* entry, int start, int end, void(*handlerIn)(void), void(*handlerOut)(void) )
 {
     uint32_t handle = 0;
@@ -155,7 +152,7 @@ static uint32_t HDPMI_Internal_InstallTrap(const HDPMIPT_ENTRY* entry, int start
         "lea %3, %%esi \n\t"  //ESI: handler addr, IN, OUT
         "movw %%cs, %5 \n\t"
         "movw %%cs, %6 \n\t"
-        "mov $6, %%eax \n\t"  //AX=6, install port trap
+        "mov $6, %%ax \n\t"  //AX=6, install port trap
         "lcall *%4\n\t"
         "movl $0, %0 \n\t"
         "jb 1f \n\t"
@@ -175,7 +172,7 @@ static BOOL HDPMI_Internal_UninstallTrap(const HDPMIPT_ENTRY* entry, uint32_t ha
     BOOL result = FALSE;
     asm(
     "mov %2, %%edx \n\t"  //EDX=handle
-    "mov $7, %%eax \n\t" //ax=7, unistall port trap
+    "mov $7, %%ax \n\t"   //ax=7, unistall port trap
     "lcall *%1\n\t"
     "jc 1f \n\t"
     "mov $1, %%eax \n\t"
@@ -212,7 +209,16 @@ BOOL HDPMIPT_Install_IOPortTrap(uint16_t start, uint16_t end, QEMM_IODT* inputp 
             puts("Failed to get HDPMI Vendor entry point.\n");
             return FALSE;
         }
-        dbgprintf("HDPMI vendor entry: %04x:%08x\n", HDPMIPT_Entry.es, HDPMIPT_Entry.edi);
+		dbgprintf("HDPMI vendor entry: %04x:%08x\n", HDPMIPT_Entry.es, HDPMIPT_Entry.edi);
+        /* ensure that hdpmi=32 isn't set */
+		asm(
+			"push %%ebx \n\t"
+			"mov $0, %%bl \n\t"
+			"mov $5, %%ax \n\t"
+			"lcall *%0\n\t"
+			"pop %%ebx"
+			::"m"(HDPMIPT_Entry)
+		   );
     }
 
     uint32_t handle = HDPMI_Internal_InstallTrap(&HDPMIPT_Entry, start, end, &HDPMIPT_TrapHandlerWrapperIn, &HDPMIPT_TrapHandlerWrapperOut);
@@ -285,8 +291,8 @@ void HDPMIPT_UntrappedIO_Write(uint16_t port, uint8_t value)
     "push %%ebx \n\t"
     "mov %1, %%dx \n\t"     //dx=port
     "mov %2, %%cl \n\t"     //cl=value to write
-    "mov $1, %%bl \n\t"     //bl=mode; 1=out dx, al
-    "mov $0x08, %%ax \n\t"  //function no.
+    "mov $1, %%bl \n\t"     //bl=mode; 1="out dx, al"
+    "mov $0x08, %%ax \n\t"  //ax=8; simulate IO
     "lcall *%0\n\t"
     "pop %%ebx \n\t"
     :
@@ -306,7 +312,7 @@ uint8_t HDPMIPT_UntrappedIO_Read(uint16_t port)
     asm(
     "push %%ebx \n\t"
     "mov %2, %%dx \n\t"     //dx=port
-    "mov $0, %%bl \n\t"   //bl=mode; 0=in al, dx
+    "mov $0, %%bl \n\t"     //bl=mode; 0="in al, dx"
     "mov $0x08, %%ax \n\t"  //function no.
     "lcall *%1\n\t"
     "pop %%ebx \n\t"
