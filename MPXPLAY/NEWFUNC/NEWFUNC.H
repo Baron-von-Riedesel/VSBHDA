@@ -20,10 +20,6 @@
 #include <stdio.h>
 #include <stddef.h> // for offsetof
 
-#if defined(WIN32) || defined(__WINDOWS_386__) || defined(__NT__) || defined(_WIN32) || defined(_WIN64)
-#define MPXPLAY_WIN32 1
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -181,6 +177,7 @@ typedef dosmem_t cardmem_t;
 #define pds_cardmem_physicalptr(cardmem, ptr) (ptr)
 #endif
 
+#if 0
 //for DOS interrupt callings
 typedef struct rminfo{
  long EDI;
@@ -196,6 +193,7 @@ typedef struct rminfo{
 }rminfo;
 
 #define RMINFO_FLAG_CARRY 1
+#endif
 
 typedef struct pds_fdate_t{
  unsigned short twosecs : 5;
@@ -206,75 +204,7 @@ typedef struct pds_fdate_t{
  unsigned short year    : 7;
 }pds_fdate_t;
 
-//bitstrm.c
-typedef struct mpxplay_bitstreambuf_s{
- unsigned long bitpos;     // we assume that we never store more than 4Gbits
- unsigned long storedbits; // detto
- unsigned char *buffer;    // begin of buffer
- unsigned long bufsize;
-}mpxplay_bitstreambuf_s;
-
-extern struct mpxplay_bitstreambuf_s *mpxplay_bitstream_alloc(unsigned int required_bufsize);
-extern void mpxplay_bitstream_free(struct mpxplay_bitstreambuf_s *bs);
-extern void mpxplay_bitstream_init(struct mpxplay_bitstreambuf_s *bs,unsigned char *data,unsigned int bytes);
-extern void mpxplay_bitstream_consolidate(struct mpxplay_bitstreambuf_s *bs,unsigned int do_bytealign);
-//extern int  mpxplay_bitstream_fill(struct mpxplay_bitstreambuf_s *bs,struct mpxplay_filehand_buffered_func_s *fbfs,void *fbds,unsigned int needbytes); // fill with a file-read
-extern unsigned int mpxplay_bitstream_putbytes(struct mpxplay_bitstreambuf_s *bs,unsigned char *srcbuf,unsigned int newbytes); // fill with (new) bytes from a buffer
-extern void mpxplay_bitstream_reset(struct mpxplay_bitstreambuf_s *bs);
-
-extern unsigned char *mpxplay_bitstream_getbufpos(struct mpxplay_bitstreambuf_s *bs);
-extern int  mpxplay_bitstream_lookbytes(struct mpxplay_bitstreambuf_s *bs,unsigned char *destbuf,unsigned int needbytes);
-extern int  mpxplay_bitstream_readbytes(struct mpxplay_bitstreambuf_s *bs,unsigned char *destbuf,unsigned int needbytes);
-extern int  mpxplay_bitstream_skipbytes(struct mpxplay_bitstreambuf_s *bs,int skipbytes);
-extern long mpxplay_bitstream_leftbytes(struct mpxplay_bitstreambuf_s *bs);
-
-extern mpxp_uint32_t mpxplay_bitstream_get_byte(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint32_t mpxplay_bitstream_get_le16(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint32_t mpxplay_bitstream_get_le32(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint64_t mpxplay_bitstream_get_le64(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint32_t mpxplay_bitstream_get_be16(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint32_t mpxplay_bitstream_get_be32(struct mpxplay_bitstreambuf_s *bs);
-extern mpxp_uint64_t mpxplay_bitstream_get_be64(struct mpxplay_bitstreambuf_s *bs);
-
-extern int  mpxplay_bitstream_getbit1_be(struct mpxplay_bitstreambuf_s *bs);
-extern long mpxplay_bitstream_getbits_be24(struct mpxplay_bitstreambuf_s *bs,unsigned int bits);
-extern mpxp_uint32_t mpxplay_bitstream_getbits_ube32(struct mpxplay_bitstreambuf_s *bs,unsigned int bits);
-extern mpxp_int64_t mpxplay_bitstream_getbits_be64(struct mpxplay_bitstreambuf_s *bs,unsigned int bits);
-extern int mpxplay_bitstream_getbit1_le(struct mpxplay_bitstreambuf_s *bs);
-extern long mpxplay_bitstream_getbits_le24(struct mpxplay_bitstreambuf_s *bs,unsigned int bits);
-extern mpxp_int64_t mpxplay_bitstream_getbits_le64(struct mpxplay_bitstreambuf_s *bs,unsigned int bits);
-extern int  mpxplay_bitstream_skipbits(struct mpxplay_bitstreambuf_s *bs,int bits); // bits can be negative, return MPXPLAY_ERROR_MPXINBUF_nnn
-extern long mpxplay_bitstream_leftbits(struct mpxplay_bitstreambuf_s *bs);
-
-//cpu.c
-#define CPU_X86_STDCAP_MSR     (1<< 5) // Model-Specific Registers, RDMSR, WRMSR
-#define CPU_X86_STDCAP_MTRR    (1<<12) // Memory Type Range Registers
-#define CPU_X86_STDCAP_PGE     (1<<13) // Page Global Enable
-#define CPU_X86_STDCAP_PAT     (1<<16) // Page Attribute Table
-#define CPU_X86_STDCAP_MMX     (1<<23)
-#define CPU_X86_STDCAP_SSE1    (1<<25)
-#define CPU_X86_STDCAP_SSE2    (1<<26)
-#define CPU_X86_EXTCAP_MMXEXT  (1<<23) // ??? 22 or 23
-#define CPU_X86_EXTCAP_3DNOW2  (1<<30)
-#define CPU_X86_EXTCAP_3DNOW1  (1<<31)
-#define CPU_X86_MMCAP_MMX      0x0001 // standard MMX
-#define CPU_X86_MMCAP_MMXEXT   0x0002 // SSE integer functions or AMD MMX ext
-#define CPU_X86_MMCAP_3DNOW    0x0004 // AMD 3DNOW
-#define CPU_X86_MMCAP_SSE      0x0008 // SSE functions
-#define CPU_X86_MMCAP_SSE2     0x0010 // PIV SSE2 functions
-#define CPU_X86_MMCAP_3DNOWEXT 0x0020 // AMD 3DNowExt
-
-extern int mpxplay_cpu_capables_std,mpxplay_cpu_capables_ext,mpxplay_cpu_capables_mm;
-extern void newfunc_cpu_init(void);
-extern unsigned int pds_cpu_cpuid_test(void);
-extern int pds_cpu_cpuid_get(unsigned int eax_p,int *ebx_p,int *ecx_p,int *edx_p);
-extern unsigned int pds_cpu_mtrr_enable_wc(unsigned long phys_ptr,unsigned long size_kb);
-extern void pds_cpu_mtrr_disable_wc(unsigned long phys_ptr);
-extern void pds_fpu_setround_near(void);
-extern void pds_fpu_setround_chop(void);
-
 //dpmi.c
-#ifndef MPXPLAY_WIN32
 
 #if defined(DJGPP)
 #include <sys/segments.h>
@@ -282,12 +212,12 @@ extern void pds_fpu_setround_chop(void);
 #define __far
 #define __interrupt
 #define __loadds
-typedef struct _farptr {unsigned long off;unsigned short sel;} farptr;//DJGPP has no 16:32 flat model far ptr.
-typedef farptr int_handler_t;
-static farptr pds_fardata(void* d) { farptr ptr = {(long)d, _my_ds()}; return ptr;}
-static void pds_call_int_handler(int_handler_t h) { asm("pushf\n\t lcall *%0" ::"m"(h));} //simulate a iret frame for handler
-static int_handler_t pds_int_handler(void (*f)(void)) { int_handler_t h = {(long)f, _my_cs()}; return h;}
-static int pds_valid_int_handler(int_handler_t h) {return h.off && h.sel;}
+//typedef struct _farptr {unsigned long off;unsigned short sel;} farptr;//DJGPP has no 16:32 flat model far ptr.
+//typedef farptr int_handler_t;
+//static farptr pds_fardata(void* d) { farptr ptr = {(long)d, _my_ds()}; return ptr;}
+//static void pds_call_int_handler(int_handler_t h) { asm("pushf\n\t lcall *%0" ::"m"(h));} //simulate a iret frame for handler
+//static int_handler_t pds_int_handler(void (*f)(void)) { int_handler_t h = {(long)f, _my_cs()}; return h;}
+//static int pds_valid_int_handler(int_handler_t h) {return h.off && h.sel;}
 #else
 typedef void* far farptr;
 typedef void (__far __interrupt *int_handler_t)();
@@ -297,14 +227,14 @@ static void pds_call_int_handler(int_handler_t h) {h();}
 #define pds_valid_int_handler(h) (h)
 #endif//DJGPP
 
-#define PDS_INT2X_DOSMEM_SIZE  512
-extern long pds_dpmi_segment_to_selector(unsigned int segment);
-extern void far *pds_dpmi_getrmvect(unsigned int intno);
-extern void pds_dpmi_setrmvect(unsigned int intno, unsigned int segment,unsigned int offset);
-#if defined(DJGPP)
-extern farptr pds_dpmi_getexcvect(unsigned int intno);
-extern void pds_dpmi_setexcvect(unsigned int intno, farptr vect);
+//#define PDS_INT2X_DOSMEM_SIZE  512
 
+//extern long pds_dpmi_segment_to_selector(unsigned int segment);
+//extern void far *pds_dpmi_getrmvect(unsigned int intno);
+//extern void pds_dpmi_setrmvect(unsigned int intno, unsigned int segment,unsigned int offset);
+#if defined(DJGPP)
+//extern farptr pds_dpmi_getexcvect(unsigned int intno);
+//extern void pds_dpmi_setexcvect(unsigned int intno, farptr vect);
 extern int  pds_dpmi_xms_allocmem(xmsmem_t *,unsigned int size);
 extern void pds_dpmi_xms_freemem(xmsmem_t *);
 #else
@@ -313,20 +243,18 @@ extern void pds_dpmi_setexcvect(unsigned int intno, void far *vect);
 #endif
 extern int  pds_dpmi_dos_allocmem(dosmem_t *,unsigned int size);
 extern void pds_dpmi_dos_freemem(dosmem_t *);
-extern void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi);
+//extern void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi);
 extern unsigned long pds_dpmi_map_physical_memory(unsigned long phys_addr,unsigned long memsize);
 extern void pds_dpmi_unmap_physical_memory(unsigned long linear_address);
-#define pds_dpmi_rmi_clear(rmi) pds_memset(rmi,0,sizeof(struct rminfo))
-#endif // MPXPLAY_WIN32
-
-extern unsigned int pds_int2x_dosmems_allocate(void);
-extern void pds_int2x_dosmems_free(void);
+//#define pds_dpmi_rmi_clear(rmi) pds_memset(rmi,0,sizeof(struct rminfo))
+//extern unsigned int pds_int2x_dosmems_allocate(void);
+//extern void pds_int2x_dosmems_free(void);
 
 //errorhnd.c
-extern void newfunc_errorhnd_int24_init(void);
-extern void newfunc_error_handlers_init(void);
-extern void newfunc_error_handlers_close(void);
-extern void newfunc_exception_handlers_close(void);
+//extern void newfunc_errorhnd_int24_init(void);
+//extern void newfunc_error_handlers_init(void);
+//extern void newfunc_error_handlers_close(void);
+//extern void newfunc_exception_handlers_close(void);
 //extern void pds_mswin_previousinstance_close(void);
 
 //memory.c
@@ -360,31 +288,19 @@ extern char *pds_strnchr(char *strp,char seek,unsigned int len);
 extern char *pds_strstr(char *s1,char *s2);
 extern char *pds_strstri(char *s1,char *s2);
 extern unsigned int pds_strcutspc(char *src); // returns (new)len
-extern void pds_str_url_decode(char *src);
-extern unsigned int pds_str_clean(char *str); // returns (new)len
-extern void pds_str_conv_forbidden_chars(char *str,char *fromchars,char *tochars);
 extern unsigned int pds_str_extendc(char *str,unsigned int newlen,char c); // returns len
 extern unsigned int pds_str_fixlenc(char *str,unsigned int newlen,char c); // returns (new)len
-extern int pds_str_limitc(char *src, char *dest, unsigned int newlen, char limit_c); // returns (new)len
 extern char *pds_str_getwordn(char *str, unsigned int wordcount); // returns pointer
-extern unsigned int pds_chkstr_letters(char *str);
-extern unsigned int pds_chkstr_uppercase(char *str);
-extern void pds_str_uppercase(char *str);
-extern void pds_str_lowercase(char *str);
-extern unsigned int pds_log10(long value);
 extern void  pds_ltoa(int,char *);
 //extern void  pds_ltoa16(int,char *);
 extern long  pds_atol(char *);
-extern mpxp_int64_t pds_atoi64(char *);
 extern long  pds_atol16(char *);
 extern void pds_str_to_hexs(char *src,char *dest,unsigned int destlen);
 extern void pds_hexs_to_str(char *src,char *dest,unsigned int destlen);
 
-#define pds_cvchar_CP437_to_UTF16LE(c) (c)
+//#define pds_cvchar_CP437_to_UTF16LE(c) (c)
 #define pds_strlen_mpxnative(strp) pds_strlen(strp)
 #define pds_strpos_mpxnative(strp,pos) ((pds_strlen(strp) >= pos)? (pds_strlen(strp) - 1) : pos)  // FIXME: a faster way?
-
-#define pds_textdisplay_printf(text) { fprintf(stdout, "%s", (text)); fprintf(stdout, "\n"); fflush(stdout); }
 
 //time.c
 extern unsigned long pds_gettimeh(void); // clock time in hsec
@@ -394,8 +310,8 @@ extern void pds_delay_10us(unsigned int ticks);
 extern void pds_mdelay(unsigned long msec);
 
 //timer.c
-extern unsigned long mpxplay_timer_secs_to_counternum(unsigned long secs);
-extern unsigned long mpxplay_timer_msecs_to_counternum(unsigned long msecs);
+//extern unsigned long mpxplay_timer_secs_to_counternum(unsigned long secs);
+//extern unsigned long mpxplay_timer_msecs_to_counternum(unsigned long msecs);
 
 // safe funcbit handling for multi processors
 #define funcbit_smp_test(var,bit)       funcbit_test(var,bit)
@@ -406,8 +322,6 @@ extern unsigned long mpxplay_timer_msecs_to_counternum(unsigned long msecs);
 
 #define funcbit_smp_int32_get(var)       (var)
 #define funcbit_smp_int32_put(var,val)   (var)=(val)
-
-#define mpxplay_debugf(...)
 
 #ifdef __cplusplus
 }

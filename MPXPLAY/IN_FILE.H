@@ -26,22 +26,6 @@ extern "C" {
 typedef float MPXPLAY_PCMOUT_FLOAT_T;
 typedef short MPXPLAY_PCMOUT_INT16_T;
 
-#define MPXPLAY_TIME_BASE 1000 // ms timebase/resolution
-
-//clearbuff seektypes
-#define MPX_SEEKTYPE_NORM   1 // seek in file
-#define MPX_SEEKTYPE_BOF    2 // seek to begin of file (reset buffers)
-#define MPX_SEEKTYPE_PAUSE  4 // seek in pause mode (can be used with BOF and NORM type)
-#define MPX_SEEKTYPES_CLEARBUF (MPX_SEEKTYPE_NORM|MPX_SEEKTYPE_BOF|MPX_SEEKTYPE_PAUSE)
-//fseek seektypes
-//#define MPX_SEEKTYPE_TIMEMPOS 8  // seek to timepos (in millisecs)
-#define MPX_SEEKTYPE_VIDEO    16 // seek to video (key)frame (else seek to audio frame)
-#define MPX_SEEKTYPE_FRAME    32 // seek to (video) frame (usually with relative seek)
-#define MPX_SEEKTYPE_RELATIVE 64 // -/+ value (else absolute value)
-#define MPX_SEEKTYPE_BACKWARD 128 // else forward
-#define MPX_SEEKTYPE_PRECISE  256 // not implemented yet
-#define MPX_SEEKTYPES_FSEEK   (MPX_SEEKTYPE_VIDEO|MPX_SEEKTYPE_FRAME|MPX_SEEKTYPE_RELATIVE|MPX_SEEKTYPE_BACKWARD|MPX_SEEKTYPE_PRECISE)
-
 //adi->infobits
 //info
 #define ADI_FLAG_FLOATOUT        (1 << 0) // float audio decoder output (else integer)
@@ -74,73 +58,10 @@ typedef short MPXPLAY_PCMOUT_INT16_T;
 #define MPXPLAY_PCMOUTCHAN_DISABLED      126
 #define MPXPLAY_PCMOUTCHAN_MAX           11
 
-#if 0
-// infile/decoder error codes
-#define MPXPLAY_ERROR_INFILE_OK           0
-#define MPXPLAY_ERROR_INFILE_NODATA      -1 // no input data
-#define MPXPLAY_ERROR_INFILE_EOF         -2 // end of file (finish playing)
-#define MPXPLAY_ERROR_INFILE_SYNCLOST    -3 // sync lost
-#define MPXPLAY_ERROR_INFILE_SYNC_IN     -4 // decoder is in sync state (after seeking, or locking frp mutex)
-#define MPXPLAY_ERROR_INFILE_RESYNC      -5 // decoder needs resync (seek to next frame)(at wrong bitstream)
-#define MPXPLAY_ERROR_INFILE_CANTOPEN   -10 // can't open file as media
-#define MPXPLAY_ERROR_INFILE_MEMORY     -11 // memory exhausted
-#define MPXPLAY_ERROR_INFILE_FILEOPEN   -12 // can't open low level file
-#define MPXPLAY_ERROR_INFILE_FILETYPE   -13 // file has invalid type (no extension)
-#define MPXPLAY_ERROR_INFILE_SPIBUFSIZE -14 // mpxplay_streampacket_info bufsize is small
-#define MPXPLAY_ERROR_INFILE_READONLYFS -20 // read only filesystem / filetype
-#define MPXPLAY_ERROR_INFILE_WRITETAG_FILETYPE   -21 // not supported filetype (dts,wav)
-#define MPXPLAY_ERROR_INFILE_WRITETAG_TAGTYPE    -22 // not supported tagtype (APEv2)
-#define MPXPLAY_ERROR_INFILE_WRITETAG_NOSPACE    -23 // not enough space to store id3 infos
-#define MPXPLAY_ERROR_INFILE_WRITETAG_NOSPMMRQ   -24 // no space, move-meta request
-#define MPXPLAY_ERROR_INFILE_WRITETAG_UNKNOWN    -29 // unknown error
-#endif
-
-#define MPXPLAY_WRITETAG_CNTRL_TRIMTAGS (1<<0) // trim/cut tags if there's not enough space to store them
-#define MPXPLAY_WRITETAG_CNTRL_DUPFILE  (1<<1) // duplicate file and write all tags
-#define MPXPLAY_WRITETAG_CNTRL_MOVEMETA (1<<2) // move metadata to the end of file (MP4 only)
-#define MPXPLAY_WRITETAG_CNTRL_NOPADD   (1<<9) // don't add padding (vorbiscomment)
-
 // *************************************************************************
 // audio decoder
 
-#define MPXPLAY_SPI_FLAG_NEED_DECODER   (1 <<  0) // search for a decoder by wave_id or fourcc
-#define MPXPLAY_SPI_FLAG_NEED_PARSING   (1 <<  1) // parse audio infos by adf->parse_frame (get informations from the stream, passed in spi->bitstreambuf)
-#define MPXPLAY_SPI_FLAG_CONTAINER      (1 <<  2) // stream data is in container (run a longer parsing)
-#define MPXPLAY_SPI_FLAG_BS_ERROR       (1 <<  4) // bitstream error detected in demuxer
-#define MPXPLAY_SPI_FLAG_SILENTBLOCK    (1 <<  5) // pcm frame contains no sound (to disable soundlimitvol)
-
-#define MPXPLAY_SPI_MINBSREADSIZE          32 // ???
-#define MPXPLAY_SPI_MAXBSREADSIZE_AUDIO 32768 // pre-init sizes
-//#define MPXPLAY_SPI_MAXBSREADSIZE_VIDEO 65536
-
-#define MPXPLAY_SPI_EXTRADATA_PADDING 8
-
-typedef struct mpxplay_streampacket_info_s{
- unsigned int  flags;
- //config
- unsigned int  stream_select;  // for this streamtype
- //info
- unsigned int  streamtype;     // audio/video/other
- unsigned int  wave_id;        // or fourcc in 4C_LE32
- unsigned int  nb_streams;     // number of streams for this streamtype
- unsigned int  block_align;    // WAV,WMA
-
- mpxp_uint8_t  *extradata;     // decoder extra data (use as a pointer, don't alloc directly to it)
- unsigned long  extradata_size;
-
- //decoding
- mpxp_uint8_t  *bitstreambuf;  // from demuxer/parser to decoder
- unsigned long  bs_bufsize;    //
- unsigned long  bs_framesize;  // adf->maxbsframesize or set by parser or set by Mpxplay (MAXBSREADSIZE)
- unsigned long  bs_readsize;   // used by (raw) parsers (mp3,ac3,dts) (usually =bs_framesize)
- unsigned long  bs_leftbytes;  //
- unsigned long  bs_usedbytes;  //
-
- //struct mpxplay_streampacket_info_s *next_demuxerdata;
- //void                               *next_demuxerfunc;
- unsigned char reserved[6*4];
-}mpxplay_streampacket_info_s; // 20*4=80 bytes
-
+/* audio_decoder_info is used as input for AU_setrate() */
 typedef struct mpxplay_audio_decoder_info_s{
  void *private_data;         // decoder
  //info
@@ -162,9 +83,9 @@ typedef struct mpxplay_audio_decoder_info_s{
  //control
  // unsigned int  channelcfg;    // configure output channels (eq to channelmode)
  //pcm out
- mpxp_uint8_t *pcm_bufptr;    // head ptr in pcm_buffer
- unsigned int  pcm_samplenum; // got back from decoder (with ch)
- unsigned char reserved[5*4];
+ //mpxp_uint8_t *pcm_bufptr;    // head ptr in pcm_buffer
+ //unsigned int  pcm_samplenum; // got back from decoder (with ch)
+ //unsigned char reserved[5*4];
 }mpxplay_audio_decoder_info_s;// 24*4=96 bytes
 
 #ifdef __cplusplus

@@ -5,19 +5,10 @@
 
 DPMI_ADDRESSING DPMI_Addressing;
 
-void DPMI_SetAddressing(DPMI_ADDRESSING* inputp newaddr, DPMI_ADDRESSING* outputp oldaddr)
-{
-    #if defined(__BC__) || defined(__WC__)
-    newaddr->physical = TRUE;
-    #endif
-
-    *oldaddr = DPMI_Addressing;
-    DPMI_Addressing = *newaddr;
-}
-
 #define UNMAP_ADDR(addr) (addr)
 
-#define LOAD_DS() _ASM_BEGIN _ASM(push ds) _ASM(push dword ptr _DPMI_Addressing) _ASM(pop ds) _ASM_END
+//#define LOAD_DS() _ASM_BEGIN _ASM(push ds) _ASM(push dword ptr _DPMI_Addressing) _ASM(pop ds) _ASM_END
+#define LOAD_DS() _ASM_BEGIN _ASM(push ds) _ASM(mov ds, _DPMI_Addressing) _ASM_END
 #define RESTORE_DS() _ASM_BEGIN _ASM(pop ds) _ASM_END
 
 
@@ -111,7 +102,7 @@ void DPMI_MaskD(uint32_t addr, uint32_t mand, uint32_t mor)
     RESTORE_DS();
 }
 
-void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size) //TODO: use memcpy directly
+void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size)
 {
 
 	LOAD_DS();
@@ -131,7 +122,7 @@ void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size) //TODO: use mem
 		"pop %%esi \n\t"
 		::"m"(dest),"m"(src),"m"(size)
 		:"ecx"
-        );
+	);
 	RESTORE_DS();
 }
 
@@ -152,7 +143,7 @@ void DPMI_SetLinear(uint32_t dest, uint8_t val, uint32_t size)
 		"pop %%edi \n\t"
 		::"m"(dest),"m"(val),"m"(size)
 		:"ecx", "eax"
-	   );
+	);
     RESTORE_DS()
 }
 

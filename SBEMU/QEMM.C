@@ -16,8 +16,6 @@
 
 #define HANDLE_IN_388H_DIRECTLY 1
 
-static QEMM_IODT_LINK QEMM_IODT_header;
-static QEMM_IODT_LINK* QEMM_IODT_Link = &QEMM_IODT_header;
 static uint16_t QEMM_EntryIP;
 static uint16_t QEMM_EntryCS;
 
@@ -25,6 +23,10 @@ static uint16_t QEMM_EntryCS;
 static uint16_t QEMM_OldCallbackIP;
 static uint16_t QEMM_OldCallbackCS;
 static __dpmi_raddr rmcb;
+
+static QEMM_IODT *pIodt;
+static int maxports;
+static int PICIndex;
 
 static void __NAKED QEMM_RM_Wrapper()
 {//al=data,cl=out,dx=port
@@ -71,47 +73,42 @@ static void __NAKED QEMM_RM_WrapperEnd() {}
 static DPMI_REG QEMM_TrapHandlerREG; /* real-mode callback register struct */
 
 static void QEMM_TrapHandler()
+//////////////////////////////
 {
     uint16_t port = QEMM_TrapHandlerREG.w.dx;
     uint8_t val = QEMM_TrapHandlerREG.h.al;
     uint8_t out = QEMM_TrapHandlerREG.h.cl;
-    QEMM_IODT_LINK* link = QEMM_IODT_header.next;
 
-    //_LOG("Port trap: %s %x\n", out ? "out" : "in", port);
-//    QEMM_InCallback = TRUE;
-    while(link)
-    {
-        for(int i = 0; i < link->count; ++i)
-        {
-            if((link->iodt[i].port&0xFFFF) == port)
-            {
-                QEMM_TrapHandlerREG.w.flags &= ~CPU_CFLAG;
-                //uint8_t val2 = link->iodt[i].handler(port, val, out);
-                //QEMM_TrapHandlerREG.h.al = out ? QEMM_TrapHandlerREG.h.al : val2;
-                QEMM_TrapHandlerREG.h.al = link->iodt[i].handler(port, val, out);
-                return;
-            }
-        }
-        link = link->next;
+	for ( int i = 0; i < maxports; i++ ) {
+		if( (pIodt+i)->port == port) {
+			QEMM_TrapHandlerREG.w.flags &= ~CPU_CFLAG;
+			//uint8_t val2 = link->iodt[i].handler(port, val, out);
+			//QEMM_TrapHandlerREG.h.al = out ? QEMM_TrapHandlerREG.h.al : val2;
+			QEMM_TrapHandlerREG.h.al = (pIodt+i)->handler(port, val, out);
+			return;
+		}
     }
-//    QEMM_InCallback = FALSE;
 
-    /* this should never be reached. */
+	/* this should never be reached. */
 
     //QEMM_TrapHandlerREG.w.flags |= CPU_CFLAG;
-    DPMI_REG r = QEMM_TrapHandlerREG;
-    r.w.cs = QEMM_OldCallbackCS;
-    r.w.ip = QEMM_OldCallbackIP;
-    r.w.ss = 0; r.w.sp = 0;
-    DPMI_CallRealModeRETF(&r);
-    QEMM_TrapHandlerREG.w.flags |= r.w.flags&CPU_CFLAG;
-    QEMM_TrapHandlerREG.h.al = r.h.al;
+	if ( QEMM_OldCallbackCS ) {
+		DPMI_REG r = QEMM_TrapHandlerREG;
+		r.w.cs = QEMM_OldCallbackCS;
+		r.w.ip = QEMM_OldCallbackIP;
+		r.w.ss = 0; r.w.sp = 0;
+		DPMI_CallRealModeRETF(&r);
+		QEMM_TrapHandlerREG.w.flags |= r.w.flags & CPU_CFLAG;
+		QEMM_TrapHandlerREG.h.al = r.h.al;
+	}
 }
 
 //https://www.cs.cmu.edu/~ralf/papers/qpi.txt
 //https://fd.lod.bz/rbil/interrup/memory/673f_cx5145.html
 //http://mirror.cs.msu.ru/oldlinux.org/Linux.old/docs/interrupts/int-html/rb-7414.htm
+
 uint16_t QEMM_GetVersion(void)
+//////////////////////////////
 {
     //http://mirror.cs.msu.ru/oldlinux.org/Linux.old/docs/interrupts/int-html/rb-2830.htm
     int fd = 0;
@@ -162,17 +159,18 @@ uint16_t QEMM_GetVersion(void)
 }
 
 BOOL QEMM_Prepare_IOPortTrap()
+//////////////////////////////
 {
     DPMI_REG r = {0};
     r.w.cs = QEMM_EntryCS;
     r.w.ip = QEMM_EntryIP;
     r.w.ax = 0x1A06;
     /* get current trap handler */
-    if(DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags&CPU_CFLAG))
+    if(DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags & CPU_CFLAG))
         return FALSE;
     QEMM_OldCallbackIP = r.w.es;
     QEMM_OldCallbackCS = r.w.di;
-    //printf("QEMM old callback: %04x:%04x\n",r.w.es, r.w.di);
+    //dbgprintf("QEMM old callback: %x:%x\n",r.w.es, r.w.di);
 
     /* get a realmode callback */
     if ( !DPMI_AllocateRMCB_RETF(&QEMM_TrapHandler, &QEMM_TrapHandlerREG, &rmcb ) )
@@ -191,100 +189,96 @@ BOOL QEMM_Prepare_IOPortTrap()
     /* set new trap handler ES:DI */
     r.w.es = dosmem >> 4;
     r.w.di = 4+2;
-    r.w.ax = 0x1A07;
-    if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags&CPU_CFLAG))
-        return FALSE;
 #else
     r.w.es = rmcb.segment;
     r.w.di = rmcb.offset16;
-    r.w.ax = 0x1A07;
-    if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags&CPU_CFLAG))
-        return FALSE;
 #endif
-    return TRUE;
-}
-
-
-BOOL QEMM_Install_IOPortTrap(QEMM_IODT* inputp iodt, uint16_t count, QEMM_IOPT* outputp iopt, QEMM_IODT_LINK* oldlink )
-{
-    static DPMI_REG r = {0};
-    assert(QEMM_IODT_Link->next == NULL);
-    QEMM_IODT_LINK* newlink = oldlink;
-    if ( !newlink ) {
-        newlink = (QEMM_IODT_LINK *)malloc( sizeof( QEMM_IODT_LINK ) + sizeof( QEMM_IODT ) * count );
-        memcpy( newlink + 1, iodt, sizeof( QEMM_IODT)*count );
-        iopt->memory = (uintptr_t)newlink;
-    }
-    QEMM_IODT* mem = (QEMM_IODT *)( newlink + 1 );
-
-    for(int i = 0; i < count; ++i)
-    {
-        r.w.cs = QEMM_EntryCS;
-        r.w.ip = QEMM_EntryIP;
-        if ( !oldlink ) {
-            r.w.ax = 0x1A08;
-            r.w.dx = mem[i].port;
-            DPMI_CallRealModeRETF(&r);
-            mem[i].port |= (r.h.bl)<<16; //previously trapped state
-        }
-        r.w.ax = 0x1A09;
-        r.w.dx = mem[i].port & 0xFFFF;
-        DPMI_CallRealModeRETF(&r); //set port trapped
-    }
-
-    newlink->iodt = mem;
-    newlink->count = count;
-    newlink->prev = QEMM_IODT_Link;
-    newlink->next = NULL;
-    /* this function may be called from inside ISR, don't modify IF! */
-	//CLIS();
-    QEMM_IODT_Link->next = newlink;
-    QEMM_IODT_Link = newlink;
-    //STIL();
-    return TRUE;
-}
-
-BOOL QEMM_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt, BOOL bFree )
-{
-    static DPMI_REG r = {0};
-    /* may be called from inside ISR, don't modify IF! */
-    //CLIS();
-    QEMM_IODT_LINK* link = (QEMM_IODT_LINK*)iopt->memory;
-    if (!link)
+    r.w.ax = 0x1A07;
+    if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags & CPU_CFLAG))
         return FALSE;
-    link->prev->next = link->next;
-    if(link->next) link->next->prev = link->prev;
-    if(QEMM_IODT_Link == link)
-        QEMM_IODT_Link = link->prev;
-    //STIL();
+    return TRUE;
+}
 
-    for(int i = 0; i < link->count; ++i)
-    {
-        if(!(link->iodt[i].port&0xFFFF0000L)) //previously not trapped
-        {
-            r.w.cs = QEMM_EntryCS;
-            r.w.ip = QEMM_EntryIP;
-            r.w.ax = 0x1A0A; //clear trapped
-            r.w.dx = link->iodt[i].port&0xFFFF;
-            DPMI_CallRealModeRETF(&r);
-        }
+
+static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t end )
+////////////////////////////////////////////////////////////////////////////////////
+{
+	DPMI_REG r = {0};
+
+	r.w.cs = QEMM_EntryCS;
+	r.w.ip = QEMM_EntryIP;
+	for( int i = start; i < end; i++ ) {
+		r.w.ax = 0x1A08;
+		r.w.dx = iodt[i].port;
+		DPMI_CallRealModeRETF(&r);
+		iodt[i].flags |= (r.h.bl) << 8; //previously trapped state
+
+		r.w.ax = 0x1A09;
+		r.w.dx = iodt[i].port;
+		DPMI_CallRealModeRETF(&r); /* trap port */
+    }
+    return TRUE;
+}
+
+int QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
+//////////////////////////////////////////////////////////////////////
+{
+	pIodt = iodt;
+	maxports = Rangetab[max];
+
+	for ( int i = 0; i < max; i++ ) {
+#if QEMMPICTRAPDYN
+		if ( iodt[Rangetab[i]].port == 0x20 ) {
+			PICIndex = Rangetab[i];
+			continue;
+		}
+#endif
+		QEMM_Install_IOPortTrap( iodt, Rangetab[i], Rangetab[i+1] );
+	}
+    return 1;
+}
+
+#if QEMMPICTRAPDYN
+void QEMM_SetPICPortTrap( int bSet )
+////////////////////////////////////
+{
+	/* might be called even if support for v86 is disabled */
+	if ( QEMM_EntryCS ) {
+		DPMI_REG r = {0};
+		r.w.cs = QEMM_EntryCS;
+		r.w.ip = QEMM_EntryIP;
+		r.w.dx = (pIodt+PICIndex)->port;
+		r.w.ax = bSet ? 0x1A09 : 0x1A0A;
+		DPMI_CallRealModeRETF(&r); /* trap port */
+	}
+	return;
+}
+#endif
+
+BOOL QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
+////////////////////////////////////////////////////////
+{
+	DPMI_REG r = {0};
+
+	r.w.cs = QEMM_EntryCS;
+	r.w.ip = QEMM_EntryIP;
+	for(int i = 0; i < max; ++i) {
+		if ( !( iodt[i].flags & 0xff00 )) {
+			if( iodt[i].flags & IODT_FLGS_RMINST ) {
+				r.w.ax = 0x1A0A; //clear trap
+				r.w.dx = iodt[i].port;
+				DPMI_CallRealModeRETF(&r);
+			}
+		}
     }
 
-    //free(link->iodt);
-    if ( bFree )
-		free(link);
-    
-    if(QEMM_IODT_header.next == NULL) //empty
-    {
-        r.w.cs = QEMM_EntryCS;
-        r.w.ip = QEMM_EntryIP;
-        r.w.ax = 0x1A07;
-        r.w.es = QEMM_OldCallbackCS;
-        r.w.di = QEMM_OldCallbackIP;
-        if( DPMI_CallRealModeRETF(&r) != 0) //restore old handler
-            return FALSE;
-        DPMI_FreeRMCB( &rmcb );
-    }
+	DPMI_FreeRMCB( &rmcb );
+
+	r.w.ax = 0x1A07;
+	r.w.es = QEMM_OldCallbackCS;
+	r.w.di = QEMM_OldCallbackIP;
+	if( DPMI_CallRealModeRETF(&r) != 0) //restore old handler
+		return FALSE;
     return TRUE;
 }
 

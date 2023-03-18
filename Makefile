@@ -63,7 +63,7 @@ OBJFILES=$(OUTD)/main.o $(OUTD)/hdpmipt.o $(OUTD)/qemm.o    $(OUTD)/sbemu.o\
 	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o\
 	$(OUTD)/string.o\
 	$(OUTD)/memory.o   $(OUTD)/nf_dpmi.o $(OUTD)/pcibios.o\
-	$(OUTD)/time.o     $(OUTD)/timer.o
+	$(OUTD)/time.o
 
 ALL_OBJFILES=$(OUTD)/ac97_def.o $(OUTD)/au_cards.o $(OUTD)/cv_bits.o\
 	$(OUTD)/cv_chan.o $(OUTD)/cv_freq.o $(OUTD)/dbopl.o\
@@ -72,7 +72,7 @@ ALL_OBJFILES=$(OUTD)/ac97_def.o $(OUTD)/au_cards.o $(OUTD)/cv_bits.o\
 	$(OUTD)/nf_dpmi.o $(OUTD)/opl3emu.o $(OUTD)/pcibios.o $(OUTD)/pic.o\
 	$(OUTD)/qemm.o $(OUTD)/sbemu.o $(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
 	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o $(OUTD)/string.o\
-	$(OUTD)/time.o $(OUTD)/timer.o $(OUTD)/untrapio.o\
+	$(OUTD)/time.o $(OUTD)/untrapio.o\
 	$(OUTD)/vdma.o $(OUTD)/virq.o\
 	$(OUTD)/stackio.o $(OUTD)/stackisr.o $(OUTD)/int31.o $(OUTD)/dprintf.o\
 	$(OUTD)/vioout.o
@@ -89,7 +89,7 @@ PROJECT_ITEMS=ac97_def.c au_cards.c cv_bits.c cv_chan.c cv_freq.c\
 	dbopl.cpp dmairq.c dpmi.c dpmi_dj2.c hdpmipt.c\
 	main.c memory.c nf_dpmi.c opl3emu.cpp pcibios.c pic.c qemm.c\
 	sbemu.c sc_e1371.c sc_ich.c sc_inthd.c sc_via82.c string.c\
-	time.c timer.c untrapio.c vdma.c virq.c
+	time.c untrapio.c vdma.c virq.c
 DEFAULT_MASK=*.[acfghimnops]*
 PASCAL_TYPE=GPC
 GET_HOME=$(HOME)
@@ -262,7 +262,7 @@ clean::
 DEPS_0= $(OUTD)/main.o   $(OUTD)/hdpmipt.o	$(OUTD)/qemm.o	$(OUTD)/opl3emu.o	$(OUTD)/dbopl.o\
 	$(OUTD)/dpmi.o		$(OUTD)/dpmi_dj2.o	$(OUTD)/pic.o	$(OUTD)/sbemu.o\
 	$(OUTD)/untrapio.o	$(OUTD)/vdma.o		$(OUTD)/virq.o\
-	$(OUTD)/time.o		$(OUTD)/timer.o\
+	$(OUTD)/time.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o		$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/string.o\
@@ -362,9 +362,6 @@ DEPS_26=string.c\
 DEPS_29=time.c\
 	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h ./mpxplay/mpxplay.h\
 	./mpxplay/newfunc/newfunc.h
-DEPS_30=timer.c\
-	./mpxplay/au_cards/au_cards.h ./mpxplay/au_mixer/au_mixer.h ./mpxplay/in_file.h\
-	./mpxplay/mpxplay.h ./mpxplay/newfunc/newfunc.h
 
 $(OUTD)/ac97_def.o:: $(DEPS_1)
 	$(RHIDE_COMPILE.c.o)
@@ -413,8 +410,6 @@ $(OUTD)/sc_via82.o:: $(DEPS_25)
 $(OUTD)/string.o:: $(DEPS_26)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/time.o:: $(DEPS_29)
-	$(RHIDE_COMPILE.c.o)
-$(OUTD)/timer.o:: $(DEPS_30)
 	$(RHIDE_COMPILE.c.o)
 $(OUTD)/untrapio.o:: $(DEPS_31)
 	$(RHIDE_COMPILE.c.o)

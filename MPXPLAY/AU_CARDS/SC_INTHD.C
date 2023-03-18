@@ -15,9 +15,6 @@
 //function: Intel HD audio driver for Mpxplay
 //based on ALSA (http://www.alsa-project.org) and WSS libs
 
-//#define MPXPLAY_USE_DEBUGF 1
-//#define IHD_DEBUG_OUTPUT stdout
-
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
@@ -28,10 +25,10 @@
 #include "pcibios.h"
 #include "sc_inthd.h"
 
-//#define INTHD_CODEC_EXTRA_DELAY_US 100 // 100 us
+#define SETPOWERSTATE 1  /* apparently necessary on some laptops */
+#define RESETCODECONCLOSE 1
 
-#define AUCARDSCONFIG_IHD_USE_SPEAKEROUT (1<<0) // use speaker output (instead of hp/line)
-#define AUCARDSCONFIG_IHD_USE_FIXED_SDO  (1<<1) // don't read stream offset (for sd_addr) from GCAP (use 0x100)
+#define AUCARDSCONFIG_IHD_USE_FIXED_SDO  (1<<2) // don't read stream offset (for sd_addr) from GCAP (use 0x100)
 
 #define INTHD_MAX_CHANNELS 8
 #ifdef SBEMU
@@ -196,9 +193,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 
 	if(!timeout) {dbgprintf("send cmd timeout\n");}
 
-#ifdef INTHD_CODEC_EXTRA_DELAY_US
 	pds_delay_10us(INTHD_CODEC_EXTRA_DELAY_US/10); // 0.1 ms
-#endif
 
 	azx_writel(chip, IC, val);
 	azx_writew(chip, IRS, azx_readw(chip, IRS) | (ICH6_IRS_VALID|ICH6_IRS_BUSY));
@@ -213,9 +208,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 		int corbread = azx_readw(chip, CORBRP);
 		if( ( (corbindex+1) % corbsize) != corbread )
 			break;
-#if 1 // def INTHD_CODEC_EXTRA_DELAY_US
 		pds_delay_10us(10);
-#endif
 	}while(--timeout);
 
 	if(!timeout) {dbgprintf("send cmd timeout\n");}
@@ -256,9 +249,8 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 
 	if(!timeout) {dbgprintf("read response timeout\n");}
 
-#ifdef INTHD_CODEC_EXTRA_DELAY_US
-	pds_delay_10us(INTHD_CODEC_EXTRA_DELAY_US/10); // 0.1 ms
-#endif
+	pds_delay_10us(10);
+
 	return azx_readl(chip, IR);
 
 #else
@@ -267,9 +259,7 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 	do{
 		if(azx_readb(chip, RIRBSTS) & 1)
 			break;
-#if 1 //def INTHD_CODEC_EXTRA_DELAY_US
 		pds_delay_10us(10);
-#endif
 	}while(--timeout);
 
 	if(!timeout) {dbgprintf("read response timeout\n");}
@@ -398,7 +388,7 @@ static int snd_hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid,
 	return conns;
 }
 
-static int snd_hda_add_new_node(struct intelhd_card_s *card, struct hda_gnode *node, hda_nid_t nid)
+static int snd_hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda_nid_t nid)
 {
 	int nconns = 0;
 
@@ -409,7 +399,7 @@ static int snd_hda_add_new_node(struct intelhd_card_s *card, struct hda_gnode *n
 	if(node->wid_caps&AC_WCAP_CONN_LIST)
 		nconns = snd_hda_get_connections(card, nid,&node->conn_list[0],HDA_MAX_CONNECTIONS);
 
-	if(nconns>=0){
+	if(nconns >= 0){
 		node->nconns = nconns;
 
 		if(node->type == AC_WID_PIN){
@@ -418,34 +408,37 @@ static int snd_hda_add_new_node(struct intelhd_card_s *card, struct hda_gnode *n
 			node->def_cfg = snd_hda_codec_read(card, node->nid, 0, AC_VERB_GET_CONFIG_DEFAULT, 0);
 		}
 
-		if(node->wid_caps&AC_WCAP_OUT_AMP){
-			if(node->wid_caps&AC_WCAP_AMP_OVRD)
+		if(node->wid_caps & AC_WCAP_OUT_AMP){
+			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_out_caps = snd_codec_param_read(card, node->nid, AC_PAR_AMP_OUT_CAP);
 			if(!node->amp_out_caps)
 				node->amp_out_caps = card->def_amp_out_caps;
 		}
 
-		if(node->wid_caps&AC_WCAP_IN_AMP){
-			if(node->wid_caps&AC_WCAP_AMP_OVRD)
+		if(node->wid_caps & AC_WCAP_IN_AMP){
+			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_in_caps = snd_codec_param_read(card, node->nid, AC_PAR_AMP_IN_CAP);
 			if(!node->amp_in_caps)
 				node->amp_in_caps = card->def_amp_in_caps;
 		}
 
-		if(node->wid_caps&AC_WCAP_FORMAT_OVRD)
+		if(node->wid_caps & AC_WCAP_FORMAT_OVRD)
 			node->supported_formats=snd_codec_param_read(card, node->nid, AC_PAR_PCM);
 	}
 
-	mpxplay_debugf(IHD_DEBUG_OUTPUT,"n:%2d c:%2d w:%8.8X t:%2d p:%2.2X %8.8X d:%8.8X i:%8.8X o:%8.8X s:%8.8X",
-				   (int)nid,nconns,node->wid_caps,(int)node->type,(int)node->pin_ctl,node->pin_caps,node->def_cfg,
-				   node->amp_in_caps,node->amp_out_caps,node->supported_formats);
+#ifdef _DEBUG
+	if ( node->type == AC_WID_PIN )
+		dbgprintf("add_node: id:%d type:PIN caps:%X conn:%d ctl:%X caps:%X def:%X amp-in:%X amp-out:%X\n",
+				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg,
+				  node->amp_in_caps, node->amp_out_caps);
+#endif
 
-	/*mpxplay_debugf(IHD_DEBUG_OUTPUT,"node:%2d cons:%2d wc:%8.8X t:%2d aoc:%8.8X ot:%2d sf:%8.8X st:%2d of:%2d",
-	 (int)nid,nconns,node->wid_caps,
+	/*
+	 dbgprintf("node:%2d cons:%2d wc:%8X t:%2d aoc:%8X ot:%2d sf:%8X st:%2d of:%2d\n", (int)nid,nconns,node->wid_caps,
 	 node->type,node->amp_out_caps,(node->wid_caps&AC_WCAP_OUT_AMP),
 	 node->supported_formats,((node->amp_out_caps>>8)&0x7f),
-	 (node->amp_out_caps&AC_AMPCAP_OFFSET));*/
-
+	 (node->amp_out_caps&AC_AMPCAP_OFFSET));
+	*/
 	return nconns;
 }
 
@@ -503,6 +496,9 @@ static int snd_hda_codec_amp_stereo(struct intelhd_card_s *card, hda_nid_t nid,
 	return ret;
 }
 
+/* unmute an output widget ( headphone, speaker,... )
+ */
+
 static void snd_hda_unmute_output(struct intelhd_card_s *card, struct hda_gnode *node)
 {
 	unsigned int val = (node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
@@ -530,6 +526,9 @@ static void clear_check_flags(struct intelhd_card_s *card)
 		node->checked=0;
 }
 
+/* scan output path of a widget ( lineout, headphone, speaker )
+ */
+
 static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node, int dac_idx)
 {
 	int i, err;
@@ -538,12 +537,15 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 	if(node->checked)
 		return 0;
 
+#if SETPOWERSTATE /* seems necessary on (some?) notebooks */
+	snd_hda_codec_write(card, node->nid, 0, AC_VERB_SET_POWER_STATE, 0 );
+#endif
 	node->checked = 1;
 	if(node->type == AC_WID_AUD_OUT) {
 		if(node->wid_caps & AC_WCAP_DIGITAL)
 			return 0;
 		if(card->dac_node[dac_idx])
-			return (node==card->dac_node[dac_idx]);
+			return (node == card->dac_node[dac_idx]);
 
 		card->dac_node[dac_idx] = node;
 		if((node->wid_caps&AC_WCAP_OUT_AMP) && (card->pcm_num_vols<MAX_PCM_VOLS)){
@@ -554,20 +556,20 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 		return 1;
 	}
 
-	for(i=0; i<node->nconns; i++){
+	for( i = 0; i < node->nconns; i++ ){
 		child = hda_get_node(card, node->conn_list[i]);
 		if(!child)
 			continue;
 		err = parse_output_path(card, child, dac_idx);
-		if(err<0)
+		if(err < 0)
 			return err;
-		else if(err>0){
-			if(node->nconns>1)
+		else if(err > 0){
+			if(node->nconns > 1)
 				select_input_connection(card, node, i);
 			snd_hda_unmute_input(card, node, i);
 			snd_hda_unmute_output(card, node);
 			if(card->dac_node[dac_idx] &&
-			   (card->pcm_num_vols<MAX_PCM_VOLS) &&
+			   (card->pcm_num_vols < MAX_PCM_VOLS) &&
 			   !(card->dac_node[dac_idx]->wid_caps&AC_WCAP_OUT_AMP))
 			{
 				if((node->wid_caps & AC_WCAP_IN_AMP) || (node->wid_caps & AC_WCAP_OUT_AMP)){
@@ -583,42 +585,55 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 	return 0;
 }
 
-static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card,int jack_type)
+/* check an output node
+ */
+
+static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack_type )
 {
 	struct hda_gnode *node=card->afg_nodes;
 	int err,i;
 
-	for(i=0;i<card->afg_num_nodes;i++,node++){
-		if(node->type!=AC_WID_PIN)
+	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
+
+		if(node->type != AC_WID_PIN)  /* widget must be a "pin" */
 			continue;
-		if(!(node->pin_caps&AC_PINCAP_OUT))
+		if(!(node->pin_caps & AC_PINCAP_OUT))
 			continue;
-		if(defcfg_port_conn(node)==AC_JACK_PORT_NONE)
+		if(defcfg_port_conn(node) == AC_JACK_PORT_NONE)
 			continue;
-		if(jack_type>=0){
-			if(jack_type!=defcfg_type(node))
+		if( jack_type >= 0 ){
+			if(jack_type != defcfg_type(node)) /* has widget the type we're searching? */
 				continue;
-			if(node->wid_caps&AC_WCAP_DIGITAL)
+			if(node->wid_caps & AC_WCAP_DIGITAL)
 				continue;
-		}else{
-			if(!(node->pin_ctl&AC_PINCTL_OUT_EN))
+		} else {
+			if(!(node->pin_ctl & AC_PINCTL_OUT_EN))
 				continue;
 		}
 		clear_check_flags(card);
 		err = parse_output_path(card, node, 0);
-		if(err<0)
+		if( err < 0 ) {
+			dbgprintf("parse_output_jack: parse_output_path(%u) failed, err=%d\n", i, err );
 			return NULL;
+		}
+		/* ??? */
 		if(!err && card->out_pin_node[0]){
 			err = parse_output_path(card, node, 1);
-			if(err<0)
+			if( err < 0 ) {
+				dbgprintf("parse_output_jack: parse_output_path(%u) failed [2], err=%d\n", i, err );
 				return NULL;
+			}
 		}
-		if(err>0){
+		if( err > 0 ){
 			snd_hda_unmute_output(card, node);
+#if SETPOWERSTATE
+			snd_hda_codec_write(card, node->nid, 0, AC_VERB_SET_POWER_STATE, 0 );
+#endif
 			snd_hda_codec_write(card, node->nid, 0,
 								AC_VERB_SET_PIN_WIDGET_CONTROL,
 								AC_PINCTL_OUT_EN |
 								((node->pin_caps & AC_PINCAP_HP_DRV)? AC_PINCTL_HP_EN : 0));
+			dbgprintf("parse_output_jack: found node, id=%u, type=%u\n", node->nid, jack_type );
 			return node;
 		}
 	}
@@ -627,22 +642,30 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card,int jack_
 
 static void snd_hda_enable_eapd(struct intelhd_card_s *card, struct hda_gnode *node)
 {
-	if(node->pin_caps&AC_PINCAP_EAPD){
+	if(node->pin_caps & AC_PINCAP_EAPD){
 		unsigned int eapd_set = snd_hda_codec_read(card, node->nid, 0, AC_VERB_GET_EAPD_BTLENABLE, 0);
 		funcbit_enable(eapd_set, AC_PINCTL_EAPD_EN);
 		snd_hda_codec_write(card, node->nid, 0, AC_VERB_SET_EAPD_BTLENABLE, eapd_set);
 	}
 }
 
+/* scan codec for ouput devices:
+ * lineout, speaker, headphones
+ */
+
 static int snd_hda_parse_output(struct intelhd_card_s *card)
 {
 	struct hda_gnode *node;
-	int i = 0;
 	int8_t *po,parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
 	int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
 
-	po=(card->config_select&AUCARDSCONFIG_IHD_USE_SPEAKEROUT)? &parseorder_speaker[0]:&parseorder_line[0];
+	switch (card->config_select) {
+	case 0: po = parseorder_line; break;
+	case 1: po = parseorder_speaker; break;
+	case 2: po = &parseorder_speaker[1]; break;
+	}
 
+	int i = 0;
 	do{
 		node = parse_output_jack(card, *po);
 		if(node){
@@ -651,7 +674,7 @@ static int snd_hda_parse_output(struct intelhd_card_s *card)
 				snd_hda_enable_eapd(card, node);
 		}
 		po++;
-	}while((i<MAX_PCM_VOLS) && (*po>=0));
+	}while((i < MAX_PCM_VOLS) && (*po >= 0));
 
 	if(!card->out_pin_node[0]){ // should not happen
 		node = parse_output_jack(card, -1); // parse 1st output
@@ -777,7 +800,7 @@ static unsigned int snd_ihd_buffer_init(struct mpxplay_audioout_info_s *aui,stru
 		}
 	}
 
-	dbgprintf("buffer_init: cs=%d csc=%d GCAP=%X SD-ofs=%X\n",
+	dbgprintf("buffer_init: cs=%X csc=%d GCAP=%X SD-ofs=%X\n",
 				   card->config_select, aui->card_select_config, gcap, sdo_offset);
 
 	card->sd_addr = card->iobase + sdo_offset;
@@ -841,7 +864,7 @@ static unsigned int snd_ihd_mixer_init(struct intelhd_card_s *card)
 		goto err_out_mixinit;
 
 	for(i=0;i<card->afg_num_nodes;i++,nid++)
-		snd_hda_add_new_node(card,&card->afg_nodes[i],nid);
+		snd_hda_add_node(card,&card->afg_nodes[i],nid);
 
 	if(!snd_hda_parse_output(card))
 		goto err_out_mixinit;
@@ -892,7 +915,7 @@ static void snd_ihd_hw_close(struct intelhd_card_s *card)
 	azx_sd_writel(card, SD_BDLPL, 0);
 	azx_sd_writel(card, SD_BDLPU, 0);
 	azx_sd_writew(card, SD_CTL, 0); /* stop DMA engine for this stream */
-#if 1
+#if RESETCODECONCLOSE
 	/* reset codec */
 	//snd_hda_codec_write(card, card->afg_root_nodenum, 0, AC_VERB_SET_CODEC_RESET, 0);
 	/* stop CORB & RIRB DMA engines */
@@ -1210,8 +1233,7 @@ static char *ihd_search_vendorname(unsigned int vendorid)
 static void INTELHD_card_info(struct mpxplay_audioout_info_s *aui)
 {
 	struct intelhd_card_s *card=aui->card_private_data;
-	char sout[100];
-	sprintf(sout,"IHD : %s (%4.4X%4.4X) -> %s (%8.8X) (max %dkHz/%dbit%s/%dch)",
+	printf("IHD : %s (%4.4X%4.4X) -> %s (%8.8X) (max %dkHz/%dbit%s/%dch)\n",
 			card->pci_dev->device_name,
 			(long)card->pci_dev->vendor_id,(long)card->pci_dev->device_id,
 			ihd_search_vendorname(card->codec_vendor_id>>16),card->codec_vendor_id,
@@ -1219,7 +1241,6 @@ static void INTELHD_card_info(struct mpxplay_audioout_info_s *aui)
 			((card->supported_formats==0xffffffff)? "?":""),
 			min(INTHD_MAX_CHANNELS,PCM_MAX_CHANNELS)
 		   );
-	pds_textdisplay_printf(sout);
 }
 
 static int INTELHD_adetect(struct mpxplay_audioout_info_s *aui)
@@ -1368,7 +1389,7 @@ static long INTELHD_getbufpos(struct mpxplay_audioout_info_s *aui)
 
 	bufpos=azx_sd_readl(card, SD_LPIB);
 
-	//mpxplay_debugf(IHD_DEBUG_OUTPUT,"bufpos1:%d sts:%8.8X ctl:%8.8X cbl:%d ds:%d ps:%d pn:%d",bufpos,azx_sd_readb(card, SD_STS),azx_sd_readl(card, SD_CTL),azx_sd_readl(card, SD_CBL),aui->card_dmasize,
+	//dbgprintf("bufpos1:%d sts:%8X ctl:%8X cbl:%d ds:%d ps:%d pn:%d\n",bufpos,azx_sd_readb(card, SD_STS),azx_sd_readl(card, SD_CTL),azx_sd_readl(card, SD_CBL),aui->card_dmasize,
 	// card->pcmout_period_size,card->pcmout_num_periods);
 
 	if(bufpos<aui->card_dmasize)
@@ -1422,7 +1443,7 @@ static aucards_allmixerchan_s ihd_mixerset[]={
 
 one_sndcard_info IHD_sndcard_info={
  "Intel HDA",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+ SNDCARD_LOWLEVELHAND,
  NULL,                  // card_config
  NULL,                  // no init
  &INTELHD_adetect,      // only autodetect

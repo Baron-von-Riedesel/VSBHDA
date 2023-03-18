@@ -15,9 +15,6 @@
 //function: SB Live24/Audigy LS (CA0106) low level routines (with sc_sbliv.c)
 //based on the ALSA (http://www.alsa-project.org)
 
-//#define MPXPLAY_USE_DEBUGF 1
-//#define SBL_DEBUG_OUTPUT stdout
-
 #include "mpxplay.h"
 #include "sbemucfg.h"
 
@@ -98,7 +95,7 @@ static void snd_ca0106_ptr_write(struct emu10k1_card *card,unsigned int reg,unsi
 static unsigned int snd_audigyls_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10021102) || (card->serial==0x10051102))){
-		mpxplay_debugf(SBL_DEBUG_OUTPUT,"selected : audigy ls");
+		dbgprintf("selected : audigy ls\n");
 		return 1;
 	}
 
@@ -108,7 +105,7 @@ static unsigned int snd_audigyls_selector(struct emu10k1_card *card,struct mpxpl
 static unsigned int snd_live24_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10061102) || (card->serial==0x10071102) || (card->serial==0x10091462) || (card->serial==0x30381297) || (card->serial==0x10121102) || !card->card_capabilities->subsystem)){
-		mpxplay_debugf(SBL_DEBUG_OUTPUT,"selected : live24");
+		dbgprintf("selected : live24\n");
 		return 1;
 	}
 
@@ -218,7 +215,7 @@ static unsigned int snd_live24_buffer_init(struct emu10k1_card *card,struct mpxp
 	card->dm=MDma_alloc_cardmem(CA0106_DMABUF_PERIODS*2*sizeof(uint32_t)+card->pcmout_bufsize);
 	card->virtualpagetable=(uint32_t *)card->dm->linearptr;
 	card->pcmout_buffer=((char *)card->virtualpagetable)+CA0106_DMABUF_PERIODS*2*sizeof(uint32_t);
-	mpxplay_debugf(SBL_DEBUG_OUTPUT,"buffer init: pagetable:%8.8X pcmoutbuf:%8.8X size:%d",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	dbgprintf("buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
 	return 1;
 }
 
@@ -311,7 +308,7 @@ static void snd_live24_setrate(struct emu10k1_card *card,struct mpxplay_audioout
 
 	dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,CA0106_DMABUF_ALIGN,0);
 	card->period_size=(dmabufsize/CA0106_DMABUF_PERIODS);
-	mpxplay_debugf(SBL_DEBUG_OUTPUT,"buffer config: bufsize:%d period_size:%d",dmabufsize,card->period_size);
+	dbgprintf("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size);
 
 	snd_ca0106_pcm_prepare_playback(card,aui);
 }

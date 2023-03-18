@@ -575,9 +575,8 @@ static void CMI8X38_card_info(struct mpxplay_audioout_info_s *aui)
 {
  struct cmi8x38_card *card=aui->card_private_data;
  char sout[100];
- sprintf(sout,"CMI : %s soundcard found on port:%4.4X irq:%d chipver:%d max-chans:%d",
+ printf("CMI : %s soundcard found on port:%4.4X irq:%d chipver:%d max-chans:%d\n",
          card->pci_dev->device_name,card->iobase,card->irq,card->chip_version,card->max_channels);
- pds_textdisplay_printf(sout);
 }
 
 static int CMI8X38_adetect(struct mpxplay_audioout_info_s *aui)
@@ -797,7 +796,7 @@ static aucards_allmixerchan_s cmi8x38_mixerset[]={
 
 one_sndcard_info CMI8X38_sndcard_info={
  "CMI",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+ SNDCARD_LOWLEVELHAND,
 
  NULL,
  NULL,                   // no init

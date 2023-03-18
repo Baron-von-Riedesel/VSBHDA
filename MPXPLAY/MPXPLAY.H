@@ -23,39 +23,11 @@
 #define MPXPLAY 1
 #endif
 
-#if defined(WIN32) || defined(__WINDOWS_386__) || defined(__NT__) || defined(_WIN32)
-#define MPXPLAY_WIN32 1
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #define MPXPLAY_LINK_FULL     0
-#ifdef __DOS__
- //#define MPXPLAY_LINK_SWSCK32  1    // with SWSCK32 lib
- //#define MPXPLAY_LINK_WATTCP32 1    // with WATTCP32 lib
-#endif
-
-#if (defined(__DOS__) || (defined(MPXPLAY_WIN32) && !defined(MPXPLAY_GUI_QT))) && !defined(SBEMU)
-#define MPXPLAY_GUI_CONSOLE 1
-#endif
-
-#if defined(MPXPLAY_WIN32) || defined(MPXPLAY_LINK_SWSCK32) || defined(MPXPLAY_LINK_WATTCP32)
- #define MPXPLAY_LINK_TCPIP 1
-#endif
-
-#if defined(MPXPLAY_WIN32) && defined(MPXPLAY_GUI_CONSOLE)  // only win32 console has credentials (Win7 needs different solution)
-#define MPXPLAY_LINK_CREDENTIALS 1
-#endif
-
-#if !defined(MPXPLAY_WIN32)
-#undef MPXPLAY_LINK_INSTALLER
-#endif
-
-//#define USE_LSA_SCV 1            // show/use soundcard volume on desktop (instead of software volume)
-#define MPXPLAY_INFILE_FILEHANDLERS_PLAY 2 // primary, secondary
-#define MPXPLAY_INFILE_FILEHANDLERS_MAX  3 // primary, secondary, check
 
 // out pcm defs
 #define PCM_OUTSAMPLES    1152     // at 44100Hz
@@ -88,62 +60,9 @@ extern "C" {
 #define OUTMODE_CONTROL_SNDCARD_DDMA      (1 <<  8) // -ddma
 //#define OUTMODE_CONTROL_FILE_MASK (OUTMODE_CONTROL_FILE_BITSTREAMOUT|OUTMODE_CONTROL_FILE_FLOATOUT|OUTMODE_CONTROL_FILE_TAGLFN)
 
-//mpxplay_programcontrol
-#define MPXPLAY_PROGRAMC_CONFIRMEXIT      (1 <<  0) // confirm exit (-xce)
-#define MPXPLAY_PROGRAMC_SHUTDOWNATX      (1 <<  1) // ATX/APM shutdown at exit
-#define MPXPLAY_PROGRAMC_AUTODETECTALWAYS (1 <<  3) // always autodetect unknown filetypes
-#define MPXPLAY_PROGRAMC_SYSTEMAPPOPEN_UNKNOWN (1 <<  4) // open unknown files with default system application
-#define MPXPLAY_PROGRAMC_SYSTEMAPPOPEN_ALLFILES (1 <<  5) // open all files with default system application
-#define MPXPLAY_PROGRAMC_DISABLE_SMP      (1 << 6)  // disable multi threading
-#define MPXPLAY_PROGRAMC_ENABLE_HYPERTH   (1 << 7)  // enable hyper threading
-
-//mpxplay_inside_programcontrol
-#define MPXPLAY_IPROGRAMC_SHUTDOWN_FORBIDD (1 << 30) // internal flag for shutdown override (forbidd)
-#define MPXPLAY_IPROGRAMC_SHUTDOWN_FORCE   (1 << 31) // internal flag for shutdown override (force)
-
 //playcontrol flags (status and control)
-#define PLAYC_PAUSEALL         1 // -ppa (pause before each song)
-#define PLAYC_HIGHSCAN         2 // -phs
-#define PLAYC_PAUSENEXT        4 // -ppn (pause at first/next song)
-#define PLAYC_HSSTARTPOSHALF   8 // -phsh
-//#define PLAYC_AUTOGFX          8 // switch to video mode if file has video stream
-#define PLAYC_CONTINUOUS_SEEK 16 //
 #define PLAYC_STARTNEXT       32 // start playing at next song
 #define PLAYC_RUNNING         64 // playing is running
-#define PLAYC_BEGINOFSONG    128 // begin of song (while no sound)
-#define PLAYC_ABORTNEXT      256 // skip to next song is aborted
-#define PLAYC_EXITENDLIST    512 // exit at end of list
-#define PLAYC_NOAUTOPRGSKIP  1024 // don't skip (DVB/TS) program automatically (if the current/selected program lost)
-#define PLAYC_FIRSTPLAYFLAG (1<<28) // first start of playing (to enter fullscreen at program start)
-#define PLAYC_STARTFLAG     (1<<29) // playing has just started or it was temporary stopped (EXT files / QT video)
-#define PLAYC_ENTERFLAG     (1<<30) // new file has started with ENTER key
-#define PLAYC_ENTERNEWFILE  (1<<31) // ENTER key open a new file
-#ifdef MPXPLAY_GUI_CONSOLE
-#define PLAYC_LOADMASK       (PLAYC_HSSTARTPOSHALF)
-#define PLAYC_SAVEMASK       (PLAYC_PAUSEALL|PLAYC_PAUSENEXT)
-#else
-#define PLAYC_SAVEMASK       (PLAYC_PAUSEALL|PLAYC_PAUSENEXT|PLAYC_HSSTARTPOSHALF|PLAYC_NOAUTOPRGSKIP)
-#endif
-
-//hi-lite scan defaults
-#define PLAYC_HS_STARTSONG  1
-#define PLAYC_HS_STARTTIME  "1:00"
-#define PLAYC_HS_TIMECOUNT  "0:10"
-
-//playreplay values
-#define REPLAY_SONG   1
-#define REPLAY_LIST   2
-
-//crossfadepart values
-#define CROSS_CLEAR   0
-#define CROSS_OUT     1   // fade-out part running
-#define CROSS_LOAD    5   // new file loading
-#define CROSS_FADE    3   // crossfade
-#define CROSS_IN      2   // fade-in part running
-
-//crossfadetype values
-#define CFT_FADEOUT   1   // fade out enabled
-#define CFT_FADEIN    2   // fade out disabled
 
 //intsoundconfig and intsoundcontrol function bits
 #define INTSOUND_NONE      0  // no interrupt functions
@@ -170,20 +89,8 @@ extern "C" {
 #endif
 #define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
 
-#define REFRESH_DELAY_JOYMOUSE (INT08_CYCLES_NEW/36) // 38 char/s
-
-#ifdef MPXPLAY_WIN32
- #define MPXPLAY_INTSOUNDDECODER_DISALLOW \
-  newfunc_newhandler08_waitfor_threadend();\
-  funcbit_smp_int32_put(intsoundcntrl_save,intsoundcontrol);\
-  funcbit_smp_disable(intsoundcontrol,INTSOUND_DECODER);
- #define MPXPLAY_INTSOUNDDECODER_ALLOW \
-  if(funcbit_smp_test(intsoundconfig,INTSOUND_DECODER)) \
-   funcbit_smp_copy(intsoundcontrol,intsoundcntrl_save,INTSOUND_DECODER);
-#else
- #define MPXPLAY_INTSOUNDDECODER_DISALLOW intsoundcntrl_save=intsoundcontrol;funcbit_disable(intsoundcontrol,INTSOUND_DECODER);
- #define MPXPLAY_INTSOUNDDECODER_ALLOW    if(intsoundconfig&INTSOUND_DECODER) funcbit_copy(intsoundcontrol,intsoundcntrl_save,INTSOUND_DECODER);
-#endif
+#define MPXPLAY_INTSOUNDDECODER_DISALLOW intsoundcntrl_save=intsoundcontrol;funcbit_disable(intsoundcontrol,INTSOUND_DECODER);
+#define MPXPLAY_INTSOUNDDECODER_ALLOW    if(intsoundconfig&INTSOUND_DECODER) funcbit_copy(intsoundcontrol,intsoundcntrl_save,INTSOUND_DECODER);
 
 // Mpxplay exit error codes
 #define MPXERROR_OK                0
@@ -226,28 +133,8 @@ extern "C" {
 #define DSH_NEWSHELL  2
 #define DSH_START     3
 
-//mpxplay_config_videoplayer_control
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DECODEVIDEO      (1 << 0)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_USEHWDECODING    (1 << 1)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DISABLESDHWDEC   (1 << 2)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DISABLESKIPFRAME (1 << 3)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_TEXBUFFORSWDECODED  (1 << 4) // pre-processed texture buffer for sw decoded video frames (sw decoder to d3d11 rendering)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_STREAMLIST_SHORT_LANGNAMES  (1 << 8) // use short language codes in video context menu ([lng] instead of Language)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_STREAMS_FORCED_DISABLE      (1 << 9) // disable auto use of forced embedded streams
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_SUBTITLES_EMBEDDED_DISABLE  (1 << 10) // disable auto use of embedded subtitles
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_USEAV1HWDECODING (1 << 20)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DEFAULT  (MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DECODEVIDEO | \
-                                                    MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_USEHWDECODING | \
-                                                    MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DISABLESDHWDEC)
-#define MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_REOPEN_REQUIRED (MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DECODEVIDEO | \
-                                                           MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_USEHWDECODING | \
-                                                           MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_USEAV1HWDECODING | \
-                                                           MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_DISABLESDHWDEC | \
-                                                           MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_STREAMS_FORCED_DISABLE | \
-                                                           MPXPLAY_CONFIG_VIDEOPLAYERCONTROL_SUBTITLES_EMBEDDED_DISABLE)  // TODO: move these to in_ffmpgdec_infile_callback
-
 //other
-#define IRQ_STACK_SIZE 16384   // size of irq (errorhand and soundcard) stacks
+//#define IRQ_STACK_SIZE 16384   // size of irq (errorhand and soundcard) stacks
 
 //wave (codec) IDs at input/output
 #define MPXPLAY_WAVEID_UNKNOWN   0x0000
@@ -362,12 +249,8 @@ struct mainvars{
 
 //----------------------------------------------------------------------
 
-#ifdef MPXPLAY_GUI_QT
-extern void mpxplay_infile_duration_set(struct mpxpframe_s *frp, mpxp_int64_t duration_ms);
-extern void mpxplay_infile_framenum_refresh(struct mpxpframe_s *frp);
-#endif
 //newfunc
-extern int  mpxplay_bitstream_fill(struct mpxplay_bitstreambuf_s *bs,struct mpxplay_filehand_buffered_func_s *fbfs,void *fbds,unsigned int needbytes); // fill with a file-read
+//extern int  mpxplay_bitstream_fill(struct mpxplay_bitstreambuf_s *bs,struct mpxplay_filehand_buffered_func_s *fbfs,void *fbds,unsigned int needbytes); // fill with a file-read
 extern unsigned int newfunc_newhandler08_maincycles_init(struct mainvars *mvp,void *cycleinit,void *cycle1,void *cycle2);
 
 #ifdef __cplusplus

@@ -3,8 +3,8 @@
 #include "PLATFORM.H"
 #include <dpmi.h>
 
-//a DPMI wrapper for different compilers. Borland C++, DJGPP, WatCom etc.
-//the porpose of this file is to hide all __dpmi* or int 31h calls from outside
+//a DPMI wrapper
+//the purpose of this file is to hide all __dpmi* or int 31h calls from outside
 
 typedef union {
 struct
@@ -53,35 +53,11 @@ struct
 }h;
 }DPMI_REG;
 
-//DPMI_SPACE && DPMI_ADDRESSING usage: get physical addr and setup paging/gdt, then set to DPMI wrapper to use.
-
-typedef struct//TSR/callback usage
-{
-    uint32_t baseds;        //physical base for ds,es, ss
-    uint32_t limitds;       //limit for ds, in bytes
-    uint32_t basecs;        //physical base for cs
-    uint32_t limitcs;       //limit for cs, in bytes
-    uint32_t stackpointer;  //esp
-}DPMI_SPACE;
-
-typedef struct//TSR/callback usage. state for linear DPMI_Load*/DPMI_Store*/DPMI_Mask*/DPMI_CopyLinear functions
+typedef struct
 {
     uint16_t selector; //selector created from outside
-    uint16_t physical; //1: physical addr instead of virutal. used when not called through DPMI/DPMI, and context unavailable, and no paging
-}DPMI_ADDRESSING;
-
-typedef struct //old interrupt handler info returned by install isr. 
-{
-    uint32_t offset;
-    uint16_t cs;
-    uint16_t rm_offset;
-    uint16_t rm_cs;
-    uint8_t n; //INTn
-
-    //internal informations
-    uint32_t internal1[8];
-    uint32_t internal2[8];
-}DPMI_ISR_HANDLE;
+    uint16_t physical; //1: physical addr instead of virtual. used when not called through DPMI/DPMI, and context unavailable, and no paging
+} DPMI_ADDRESSING;
 
 #ifdef __cplusplus
 extern "C"
@@ -104,9 +80,9 @@ uint32_t DPMI_PTR2L(void* ptr);
 void* DPMI_L2PTR(uint32_t addr);
 
 //convert ptr to physical addr
-#define DPMI_PTR2P(ptr) DPMI_L2P(DPMI_PTR2L(ptr))
+//#define DPMI_PTR2P(ptr) DPMI_L2P(DPMI_PTR2L(ptr))
 //convert physical addr to ptr
-#define DPMI_P2PTR(addr) DPMI_L2PTR(DPMI_P2L(addr))
+//#define DPMI_P2PTR(addr) DPMI_L2PTR(DPMI_P2L(addr))
 
 //return virtual mapped memory in linear space, usually for device IO
 //get the device base address in physical space and map it to the linear space to access it
@@ -140,43 +116,9 @@ uint8_t DPMI_DisableInterrupt();
 void DPMI_RestoreInterrupt(uint8_t state);
 
 //switch addressing mode for linear functions, should use it temporarily and interrupt disabled.
-void DPMI_SetAddressing(DPMI_ADDRESSING* inputp newaddr, DPMI_ADDRESSING* outputp oldaddr);
+//void DPMI_SetAddressing(DPMI_ADDRESSING* inputp newaddr, DPMI_ADDRESSING* outputp oldaddr);
 
 void DPMI_Init(void);
-
-#if defined(__WC__)
-
-//linear memory access
-#define DPMI_LoadB(addr) (*((volatile uint8_t*)(addr)))
-#define DPMI_StoreB(addr, val) do { *((volatile uint8_t*)(addr)) = (val); } while(0)
-#define DPMI_MaskB(addr, mand, mor) do\
-{    uint8_t val = *((volatile uint8_t*)(addr));\
-    val &= mand;\
-    val |= mor;\
-    *((volatile uint8_t*)addr) = val;\
-}while(0)
-
-#define DPMI_LoadW(addr) (*((volatile uint16_t*)(addr)))
-#define DPMI_StoreW(addr, val) do{ *((volatile uint16_t*)(addr)) = (val); }while(0);
-#define DPMI_MaskW(addr, mand, mor) do\
-{\
-    uint16_t val = *((volatile uint16_t*)(addr));\
-    val &= mand;\
-    val |= mor;\
-    *((volatile uint16_t*)(addr)) = val;\
-}while(0)
-
-#define DPMI_LoadD(addr) (*((volatile uint32_t*)(addr)))
-#define DPMI_StoreD(addr, val) do { *((volatile uint32_t*)(addr)) = (val); } while(0)
-#define DPMI_MaskD(addr, mand, mor) do\
-{\
-    uint32_t val = *((volatile uint32_t*)(addr));\
-    val &= mand;\
-    val |= mor;\
-    *((volatile uint32_t*)(addr)) = val;\
-}while(0)
-
-#else
 
 //linear memory access
 uint8_t DPMI_LoadB(uint32_t addr);
@@ -190,8 +132,6 @@ void DPMI_MaskW(uint32_t addr, uint16_t mand, uint16_t mor);
 uint32_t DPMI_LoadD(uint32_t addr);
 void DPMI_StoreD(uint32_t addr, uint32_t val);
 void DPMI_MaskD(uint32_t addr, uint32_t mand, uint32_t mor);
-
-#endif
 
 void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size);
 void DPMI_SetLinear(uint32_t dest, uint8_t val, uint32_t size);
@@ -207,18 +147,14 @@ uint32_t DPMI_HighMalloc(uint16_t size, BOOL UMB);
 void DPMI_HighFree(uint32_t segment);
 
 //convert real mode far pointer to linear addr
-#define DPMI_FP2L(f32) ((((f32)>>12)&0xFFFF0)+((f32)&0xFFFF))
+//#define DPMI_FP2L(f32) ((((f32)>>12)&0xFFFF0)+((f32)&0xFFFF))
 //convert far pointer (seg:off) to linear
-#define DPMI_SEGOFF2L(seg, off) ((((uint32_t)((seg)&0xFFFF))<<4) + ((off)&0xFFFF))
+//#define DPMI_SEGOFF2L(seg, off) ((((uint32_t)((seg)&0xFFFF))<<4) + ((off)&0xFFFF))
 //convert far pointer (seg:off) to 32bit far ptr
-#define DPMI_MKFP(seg, off) ((((uint32_t)((seg)&0xFFFF))<<16) | ((off)&0xFFFF))
+//#define DPMI_MKFP(seg, off) ((((uint32_t)((seg)&0xFFFF))<<16) | ((off)&0xFFFF))
 
 #ifdef __cplusplus
 }
 #endif
 
-/*
-#define CLIS() int DPMI_IFlag = DPMI_DisableInterrupt()
-#define STIL() do { DPMI_RestoreInterrupt(DPMI_IFlag); } while(0)
-*/
 #endif

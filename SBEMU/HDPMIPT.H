@@ -6,17 +6,17 @@
 
 BOOL HDPMIPT_Detect();
 
-BOOL HDPMIPT_Install_IOPortTrap(uint16_t start, uint16_t end, QEMM_IODT* inputp iodt, uint16_t count, QEMM_IOPT* outputp iopt);
-BOOL HDPMIPT_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt);
+BOOL HDPMIPT_Install_PortTraps( QEMM_IODT[], int *, int );
+BOOL HDPMIPT_Uninstall_PortTraps( QEMM_IODT*, int );
 
 BOOL HDPMIPT_InstallISR( uint8_t irq, int(*ISR)(void) );
 BOOL HDPMIPT_UninstallISR( void );
 
-void HDPMIPT_UntrappedIO_Write(uint16_t port, uint8_t value);
-uint8_t HDPMIPT_UntrappedIO_Read(uint16_t port);
+void HDPMIPT_UntrappedIO_OUT(uint16_t port, uint8_t value);
+uint8_t HDPMIPT_UntrappedIO_IN(uint16_t port);
 
-#if PRINTPORTS
-void HDPMIPT_PrintPorts( void ); /* display trapped ports in protected-mode */
+#ifdef _DEBUG
+void HDPMIPT_PrintPorts( QEMM_IODT* , int ); /* display trapped ports in protected-mode */
 #endif
 
 #endif //_HDPMIPT_H_

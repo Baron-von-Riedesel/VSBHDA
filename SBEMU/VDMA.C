@@ -1,10 +1,9 @@
 #include "VDMA.H"
 #include "UNTRAPIO.H"
 #include "PLATFORM.H"
+#include "sbemucfg.h"
 
 #include <stdio.h>
-
-#define dbgprintf
 
 //registers
 static uint16_t VDMA_Regs[32];

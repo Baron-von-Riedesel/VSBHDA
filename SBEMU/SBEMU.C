@@ -5,6 +5,7 @@
 #include "PLATFORM.H"
 #include "SBEMU.H"
 #include "CTADPCM.H"
+#include "VIRQ.H"
 
 typedef struct 
 {
@@ -13,15 +14,11 @@ typedef struct
     uint8_t useRef;
 }ADPCM_STATE;
 
-
-
 void MAIN_Uninstall( void );
 
 #define SBEMU_RESET_START 0
 #define SBEMU_RESET_END 1
 #define SBEMU_RESET_POLL 2
-
-//void(*SBEMU_StartCB)(void);
 
 static int SBEMU_ResetState = SBEMU_RESET_END;
 static int SBEMU_Started = 0;
@@ -39,7 +36,7 @@ static int SBEMU_HighSpeed = 0;
 static int SBEMU_DSPCMD = -1;
 static int SBEMU_DSPCMD_Subindex = 0;
 static int SBEMU_DSPDATA_Subindex = 0;
-static int SBEMU_TriggerIRQ = 0;
+int SBEMU_TriggerIRQ = 0;
 static int SBEMU_Pos = 0;
 static uint8_t SBEMU_IRQMap[4] = {2,5,7,10};
 static uint8_t SBEMU_MixerRegIndex = 0;
@@ -60,6 +57,7 @@ static uint8_t SBEMU_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.
 static uint8_t SBEMU_MixerRegs[256];
 
 static int SBEMU_Indexof(uint8_t* array, int count, uint8_t  val)
+/////////////////////////////////////////////////////////////////
 {
     for(int i = 0; i < count; ++i)
     {
@@ -71,6 +69,7 @@ static int SBEMU_Indexof(uint8_t* array, int count, uint8_t  val)
 
 
 static void SBEMU_Mixer_WriteAddr( uint8_t value )
+//////////////////////////////////////////////////
 {
     dbgprintf("SBEMU_Mixer_WriteAddr: value=%x\n", value);
     SBEMU_MixerRegIndex = value;
@@ -120,12 +119,14 @@ static void SBEMU_Mixer_Write( uint8_t value )
 }
 
 static uint8_t SBEMU_Mixer_Read( void )
+///////////////////////////////////////
 {
     dbgprintf("SBEMU: mixer read: %x\n", SBEMU_MixerRegs[SBEMU_MixerRegIndex]);
     return SBEMU_MixerRegs[SBEMU_MixerRegIndex];
 }
 
 static void SBEMU_DSP_Reset( uint8_t value )
+////////////////////////////////////////////
 {
     dbgprintf("SBEMU: DSP reset: %d\n",value);
     if(value == 1)
@@ -162,6 +163,7 @@ static void SBEMU_DSP_Reset( uint8_t value )
 }
 
 static void SBEMU_DSP_Write( uint8_t value )
+////////////////////////////////////////////
 {
     dbgprintf("SBEMU_DSP_Write %02x, DSPCMD=%02x\n", value, SBEMU_DSPCMD);
     if(SBEMU_HighSpeed) //highspeed won't accept further commands, need reset
@@ -169,56 +171,48 @@ static void SBEMU_DSP_Write( uint8_t value )
     int OldStarted = SBEMU_Started;
     SBEMU_WS = 0x80;
     if( SBEMU_DSPCMD == -1 ) {
-        SBEMU_DSPCMD = value;
-        SBEMU_DSPCMD_Subindex = 0;
-        switch( SBEMU_DSPCMD ) { /* handle 1-byte cmds here */
+        //SBEMU_DSPCMD = value;
+        switch( value ) { /* handle 1-byte cmds here */
         case SBEMU_CMD_TRIGGER_IRQ: /* F2 */
 #if SB16
         case SBEMU_CMD_TRIGGER_IRQ16: /* F3 */
 #endif
-            SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] |= ( SBEMU_DSPCMD == SBEMU_CMD_TRIGGER_IRQ ? 0x1 : 0x2 );
+            SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] |= ( value == SBEMU_CMD_TRIGGER_IRQ ? 0x1 : 0x2 );
             SBEMU_TriggerIRQ = 1;
-            SBEMU_DSPCMD = -1;
             //VIRQ_Invoke(SBEMU_GetIRQ()); //not working
             break;
         case SBEMU_CMD_DAC_SPEAKER_ON: /* D1 */
         case SBEMU_CMD_DAC_SPEAKER_OFF: /* D3 */
-            SBEMU_DSPCMD = -1;
             break;
         case SBEMU_CMD_HALT_DMA: /* D0 */
         case SBEMU_CMD_CONTINUE_DMA: /* D4 */
-            SBEMU_Started = ( SBEMU_DSPCMD == SBEMU_CMD_CONTINUE_DMA );
-            SBEMU_DSPCMD = -1;
+            SBEMU_Started = ( value == SBEMU_CMD_CONTINUE_DMA );
             break;
 #if SB16
         case SBEMU_CMD_HALT_DMA16: /* D5 */
         case SBEMU_CMD_CONTINUE_DMA16: /* D6 */
-            SBEMU_Started = ( SBEMU_DSPCMD == SBEMU_CMD_CONTINUE_DMA16 );
-            SBEMU_DSPCMD = -1;
+            SBEMU_Started = ( value == SBEMU_CMD_CONTINUE_DMA16 );
             break;
 #endif
         case SBEMU_CMD_8BIT_OUT_AUTO_HS: /* 90 */
         case SBEMU_CMD_8BIT_OUT_AUTO: /* 1C */
             SBEMU_Auto = TRUE;
             SBEMU_Bits = 8;
-            SBEMU_HighSpeed = ( SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_AUTO_HS );
+            SBEMU_HighSpeed = ( value == SBEMU_CMD_8BIT_OUT_AUTO_HS );
             SBEMU_Started = TRUE; //start transfer
-            SBEMU_DSPCMD = -1;
             SBEMU_Pos = 0;
             break;
 #if ADPCM
         case SBEMU_CMD_2BIT_OUT_AUTO: /* 1F */
         case SBEMU_CMD_3BIT_OUT_AUTO: /* 7F */
         case SBEMU_CMD_4BIT_OUT_AUTO: /* 7D */
-            {
-                SBEMU_Auto = TRUE;
-                SBEMU_ADPCM.useRef = TRUE;
-                SBEMU_ADPCM.step = 0;
-                SBEMU_Bits = (SBEMU_DSPCMD <= SBEMU_CMD_2BIT_OUT_1_NREF) ? 2 : (SBEMU_DSPCMD>=SBEMU_CMD_3BIT_OUT_1_NREF) ? 3 : 4;
-                SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] &= ~0x2;
-                SBEMU_Started = TRUE; //start transfer here
-                SBEMU_Pos = 0;
-            }
+			SBEMU_Auto = TRUE;
+			SBEMU_ADPCM.useRef = TRUE;
+			SBEMU_ADPCM.step = 0;
+			SBEMU_Bits = (value <= SBEMU_CMD_2BIT_OUT_1_NREF) ? 2 : (value >= SBEMU_CMD_3BIT_OUT_1_NREF) ? 3 : 4;
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] &= ~0x2;
+			SBEMU_Started = TRUE; //start transfer here
+			SBEMU_Pos = 0;
             break;
 #endif
 #if SB16
@@ -228,119 +222,113 @@ static void SBEMU_DSP_Write( uint8_t value )
                 SBEMU_Auto = FALSE;
                 SBEMU_Started = FALSE;
             }
-            SBEMU_DSPCMD = -1;
             break;
 #endif
         case 0x2A: //unknown commands
-            SBEMU_DSPCMD = -1;
+            break;
+        default:
+            SBEMU_DSPCMD = value;
+            SBEMU_DSPCMD_Subindex = 0;
         }
-	} else {
 #if SB16
-		if ( SBEMU_DSPCMD >= 0xB0 && SBEMU_DSPCMD <= 0xCF ) {
-			//SBEMU_Fifo = ( SBEMU_DSPCMD & 0x2 ) ? 1 : 0;
-			switch ( SBEMU_DSPCMD_Subindex ) {
-			case 0:
-				SBEMU_Auto = ( ( SBEMU_DSPCMD & 0x4 ) ? 1 : 0 );
-				SBEMU_Bits = ( ( SBEMU_DSPCMD & 0x40 ) ? 8 : 16 );
-				/* bit 4 of value: 1=signed */
-				/* bit 5 of value: 1=stereo */
-				SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] |= ( ( value & 0x20 ) ? 2 : 0 );
-				SBEMU_DSPCMD_Subindex++;
-				break;
-			case 1:
+	} else if ( SBEMU_DSPCMD >= 0xB0 && SBEMU_DSPCMD <= 0xCF ) {
+		//SBEMU_Fifo = ( SBEMU_DSPCMD & 0x2 ) ? 1 : 0;
+		switch ( SBEMU_DSPCMD_Subindex ) {
+		case 0:
+			SBEMU_Auto = ( ( SBEMU_DSPCMD & 0x4 ) ? 1 : 0 );
+			SBEMU_Bits = ( ( SBEMU_DSPCMD & 0x40 ) ? 8 : 16 );
+			/* bit 4 of value: 1=signed */
+			/* bit 5 of value: 1=stereo */
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] |= ( ( value & 0x20 ) ? 2 : 0 );
+			SBEMU_DSPCMD_Subindex++;
+			break;
+		case 1:
+			SBEMU_Samples = value;
+			SBEMU_DSPCMD_Subindex++;
+			break;
+		default:
+			SBEMU_Samples |= value<<8;
+			SBEMU_DSPCMD = -1;
+			SBEMU_Started = TRUE;
+			SBEMU_Pos = 0;
+		}
+#endif
+	} else {
+		switch(SBEMU_DSPCMD) {
+		case SBEMU_CMD_SET_TIMECONST: /* 40 */
+			SBEMU_SampleRate = 0;
+			for(int i = 0; i < 3; ++i) {
+				if(value >= SBEMU_TimeConstantMapMono[i][0]-3 && value <= SBEMU_TimeConstantMapMono[i][0]+3) {
+					SBEMU_SampleRate = SBEMU_TimeConstantMapMono[i][1] / SBEMU_GetChannels();
+					break;
+				}
+			}
+			if(SBEMU_SampleRate == 0)
+				SBEMU_SampleRate = 256000000/(65536-(value<<8)) / SBEMU_GetChannels();
+			SBEMU_DSPCMD_Subindex = 2; //only 1byte
+			dbgprintf("SBEMU_DSP_Write SET_TIMECONST: set sampling rate: %d\n", SBEMU_SampleRate);
+			break;
+		case SBEMU_CMD_SET_SIZE: /* 48 - used for auto command */
+		case SBEMU_CMD_8BIT_OUT_1_HS: /* 91 */
+		case SBEMU_CMD_8BIT_OUT_1: /* 14 */
+			if(SBEMU_DSPCMD_Subindex++ == 0)
 				SBEMU_Samples = value;
-				SBEMU_DSPCMD_Subindex++;
-				break;
-			default:
+			else {
+				SBEMU_Samples |= value << 8;
+				SBEMU_HighSpeed = ( SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_AUTO_HS );
+				if ( SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_1 || SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_1_HS ) {
+					SBEMU_Started = TRUE;
+					SBEMU_Bits = 8;
+					SBEMU_Pos = 0;
+				}
+			}
+			break;
+#if ADPCM
+		case SBEMU_CMD_2BIT_OUT_1: /* 16 */
+		case SBEMU_CMD_2BIT_OUT_1_NREF: /* 17 */
+		case SBEMU_CMD_3BIT_OUT_1:
+		case SBEMU_CMD_3BIT_OUT_1_NREF:
+		case SBEMU_CMD_4BIT_OUT_1:
+		case SBEMU_CMD_4BIT_OUT_1_NREF:
+			if(SBEMU_DSPCMD_Subindex++ == 0)
+				SBEMU_Samples = value;
+			else {
 				SBEMU_Samples |= value<<8;
-				SBEMU_DSPCMD = -1;
-				SBEMU_Started = TRUE;
+				SBEMU_Auto = FALSE;
+				SBEMU_ADPCM.useRef = (SBEMU_DSPCMD==SBEMU_CMD_2BIT_OUT_1 || SBEMU_DSPCMD==SBEMU_CMD_3BIT_OUT_1 || SBEMU_DSPCMD==SBEMU_CMD_4BIT_OUT_1);
+				SBEMU_ADPCM.step = 0;
+				SBEMU_Bits = (SBEMU_DSPCMD<=SBEMU_CMD_2BIT_OUT_1_NREF) ? 2 : (SBEMU_DSPCMD>=SBEMU_CMD_3BIT_OUT_1_NREF) ? 3 : 4;
+				SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] &= ~0x2;
+				SBEMU_Started = TRUE; //start transfer here
 				SBEMU_Pos = 0;
 			}
-		} else {
+			break;
 #endif
-			switch(SBEMU_DSPCMD) {
-			case SBEMU_CMD_SET_TIMECONST: /* 40 */
-				SBEMU_SampleRate = 0;
-				for(int i = 0; i < 3; ++i) {
-					if(value >= SBEMU_TimeConstantMapMono[i][0]-3 && value <= SBEMU_TimeConstantMapMono[i][0]+3) {
-						SBEMU_SampleRate = SBEMU_TimeConstantMapMono[i][1] / SBEMU_GetChannels();
-						break;
-					}
-				}
-				if(SBEMU_SampleRate == 0)
-					SBEMU_SampleRate = 256000000/(65536-(value<<8)) / SBEMU_GetChannels();
-				SBEMU_DSPCMD_Subindex = 2; //only 1byte
-				dbgprintf("SBEMU_DSP_Write SET_TIMECONST: set sampling rate: %d\n", SBEMU_SampleRate);
-				break;
-			case SBEMU_CMD_SET_SIZE: /* 48 - used for auto command */
-			case SBEMU_CMD_8BIT_OUT_1_HS: /* 91 */
-			case SBEMU_CMD_8BIT_OUT_1: /* 14 */
-				if(SBEMU_DSPCMD_Subindex++ == 0)
-					SBEMU_Samples = value;
-				else {
-					SBEMU_Samples |= value << 8;
-					SBEMU_HighSpeed = ( SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_AUTO_HS );
-					if ( SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_1 || SBEMU_DSPCMD == SBEMU_CMD_8BIT_OUT_1_HS ) {
-						SBEMU_Started = TRUE;
-						SBEMU_Bits = 8;
-						SBEMU_Pos = 0;
-					}
-				}
-				break;
-#if ADPCM
-            case SBEMU_CMD_2BIT_OUT_1: /* 16 */
-            case SBEMU_CMD_2BIT_OUT_1_NREF: /* 17 */
-            case SBEMU_CMD_3BIT_OUT_1:
-            case SBEMU_CMD_3BIT_OUT_1_NREF:
-            case SBEMU_CMD_4BIT_OUT_1:
-            case SBEMU_CMD_4BIT_OUT_1_NREF:
-                if(SBEMU_DSPCMD_Subindex++ == 0)
-                    SBEMU_Samples = value;
-                else {
-                    SBEMU_Samples |= value<<8;
-                    SBEMU_Auto = FALSE;
-                    SBEMU_ADPCM.useRef = (SBEMU_DSPCMD==SBEMU_CMD_2BIT_OUT_1 || SBEMU_DSPCMD==SBEMU_CMD_3BIT_OUT_1 || SBEMU_DSPCMD==SBEMU_CMD_4BIT_OUT_1);
-                    SBEMU_ADPCM.step = 0;
-                    SBEMU_Bits = (SBEMU_DSPCMD<=SBEMU_CMD_2BIT_OUT_1_NREF) ? 2 : (SBEMU_DSPCMD>=SBEMU_CMD_3BIT_OUT_1_NREF) ? 3 : 4;
-                    SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] &= ~0x2;
-                    SBEMU_Started = TRUE; //start transfer here
-                    SBEMU_Pos = 0;
-                }
-            break;
-#endif
-            case SBEMU_CMD_SET_SAMPLERATE_I: /* 42 */
-                SBEMU_DSPCMD_Subindex++;
-                break;
-            case SBEMU_CMD_SET_SAMPLERATE: /* 41 - command start: sample rate */
-                if(SBEMU_DSPCMD_Subindex++ == 0)
-                    SBEMU_SampleRate = value << 8; /* hibyte first */
-                else {
-                    SBEMU_SampleRate &= ~0xFF;
-                    SBEMU_SampleRate |= value;
-                }
-                break;
-            case SBEMU_CMD_DSP_ID: /* E0 */
-                SBEMU_idbyte = value;
-                break;
-            } /* end switch */
-            if( SBEMU_DSPCMD_Subindex >= 2 )
-                SBEMU_DSPCMD = -1;
-#if SB16
-        } /* endif DSPCMD >= 0xB0 && DSPCMD <= 0xCF */
-#endif
-    } /* endif DSPCMD == -1 */
-    if(SBEMU_Started && !OldStarted) { //handle driver detection
-        dbgprintf("SBEMU_DSP_Write exit, SBEMU_Started=%u\n", SBEMU_Started );
-        /*if(SBEMU_StartCB) {
-         CLIS();
-         SBEMU_StartCB(); //if don't do this, need always output 0 PCM to keep interrupt alive for now
-         STIL();
-         }*/
-    }
+		case SBEMU_CMD_SET_SAMPLERATE_I: /* 42 */
+			SBEMU_DSPCMD_Subindex++;
+			break;
+		case SBEMU_CMD_SET_SAMPLERATE: /* 41 - command start: sample rate */
+			if(SBEMU_DSPCMD_Subindex++ == 0)
+				SBEMU_SampleRate = value << 8; /* hibyte first */
+			else {
+				SBEMU_SampleRate &= ~0xFF;
+				SBEMU_SampleRate |= value;
+			}
+			break;
+		case SBEMU_CMD_DSP_ID: /* E0 */
+			SBEMU_idbyte = value;
+			break;
+		} /* end switch */
+		if( SBEMU_DSPCMD_Subindex >= 2 )
+			SBEMU_DSPCMD = -1;
+	} /* endif DSPCMD == -1 */
+	if(SBEMU_Started != OldStarted ) {
+		dbgprintf("SBEMU_DSP_Write exit, SBEMU_Started=%u\n", SBEMU_Started );
+	}
 }
 
 static uint8_t SBEMU_DSP_Read( void )
+/////////////////////////////////////
 {
     if( SBEMU_ResetState == SBEMU_RESET_POLL || SBEMU_ResetState == SBEMU_RESET_START ) {
         SBEMU_ResetState = SBEMU_RESET_END;
@@ -379,6 +367,7 @@ static uint8_t SBEMU_DSP_Read( void )
  */
 
 static uint8_t SBEMU_DSP_WriteStatus( void )
+////////////////////////////////////////////
 {
     //dbgprintf("SBEMU_DSP_WriteStatus (bit 7=0 means DSP ready for cmd/data)\n");
     //return 0; //ready for write (bit7 clear)
@@ -387,6 +376,7 @@ static uint8_t SBEMU_DSP_WriteStatus( void )
 }
 
 static uint8_t SBEMU_DSP_ReadStatus( void )
+///////////////////////////////////////////
 {
     dbgprintf("SBEMU_DSP_ReadStatus\n");
 /*
@@ -403,12 +393,14 @@ static uint8_t SBEMU_DSP_ReadStatus( void )
 }
 
 static uint8_t SBEMU_DSP_INT16ACK( void )
+/////////////////////////////////////////
 {
     SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] &= ~0x2;
     return 0xFF;
 }
 
-void SBEMU_Init(int irq, int dma, int hdma, int DSPVer, void(*startCB)(void))
+void SBEMU_Init(int irq, int dma, int hdma, int DSPVer )
+////////////////////////////////////////////////////////
 {
     SBEMU_IRQ = irq;
     SBEMU_DMA = dma;
@@ -416,12 +408,12 @@ void SBEMU_Init(int irq, int dma, int hdma, int DSPVer, void(*startCB)(void))
     SBEMU_HDMA = hdma;
 #endif
     SBEMU_DSPVER = DSPVer;
-    //SBEMU_StartCB = startCB;
     SBEMU_Mixer_WriteAddr( SBEMU_MIXERREG_RESET );
     SBEMU_Mixer_Write( 1 );
 }
 
 uint8_t SBEMU_GetIRQ()
+//////////////////////
 {
     if(SBEMU_MixerRegs[SBEMU_MIXERREG_INT_SETUP] == 0)
         return 0xFF;
@@ -432,6 +424,7 @@ uint8_t SBEMU_GetIRQ()
 }
 
 uint8_t SBEMU_GetDMA()
+//////////////////////
 {
 #if SB16
     if ( SBEMU_Bits > 8 ) {
@@ -446,6 +439,7 @@ uint8_t SBEMU_GetDMA()
 
 #if SB16
 uint8_t SBEMU_GetHDMA()
+///////////////////////
 {
     if( !(SBEMU_MixerRegs[SBEMU_MIXERREG_DMA_SETUP] & 0xF0 ))
         return 0xFF;
@@ -455,11 +449,13 @@ uint8_t SBEMU_GetHDMA()
 #endif
 
 int SBEMU_HasStarted()
+//////////////////////
 {
     return SBEMU_Started;
 }
 
 void SBEMU_Stop()
+/////////////////
 {
     SBEMU_Started = FALSE;
     SBEMU_HighSpeed = FALSE;
@@ -467,26 +463,31 @@ void SBEMU_Stop()
 }
 
 int SBEMU_GetDACSpeaker()
+/////////////////////////
 {
     return SBEMU_DACSpeaker;
 }
 
 int SBEMU_GetBits()
+///////////////////
 {
     return SBEMU_Bits;
 }
 
 int SBEMU_GetChannels()
+///////////////////////
 {
     return (SBEMU_MixerRegs[SBEMU_MIXERREG_MODEFILTER] & 0x2) ? 2 : 1;
 }
 
 int SBEMU_GetSampleRate()
+/////////////////////////
 {
     return SBEMU_SampleRate;
 }
 
 int SBEMU_GetSampleBytes()
+//////////////////////////
 {
  //   return SBEMU_Samples + 1;
  //   return(( SBEMU_Samples + 1 ) * SBEMU_Bits / 8 );
@@ -494,37 +495,48 @@ int SBEMU_GetSampleBytes()
 }
 
 int SBEMU_GetAuto()
+///////////////////
 {
     return SBEMU_Auto;
 }
 
 int SBEMU_GetPos()
+//////////////////
 {
     return SBEMU_Pos;
 }
 
 int SBEMU_SetPos(int pos)
+/////////////////////////
 {
     if(pos >= SBEMU_GetSampleBytes())
         SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] |= SBEMU_GetBits() <= 8 ? 0x01 : 0x02;
     return SBEMU_Pos = pos;
 }
 
+#if 0
 int SBEMU_IRQTriggered()
+////////////////////////
 {
     return SBEMU_TriggerIRQ;
 }
-void SBEMU_SetIRQTriggered(int triggered)
+
+void SBEMU_ResetTriggeredIRQ()
+//////////////////////////////
 {
-    SBEMU_TriggerIRQ = triggered;
+    SBEMU_TriggerIRQ = 0;
 }
+#endif
 
 uint8_t SBEMU_GetMixerReg(uint8_t index)
+////////////////////////////////////////
 {
     return SBEMU_MixerRegs[index];
 }
 
+#if ADPCM
 int SBEMU_DecodeADPCM(uint8_t* adpcm, int bytes)
+////////////////////////////////////////////////
 {
     int start = 0;
     if(SBEMU_ADPCM.useRef)
@@ -539,43 +551,46 @@ int SBEMU_DecodeADPCM(uint8_t* adpcm, int bytes)
     uint8_t* pcm = (uint8_t*)malloc(outbytes);
     int outcount = 0;
 
-    for(int i = start; i < bytes; ++i)
-    {
-        if(SBEMU_Bits == 2)
-        {
-            pcm[outcount++]=decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_2_sample((adpcm[i] >> 0) & 0x3,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-        }
-        else if(SBEMU_Bits == 3)
-        {
-            pcm[outcount++]=decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-        }
-        else if(SBEMU_Bits == 4)
-        {
-            pcm[outcount++]=decode_ADPCM_4_sample(adpcm[i] >> 4,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-            pcm[outcount++]=decode_ADPCM_4_sample(adpcm[i]& 0xf,&SBEMU_ADPCM.ref,&SBEMU_ADPCM.step);
-        }
-    }
+	switch ( SBEMU_Bits ) {
+	case 2:
+		for(int i = start; i < bytes; ++i) {
+			pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 0) & 0x3, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+		}
+	case 3:
+		for(int i = start; i < bytes; ++i) {
+			pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+		}
+	default:
+		for(int i = start; i < bytes; ++i) {
+			pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] >> 4, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+			pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i]& 0xf, &SBEMU_ADPCM.ref, &SBEMU_ADPCM.step);
+		}
+	}
     //assert(outcount <= outbytes);
     dbgprintf("SBEMU: adpcm decode: %d %d\n", outcount, outbytes);
     memcpy(adpcm, pcm, outcount);
     free(pcm);
     return outcount;
 }
+#endif
 
 uint32_t SBEMU_SB_MixerAddr( uint32_t port, uint32_t val, uint32_t out )
+////////////////////////////////////////////////////////////////////////
 {
     return out ? (SBEMU_Mixer_WriteAddr( val ), val) : val;
 }
 uint32_t SBEMU_SB_MixerData( uint32_t port, uint32_t val, uint32_t out )
+////////////////////////////////////////////////////////////////////////
 {
     return out ? (SBEMU_Mixer_Write( val ), val) : (val &=~0xFF, val |= SBEMU_Mixer_Read() );
 }
 uint32_t SBEMU_SB_DSP_Reset( uint32_t port, uint32_t val, uint32_t out )
+////////////////////////////////////////////////////////////////////////
 {
     return out ? (SBEMU_DSP_Reset( val ), val) : val;
 }
@@ -586,6 +601,7 @@ uint32_t SBEMU_SB_DSP_Reset( uint32_t port, uint32_t val, uint32_t out )
  */
 
 uint32_t SBEMU_SB_DSP_Read( uint32_t port, uint32_t val, uint32_t out )
+///////////////////////////////////////////////////////////////////////
 {
     return out ? val : (val &=~0xFF, val |= SBEMU_DSP_Read());
 }
@@ -595,6 +611,7 @@ uint32_t SBEMU_SB_DSP_Read( uint32_t port, uint32_t val, uint32_t out )
  */
 
 uint32_t SBEMU_SB_DSP_Write( uint32_t port, uint32_t val, uint32_t out )
+////////////////////////////////////////////////////////////////////////
 {
     return out ? (SBEMU_DSP_Write( val ), val) : SBEMU_DSP_WriteStatus();
 }
@@ -605,10 +622,12 @@ uint32_t SBEMU_SB_DSP_Write( uint32_t port, uint32_t val, uint32_t out )
  * a read also works as 8-bit "IRQ ack"
  */
 uint32_t SBEMU_SB_DSP_ReadStatus( uint32_t port, uint32_t val, uint32_t out )
+/////////////////////////////////////////////////////////////////////////////
 {
     return out ? val : (val &=~0xFF, val |= SBEMU_DSP_ReadStatus());
 }
 uint32_t SBEMU_SB_DSP_ReadINT16BitACK( uint32_t port, uint32_t val, uint32_t out )
+//////////////////////////////////////////////////////////////////////////////////
 {
     return out ? val : (val &=~0xFF, val |= SBEMU_DSP_INT16ACK());
 }

@@ -42,15 +42,15 @@ enum {
  * widget types
  */
 enum {
-    AC_WID_AUD_OUT,        /* Audio Out */
-    AC_WID_AUD_IN,        /* Audio In */
-    AC_WID_AUD_MIX,        /* Audio Mixer */
-    AC_WID_AUD_SEL,        /* Audio Selector */
-    AC_WID_PIN,        /* Pin Complex */
-    AC_WID_POWER,        /* Power */
-    AC_WID_VOL_KNB,        /* Volume Knob */
-    AC_WID_BEEP,        /* Beep Generator */
-    AC_WID_VENDOR = 0x0f    /* Vendor specific */
+    AC_WID_AUD_OUT,        /* 0 Audio Out */
+    AC_WID_AUD_IN,         /* 1 Audio In */
+    AC_WID_AUD_MIX,        /* 2 Audio Mixer */
+    AC_WID_AUD_SEL,        /* 3 Audio Selector */
+    AC_WID_PIN,            /* 4 Pin Complex */
+    AC_WID_POWER,          /* 5 Power */
+    AC_WID_VOL_KNB,        /* 6 Volume Knob */
+    AC_WID_BEEP,           /* 7 Beep Generator */
+    AC_WID_VENDOR = 0x0f   /* Vendor specific */
 };
 
 /*
@@ -137,31 +137,32 @@ enum {
 
 /* Function Group Type */
 #define AC_FGT_TYPE            (0xff<<0)
-#define AC_FGT_TYPE_SHIFT        0
-#define AC_FGT_UNSOL_CAP        (1<<8)
+#define AC_FGT_TYPE_SHIFT       0
+#define AC_FGT_UNSOL_CAP       (1<<8)
 
 /* Audio Function Group Capabilities */
 #define AC_AFG_OUT_DELAY        (0xf<<0)
-#define AC_AFG_IN_DELAY            (0xf<<8)
-#define AC_AFG_BEEP_GEN            (1<<16)
+#define AC_AFG_IN_DELAY         (0xf<<8)
+#define AC_AFG_BEEP_GEN         (1<<16)
 
-/* Audio Widget Capabilities */
+/* Audio Widget Capabilities
+ */
 #define AC_WCAP_STEREO            (1<<0)    /* stereo I/O */
 #define AC_WCAP_IN_AMP            (1<<1)    /* AMP-in present */
-#define AC_WCAP_OUT_AMP            (1<<2)    /* AMP-out present */
-#define AC_WCAP_AMP_OVRD        (1<<3)    /* AMP-parameter override */
-#define AC_WCAP_FORMAT_OVRD        (1<<4)    /* format override */
+#define AC_WCAP_OUT_AMP           (1<<2)    /* AMP-out present */
+#define AC_WCAP_AMP_OVRD          (1<<3)    /* AMP-parameter override */
+#define AC_WCAP_FORMAT_OVRD       (1<<4)    /* format override */
 #define AC_WCAP_STRIPE            (1<<5)    /* stripe */
-#define AC_WCAP_PROC_WID        (1<<6)    /* Proc Widget */
-#define AC_WCAP_UNSOL_CAP        (1<<7)    /* Unsol capable */
-#define AC_WCAP_CONN_LIST        (1<<8)    /* connection list */
-#define AC_WCAP_DIGITAL            (1<<9)    /* digital I/O */
-#define AC_WCAP_POWER            (1<<10)    /* power control */
-#define AC_WCAP_LR_SWAP            (1<<11)    /* L/R swap */
+#define AC_WCAP_PROC_WID          (1<<6)    /* Proc Widget */
+#define AC_WCAP_UNSOL_CAP         (1<<7)    /* Unsol capable */
+#define AC_WCAP_CONN_LIST         (1<<8)    /* connection list */
+#define AC_WCAP_DIGITAL           (1<<9)    /* digital I/O */
+#define AC_WCAP_POWER             (1<<10)   /* power control */
+#define AC_WCAP_LR_SWAP           (1<<11)   /* L/R swap */
 #define AC_WCAP_DELAY            (0xf<<16)
 #define AC_WCAP_DELAY_SHIFT        16
-#define AC_WCAP_TYPE            (0xf<<20)
-#define AC_WCAP_TYPE_SHIFT        20
+#define AC_WCAP_TYPE             (0xf<<20)
+#define AC_WCAP_TYPE_SHIFT         20
 
 /* supported PCM rates and bits */
 #define AC_SUPPCM_RATES            (0xfff << 0)
@@ -178,37 +179,37 @@ enum {
 
 /* Pin widget capabilies */
 #define AC_PINCAP_IMP_SENSE        (1<<0)    /* impedance sense capable */
-#define AC_PINCAP_TRIG_REQ        (1<<1)    /* trigger required */
-#define AC_PINCAP_PRES_DETECT        (1<<2)    /* presence detect capable */
-#define AC_PINCAP_HP_DRV        (1<<3)    /* headphone drive capable */
-#define AC_PINCAP_OUT            (1<<4)    /* output capable */
-#define AC_PINCAP_IN            (1<<5)    /* input capable */
-#define AC_PINCAP_BALANCE        (1<<6)    /* balanced I/O capable */
-#define AC_PINCAP_VREF            (0x37<<8)
+#define AC_PINCAP_TRIG_REQ         (1<<1)    /* trigger required */
+#define AC_PINCAP_PRES_DETECT      (1<<2)    /* presence detect capable */
+#define AC_PINCAP_HP_DRV           (1<<3)    /* headphone drive capable */
+#define AC_PINCAP_OUT              (1<<4)    /* output capable */
+#define AC_PINCAP_IN               (1<<5)    /* input capable */
+#define AC_PINCAP_BALANCE          (1<<6)    /* balanced I/O capable */
+#define AC_PINCAP_VREF             (0x37<<8)
 #define AC_PINCAP_VREF_SHIFT        8
-#define AC_PINCAP_EAPD            (1<<16)    /* EAPD capable */
+#define AC_PINCAP_EAPD             (1<<16)   /* EAPD capable */
 /* Vref status (used in pin cap) */
 #define AC_PINCAP_VREF_HIZ        (1<<0)    /* Hi-Z */
-#define AC_PINCAP_VREF_50        (1<<1)    /* 50% */
+#define AC_PINCAP_VREF_50         (1<<1)    /* 50% */
 #define AC_PINCAP_VREF_GRD        (1<<2)    /* ground */
-#define AC_PINCAP_VREF_80        (1<<4)    /* 80% */
+#define AC_PINCAP_VREF_80         (1<<4)    /* 80% */
 #define AC_PINCAP_VREF_100        (1<<5)    /* 100% */
 
 /* Amplifier capabilities */
-#define AC_AMPCAP_OFFSET        (0x7f<<0)  /* 0dB offset */
-#define AC_AMPCAP_OFFSET_SHIFT        0
-#define AC_AMPCAP_NUM_STEPS        (0x7f<<8)  /* number of steps */
-#define AC_AMPCAP_NUM_STEPS_SHIFT    8
-#define AC_AMPCAP_STEP_SIZE        (0x7f<<16) /* step size 0-32dB
+#define AC_AMPCAP_OFFSET          (0x7f<<0)  /* 0dB offset */
+#define AC_AMPCAP_OFFSET_SHIFT     0
+#define AC_AMPCAP_NUM_STEPS       (0x7f<<8)  /* number of steps */
+#define AC_AMPCAP_NUM_STEPS_SHIFT  8
+#define AC_AMPCAP_STEP_SIZE       (0x7f<<16) /* step size 0-32dB
                             * in 0.25dB
                             */
-#define AC_AMPCAP_STEP_SIZE_SHIFT    16
+#define AC_AMPCAP_STEP_SIZE_SHIFT  16
 #define AC_AMPCAP_MUTE            (1<<31)    /* mute capable */
-#define AC_AMPCAP_MUTE_SHIFT        31
+#define AC_AMPCAP_MUTE_SHIFT       31
 
 /* Connection list */
-#define AC_CLIST_LENGTH            (0x7f<<0)
-#define AC_CLIST_LONG            (1<<7)
+#define AC_CLIST_LENGTH           (0x7f<<0)
+#define AC_CLIST_LONG             (1<<7)
 
 /* Supported power status */
 #define AC_PWRST_D0SUP            (1<<0)
@@ -279,20 +280,20 @@ enum {
 
 /* configuration default - 32bit */
 #define AC_DEFCFG_SEQUENCE        (0xf<<0)
-#define AC_DEFCFG_DEF_ASSOC        (0xf<<4)
-#define AC_DEFCFG_ASSOC_SHIFT        4
+#define AC_DEFCFG_DEF_ASSOC       (0xf<<4)
+#define AC_DEFCFG_ASSOC_SHIFT      4
 #define AC_DEFCFG_MISC            (0xf<<8)
-#define AC_DEFCFG_MISC_SHIFT        8
-#define AC_DEFCFG_COLOR            (0xf<<12)
-#define AC_DEFCFG_COLOR_SHIFT        12
-#define AC_DEFCFG_CONN_TYPE        (0xf<<16)
-#define AC_DEFCFG_CONN_TYPE_SHIFT    16
-#define AC_DEFCFG_DEVICE        (0xf<<20)
-#define AC_DEFCFG_DEVICE_SHIFT        20
+#define AC_DEFCFG_MISC_SHIFT       8
+#define AC_DEFCFG_COLOR           (0xf<<12)
+#define AC_DEFCFG_COLOR_SHIFT      12
+#define AC_DEFCFG_CONN_TYPE       (0xf<<16)
+#define AC_DEFCFG_CONN_TYPE_SHIFT  16
+#define AC_DEFCFG_DEVICE          (0xf<<20)
+#define AC_DEFCFG_DEVICE_SHIFT     20
 #define AC_DEFCFG_LOCATION        (0x3f<<24)
-#define AC_DEFCFG_LOCATION_SHIFT    24
-#define AC_DEFCFG_PORT_CONN        (0x3<<30)
-#define AC_DEFCFG_PORT_CONN_SHIFT    30
+#define AC_DEFCFG_LOCATION_SHIFT   24
+#define AC_DEFCFG_PORT_CONN       (0x3<<30)
+#define AC_DEFCFG_PORT_CONN_SHIFT  30
 
 /* device device types (0x0-0xf) */
 enum {

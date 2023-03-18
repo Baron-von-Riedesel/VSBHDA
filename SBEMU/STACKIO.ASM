@@ -6,6 +6,8 @@
 	option casemap:none
 	option proc:private
 
+TRIGGERIRQ equ 0
+
 PUSHADS struct
 _edi	dd ?
 _esi	dd ?
@@ -35,6 +37,12 @@ dwEfl	dd ?
 dwEsp	dd ?
 wSS		dw ?,?
 EXCFRAME ends
+
+if TRIGGERIRQ
+externdef SBEMU_TriggerIRQ:byte
+SBEMU_GetIRQ proto
+VIRQ_Invoke proto :dword
+endif
 
 	.code
 
@@ -77,19 +85,28 @@ SwitchStackIO proc public
 	mov word ptr  [ebx+3*4], ss
 	mov ebp, [ebp].EXCFRAME.pProc
 	lss esp, [ebx]
+	push eax
+	push ecx
+	push edx
 	call ebp
 	lss esp, [ebx+2*4]
+if TRIGGERIRQ
+	cmp [SBEMU_TriggerIRQ],0
+	jz @F
+	test byte ptr [esp+2*4].EXCFRAME.dwEfl+1, 2	;IF set?
+	jz @F
+	lss esp, [ebx]
+	call callirq
+	lss esp, [ebx+2*4]
+@@:
+endif
 	jmp switchdone
 noswitch:
-if 0
-	mov ax, 3
-	int 10h
-	mov ax, 0E58h
-	mov bh,0
-	int 10h
-	jmp $
-endif
+	push eax
+	push ecx
+	push edx
 	call [ebp].EXCFRAME.pProc
+	add esp, 3*4
 switchdone:
 	pop es
 	pop ds
@@ -115,6 +132,16 @@ isstring:
 done:
 	popad
 	retn 4*4	; the caller does not clean the stack!
+
+if TRIGGERIRQ
+callirq:
+	push eax
+	mov [SBEMU_TriggerIRQ],0
+	invoke SBEMU_GetIRQ
+	invoke VIRQ_Invoke, eax
+	pop eax
+	retn
+endif
 
 SwitchStackIO endp
 

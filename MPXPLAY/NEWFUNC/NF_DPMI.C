@@ -20,6 +20,7 @@
 #include <sys/exceptn.h>
 #include "newfunc.h"
 
+#if 0
 long pds_dpmi_segment_to_selector(unsigned int segment)
 {
     return __dpmi_segment_to_descriptor(segment);
@@ -52,6 +53,7 @@ void pds_dpmi_setexcvect(unsigned int intno, farptr vect)
     __dpmi_paddr addr = {vect.off, vect.sel};
     __dpmi_set_processor_exception_handler_vector(intno, &addr);
 }
+#endif
 
 int pds_dpmi_dos_allocmem(dosmem_t *dm,unsigned int size)
 {
@@ -81,10 +83,12 @@ void pds_dpmi_dos_freemem(dosmem_t *dm)
  }
 }
 
+#if 0
 void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi)
 {
  __dpmi_simulate_real_mode_interrupt(intnum, (__dpmi_regs*)rmi);
 }
+#endif
 
 #define PHYSICAL_MAP_COUNT 64
 static __dpmi_meminfo physicalmaps[PHYSICAL_MAP_COUNT];
@@ -173,7 +177,7 @@ static int pds_xms_init(void)
     return 1;
 }
 
-unsigned short pds_xms_alloc(unsigned short sizeKB, unsigned long* addr)
+static unsigned short pds_xms_alloc(unsigned short sizeKB, unsigned long* addr)
 {
     __dpmi_regs r;
     unsigned short handle = 0;
@@ -204,7 +208,7 @@ unsigned short pds_xms_alloc(unsigned short sizeKB, unsigned long* addr)
     return handle;
 }
 
-int pds_xms_free(unsigned short handle)
+static int pds_xms_free(unsigned short handle)
 {
     __dpmi_regs r = pds_xms_regs;
 

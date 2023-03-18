@@ -20,8 +20,8 @@ extern "C" {
 
 //au_infos->card_infobits
 #define AUINFOS_CARDINFOBIT_PLAYING          1
-#define AUINFOS_CARDINFOBIT_IRQRUN           2
-#define AUINFOS_CARDINFOBIT_IRQSTACKBUSY     4
+//#define AUINFOS_CARDINFOBIT_IRQRUN           2
+//#define AUINFOS_CARDINFOBIT_IRQSTACKBUSY     4
 #define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 // dma buffer is empty (set by dma-monitor)
 #define AUINFOS_CARDINFOBIT_DMAFULL         16 // dma buffer is full (set by AU_writedata)
 #define AUINFOS_CARDINFOBIT_HWTONE          32
@@ -30,7 +30,7 @@ extern "C" {
 
 //one_sndcard_info->infobits
 #define SNDCARD_SELECT_ONLY     1 // program doesn't try to use automatically (ie: wav output)
-#define SNDCARD_INT08_ALLOWED   2 // use of INT08 (and interrupt decoder) is allowed
+//#define SNDCARD_INT08_ALLOWED   2 // use of INT08 (and interrupt decoder) is allowed
 #define SNDCARD_CARDBUF_SPACE   4 // routine gives back the cardbuf space, not the bufpos
 #define SNDCARD_SPECIAL_IRQ     8 // card has a special (long) irq routine (requires stack & irq protection)
 #define SNDCARD_SETRATE        16 // always call setrate before each song (special wav-out and test-out flag!)
@@ -132,59 +132,26 @@ typedef struct au_cardconfig_v0154_s{
  unsigned int  card_mixer_values[AU_MIXCHANS_NUM];
 }au_cardinfo_s;*/
 
-#ifdef __DOS__
-#ifdef SBEMU
 #define AU_CARDS_LINK_ISA 0
-#else
-#define AU_CARDS_LINK_ISA 1
-#endif
 #define AU_CARDS_LINK_PCI 1
-#endif
-
-#ifdef MPXPLAY_WIN32
-#define AU_CARDS_LINK_WIN 1
-#endif
 
 //link low level soundcard routines
-#ifdef MPXPLAY_LINK_FULL
- #if AU_CARDS_LINK_ISA
-  #define AU_CARDS_LINK_SB16    1
-  #define AU_CARDS_LINK_ESS     1
-  #define AU_CARDS_LINK_WSS     1
-  #define AU_CARDS_LINK_GUS     1
-  #define AU_CARDS_LINK_SB      1
-  //#define AU_CARDS_LINK_MIDAS  1
- #endif
- #ifdef AU_CARDS_LINK_PCI
-  #define AU_CARDS_LINK_CMI8X38 1
-  //#define AU_CARDS_LINK_EMU20KX 1
-  #define AU_CARDS_LINK_ES1371  1
-  #define AU_CARDS_LINK_ICH     1
-  #define AU_CARDS_LINK_IHD     1
-  #define AU_CARDS_LINK_SBLIVE  1
-  #define AU_CARDS_LINK_VIA82XX 1
- #endif
- #ifdef AU_CARDS_LINK_WIN
-  #define AU_CARDS_LINK_WINDSOUND 1
-  #define AU_CARDS_LINK_WINWAVOUT 1
- #endif
-#else
- #if AU_CARDS_LINK_ISA
-  #define AU_CARDS_LINK_SB16    1
-  #define AU_CARDS_LINK_ESS     1
-  #define AU_CARDS_LINK_WSS     1
-  #define AU_CARDS_LINK_GUS     1
-  #define AU_CARDS_LINK_SB      1
- #endif
- #ifdef AU_CARDS_LINK_PCI
-  #define AU_CARDS_LINK_CMI8X38 1
-  //#define AU_CARDS_LINK_EMU20KX 1
-  #define AU_CARDS_LINK_ES1371  1
-  #define AU_CARDS_LINK_ICH     1
-  #define AU_CARDS_LINK_IHD     1
-  #define AU_CARDS_LINK_SBLIVE  1
-  #define AU_CARDS_LINK_VIA82XX 1
- #endif
+#if AU_CARDS_LINK_ISA
+#define AU_CARDS_LINK_SB16    1
+#define AU_CARDS_LINK_ESS     1
+#define AU_CARDS_LINK_WSS     1
+#define AU_CARDS_LINK_GUS     1
+#define AU_CARDS_LINK_SB      1
+//#define AU_CARDS_LINK_MIDAS  1
+#endif
+#ifdef AU_CARDS_LINK_PCI
+#define AU_CARDS_LINK_CMI8X38 1
+//#define AU_CARDS_LINK_EMU20KX 1
+#define AU_CARDS_LINK_ES1371  1
+#define AU_CARDS_LINK_ICH     1
+#define AU_CARDS_LINK_IHD     1
+#define AU_CARDS_LINK_SBLIVE  1
+#define AU_CARDS_LINK_VIA82XX 1
 #endif
 
 #include <newfunc\newfunc.h>

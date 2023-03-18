@@ -16,9 +16,6 @@
 //based on the Creative (http://sourceforge.net/projects/emu10k1)
 //         and ALSA (http://www.alsa-project.org) drivers
 
-//#define MPXPLAY_USE_DEBUGF 1
-//#define SBL_DEBUG_OUTPUT stdout
-
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
@@ -991,7 +988,7 @@ static unsigned int snd_p16v_buffer_init(struct emu10k1_card *card,struct mpxpla
 	card->dm=MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS*2*sizeof(uint32_t)+card->pcmout_bufsize);
 	card->virtualpagetable=(uint32_t *)card->dm->linearptr;
 	card->pcmout_buffer=((char *)card->virtualpagetable)+AUDIGY2_P16V_PERIODS*2*sizeof(uint32_t);
-	mpxplay_debugf(SBL_DEBUG_OUTPUT,"buffer init: pagetable:%8.8X pcmoutbuf:%8.8X size:%d",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	dbgprintf("snd_p16v_selector: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
 	return 1;
 }
 
@@ -1050,7 +1047,7 @@ static void snd_p16v_setrate(struct emu10k1_card *card,struct mpxplay_audioout_i
 
 	dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,AUDIGY2_P16V_DMABUF_ALIGN,0);
 	card->period_size=(dmabufsize/AUDIGY2_P16V_PERIODS);
-	mpxplay_debugf(SBL_DEBUG_OUTPUT,"buffer config: bufsize:%d period_size:%d",dmabufsize,card->period_size);
+	dbgprintf("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size);
 
 	snd_p16v_pcm_prepare_playback(card,aui->freq_card);
 }
@@ -1238,12 +1235,10 @@ static void sblive_select_mixer(struct emu10k1_card *card);
 static void SBLIVE_card_info(struct mpxplay_audioout_info_s *aui)
 {
 	struct emu10k1_card *card=aui->card_private_data;
-	char sout[100];
-	sprintf(sout,"SBA : SB %s (%8.8X)(bits:16%s) on port:%4.4X irq:%d",
+	printf("SBA : SB %s (%8.8X)(bits:16%s) on port:%4.4X irq:%d\n",
 			((card->card_capabilities->longname)? card->card_capabilities->longname:card->pci_dev->device_name),
 			card->serial,((card->chips&EMU_CHIPS_24BIT)? ",24":""),
 			(int)card->iobase,(int)card->irq);
-	pds_textdisplay_printf(sout);
 }
 
 static int SBLIVE_adetect(struct mpxplay_audioout_info_s *aui)
@@ -1427,7 +1422,7 @@ static int SBLIVE_IRQRoutine(struct mpxplay_audioout_info_s *aui)
 one_sndcard_info SBLIVE_sndcard_info={
  //"SBA",
  "SB Live!/Audigy",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+ SNDCARD_LOWLEVELHAND,
  NULL,
  NULL,                  // no init
  &SBLIVE_adetect,       // only autodetect

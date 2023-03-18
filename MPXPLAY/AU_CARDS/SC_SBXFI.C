@@ -16,9 +16,7 @@
 //based on ALSA (http://www.alsa-project.org)
 // doesn't work yet
 
-//#define MPXPLAY_USE_DEBUGF 1
-//#define XFI_DEBUG_OUTPUT stdout
-
+#include "sbemucfg.h"
 #include "mpxplay.h"
 
 #ifdef AU_CARDS_LINK_EMU20KX
@@ -536,7 +534,7 @@ static void snd_emu20kx_ac97_init(struct emu20kx_card_s *card)
  emu20kx_ac97_write(card, AC97_PCMOUT_VOL,        0x0404);
  emu20kx_ac97_write(card, AC97_HEADPHONE_VOL,     0x0404);
  emu20kx_ac97_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"ac97 init end");
+ dbgprintf("ac97 init end\n");
 }*/
 
 //-------------------------------------------------------------------------
@@ -611,7 +609,7 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct m
   card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage)<<1;
 
  aui->card_DMABUFF=card->pcmout_buffer;
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"buffer init: pcmoutbuf:%8.8X size:%d",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+ dbgprintf("buffer init: pcmoutbuf:%8X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
  return 1;
 }
 
@@ -621,7 +619,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
 
  // PLL init
  if(hw_pll_init(card)<0){
-  mpxplay_debugf(XFI_DEBUG_OUTPUT,"chip_init: pll-init failed");
+  dbgprintf("chip_init: pll-init failed\n");
   return 0;
  }
 
@@ -638,7 +636,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
    break;
  }
  if(!get_field(gctl, GCTL_AID)){
-  mpxplay_debugf(XFI_DEBUG_OUTPUT,"chip_init: auto-init failed %8.8X",gctl);
+  dbgprintf("chip_init: auto-init failed %8X\n",gctl);
   return 0;
  }
 
@@ -677,7 +675,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
  hw_daio_init(card);
 
  if(hw_dac_init(card)<0){
-  mpxplay_debugf(XFI_DEBUG_OUTPUT,"chip_init: dac-init failed");
+  dbgprintf("chip_init: dac-init failed\n");
   return 0;
  }
 
@@ -703,7 +701,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
  card->last_rsr_cfg=card->rsr;
  card->last_msr_cfg=card->msr;
 
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"chip init end");
+ dbgprintf("chip init end\n");
  return 1;
 }
 
@@ -743,7 +741,7 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct mpxp
  set_field(&card->src_ctl,SRCCTL_SF, card->sfnum);
  set_field(&card->src_ctl,SRCCTL_PM, 0); // ??? (src->ops->next_interleave(src) != NULL)
 
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"prepare playback end");
+ dbgprintf("prepare playback end\n");
 }
 
 //-------------------------------------------------------------------------
@@ -758,10 +756,8 @@ static void EMU20KX_close(struct mpxplay_audioout_info_s *aui);
 static void EMU20KX_card_info(struct mpxplay_audioout_info_s *aui)
 {
  struct emu20kx_card_s *card=aui->card_private_data;
- char sout[100];
- sprintf(sout,"XFI : Creative %s (%4.4X) found on port:%4.4X irq:%d",
+ printf("XFI : Creative %s (%4.4X) found on port:%4.4X irq:%d\n",
          card->pci_dev->device_name,card->subsys_id,card->iobase,card->irq);
- pds_textdisplay_printf(sout);
 }
 
 static int EMU20KX_adetect(struct mpxplay_audioout_info_s *aui)
@@ -790,7 +786,7 @@ static int EMU20KX_adetect(struct mpxplay_audioout_info_s *aui)
  card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
  card->subsys_id=pcibios_ReadConfig_Word(card->pci_dev,PCIR_SSID);
 
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"vend_id:%4.4X dev_id:%4.4X subid:%8.8X port:%8.8X",
+ dbgprintf("vend_id:%4X dev_id:%4X subid:%8X port:%8X\n",
   card->pci_dev->vendor_id,card->pci_dev->device_id,card->subsys_id,card->iobase);
 
  if(!snd_emu20kx_buffer_init(card,aui))
@@ -863,7 +859,7 @@ static long EMU20KX_getbufpos(struct mpxplay_audioout_info_s *aui)
 
  aui->card_dma_lastgoodpos=bufpos;
 
- mpxplay_debugf(XFI_DEBUG_OUTPUT,"bufpos:%5d dmasize:%5d",bufpos,aui->card_dmasize);
+ dbgprintf("bufpos:%5d dmasize:%5d\n",bufpos,aui->card_dmasize);
 
  return aui->card_dma_lastgoodpos;
 }
@@ -884,7 +880,7 @@ static unsigned long EMU20KX_readMIXER(struct mpxplay_audioout_info_s *aui,unsig
 
 one_sndcard_info EMU20KX_sndcard_info={
  "XFI",
- SNDCARD_LOWLEVELHAND|SNDCARD_INT08_ALLOWED,
+ SNDCARD_LOWLEVELHAND,
 
  NULL,
  NULL,                 // no init

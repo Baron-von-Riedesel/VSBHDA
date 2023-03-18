@@ -1,4 +1,6 @@
 
+;--- low-level output for dbgprintf()
+
 	.386
 	.model small
 	option casemap:none

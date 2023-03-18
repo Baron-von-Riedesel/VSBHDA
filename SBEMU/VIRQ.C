@@ -1,10 +1,13 @@
-#include "VIRQ.H"
+
+#include "SBEMUCFG.H"
 #include "PIC.H"
 #include "DPMI_.H"
 #include "UNTRAPIO.H"
+#include "VIRQ.H"
+#include "QEMM.H"
 #include <dos.h>
 
-#define dbgprintf
+#define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
 
 static int VIRQ_Irq = -1;
 static uint8_t VIRQ_ISR[2];
@@ -13,6 +16,7 @@ static uint8_t VIRQ_OCW[2];
 #define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
 
 static void VIRQ_Write(uint16_t port, uint8_t value)
+////////////////////////////////////////////////////
 {
     //dbgprintf("VIRQW:%x,%x\n",port,value);
     if(VIRQ_IS_VIRTUALIZING())
@@ -39,29 +43,31 @@ static void VIRQ_Write(uint16_t port, uint8_t value)
 }
 
 static uint8_t VIRQ_Read(uint16_t port)
+///////////////////////////////////////
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
         dbgprintf("VIRQR:%x\n",port);
-        if((port&0x0F) == 0x00)
-        {
+        if((port&0x0F) == 0x00) {
             int index = ((port==0x20) ? 0 : 1);
-            if(VIRQ_OCW[index] == 0x0B)//ISR
-            {
+            if(VIRQ_OCW[index] == 0x0B) { //ISR
                 return VIRQ_ISR[index];
             }
-            //return VIRQ_OCW[index] == 0x0B ? VIRQ_ISR[index] : UntrappedIO_IN(port);
         }
-        //dbgprintf("VIRQRV: 0\n");
-        return 0;
+        //return 0;
     }
     return UntrappedIO_IN(port);
 }
 
-#define CHANGEPICMASK 1
-
-void VIRQ_Invoke(uint8_t irq)
+void VIRQ_Invoke(uint8_t irq )
+//////////////////////////////
 {
+
+#if QEMMPICTRAPDYN
+	QEMM_SetPICPortTrap( 1 );
+#endif
+
+
 #if CHANGEPICMASK
     int mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
@@ -102,10 +108,16 @@ void VIRQ_Invoke(uint8_t irq)
 #endif
 
     VIRQ_Irq = -1;
-    CLIS(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
+#if !SETIF
+    CLI(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
+#endif
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */
 #endif
+#if QEMMPICTRAPDYN
+	QEMM_SetPICPortTrap( 0 );
+#endif
+    return;
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)

@@ -12,33 +12,24 @@ typedef uint32_t (*QEMM_IOTRAP_HANDLER)(uint32_t port, uint32_t val, uint32_t ou
 //user interface, not actual struct
 typedef struct QEMM_IODispatchTable
 {
-    uint32_t    port;
+    uint16_t    port;
+    uint16_t    flags;
     QEMM_IOTRAP_HANDLER handler;
 }QEMM_IODT;
 
-typedef struct EMM_IOPorTrap
-{
-    uint32_t memory;
-    uint32_t handle;
-    uint16_t func;
-}QEMM_IOPT;
-
-//used internally
-typedef struct QEMM_IODT_LINK
-{
-    QEMM_IODT* iodt; //owner
-    int count;
-    struct QEMM_IODT_LINK* prev; //observer
-    struct QEMM_IODT_LINK* next; //observer
-}QEMM_IODT_LINK;
+#define IODT_FLGS_RMINST 1
+#define IODT_FLGS_PMINST 2
 
 //get QEMM version
 uint16_t QEMM_GetVersion(void);
 
 //I/O virtualize
 BOOL QEMM_Prepare_IOPortTrap(void);
-BOOL QEMM_Install_IOPortTrap(QEMM_IODT* inputp iodt, uint16_t count, QEMM_IOPT* outputp iopt, QEMM_IODT_LINK* inputp link );
-BOOL QEMM_Uninstall_IOPortTrap(QEMM_IOPT* inputp iopt, BOOL bFree );
+BOOL QEMM_Install_PortTraps( QEMM_IODT *, int *, int );
+BOOL QEMM_Uninstall_PortTraps( QEMM_IODT *, int );
+#if QEMMPICTRAPDYN
+void QEMM_SetPICPortTrap( int );
+#endif
 
 #ifdef __cplusplus
 }
