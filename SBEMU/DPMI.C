@@ -147,6 +147,7 @@ void DPMI_SetLinear(uint32_t dest, uint8_t val, uint32_t size)
     RESTORE_DS()
 }
 
+#if 0
 static uint32_t DPMI_DOSUMB(uint32_t input, BOOL alloc, BOOL UMB)
 {
     uint32_t result = 0;
@@ -201,3 +202,4 @@ void DPMI_HighFree(uint32_t segment)
 {
     DPMI_DOSUMB(segment, FALSE, TRUE);
 }
+#endif

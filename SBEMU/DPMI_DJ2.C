@@ -19,7 +19,7 @@ extern DPMI_ADDRESSING DPMI_Addressing;
 int _crt0_startup_flags = _CRT0_FLAG_PRESERVE_FILENAME_CASE | _CRT0_FLAG_KEEP_QUOTES;
 
 static uint32_t DPMI_DSBase = 0;
-static uint32_t DPMI_DSLimit = 0;
+//static uint32_t DPMI_DSLimit = 0;
 static uint16_t DPMI_Selector4G;
 
 typedef struct _AddressMap
@@ -35,6 +35,7 @@ typedef struct _AddressMap
 static AddressMap AddresMapTable[ADDRMAP_TABLE_SIZE];
 
 static void AddAddressMap(const __dpmi_meminfo* info, uint32_t PhysicalAddr)
+////////////////////////////////////////////////////////////////////////////
 {
     for(int i = 0; i < ADDRMAP_TABLE_SIZE; ++i)
     {
@@ -50,6 +51,7 @@ static void AddAddressMap(const __dpmi_meminfo* info, uint32_t PhysicalAddr)
 }
 
 static int FindAddressMap(uint32_t linearaddr)
+//////////////////////////////////////////////
 {
     for(int i = 0; i < ADDRMAP_TABLE_SIZE; ++i)
     {
@@ -65,8 +67,12 @@ static void sig_handler(int signal)
     exit(-1);   //perform DPMI clean up on atexit
 }
 
-static void DPMI_InitFlat()
+void DPMI_Init(void)
+////////////////////
 {
+    signal(SIGINT, sig_handler);
+    //signal(SIGABRT, sig_handler);
+
     DPMI_Selector4G = (uint16_t)__dpmi_allocate_ldt_descriptors(1);
     __dpmi_set_segment_base_address(DPMI_Selector4G, 0);
     __dpmi_set_segment_limit(DPMI_Selector4G, 0xFFFFFFFF);
@@ -74,29 +80,24 @@ static void DPMI_InitFlat()
     DPMI_Addressing.physical = FALSE;
 
     __dpmi_get_segment_base_address(_my_ds(), &DPMI_DSBase);
-    DPMI_DSLimit = __dpmi_get_segment_limit(_my_ds());
-}
-
-void DPMI_Init(void)
-{
-    signal(SIGINT, sig_handler);
-    //signal(SIGABRT, sig_handler);
-
-    DPMI_InitFlat();
+    //DPMI_DSLimit = __dpmi_get_segment_limit(_my_ds());
 }
 
 uint32_t DPMI_PTR2L(void* ptr)
+//////////////////////////////
 {
     return ptr ? DPMI_DSBase + (uint32_t)ptr : 0;
 }
 
 void* DPMI_L2PTR(uint32_t addr)
+///////////////////////////////
 {
     return addr > DPMI_DSBase ? (void*)(addr - DPMI_DSBase) : NULL;
 }
 
 
 uint32_t DPMI_MapMemory(uint32_t physicaladdr, uint32_t size)
+/////////////////////////////////////////////////////////////
 {
     __dpmi_meminfo info;
     info.address = physicaladdr;
@@ -110,6 +111,7 @@ uint32_t DPMI_MapMemory(uint32_t physicaladdr, uint32_t size)
 }
 
 BOOL DPMI_UnmapMemory(uint32_t mappedaddr)
+//////////////////////////////////////////
 {
     int index = FindAddressMap(mappedaddr);
     if(index == -1)
@@ -127,6 +129,7 @@ BOOL DPMI_UnmapMemory(uint32_t mappedaddr)
 }
 
 uint32_t DPMI_DOSMalloc(uint16_t size)
+//////////////////////////////////////
 {
     int selector = 0;
     uint16_t segment = (uint16_t)__dpmi_allocate_dos_memory(size, &selector);
@@ -137,44 +140,34 @@ uint32_t DPMI_DOSMalloc(uint16_t size)
 }
 
 void DPMI_DOSFree(uint32_t segment)
+///////////////////////////////////
 {
     __dpmi_free_dos_memory((uint16_t)(segment>>16));
 }
 
 uint16_t DPMI_CallRealModeRETF(DPMI_REG* reg)
+/////////////////////////////////////////////
 {
     reg->d._reserved = 0;
     return (uint16_t)__dpmi_simulate_real_mode_procedure_retf((__dpmi_regs*)reg);
 }
 
 uint16_t DPMI_CallRealModeINT(uint8_t i, DPMI_REG* reg)
+///////////////////////////////////////////////////////
 {
     reg->d._reserved = 0;
     return (uint16_t)__dpmi_simulate_real_mode_interrupt(i, (__dpmi_regs*)reg);
 }
 
 uint16_t DPMI_CallRealModeIRET(DPMI_REG* reg)
+/////////////////////////////////////////////
 {
     reg->d._reserved = 0;
     return (uint16_t)__dpmi_simulate_real_mode_procedure_iret((__dpmi_regs*)reg);
 }
 
-uint16_t DPMI_AllocateRMCB_RETF(void(*Fn)(void), DPMI_REG* reg, __dpmi_raddr *rmcb )
-{
-    _go32_dpmi_seginfo info;
-    info.pm_selector = (uint16_t)_my_cs();
-    info.pm_offset = (uintptr_t)Fn;
-    if(_go32_dpmi_allocate_real_mode_callback_retf(&info, (_go32_dpmi_registers*)reg) == 0)
-    {
-        rmcb->offset16 = info.rm_offset;
-        rmcb->segment  = info.rm_segment;
-        return 1;
-    }
-    else
-        return 0;
-}
-
 uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
+////////////////////////////////////////////
 {
     if(__dpmi_free_real_mode_callback( rmcb ) == 0)
         return ( 1 );
@@ -183,11 +176,13 @@ uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
 }
 
 uint8_t DPMI_DisableInterrupt()
+///////////////////////////////
 {
     return __dpmi_get_and_disable_virtual_interrupt_state();
 }
 
 void DPMI_RestoreInterrupt(uint8_t state)
+/////////////////////////////////////////
 {
     __dpmi_get_and_set_virtual_interrupt_state(state);
 }

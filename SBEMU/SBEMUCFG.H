@@ -10,6 +10,7 @@
 #define ADPCM 1       /* support ADPCM */
 #define SETIF 0       /* enable interrupts when ISR is entered */
 #define QEMMPICTRAPDYN 1 /* trap PIC for v86-mode dynamically when needed */
+#define TRIGGERATONCE 0 /* trigger IRQ from inside trap handler */
 
 int dbgprintf(const char *fmt, ... );
 #ifdef _DEBUG

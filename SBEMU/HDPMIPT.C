@@ -212,13 +212,15 @@ BOOL HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 	);
 
 	for ( int i = 0; i < max; i++ ) {
-		start = iodt[Rangetab[i]].port;
-		end = iodt[Rangetab[i+1]-1].port;
-		dbgprintf("HDPMIPT_Install_PortTraps: %X-%X\n", start, end );
-		if (!(traphdl[i] = HDPMI_Internal_InstallTrap( start, end, &HDPMIPT_TrapHandlerWrapperIn, &HDPMIPT_TrapHandlerWrapperOut)))
-			return FALSE;
+		if ( Rangetab[i+1] > Rangetab[i] ) { /* skip if range is empty */
+			start = iodt[Rangetab[i]].port;
+			end = iodt[Rangetab[i+1]-1].port;
+			dbgprintf("HDPMIPT_Install_PortTraps: %X-%X\n", start, end );
+			if (!(traphdl[i] = HDPMI_Internal_InstallTrap( start, end, &HDPMIPT_TrapHandlerWrapperIn, &HDPMIPT_TrapHandlerWrapperOut)))
+				return FALSE;
+		}
 	}
-    return TRUE;
+	return TRUE;
 }
 
 static BOOL HDPMI_Internal_UninstallTrap( uint32_t handle )

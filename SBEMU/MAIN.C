@@ -22,9 +22,8 @@
 
 #define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
-#define TRIGGERIRQ 1
 
-#if TRIGGERIRQ
+#if !TRIGGERATONCE
 extern int SBEMU_TriggerIRQ;
 #endif
 
@@ -64,12 +63,7 @@ static uint16_t MAIN_GLB_VOL = 0; //TODO: add hotkey
 static void MAIN_Interrupt();
 static int MAIN_InterruptPM();
 
-#if 0
-static const uint8_t MAIN_ChannelPageMap[] =
-{
-    0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a
-};
-#endif
+static const uint8_t MAIN_ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
 
 #define tport( port, proc ) TPORT_ ## port,
 #define tportx( port, proc, table ) TPORT_ ## port,
@@ -88,18 +82,18 @@ static QEMM_IODT MAIN_IODT[] = {
 #undef tportx
 };
 
-#define OPL3_IODT 0
-#define VDMA_IODT 1
-#define VDMAPG_IODT 2
+/* order of port ranges */
+#define OPL3_IODT  0
+#define IRQ_IODT   1
+#define DMA_IODT   2
+#define DMAPG_IODT 3
 #if SB16
-#define VHDMAPG_IODT 3
-#define VIRQ_IODT 4
-#define SB_IODT   5
-#define END_IODT  6
+#define HDMA_IODT  4
+#define SB_IODT    5
+#define END_IODT   6
 #else
-#define VIRQ_IODT 3
-#define SB_IODT   4
-#define END_IODT  5
+#define SB_IODT    4
+#define END_IODT   5
 #endif
 
 #define tport( port, proc )
@@ -267,12 +261,17 @@ void MAIN_Uninstall( void )
 	return;
 }
 
-void IODT_DelEntries( int start, int end, int entries )
-///////////////////////////////////////////////////////
+static void IODT_DelEntries( int start, int end, int entries )
+//////////////////////////////////////////////////////////////
 {
-	for ( int i = start; i < end - entries; i++ ) {
+    int i;
+	for ( i = start; i < end - entries; i++ ) {
 		MAIN_IODT[i].port = MAIN_IODT[i+entries].port;
 		MAIN_IODT[i].handler = MAIN_IODT[i+entries].handler;
+	}
+	for ( i = 0; i < countof(portranges); i++ ) {
+		if ( portranges[i] > start )
+			portranges[i] -= entries;
 	}
 }
 
@@ -441,28 +440,45 @@ int main(int argc, char* argv[])
         UntrappedIO_OUT_Handler = &HDPMIPT_UntrappedIO_OUT;
         UntrappedIO_IN_Handler = &HDPMIPT_UntrappedIO_IN;
     }
-
+    /* adjust IODT port table */
+	MAIN_IODT[portranges[DMA_IODT]].port   = MAIN_Options[OPT_DMA].value * 2;
+	MAIN_IODT[portranges[DMA_IODT]+1].port = MAIN_Options[OPT_DMA].value * 2 + 1;
+	MAIN_IODT[portranges[DMAPG_IODT]].port = MAIN_ChannelPageMap[ MAIN_Options[OPT_DMA].value];
 #if SB16
-    SBEMU_Init(MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value,
-               MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
-#else
-    SBEMU_Init(MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, 0,
-               MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
-#endif
-    VDMA_Virtualize(MAIN_Options[OPT_DMA].value, TRUE);
-#if SB16
-    if( MAIN_Options[OPT_HDMA].value > 0 )
-        VDMA_Virtualize(MAIN_Options[OPT_HDMA].value, TRUE);
+	if ( MAIN_Options[OPT_HDMA].value ) {
+		MAIN_IODT[portranges[HDMA_IODT]].port    = MAIN_Options[OPT_HDMA].value * 4 + (0xC0-0x10);
+		MAIN_IODT[portranges[HDMA_IODT]+1].port  = MAIN_Options[OPT_HDMA].value * 4 + 2 + (0xC0-0x10);
+		MAIN_IODT[portranges[DMAPG_IODT]+1].port = MAIN_ChannelPageMap[ MAIN_Options[OPT_HDMA].value];
+	}
 #endif
 	if ( MAIN_Options[OPT_ADDR].value != 0x220 )
 		for( int i = portranges[SB_IODT]; i < portranges[SB_IODT+1]; i++ )
 			MAIN_IODT[i].port += MAIN_Options[OPT_ADDR].value - 0x220;
 
-	/* if no OPL3 emulation, skip ports 0x220-0x223 */
+	/* if no OPL3 emulation, skip ports 0x388-0x38b and 0x220-0x223 */
 	if ( !MAIN_Options[OPT_OPL].value ) {
+		//asm("int3");
+		IODT_DelEntries( portranges[OPL3_IODT], portranges[END_IODT], 4 );
 		IODT_DelEntries( portranges[SB_IODT], portranges[END_IODT], 4 );
-		portranges[END_IODT] -= 4;
 	}
+
+#if SB16
+	/* if no SB16 emulation, skip all HDMA ports */
+	if ( MAIN_Options[OPT_TYPE].value < 6 || MAIN_Options[OPT_HDMA].value == 0 ) {
+		IODT_DelEntries( portranges[DMAPG_IODT]+1, portranges[END_IODT], 1 );
+		IODT_DelEntries( portranges[HDMA_IODT], portranges[END_IODT], portranges[HDMA_IODT+1] - portranges[HDMA_IODT] );
+	}
+	SBEMU_Init( MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value,
+			   MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
+#else
+	SBEMU_Init( MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, 0,
+			   MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
+#endif
+    VDMA_Virtualize( MAIN_Options[OPT_DMA].value, TRUE );
+#if SB16
+	if( MAIN_Options[OPT_HDMA].value > 0 )
+		VDMA_Virtualize( MAIN_Options[OPT_HDMA].value, TRUE );
+#endif
 
 	if ( enableRM ) {
 		if ((bQemm = QEMM_Install_PortTraps( MAIN_IODT, portranges, countof(portranges)-1 )) == 0 )
@@ -547,7 +563,7 @@ static void MAIN_Interrupt()
     int32_t voicevol;
     int32_t midivol;
 
-#if TRIGGERIRQ
+#if !TRIGGERATONCE
 	if ( SBEMU_TriggerIRQ ) {
 		SBEMU_TriggerIRQ = 0;
 		VIRQ_Invoke( SBEMU_GetIRQ() );

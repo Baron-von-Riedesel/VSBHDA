@@ -51,32 +51,17 @@ C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU
 LOCAL_OPT=$(subst ___~~~___, ,$(subst $(notdir $<)___,,$(filter $(notdir\
 	$<)___%,$(LOCAL_OPTIONS))))
 
-OBJFILES=$(OUTD)/main.o $(OUTD)/hdpmipt.o $(OUTD)/qemm.o    $(OUTD)/sbemu.o\
-	$(OUTD)/virq.o     $(OUTD)/dbopl.o    $(OUTD)/opl3emu.o $(OUTD)/pic.o\
-	$(OUTD)/stackio.o  $(OUTD)/stackisr.o $(OUTD)/int31.o   $(OUTD)/dprintf.o\
-	$(OUTD)/vioout.o\
-	$(OUTD)/untrapio.o $(OUTD)/vdma.o\
-	$(OUTD)/dmairq.o   $(OUTD)/dpmi.o     $(OUTD)/dpmi_dj2.o\
-	$(OUTD)/ac97_def.o $(OUTD)/au_cards.o\
-	$(OUTD)/cv_bits.o  $(OUTD)/cv_chan.o  $(OUTD)/cv_freq.o\
-	$(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
-	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o\
-	$(OUTD)/string.o\
-	$(OUTD)/memory.o   $(OUTD)/nf_dpmi.o $(OUTD)/pcibios.o\
-	$(OUTD)/time.o
+OBJFILES=$(OUTD)/main.o $(OUTD)/hdpmipt.o  $(OUTD)/qemm.o     $(OUTD)/sbemu.o\
+	$(OUTD)/virq.o     $(OUTD)/dbopl.o     $(OUTD)/opl3emu.o  $(OUTD)/pic.o\
+	$(OUTD)/stackio.o  $(OUTD)/stackisr.o  $(OUTD)/int31.o\
+	$(OUTD)/dprintf.o  $(OUTD)/vioout.o\
+	$(OUTD)/untrapio.o $(OUTD)/vdma.o      $(OUTD)/dpmi.o     $(OUTD)/dpmi_dj2.o\
+	$(OUTD)/au_cards.o $(OUTD)/dmairq.o    $(OUTD)/ac97_def.o\
+	$(OUTD)/cv_bits.o  $(OUTD)/cv_chan.o   $(OUTD)/cv_freq.o\
+	$(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o    $(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o\
+	$(OUTD)/string.o   $(OUTD)/memory.o    $(OUTD)/nf_dpmi.o  $(OUTD)/pcibios.o   $(OUTD)/time.o
 
-ALL_OBJFILES=$(OUTD)/ac97_def.o $(OUTD)/au_cards.o $(OUTD)/cv_bits.o\
-	$(OUTD)/cv_chan.o $(OUTD)/cv_freq.o $(OUTD)/dbopl.o\
-	$(OUTD)/dmairq.o $(OUTD)/dpmi.o $(OUTD)/dpmi_dj2.o\
-	$(OUTD)/hdpmipt.o $(OUTD)/main.o $(OUTD)/memory.o\
-	$(OUTD)/nf_dpmi.o $(OUTD)/opl3emu.o $(OUTD)/pcibios.o $(OUTD)/pic.o\
-	$(OUTD)/qemm.o $(OUTD)/sbemu.o $(OUTD)/sc_e1371.o $(OUTD)/sc_ich.o\
-	$(OUTD)/sc_inthd.o $(OUTD)/sc_via82.o $(OUTD)/string.o\
-	$(OUTD)/time.o $(OUTD)/untrapio.o\
-	$(OUTD)/vdma.o $(OUTD)/virq.o\
-	$(OUTD)/stackio.o $(OUTD)/stackisr.o $(OUTD)/int31.o $(OUTD)/dprintf.o\
-	$(OUTD)/vioout.o
-LIBRARIES=
+LIBRARIES=$(OUTD)/sbemu.ar
 SOURCE_NAME=$<
 OUTFILE=$@
 SPECIAL_CFLAGS=
@@ -123,7 +108,7 @@ RHIDE_COMPILE.i.s=$(RHIDE_COMPILE.c.s)
 RHIDE_COMPILE.ii.s=$(RHIDE_COMPILE.cc.s)
 RHIDE_COMPILE.s.o=$(RHIDE_COMPILE_ASM)
 RHIDE_COMPILE_ARCHIVE=$(RHIDE_AR) $(RHIDE_ARFLAGS) $(OUTFILE)\
-	$(ALL_OBJFILES)
+	$(OBJFILES)
 RHIDE_COMPILE_ASM=$(RHIDE_AS) $(RHIDE_INCLUDES)\
 	$(C_OPT_FLAGS) $(LOCAL_OPT) -c $(SOURCE_NAME) -o $(OUTFILE)
 RHIDE_COMPILE_ASM_FORCE=$(RHIDE_AS) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -x assembler\
@@ -147,11 +132,10 @@ RHIDE_COMPILE_C_FORCE=$(RHIDE_GCC) $(RHIDE_INCLUDES) $(C_DEBUG_FLAGS)\
 	-x c $(RHIDE_OS_CFLAGS) $(CPPFLAGS) $(CFLAGS) $(LOCAL_OPT) -c\
 	$(SOURCE_NAME) -o $(OUTFILE)
 
-RHIDE_COMPILE_LINK=$(RHIDE_LD) $(RHIDE_LIBDIRS) $(C_EXTRA_FLAGS) -o\
-	$(OUTFILE) $(OBJFILES) $(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS)\
+RHIDE_COMPILE_LINK=$(RHIDE_LD) $(RHIDE_LIBDIRS) $(C_EXTRA_FLAGS) -o $(OUTFILE) $(LIBRARIES) $(LDFLAGS) $(RHIDE_LDFLAGS)\
 	$(RHIDE_LIBS)
 
-RHIDE_COMPILE_JWASM=jwasm.exe -nologo -djgpp -Fo$(OUTFILE) $(SOURCE_NAME)
+RHIDE_COMPILE_JWASM=jwasm.exe -q -djgpp -Fo$(OUTFILE) $(SOURCE_NAME)
 RHIDE_CONFIG_DIRS=. $(RHIDE_SHARE) $(GET_HOME)   $(RHIDE_CONFIG_DIRS_COMMON)\
 	 $(addsuffix /SET,$(RHIDE_CONFIG_DIRS_COMMON))  $(SET_FILES)
 RHIDE_CONFIG_DIRS_DJGPP=$(DJDIR)/share/rhide
@@ -272,12 +256,14 @@ DEPS_0= $(OUTD)/main.o   $(OUTD)/hdpmipt.o	$(OUTD)/qemm.o	$(OUTD)/opl3emu.o	$(OU
 NO_LINK=
 LINK_FILES=$(filter-out $(NO_LINK),$(DEPS_0))
 
-$(OUTD)/sbemu.exe:: $(DEPS_0)
+$(OUTD)/sbemu.exe:: $(OUTD)/sbemu.ar
 	$(RHIDE_COMPILE_LINK)
 	strip -s $(OUTFILE)
-#	exe2coff $(OUTFILE)
-#	copy /b $(OUTD)\stub.bin + $(OUTD)\sbemu $(OUTD)\sbemu.exe
-	stubedit $(OUTFILE) minstack=64k
+	exe2coff $(OUTFILE)
+	copy /b res\stub.bin + $(OUTD)\sbemu $(OUTD)\sbemu.exe
+
+$(OUTD)/sbemu.ar:: $(DEPS_0)
+	ar --target=coff-go32 r $(OUTD)/sbemu.ar $(DEPS_0)
 
 DEPS_7=dbopl.cpp dbopl.h
 DEPS_9=dpmi.c dpmi_.h platform.h

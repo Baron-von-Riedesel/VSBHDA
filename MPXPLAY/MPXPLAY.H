@@ -96,7 +96,7 @@ extern "C" {
 #define MPXERROR_OK                0
 #define MPXERROR_SNDCARD           8
 #define MPXERROR_XMS_MEM           9
-#define MPXERROR_CONVENTIONAL_MEM 10
+//#define MPXERROR_CONVENTIONAL_MEM 10
 #define MPXERROR_NOFILE           11
 #define MPXERROR_CANTWRITEFILE    12
 #define MPXERROR_DIV0             13

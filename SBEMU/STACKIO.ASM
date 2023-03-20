@@ -7,6 +7,7 @@
 	option proc:private
 
 TRIGGERIRQ equ 0
+COPYRMCS   equ 0
 
 PUSHADS struct
 _edi	dd ?
@@ -144,5 +145,130 @@ callirq:
 endif
 
 SwitchStackIO endp
+
+;--- another stack switch, this time for io trapping in v86-mode.
+;--- this is a realmode callback.
+;--- COPYRMCS will save the RMCS onto the protected-mode stack,
+;--- then the code becomes reentrant - this would probably allow
+;--- to trigger a "virtual interrupt" inside.
+
+	.data
+
+externdef HDPMIPT_NewStack:dword
+
+dwProc dd ?
+
+	.code
+
+RMCS    struct          ;real mode call structure
+rEDI    dd ?            ;+0
+rESI    dd ?            ;+4
+rEBP    dd ?            ;+8
+        dd ?            ;+12
+rEBX    dd ?            ;+16
+rEDX    dd ?            ;+20
+rECX    dd ?            ;+24
+rEAX    dd ?            ;+28
+rFlags  dw ?            ;+32
+rES     dw ?            ;+34
+rDS     dw ?            ;+36
+rFS     dw ?            ;+38    
+rGS     dw ?            ;+40  
+rIP     dw ?
+rCS     dw ?
+rSP     dw ?
+rSS     dw ?
+RMCS    ends
+
+SwitchStackIOrmcb proc
+
+	cld
+	lodsw
+	mov es:[edi].RMCS.rIP, ax
+	lodsw
+	mov es:[edi].RMCS.rCS, ax
+	add es:[edi].RMCS.rSP, 2+2
+	mov eax, esp
+	mov edx, ss
+	cmp dx, word ptr cs:[HDPMIPT_NewStack+4]
+	jz noswitch
+	lss esp, fword ptr cs:[HDPMIPT_NewStack]
+if COPYRMCS
+	mov esi, edi
+	push es
+	pop ds
+	push ss
+	pop es
+	sub esp, sizeof RMCS+2
+	mov ecx, (sizeof RMCS+2) shr 2
+	mov edi, esp
+	rep movsd
+	mov edi, esp
+endif
+	push edx
+	push eax
+ife COPYRMCS
+	push es
+endif
+	mov eax, ss
+	mov ds, eax
+	assume ds:_DATA
+	mov es, eax
+	push edi
+	call [dwProc]
+	add esp, 4
+ife COPYRMCS
+	pop es
+endif
+	lss esp, [esp]
+	iretd
+noswitch:
+if COPYRMCS
+	mov esi, edi
+	push es
+	pop ds
+	push ss
+	pop es
+	sub esp, sizeof RMCS+2
+	mov ecx, (sizeof RMCS+2) shr 2
+	mov edi, esp
+	rep movsd
+	mov edi, esp
+else
+	push es
+endif
+	mov eax, ss
+	mov ds, eax
+	mov es, eax
+	push edi
+	call [dwProc]
+	add esp, 4
+ife COPYRMCS
+	pop es
+endif
+	iretd
+SwitchStackIOrmcb endp
+
+_hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
+	push ds
+	mov esi, offset SwitchStackIOrmcb
+	push cs
+	pop ds
+	mov edi, regs
+	mov ax,0303h
+	int 31h
+	pop ds
+	jc error
+	mov eax, cb
+	mov dwProc, eax
+	mov eax, prmcb
+	mov [eax+0], dx
+	mov [eax+2], cx
+	mov eax, 1
+	ret
+error:
+	xor eax, eax
+	ret
+_hdpmi_rmcbIO endp
 
 	END

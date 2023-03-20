@@ -40,6 +40,7 @@ extern unsigned int intsoundconfig,intsoundcontrol;
 //common (ISA & PCI)
 #ifdef __DOS__
 cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
+////////////////////////////////////////////////////
 {
     dbgprintf("MDma_alloc_cardmem\n");
 	cardmem_t *dm;
@@ -47,19 +48,21 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 	if(!dm)
 		exit(MPXERROR_XMS_MEM);
 #ifndef DJGPP
-	if(!pds_dpmi_dos_allocmem(dm,buffsize)){
+	if(!pds_dpmi_dos_allocmem(dm,buffsize)) {
 #else
-	if(!pds_dpmi_xms_allocmem(dm,buffsize)){
+	if(!pds_dpmi_xms_allocmem(dm,buffsize)) {
 #endif
 		free(dm);
-		exit(MPXERROR_CONVENTIONAL_MEM);
+		//exit(MPXERROR_CONVENTIONAL_MEM);
+		exit(MPXERROR_XMS_MEM); /* error msg has been displayed already */
 	}
-	memset(dm->linearptr,0,buffsize);
+	memset( dm->linearptr, 0, buffsize);
 	dbgprintf("MDma_alloc_cardmem: %X\n", dm->linearptr);
 	return dm;
 }
 
 void MDma_free_cardmem(cardmem_t *dm)
+/////////////////////////////////////
 {
     dbgprintf("MDma_free_cardmem\n");
 	if(dm){
@@ -74,6 +77,7 @@ void MDma_free_cardmem(cardmem_t *dm)
 #endif
 
 unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsigned int max_bufsize,unsigned int pagesize,unsigned int samplesize,unsigned long freq_config)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bufsize;
 	dbgprintf("MDma_get_max_pcmoutbufsize\n");
@@ -99,6 +103,7 @@ unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsi
 }
 
 unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned long freq_config)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int dmabufsize,bit_width,tmp;
 	float freq;
@@ -162,12 +167,14 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 }
 
 void MDma_clearbuf(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////
 {
 	if(aui->card_DMABUFF && aui->card_dmasize)
 		pds_memset(aui->card_DMABUFF,0,aui->card_dmasize);
 }
 
 void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left)
+/////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int todo;
 
@@ -191,6 +198,7 @@ void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long 
 
 // checks the DMA buffer and if it's empty, fills with zeroes
 void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////
 {
 	if(aui->card_dmafilled < (aui->card_dmaout_under_int08*2)) {
 		if(!(aui->card_infobits&AUINFOS_CARDINFOBIT_DMAUNDERRUN)){

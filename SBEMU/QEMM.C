@@ -16,6 +16,8 @@
 
 #define HANDLE_IN_388H_DIRECTLY 1
 
+uint32_t _hdpmi_rmcbIO( void(*Fn)( DPMI_REG*), DPMI_REG* reg, __dpmi_raddr * );
+
 static uint16_t QEMM_EntryIP;
 static uint16_t QEMM_EntryCS;
 
@@ -70,36 +72,33 @@ static void __NAKED QEMM_RM_Wrapper()
 }
 static void __NAKED QEMM_RM_WrapperEnd() {}
 
-static DPMI_REG QEMM_TrapHandlerREG; /* real-mode callback register struct */
-
-static void QEMM_TrapHandler()
-//////////////////////////////
+static void QEMM_TrapHandler( DPMI_REG * regs)
+//////////////////////////////////////////////
 {
-    uint16_t port = QEMM_TrapHandlerREG.w.dx;
-    uint8_t val = QEMM_TrapHandlerREG.h.al;
-    uint8_t out = QEMM_TrapHandlerREG.h.cl;
+    uint16_t port = regs->w.dx;
+    uint8_t val = regs->h.al;
+    uint8_t out = regs->h.cl;
 
 	for ( int i = 0; i < maxports; i++ ) {
 		if( (pIodt+i)->port == port) {
-			QEMM_TrapHandlerREG.w.flags &= ~CPU_CFLAG;
-			//uint8_t val2 = link->iodt[i].handler(port, val, out);
-			//QEMM_TrapHandlerREG.h.al = out ? QEMM_TrapHandlerREG.h.al : val2;
-			QEMM_TrapHandlerREG.h.al = (pIodt+i)->handler(port, val, out);
+			regs->w.flags &= ~CPU_CFLAG;
+			//uint8_t val2 = (pIodt+i)->handler( port, val, out );
+			//regs->h.al = out ? regs->h.al : val2;
+			regs->h.al = (pIodt+i)->handler( port, val, out );
 			return;
 		}
     }
 
 	/* this should never be reached. */
 
-    //QEMM_TrapHandlerREG.w.flags |= CPU_CFLAG;
+    //regs->w.flags |= CPU_CFLAG;
 	if ( QEMM_OldCallbackCS ) {
-		DPMI_REG r = QEMM_TrapHandlerREG;
+		DPMI_REG r = *regs;
 		r.w.cs = QEMM_OldCallbackCS;
 		r.w.ip = QEMM_OldCallbackIP;
-		r.w.ss = 0; r.w.sp = 0;
 		DPMI_CallRealModeRETF(&r);
-		QEMM_TrapHandlerREG.w.flags |= r.w.flags & CPU_CFLAG;
-		QEMM_TrapHandlerREG.h.al = r.h.al;
+		regs->w.flags |= r.w.flags & CPU_CFLAG;
+		regs->h.al = r.h.al;
 	}
 }
 
@@ -161,6 +160,7 @@ uint16_t QEMM_GetVersion(void)
 BOOL QEMM_Prepare_IOPortTrap()
 //////////////////////////////
 {
+	static DPMI_REG TrapHandlerREG; /* static RMCS for RMCB */
     DPMI_REG r = {0};
     r.w.cs = QEMM_EntryCS;
     r.w.ip = QEMM_EntryIP;
@@ -173,7 +173,7 @@ BOOL QEMM_Prepare_IOPortTrap()
     //dbgprintf("QEMM old callback: %x:%x\n",r.w.es, r.w.di);
 
     /* get a realmode callback */
-    if ( !DPMI_AllocateRMCB_RETF(&QEMM_TrapHandler, &QEMM_TrapHandlerREG, &rmcb ) )
+    if ( _hdpmi_rmcbIO( &QEMM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
         return FALSE;
 
 #if HANDLE_IN_388H_DIRECTLY

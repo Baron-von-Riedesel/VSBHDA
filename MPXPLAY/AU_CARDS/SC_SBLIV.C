@@ -811,20 +811,20 @@ static unsigned int snd_emu10kx_buffer_init(struct emu10k1_card *card,struct mpx
 	uint32_t pagecount,pcmbufp;
 
 	dbgprintf("snd_emu10kx_buffer_init enter\n");
-	card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,EMUPAGESIZE,2,0);
-	card->dm=MDma_alloc_cardmem( MAXPAGES*sizeof(uint32_t)       // virtualpage
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,EMUPAGESIZE,2,0);
+	card->dm = MDma_alloc_cardmem( MAXPAGES*sizeof(uint32_t)       // virtualpage
 								+EMUPAGESIZE                     // silentpage
 								+card->pcmout_bufsize            // pcm output
 								+0x1000 );                       // to round
 
-	card->silentpage=(void *)(((uint32_t)card->dm->linearptr+0x0fff)&0xfffff000); // buffer begins on page boundary
-	card->virtualpagetable=(uint32_t *)((uint32_t)card->silentpage+EMUPAGESIZE);
-	card->pcmout_buffer=(char *)(card->virtualpagetable+MAXPAGES);
+	card->silentpage = (void *)(((uint32_t)card->dm->linearptr + 0x0fff) & 0xfffff000); // buffer begins on page boundary
+	card->virtualpagetable = (uint32_t *)((uint32_t)card->silentpage + EMUPAGESIZE);
+	card->pcmout_buffer = (char *)(card->virtualpagetable + MAXPAGES);
 	//dbgprintf("snd_emu10kx_buffer_init: silentpage=%X, vpt=%X, pcmout=%X\n", card->silentpage, card->virtualpagetable, card->pcmout_buffer );
 	//dbgprintf("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm->physicalptr, card->dm->linearptr );
 
-	pcmbufp=(uint32_t)card->pcmout_buffer;
-	//pcmbufp<<=1;
+	pcmbufp = (uint32_t)card->pcmout_buffer;
+	//pcmbufp <<= 1;
 	for(pagecount = 0; pagecount < (card->pcmout_bufsize/EMUPAGESIZE); pagecount++){
 		//card->virtualpagetable[pagecount] = pcmbufp | pagecount;
 		//card->virtualpagetable[pagecount] = (uint32_t)pds_cardmem_physicalptr(card->dm,pcmbufp) | pagecount;

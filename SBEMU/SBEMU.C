@@ -44,8 +44,9 @@ static uint8_t SBEMU_idbyte;
 static uint8_t SBEMU_WS = 0x80;
 static uint8_t SBEMU_RS = 0x2A;
 static uint16_t SBEMU_DSPVER = 0x0302;
+#if ADPCM
 static ADPCM_STATE SBEMU_ADPCM;
-
+#endif
 static int SBEMU_TimeConstantMapMono[][2] =
 {
     0xA5, 11025,
@@ -59,12 +60,11 @@ static uint8_t SBEMU_MixerRegs[256];
 static int SBEMU_Indexof(uint8_t* array, int count, uint8_t  val)
 /////////////////////////////////////////////////////////////////
 {
-    for(int i = 0; i < count; ++i)
-    {
-        if(array[i] == val)
-            return i;
-    }
-    return -1;
+	for(int i = 0; i < count; ++i) {
+		if(array[i] == val)
+			return i;
+	}
+	return -1;
 }
 
 
@@ -76,53 +76,54 @@ static void SBEMU_Mixer_WriteAddr( uint8_t value )
 }
 
 static void SBEMU_Mixer_Write( uint8_t value )
+//////////////////////////////////////////////
 {
-    dbgprintf("SBEMU_Mixer_Write: value=%x\n", value);
-    SBEMU_MixerRegs[SBEMU_MixerRegIndex] = value;
-    if(SBEMU_MixerRegIndex == SBEMU_MIXERREG_RESET)
-    {
-        SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERVOL] = 0xE; //3:(1). default 4
-        SBEMU_MixerRegs[SBEMU_MIXERREG_MIDIVOL] = 0xE;
-        SBEMU_MixerRegs[SBEMU_MIXERREG_VOICEVOL] = 0x6; //(1):2:(1) deault 0
+	dbgprintf("SBEMU_Mixer_Write: value=%x\n", value);
+	SBEMU_MixerRegs[SBEMU_MixerRegIndex] = value;
+	if(SBEMU_MixerRegIndex == SBEMU_MIXERREG_RESET) {
+		SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERVOL] = 0xE; //3:(1). default 4
+		SBEMU_MixerRegs[SBEMU_MIXERREG_MIDIVOL] = 0xE;
+		SBEMU_MixerRegs[SBEMU_MIXERREG_VOICEVOL] = 0x6; //(1):2:(1) deault 0
 
-        if(SBEMU_DSPVER < 0x0400) //before SB16
-        {
-            SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO] = 0xEE;
-            SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] = 0xEE;
-            SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO] = 0xEE;
-        }
-        else //SB16
-        {
-            SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO] = 0xFF;
-            SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] = 0xFF;
-            SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO] = 0xFF;
-        }
-    }
+		if(SBEMU_DSPVER < 0x0400) { //before SB16
+			SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO] = 0xEE;
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] = 0xEE;
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO] = 0xEE;
+        } else { //SB16
+			SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO] = 0xFF;
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] = 0xFF;
+			SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO] = 0xFF;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_MASTERL] = 0xF8;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_MASTERR] = 0xF8;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_VOICEL] = 0xF8;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_VOICER] = 0xF8;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_MIDIL] = 0xF8;
+			SBEMU_MixerRegs[SBEMU_MIX16REG_MIDIR] = 0xF8;
+		}
+	}
 #if SB16
-    if(SBEMU_DSPVER >= 0x0400) //SB16
-    {
-        if(SBEMU_MixerRegIndex >= SBEMU_MIX16REG_MASTERL && SBEMU_MixerRegIndex <= SBEMU_MIX16REG_MIDIR)
-        {
-            //5bits, drop 1 bit
-            value = (value >> 4)&0xF;
-            switch(SBEMU_MixerRegIndex) {
-            case SBEMU_MIX16REG_MASTERL: SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] |= (value<<4); break;
-            case SBEMU_MIX16REG_MASTERR: SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] |= value; break;
-            case SBEMU_MIX16REG_VOICEL:  SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  |= (value<<4); break;
-            case SBEMU_MIX16REG_VOICER:  SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  |= value; break;
-            case SBEMU_MIX16REG_MIDIL:   SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   |= (value<<4); break;
-            case SBEMU_MIX16REG_MIDIR:   SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   |= value; break;
-            }
-        }
-    }
+	if(SBEMU_DSPVER >= 0x0400) { //SB16
+		if(SBEMU_MixerRegIndex >= SBEMU_MIX16REG_MASTERL && SBEMU_MixerRegIndex <= SBEMU_MIX16REG_MIDIR) {
+			//5bits, drop 1 bit
+			value = (value >> 4) & 0xF;
+			switch(SBEMU_MixerRegIndex) {
+			case SBEMU_MIX16REG_MASTERL: SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] |= (value<<4); break;
+			case SBEMU_MIX16REG_MASTERR: SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_MASTERSTEREO] |= value; break;
+			case SBEMU_MIX16REG_VOICEL:  SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  |= (value<<4); break;
+			case SBEMU_MIX16REG_VOICER:  SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_VOICESTEREO]  |= value; break;
+			case SBEMU_MIX16REG_MIDIL:   SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   &= 0x0F; SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   |= (value<<4); break;
+			case SBEMU_MIX16REG_MIDIR:   SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   &= 0xF0; SBEMU_MixerRegs[SBEMU_MIXERREG_MIDISTEREO]   |= value; break;
+			}
+		}
+	}
 #endif
 }
 
 static uint8_t SBEMU_Mixer_Read( void )
 ///////////////////////////////////////
 {
-    dbgprintf("SBEMU: mixer read: %x\n", SBEMU_MixerRegs[SBEMU_MixerRegIndex]);
-    return SBEMU_MixerRegs[SBEMU_MixerRegIndex];
+	dbgprintf("SBEMU: mixer read: %x\n", SBEMU_MixerRegs[SBEMU_MixerRegIndex]);
+	return SBEMU_MixerRegs[SBEMU_MixerRegIndex];
 }
 
 static void SBEMU_DSP_Reset( uint8_t value )
@@ -178,8 +179,11 @@ static void SBEMU_DSP_Write( uint8_t value )
         case SBEMU_CMD_TRIGGER_IRQ16: /* F3 */
 #endif
             SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] |= ( value == SBEMU_CMD_TRIGGER_IRQ ? 0x1 : 0x2 );
+#if TRIGGERATONCE
+            VIRQ_Invoke(SBEMU_GetIRQ());
+#else
             SBEMU_TriggerIRQ = 1;
-            //VIRQ_Invoke(SBEMU_GetIRQ()); //not working
+#endif
             break;
         case SBEMU_CMD_DAC_SPEAKER_ON: /* D1 */
         case SBEMU_CMD_DAC_SPEAKER_OFF: /* D3 */
