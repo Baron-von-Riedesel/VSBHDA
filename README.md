@@ -1,23 +1,21 @@
 # SBEMU
-Sound blaster emulation with OPL3 for AC97.
+Sound blaster emulation for AC97/HDA/SBLive; a fork of crazii's SBEMU: https://github.com/crazii/SBEMU
+
+Works with unmodified HDPMI32i, making it compatible with HX.
 
 Supported Sound cards:
  * Intel ICH / nForce
- * Intel High Definition Audio
+ * Intel HDA
  * VIA VT82C686, VT8233
+ * SB Live/SB Audigy
 
-The VT82C868 & ICH4 are tested working on real machine.\
-ICH & HDA tested working in virtualbox, not verified on real machine yet.\
-HDA tested working by community.
-
-Emulated modes/cards:\
-8 bit DMA (mono, stereo, high-speed)\
-Sound blaster 1.0, 2.0, Pro, 16.\
-SB16 only have 8 bit DMA support.
+Emulated modes/cards:
+8-bit, 16-bit, mono, stereo, high-speed;
+Sound blaster 1.0, 2.0, Pro, Pro2, 16.
 
 Requirements:
- * HDPMI32i (HDPMI with IOPL0)
- * QEMM (optional, used for real mode games)
+ * HDPMI32i - DPMI host with port trapping; protected-mode
+ * JEMMEX 5.84 - V86 monitor with port trapping; v86-mode
  
 SBEMU uses some source codes from:
  * MPXPlay: https://mpxplay.sourceforge.net/, for sound card drivers
