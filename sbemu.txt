@@ -1,0 +1,34 @@
+
+
+   1. About
+
+   This SBEMU variant is compatible with the standard HDPMI32i included in the
+   HX runtime package. 
+
+
+   2. Usage
+
+   The best environment to run SBEMU is
+   
+   - load JemmEx/Jemm386 in CONFIG.SYS
+   - run "JLoad QPIEMU.DLL"
+   - run "HDPMI32i -x"
+   - optionally run "SETVPI" ( see below )
+   - run "SBEMU"
+
+   QPIEMU.DLL is needed for real-mode port trapping. Without this helper dll
+   support for real-mode cannot be activated by SBEMU - and, btw, it is also
+   needed by UNINST.COM, a small tool to unload SBEMU.
+
+
+   3. SETVPI/RESVPI
+
+   The HDPMI32i variant supplied with the original SBEMU has some modifications
+   to make it compatible with the somewhat buggy DOS extender DOS4/G[W]. This
+   works, but OTOH makes it incompatible with HX binaries. Hence this fork, that
+   doesn't need those adjustments for HDPMI. To achieve compatibility with
+   DOS4/G[W], another approach has been chosen: it is necessary to run a small
+   tool, SETVPI.EXE. Usually that's it, most programs will run fine. However, a
+   few won't be happy with the effect done by SETVPI.EXE; then another tool,
+   RESVPI.EXE, will undo this effect.
+
