@@ -39,6 +39,7 @@
  */
 
 static uint8_t pcibios_GetBus(void)
+///////////////////////////////////
 {
 	//union REGS reg;
 	DPMI_REG reg = {0}; /* use the "simulate int" function */
@@ -61,6 +62,7 @@ static uint8_t pcibios_GetBus(void)
 }
 
 uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *ppkey)
+//////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
 	DPMI_REG reg = {0}; /* use the "simulate int" function */
@@ -96,8 +98,8 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *
  * "device_type" is to be set.
  */
 
-uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex,
-								   pci_device_s devices[], pci_config_s *ppkey)
+uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, pci_device_s devices[], pci_config_s *ppkey)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
 	DPMI_REG reg = {0}; /* use the "simulate int" function */
@@ -134,6 +136,7 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 }
 
 uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
+//////////////////////////////////////////////////////////////////////////
 {
 	if(pcibios_GetBus()){
 		unsigned int i=0;
@@ -154,6 +157,7 @@ uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 #ifndef SBEMU //BIOS INT service may freeze on some PC (tested a 845M laptop), use pure IOs.
 
 uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
+///////////////////////////////////////////////////////////////////////
 {
 	union REGS reg;
 
@@ -170,6 +174,7 @@ uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
 }
 
 uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
+/////////////////////////////////////////////////////////////////////
 {
 	union REGS reg;
 
@@ -187,6 +192,7 @@ uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
 }
 
 uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
+//////////////////////////////////////////////////////////////////////
 {
 	uint32_t dwData;
 
@@ -197,6 +203,7 @@ uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
 }
 
 void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	union REGS reg;
 
@@ -213,6 +220,7 @@ void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData
 }
 
 void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
+//////////////////////////////////////////////////////////////////////////////////
 {
 	union REGS reg;
 
@@ -229,6 +237,7 @@ void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wDat
 }
 
 void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
+////////////////////////////////////////////////////////////////////////////////////
 {
 	pcibios_WriteConfig_Word(ppkey, wAdr, LoW(dwData ));
 	pcibios_WriteConfig_Word(ppkey, wAdr + 2, HiW(dwData));
@@ -241,6 +250,7 @@ void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwD
 #define outpd outportl
 
 static uint8_t PCI_ReadByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+////////////////////////////////////////////////////////////////////////////////
 {
 	int shift = ((reg & 3) * 8);
 	uint32_t val = ENABLE_BIT |
@@ -253,6 +263,7 @@ static uint8_t PCI_ReadByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 }
 
 static uint16_t PCI_ReadWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	if ((reg & 3) <= 2)
 	{
@@ -270,6 +281,7 @@ static uint16_t PCI_ReadWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg
 }
 
 static uint32_t PCI_ReadDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
+//////////////////////////////////////////////////////////////////////////////////
 {
 	if ((reg & 3) == 0)
 	{
@@ -286,7 +298,8 @@ static uint32_t PCI_ReadDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t re
 }
 
 static void PCI_WriteByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint8_t value)
- {
+/////////////////////////////////////////////////////////////////////////////////////////////
+{
 	int shift = ((reg & 3) * 8);
 	uint32_t val = ENABLE_BIT |
 		((uint32_t)bus << 16) |
@@ -299,6 +312,7 @@ static void PCI_WriteByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, u
 
 
 static void PCI_WriteWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint16_t value)
+//////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if ((reg & 3) <= 2)
 	{
@@ -320,6 +334,7 @@ static void PCI_WriteWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, u
 
 
 static void PCI_WriteDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint32_t value)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if ((reg & 3) == 0)
 	{
@@ -339,37 +354,44 @@ static void PCI_WriteDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, 
 }
 
 uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
+///////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadByte(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
 uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
+/////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
 uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
+//////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadDWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
 void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteByte(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, bData);
 }
 
 void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
+//////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, wData);
 }
 
 void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
+////////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteDWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, dwData);
 }
 #endif
 
 void pcibios_set_master(pci_config_s *ppkey)
+////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd=pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
@@ -378,6 +400,7 @@ void pcibios_set_master(pci_config_s *ppkey)
 }
 
 void pcibios_enable_memmap_set_master(pci_config_s *ppkey)
+//////////////////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd=pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);

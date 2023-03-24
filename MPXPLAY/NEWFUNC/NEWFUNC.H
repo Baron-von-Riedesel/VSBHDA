@@ -101,12 +101,6 @@ typedef int           mpxp_ptrsize_t;
 #elif defined (_WIN32) && !defined(_WIN32_WCE)
  #define pds_swapv32(a) __asm mov eax,a __asm bswap eax __asm mov a, eax
 #endif
-/*void pds_ftoi(mpxp_double_t,mpxp_int32_t *); // rather use -zro option at wcc386
- #pragma aux pds_ftoi parm [8087][esi] = "fistp dword ptr [esi]"
- void pds_fto64i(mpxp_double_t,mpxp_int64_t *);
- #pragma aux pds_fto64i parm [8087][esi] = "fistp qword ptr [esi]"*/
-#define pds_ftoi(ff,ii)   (*(ii)=(mpxp_int32_t)(ff))
-#define pds_fto64i(ff,ii) (*(ii)=(mpxp_int64_t)(ff))
 
 #define funcbit_test(var,bit)       ((var)&(bit))
 #define funcbit_enable(var,bit)     ((var)|=(bit))
@@ -208,54 +202,11 @@ typedef struct pds_fdate_t{
 
 #if defined(DJGPP)
 #include <sys/segments.h>
-#define far
-#define __far
-#define __interrupt
-#define __loadds
-//typedef struct _farptr {unsigned long off;unsigned short sel;} farptr;//DJGPP has no 16:32 flat model far ptr.
-//typedef farptr int_handler_t;
-//static farptr pds_fardata(void* d) { farptr ptr = {(long)d, _my_ds()}; return ptr;}
-//static void pds_call_int_handler(int_handler_t h) { asm("pushf\n\t lcall *%0" ::"m"(h));} //simulate a iret frame for handler
-//static int_handler_t pds_int_handler(void (*f)(void)) { int_handler_t h = {(long)f, _my_cs()}; return h;}
-//static int pds_valid_int_handler(int_handler_t h) {return h.off && h.sel;}
-#else
-typedef void* far farptr;
-typedef void (__far __interrupt *int_handler_t)();
-#define pds_fardata(d) (d)
-static void pds_call_int_handler(int_handler_t h) {h();}
-#define pds_int_handler(f) (f)
-#define pds_valid_int_handler(h) (h)
-#endif//DJGPP
-
-//#define PDS_INT2X_DOSMEM_SIZE  512
-
-//extern long pds_dpmi_segment_to_selector(unsigned int segment);
-//extern void far *pds_dpmi_getrmvect(unsigned int intno);
-//extern void pds_dpmi_setrmvect(unsigned int intno, unsigned int segment,unsigned int offset);
-#if defined(DJGPP)
-//extern farptr pds_dpmi_getexcvect(unsigned int intno);
-//extern void pds_dpmi_setexcvect(unsigned int intno, farptr vect);
+#endif
 extern int  pds_dpmi_xms_allocmem(xmsmem_t *,unsigned int size);
 extern void pds_dpmi_xms_freemem(xmsmem_t *);
-#else
-extern void far *pds_dpmi_getexcvect(unsigned int intno);
-extern void pds_dpmi_setexcvect(unsigned int intno, void far *vect);
-#endif
-extern int  pds_dpmi_dos_allocmem(dosmem_t *,unsigned int size);
-extern void pds_dpmi_dos_freemem(dosmem_t *);
-//extern void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi);
 extern unsigned long pds_dpmi_map_physical_memory(unsigned long phys_addr,unsigned long memsize);
 extern void pds_dpmi_unmap_physical_memory(unsigned long linear_address);
-//#define pds_dpmi_rmi_clear(rmi) pds_memset(rmi,0,sizeof(struct rminfo))
-//extern unsigned int pds_int2x_dosmems_allocate(void);
-//extern void pds_int2x_dosmems_free(void);
-
-//errorhnd.c
-//extern void newfunc_errorhnd_int24_init(void);
-//extern void newfunc_error_handlers_init(void);
-//extern void newfunc_error_handlers_close(void);
-//extern void newfunc_exception_handlers_close(void);
-//extern void pds_mswin_previousinstance_close(void);
 
 //memory.c
 extern void newfunc_memory_init(void);
@@ -274,33 +225,16 @@ extern unsigned int pds_strncpy(char *dest,char *src,unsigned int maxlen); // re
 extern unsigned int pds_strcat(char *,char *); // returns the lenght of string!
 extern int  pds_strcmp(char *strp1,char *strp2);
 extern int  pds_stricmp(char *,char *);
-extern unsigned int pds_stri_compare(char *strp1,char *strp2); // returns 1 if equal, else 0 (no pointer check!)
-extern int  pds_strricmp(char *,char *);
-extern int  pds_strlicmp(char *,char *);
 extern int  pds_strncmp(char *,char *,unsigned int);
 extern int  pds_strnicmp(char *strp1,char *strp2,unsigned int counter);
 extern unsigned int pds_strlen(char *strp);
 extern unsigned int pds_strlenc(char *strp,char seek);
-//extern unsigned int pds_strlencn(char *strp,char seek,unsigned int maxlen);
-extern char *pds_strchr(char *,char);
-extern char *pds_strrchr(char *,char);
-extern char *pds_strnchr(char *strp,char seek,unsigned int len);
-extern char *pds_strstr(char *s1,char *s2);
-extern char *pds_strstri(char *s1,char *s2);
 extern unsigned int pds_strcutspc(char *src); // returns (new)len
-extern unsigned int pds_str_extendc(char *str,unsigned int newlen,char c); // returns len
-extern unsigned int pds_str_fixlenc(char *str,unsigned int newlen,char c); // returns (new)len
-extern char *pds_str_getwordn(char *str, unsigned int wordcount); // returns pointer
 extern void  pds_ltoa(int,char *);
-//extern void  pds_ltoa16(int,char *);
 extern long  pds_atol(char *);
 extern long  pds_atol16(char *);
 extern void pds_str_to_hexs(char *src,char *dest,unsigned int destlen);
 extern void pds_hexs_to_str(char *src,char *dest,unsigned int destlen);
-
-//#define pds_cvchar_CP437_to_UTF16LE(c) (c)
-#define pds_strlen_mpxnative(strp) pds_strlen(strp)
-#define pds_strpos_mpxnative(strp,pos) ((pds_strlen(strp) >= pos)? (pds_strlen(strp) - 1) : pos)  // FIXME: a faster way?
 
 //time.c
 extern unsigned long pds_gettimeh(void); // clock time in hsec
@@ -314,13 +248,13 @@ extern void pds_mdelay(unsigned long msec);
 //extern unsigned long mpxplay_timer_msecs_to_counternum(unsigned long msecs);
 
 // safe funcbit handling for multi processors
-#define funcbit_smp_test(var,bit)       funcbit_test(var,bit)
+//#define funcbit_smp_test(var,bit)       funcbit_test(var,bit)
 #define funcbit_smp_enable(var,bit)     funcbit_enable(var,bit)
 #define funcbit_smp_disable(var,bit)    funcbit_disable(var,bit)
-#define funcbit_smp_inverse(var,bit)    funcbit_inverse(var,bit)
-#define funcbit_smp_copy(var1,var2,bit) funcbit_copy(var1,var2,bit)
+//#define funcbit_smp_inverse(var,bit)    funcbit_inverse(var,bit)
+//#define funcbit_smp_copy(var1,var2,bit) funcbit_copy(var1,var2,bit)
 
-#define funcbit_smp_int32_get(var)       (var)
+//#define funcbit_smp_int32_get(var)       (var)
 #define funcbit_smp_int32_put(var,val)   (var)=(val)
 
 #ifdef __cplusplus

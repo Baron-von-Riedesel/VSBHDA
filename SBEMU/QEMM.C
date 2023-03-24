@@ -91,7 +91,8 @@ static void QEMM_TrapHandler( DPMI_REG * regs)
 
 	/* this should never be reached. */
 
-    //regs->w.flags |= CPU_CFLAG;
+	dbgprintf("QEMM_TrapHandler: unhandled port=%x val=%x out=%x (OldCB=%x:%x)\n", port, val, out, QEMM_OldCallbackCS, QEMM_OldCallbackIP );
+	//regs->w.flags |= CPU_CFLAG;
 	if ( QEMM_OldCallbackCS ) {
 		DPMI_REG r = *regs;
 		r.w.cs = QEMM_OldCallbackCS;
@@ -115,44 +116,36 @@ uint16_t QEMM_GetVersion(void)
     uint32_t entryfar = 0;
     //ioctl - read from character device control channel
     DPMI_REG r = {0};
-    if (result == 0) //QEMM detected
-    {
+    if (result == 0) { //QEMM detected?
         int count = ioctl(fd, DOS_RCVDATA, 4, &entryfar);
         _dos_close(fd);
         if(count != 4)
             return 0;
-        r.w.cs = entryfar>>16;
-        r.w.ip = entryfar&0xFFFF;
-    }
-    else //check QPIEMU for JEMM
-    {
-        /* getting the entry point of QPIEMU is non-trivial in protected-mode, since
+        r.w.cs = entryfar >> 16;
+        r.w.ip = entryfar & 0xFFFF;
+    } else {
+        /* QPIEMU installation check;
+         * getting the entry point of QPIEMU is non-trivial in protected-mode, since
          * the int 2Fh must be executed as interrupt ( not just "simulated" ). Here
-         * a small ( 3 bytes ) helper proc is constructed on the fly, at 0040:00D0,
-         * which is the INT 2Fh, followed by an RETF.
+         * a small ( 3 bytes ) helper proc is constructed on the fly, at PSP:005Ch:
+         * a INT 2Fh, followed by an RETF.
          */
-        asm(
-            "push ds \n\t"
-            "push $0x40 \n\t"
-            "pop ds \n\t"
-            "mov $0xd0, bx \n\t"
-            "movl $0xcb2fcd, (bx) \n\t"
-            "pop ds \n\t"
-           );
+        uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x5C;
+        uint8_t int2frm[] = { 0xCD, 0x2F, 0xCB };
+        DPMI_CopyLinear( dosmem, DPMI_PTR2L(&int2frm), 3 );
         r.w.ax = 0x1684;
         r.w.bx = 0x4354;
-        r.w.sp = 0; r.w.ss = 0;
-        r.w.cs = 0x40;
-        r.w.ip = 0xd0;
+        r.w.cs = _go32_info_block.linear_address_of_original_psp >> 4;
+        r.w.ip = 0x5C;
         if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.ax & 0xff))
             return 0;
         r.w.ip = r.w.di;
         r.w.cs = r.w.es;
     }
-    r.h.ah = 0x03;
+    r.h.ah = 0x03; /* get version */
     QEMM_EntryIP = r.w.ip;
     QEMM_EntryCS = r.w.cs;
-    if( DPMI_CallRealModeRETF(&r) == 0)
+    if( DPMI_CallRealModeRETF(&r) == 0 )
         return r.w.ax;
     return 0;
 }
@@ -170,7 +163,7 @@ BOOL QEMM_Prepare_IOPortTrap()
         return FALSE;
     QEMM_OldCallbackIP = r.w.es;
     QEMM_OldCallbackCS = r.w.di;
-    //dbgprintf("QEMM old callback: %x:%x\n",r.w.es, r.w.di);
+    dbgprintf("QEMM_Prepare_IOPortTrap: old callback=%x:%x\n",r.w.es, r.w.di);
 
     /* get a realmode callback */
     if ( _hdpmi_rmcbIO( &QEMM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
@@ -208,14 +201,21 @@ static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t e
 	r.w.cs = QEMM_EntryCS;
 	r.w.ip = QEMM_EntryIP;
 	for( int i = start; i < end; i++ ) {
-		r.w.ax = 0x1A08;
-		r.w.dx = iodt[i].port;
-		DPMI_CallRealModeRETF(&r);
-		iodt[i].flags |= (r.h.bl) << 8; //previously trapped state
-
+		if ( QEMM_OldCallbackCS ) {
+			/* this is unreliable, since if the port was already trapped, there's no
+			 * guarantee that the previous handler can actually handle it.
+			 * so it might be safer to ignore the old state and - on exit -
+			 * untrap the port in any case!
+			 */
+			r.w.ax = 0x1A08;
+			r.w.dx = iodt[i].port;
+			DPMI_CallRealModeRETF(&r);
+			iodt[i].flags |= (r.h.bl) << 8; //previously trapped state
+		}
 		r.w.ax = 0x1A09;
 		r.w.dx = iodt[i].port;
 		DPMI_CallRealModeRETF(&r); /* trap port */
+		iodt[i].flags |= IODT_FLGS_RMINST;
     }
     return TRUE;
 }
@@ -248,7 +248,13 @@ void QEMM_SetPICPortTrap( int bSet )
 		r.w.cs = QEMM_EntryCS;
 		r.w.ip = QEMM_EntryIP;
 		r.w.dx = (pIodt+PICIndex)->port;
-		r.w.ax = bSet ? 0x1A09 : 0x1A0A;
+		if ( bSet ) {
+			r.w.ax = 0x1A09;
+			(pIodt+PICIndex)->flags |= IODT_FLGS_RMINST;
+		} else {
+			r.w.ax = 0x1A0A;
+			(pIodt+PICIndex)->flags &= ~IODT_FLGS_RMINST;
+		}
 		DPMI_CallRealModeRETF(&r); /* trap port */
 	}
 	return;
@@ -268,17 +274,19 @@ BOOL QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
 				r.w.ax = 0x1A0A; //clear trap
 				r.w.dx = iodt[i].port;
 				DPMI_CallRealModeRETF(&r);
+				iodt[i].flags &= ~IODT_FLGS_RMINST;
+				//dbgprintf("QEMM_Uninstall_PortTraps: port %X untrapped\n", iodt[i].port );
 			}
 		}
     }
-
-	DPMI_FreeRMCB( &rmcb );
-
 	r.w.ax = 0x1A07;
 	r.w.es = QEMM_OldCallbackCS;
 	r.w.di = QEMM_OldCallbackIP;
 	if( DPMI_CallRealModeRETF(&r) != 0) //restore old handler
 		return FALSE;
+
+	DPMI_FreeRMCB( &rmcb );
+
     return TRUE;
 }
 

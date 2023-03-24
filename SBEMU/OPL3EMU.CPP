@@ -26,22 +26,26 @@ static uint32_t OPL3EMU_ADLG_Volume[2] = {0x08,0x08};
 static DBOPL::Chip* OPL3EMU_Chip;
 
 void OPL3EMU_Init(int samplerate)
+/////////////////////////////////
 {
     OPL3EMU_Chip = new DBOPL::Chip(true);
     OPL3EMU_Chip->Setup(samplerate);
 }
 
 int OPL3EMU_GetMode()
+/////////////////////
 {
     return OPL3EMU_Chip->opl3Active;
 }
 
 int OPL3EMU_GenSamples(int16_t* pcm16, int count)
+/////////////////////////////////////////////////
 {
     return OPL3EMU_Chip->Generate(pcm16, count);
 }
 
 static uint32_t OPL3EMU_PrimaryRead(uint32_t val)
+/////////////////////////////////////////////////
 {
     val &= ~0xFF;
     if ((OPL3EMU_TimerCtrlReg[0] & (OPL3EMU_TIMER1_MASK|OPL3EMU_TIMER1_START)) == OPL3EMU_TIMER1_START)
@@ -52,12 +56,14 @@ static uint32_t OPL3EMU_PrimaryRead(uint32_t val)
 }
 
 static uint32_t OPL3EMU_PrimaryWriteIndex(uint32_t val)
+///////////////////////////////////////////////////////
 {
     OPL3EMU_IndexReg[OPL3EMU_PRIMARY] = OPL3EMU_Chip->WriteAddr(0x388, val);
     return val;
 }
 
 static uint32_t OPL3EMU_PrimaryWriteData(uint32_t val)
+//////////////////////////////////////////////////////
 {
     if(OPL3EMU_IndexReg[OPL3EMU_PRIMARY] == OPL3EMU_TIMER_REG_INDEX)
     {
@@ -71,6 +77,7 @@ static uint32_t OPL3EMU_PrimaryWriteData(uint32_t val)
 }
 
 static uint32_t OPL3EMU_SecondaryRead(uint32_t val)
+///////////////////////////////////////////////////
 {
     if(OPL3EMU_IndexReg[OPL3EMU_SECONDARY] == 0x100+OPL3EMU_ADLG_VOLL_REG_INDEX || OPL3EMU_IndexReg[OPL3EMU_SECONDARY] == 0x100+OPL3EMU_ADLG_VOLR_REG_INDEX)
             return OPL3EMU_ADLG_Volume[OPL3EMU_IndexReg[OPL3EMU_SECONDARY]-OPL3EMU_ADLG_VOLL_REG_INDEX];
@@ -78,6 +85,7 @@ static uint32_t OPL3EMU_SecondaryRead(uint32_t val)
 }
 
 static uint32_t OPL3EMU_SecondaryWriteIndex(uint32_t val)
+/////////////////////////////////////////////////////////
 {
     if(val == 0xFF)
         OPL3EMU_ADLG_CtrlEnable = 1;
@@ -89,6 +97,7 @@ static uint32_t OPL3EMU_SecondaryWriteIndex(uint32_t val)
 }
 
 static uint32_t OPL3EMU_SecondaryWriteData(uint32_t val)
+////////////////////////////////////////////////////////
 {
     if(/*OPL3EMU_ADLG_CtrlEnable && */(OPL3EMU_IndexReg[OPL3EMU_SECONDARY] == 0x100+OPL3EMU_ADLG_VOLL_REG_INDEX || OPL3EMU_IndexReg[OPL3EMU_SECONDARY] == 0x100+OPL3EMU_ADLG_VOLR_REG_INDEX))
         OPL3EMU_ADLG_Volume[OPL3EMU_IndexReg[OPL3EMU_SECONDARY]-OPL3EMU_ADLG_VOLL_REG_INDEX] = val;
@@ -97,18 +106,24 @@ static uint32_t OPL3EMU_SecondaryWriteData(uint32_t val)
 }
 
 uint32_t OPL3EMU_OPL3_388(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////////////
 {
     return out ? OPL3EMU_PrimaryWriteIndex(val) : OPL3EMU_PrimaryRead(val);
 }
+
 uint32_t OPL3EMU_OPL3_389(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////////////
 {
     return out ? OPL3EMU_PrimaryWriteData(val) : OPL3EMU_PrimaryRead(val);
 }
+
 uint32_t OPL3EMU_OPL3_38A(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////////////
 {
     return out ? OPL3EMU_SecondaryWriteIndex(val) : OPL3EMU_SecondaryRead(val);
 }
 uint32_t OPL3EMU_OPL3_38B(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////////////
 {
     return out ? OPL3EMU_SecondaryWriteData(val) : OPL3EMU_SecondaryRead(val);
 }

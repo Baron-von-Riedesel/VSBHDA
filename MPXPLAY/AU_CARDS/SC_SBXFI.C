@@ -199,45 +199,50 @@ typedef struct emu20kx_card_s
 
 }ensoniq_card_s;
 
-//-------------------------------------------------------------------------
 static inline uint32_t hw_read_20kx(struct emu20kx_card_s *card,uint32_t reg)
+/////////////////////////////////////////////////////////////////////////////
 {
- outl(card->iobase + 0x0,reg);
- return ((uint32_t)inl(card->iobase + 0x4));
+	outl(card->iobase + 0x0,reg);
+	return ((uint32_t)inl(card->iobase + 0x4));
 }
 
 static inline void hw_write_20kx(struct emu20kx_card_s *card,uint32_t reg,uint32_t data)
+////////////////////////////////////////////////////////////////////////////////////////
 {
- outl(card->iobase + 0x0,reg);
- outl(card->iobase + 0x4,data);
+	outl(card->iobase + 0x0,reg);
+	outl(card->iobase + 0x4,data);
 }
 
 static inline uint32_t hw_read_pci(struct emu20kx_card_s *card,uint32_t reg)
+////////////////////////////////////////////////////////////////////////////
 {
- outl(card->iobase + 0x10,reg);
- return ((uint32_t)inl(card->iobase + 0x14));
+	outl(card->iobase + 0x10,reg);
+	return ((uint32_t)inl(card->iobase + 0x14));
 }
 
 static inline void hw_write_pci(struct emu20kx_card_s *card,uint32_t reg,uint32_t data)
+///////////////////////////////////////////////////////////////////////////////////////
 {
- outl(card->iobase + 0x10,reg);
- outl(card->iobase + 0x14,data);
+	outl(card->iobase + 0x10,reg);
+	outl(card->iobase + 0x14,data);
 }
 
 static unsigned int get_field(unsigned int data, unsigned int field)
+////////////////////////////////////////////////////////////////////
 {
- int i;
- for(i=0; !(field & (1 << i)); )
-  i++;
- return ((data & field) >> i);
+	int i;
+	for(i=0; !(field & (1 << i)); )
+		i++;
+	return ((data & field) >> i);
 }
 
 static void set_field(unsigned int *data, unsigned int field, unsigned int value)
+/////////////////////////////////////////////////////////////////////////////////
 {
- int i;
- for (i = 0; !(field & (1 << i)); )
-  i++;
- *data = (*data & (~field)) | ((value << i) & field);
+	int i;
+	for (i = 0; !(field & (1 << i)); )
+		i++;
+	*data = (*data & (~field)) | ((value << i) & field);
 }
 
 //-------------------------------------------------------------------------
@@ -247,273 +252,286 @@ static void set_field(unsigned int *data, unsigned int field, unsigned int value
 #define AR_PARAM_SRC_OFFSET    0x60
 
 static unsigned int src_param_pitch_mixer(unsigned int src_idx)
+///////////////////////////////////////////////////////////////
 {
- return ((src_idx << 4) + AR_PTS_PITCH + AR_SLOT_SIZE - AR_PARAM_SRC_OFFSET) % AR_SLOT_SIZE;
+	return ((src_idx << 4) + AR_PTS_PITCH + AR_SLOT_SIZE - AR_PARAM_SRC_OFFSET) % AR_SLOT_SIZE;
 }
 
 static unsigned int snd_emu20kx_get_pitch(unsigned int input_rate, unsigned int output_rate)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int pitch = 0;
- int b = 0;
+	unsigned int pitch = 0;
+	int b = 0;
 
- // get pitch and convert to fixed-point 8.24 format
- pitch = (input_rate / output_rate) << 24;
- input_rate %= output_rate;
- input_rate /= 100;
- output_rate /= 100;
- for(b = 31; ((b >= 0) && !(input_rate >> b)); )
-  b--;
+	// get pitch and convert to fixed-point 8.24 format
+	pitch = (input_rate / output_rate) << 24;
+	input_rate %= output_rate;
+	input_rate /= 100;
+	output_rate /= 100;
+	for(b = 31; ((b >= 0) && !(input_rate >> b)); )
+		b--;
 
- if(b >= 0) {
-  input_rate <<= (31 - b);
-  input_rate /= output_rate;
-  b = 24 - (31 - b);
-  if (b >= 0)
-   input_rate <<= b;
-  else
-   input_rate >>= -b;
+	if(b >= 0) {
+		input_rate <<= (31 - b);
+		input_rate /= output_rate;
+		b = 24 - (31 - b);
+		if (b >= 0)
+			input_rate <<= b;
+		else
+			input_rate >>= -b;
 
-  pitch |= input_rate;
- }
+		pitch |= input_rate;
+	}
 
- return pitch;
+	return pitch;
 }
 
 static int snd_emu20kx_select_rom(unsigned int pitch)
+/////////////////////////////////////////////////////
 {
- if ((pitch > 0x00428f5c) && (pitch < 0x01b851ec)) { // 0.26 <= pitch <= 1.72
-  return 1;
- }else if ((0x01d66666 == pitch) || (0x01d66667 == pitch)) { // pitch == 1.8375
-  return 2;
- }else if (0x02000000 == pitch) { // pitch == 2
-  return 3;
- }else if (pitch <= 0x08000000) { // 0 <= pitch <= 8
-  return 0;
- }
- return -1;
+	if ((pitch > 0x00428f5c) && (pitch < 0x01b851ec)) { // 0.26 <= pitch <= 1.72
+		return 1;
+	}else if ((0x01d66666 == pitch) || (0x01d66667 == pitch)) { // pitch == 1.8375
+		return 2;
+	}else if (0x02000000 == pitch) { // pitch == 2
+		return 3;
+	}else if (pitch <= 0x08000000) { // 0 <= pitch <= 8
+		return 0;
+	}
+	return -1;
 }
 
 // Map integer value ranging from 0 to 65535 to 14-bit float value ranging from 2^-6 to (1+1023/1024)
+
 static unsigned int uint16_to_float14(unsigned int x)
+/////////////////////////////////////////////////////
 {
- unsigned int i;
+	unsigned int i;
 
- if(x < 17)
-  return 0;
+	if(x < 17)
+		return 0;
 
- x *= 2031;
- x /= 65535;
- x += 16;
+	x *= 2031;
+	x /= 65535;
+	x += 16;
 
- for (i = 0; !(x & 0x400); i++)
-  x <<= 1;
+	for (i = 0; !(x & 0x400); i++)
+		x <<= 1;
 
- x = (((7 - i) & 0x7) << 10) | (x & 0x3ff);
+	x = (((7 - i) & 0x7) << 10) | (x & 0x3ff);
 
- return x;
+	return x;
 }
 
 static unsigned int float14_to_uint16(unsigned int x)
+/////////////////////////////////////////////////////
 {
- unsigned int e;
+	unsigned int e;
 
- if(!x)
-  return x;
+	if(!x)
+		return x;
 
- e = (x >> 10) & 0x7;
- x &= 0x3ff;
- x += 1024;
- x >>= (7 - e);
- x -= 16;
- x *= 65535;
- x /= 2031;
+	e = (x >> 10) & 0x7;
+	x &= 0x3ff;
+	x += 1024;
+	x >>= (7 - e);
+	x -= 16;
+	x *= 65535;
+	x /= 2031;
 
- return x;
+	return x;
 }
 
 //-------------------------------------------------------------------------
 static int hw_pll_init(struct emu20kx_card_s *card)
+///////////////////////////////////////////////////
 {
- unsigned int i,pllctl;
- pllctl=(card->rsr==48000)? 0x1480a001 : 0x1480a731;
- for(i=0;i<3;i++){
-  if(hw_read_20kx(card, PLLCTL) == pllctl)
-   break;
-  hw_write_20kx(card, PLLCTL, pllctl);
-  pds_delay_10us(40*100);
- }
- if(i>=3)
-  return -1;
- return 0;
+	unsigned int i,pllctl;
+	pllctl=(card->rsr==48000)? 0x1480a001 : 0x1480a731;
+	for(i=0;i<3;i++){
+		if(hw_read_20kx(card, PLLCTL) == pllctl)
+			break;
+		hw_write_20kx(card, PLLCTL, pllctl);
+		pds_delay_10us(40*100);
+	}
+	if(i>=3)
+		return -1;
+	return 0;
 }
 
 static void hw_daio_init(struct emu20kx_card_s *card)
+/////////////////////////////////////////////////////
 {
- uint32_t i2sorg,spdorg;
+	uint32_t i2sorg,spdorg;
 
- /* Read I2S CTL.  Keep original value. */
- /*i2sorg = hw_read_20kx(hw, I2SCTL);*/
- i2sorg = 0x94040404; /* enable all audio out and I2S-D input */
- /* Program I2S with proper master sample rate and enable
-  * the correct I2S channel. */
- i2sorg &= 0xfffffffc;
+	/* Read I2S CTL.  Keep original value. */
+	/*i2sorg = hw_read_20kx(hw, I2SCTL);*/
+	i2sorg = 0x94040404; /* enable all audio out and I2S-D input */
+	/* Program I2S with proper master sample rate and enable
+	 * the correct I2S channel. */
+	i2sorg &= 0xfffffffc;
 
- /* Enable S/PDIF-out-A in fixed 24-bit data
-  * format and default to 48kHz. */
- /* Disable all before doing any changes. */
- hw_write_20kx(card, SPOCTL, 0x0);
- spdorg = 0x05;
+	/* Enable S/PDIF-out-A in fixed 24-bit data
+	 * format and default to 48kHz. */
+	/* Disable all before doing any changes. */
+	hw_write_20kx(card, SPOCTL, 0x0);
+	spdorg = 0x05;
 
- switch(card->msr) {
-  case 1:
-   i2sorg |= 1;
-   spdorg |= (0x0 << 6);
-   break;
-  case 2:
-   i2sorg |= 2;
-   spdorg |= (0x1 << 6);
-   break;
-  case 4:
-   i2sorg |= 3;
-   spdorg |= (0x2 << 6);
-   break;
-  default:
-   i2sorg |= 1;
-   break;
- }
+	switch(card->msr) {
+	case 1:
+		i2sorg |= 1;
+		spdorg |= (0x0 << 6);
+		break;
+	case 2:
+		i2sorg |= 2;
+		spdorg |= (0x1 << 6);
+		break;
+	case 4:
+		i2sorg |= 3;
+		spdorg |= (0x2 << 6);
+		break;
+	default:
+		i2sorg |= 1;
+		break;
+	}
 
- hw_write_20kx(card, I2SCTL, i2sorg);
- hw_write_20kx(card, SPOCTL, spdorg);
+	hw_write_20kx(card, I2SCTL, i2sorg);
+	hw_write_20kx(card, SPOCTL, spdorg);
 
- /* Enable S/PDIF-in-A in fixed 24-bit data format. */
- /* Disable all before doing any changes. */
- hw_write_20kx(card, SPICTL, 0x0);
- pds_delay_10us(1*100);
- spdorg = 0x0a0a0a0a;
- hw_write_20kx(card, SPICTL, spdorg);
- pds_delay_10us(1*100);
+	/* Enable S/PDIF-in-A in fixed 24-bit data format. */
+	/* Disable all before doing any changes. */
+	hw_write_20kx(card, SPICTL, 0x0);
+	pds_delay_10us(1*100);
+	spdorg = 0x0a0a0a0a;
+	hw_write_20kx(card, SPICTL, spdorg);
+	pds_delay_10us(1*100);
 }
 
 static int i2c_unlock(struct emu20kx_card_s *card)
+//////////////////////////////////////////////////
 {
- if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
-  return 0;
+	if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
+		return 0;
 
- hw_write_pci(card, 0xcc, 0x8c);
- hw_write_pci(card, 0xcc, 0x0e);
- if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
-  return 0;
+	hw_write_pci(card, 0xcc, 0x8c);
+	hw_write_pci(card, 0xcc, 0x0e);
+	if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
+		return 0;
 
- hw_write_pci(card, 0xcc, 0xee);
- hw_write_pci(card, 0xcc, 0xaa);
- if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
-  return 0;
+	hw_write_pci(card, 0xcc, 0xee);
+	hw_write_pci(card, 0xcc, 0xaa);
+	if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
+		return 0;
 
- return -1;
+	return -1;
 }
 
 static void i2c_lock(struct emu20kx_card_s *card)
+/////////////////////////////////////////////////
 {
- if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
-  hw_write_pci(card, 0xcc, 0x00);
+	if((hw_read_pci(card, 0xcc) & 0xff) == 0xaa)
+		hw_write_pci(card, 0xcc, 0x00);
 }
 
 static void i2c_write(struct emu20kx_card_s *card, uint32_t device, uint32_t addr, uint32_t data)
+/////////////////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int ret = 0;
+	unsigned int ret = 0;
 
- do{
-  ret = hw_read_pci(card, 0xEC);
- }while(!(ret & 0x800000));
- hw_write_pci(card, 0xE0, device);
- hw_write_pci(card, 0xE4, (data << 8) | (addr & 0xff));
+	do{
+		ret = hw_read_pci(card, 0xEC);
+	}while(!(ret & 0x800000));
+	hw_write_pci(card, 0xE0, device);
+	hw_write_pci(card, 0xE4, (data << 8) | (addr & 0xff));
 }
 
 /* DAC operations */
 
 static int hw_reset_dac(struct emu20kx_card_s *card)
+////////////////////////////////////////////////////
 {
- uint32_t i = 0;
- uint16_t gpioorg = 0;
- unsigned int ret = 0;
+	uint32_t i = 0;
+	uint16_t gpioorg = 0;
+	unsigned int ret = 0;
 
- if(i2c_unlock(card))
-  return -1;
+	if(i2c_unlock(card))
+		return -1;
 
- do{
-  ret = hw_read_pci(card, 0xEC);
- }while(!(ret & 0x800000));
- hw_write_pci(card, 0xEC, 0x05);  /* write to i2c status control */
+	do{
+		ret = hw_read_pci(card, 0xEC);
+	}while(!(ret & 0x800000));
+	hw_write_pci(card, 0xEC, 0x05);  /* write to i2c status control */
 
- /* To be effective, need to reset the DAC twice. */
- for(i = 0; i < 2;  i++){
-  /* set gpio */
-  pds_delay_10us(100*100);
-  gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
-  gpioorg &= 0xfffd;
-  hw_write_20kx(card, GPIO, gpioorg);
-  pds_delay_10us(1);
-  hw_write_20kx(card, GPIO, gpioorg | 0x2);
- }
+	/* To be effective, need to reset the DAC twice. */
+	for(i = 0; i < 2;  i++){
+		/* set gpio */
+		pds_delay_10us(100*100);
+		gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
+		gpioorg &= 0xfffd;
+		hw_write_20kx(card, GPIO, gpioorg);
+		pds_delay_10us(1);
+		hw_write_20kx(card, GPIO, gpioorg | 0x2);
+	}
 
- i2c_write(card, 0x00180080, 0x01, 0x80);
- i2c_write(card, 0x00180080, 0x02, 0x10);
+	i2c_write(card, 0x00180080, 0x01, 0x80);
+	i2c_write(card, 0x00180080, 0x02, 0x10);
 
- i2c_lock(card);
+	i2c_lock(card);
 
- return 0;
+	return 0;
 }
 
 static int hw_dac_init(struct emu20kx_card_s *card)
+///////////////////////////////////////////////////
 {
- uint32_t data = 0;
- uint16_t gpioorg = 0;
- unsigned int ret = 0;
+	uint32_t data = 0;
+	uint16_t gpioorg = 0;
+	unsigned int ret = 0;
 
- if((card->subsys_id == 0x0022) || (card->subsys_id == 0x002F)) {
-  /* SB055x, unmute outputs */
-  gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
-  gpioorg &= 0xffbf;    /* set GPIO6 to low */
-  gpioorg |= 2;        /* set GPIO1 to high */
-  hw_write_20kx(card, GPIO, gpioorg);
-  return 0;
- }
+	if((card->subsys_id == 0x0022) || (card->subsys_id == 0x002F)) {
+		/* SB055x, unmute outputs */
+		gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
+		gpioorg &= 0xffbf;    /* set GPIO6 to low */
+		gpioorg |= 2;        /* set GPIO1 to high */
+		hw_write_20kx(card, GPIO, gpioorg);
+		return 0;
+	}
 
- /* mute outputs */
- gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
- gpioorg &= 0xffbf;
- hw_write_20kx(card, GPIO, gpioorg);
+	/* mute outputs */
+	gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
+	gpioorg &= 0xffbf;
+	hw_write_20kx(card, GPIO, gpioorg);
 
- hw_reset_dac(card);
+	hw_reset_dac(card);
 
- if(i2c_unlock(card)<0)
-  return -1;
+	if(i2c_unlock(card)<0)
+		return -1;
 
- hw_write_pci(card, 0xEC, 0x05);  /* write to i2c status control */
- do {
-  ret = hw_read_pci(card, 0xEC);
- } while (!(ret & 0x800000));
+	hw_write_pci(card, 0xEC, 0x05);  /* write to i2c status control */
+	do {
+		ret = hw_read_pci(card, 0xEC);
+	} while (!(ret & 0x800000));
 
- switch(card->msr) {
-  case 1:data = 0x24;break;
-  case 2:data = 0x25;break;
-  case 4:data = 0x26;break;
-  default:data = 0x24;break;
- }
+	switch(card->msr) {
+	case 1:data = 0x24;break;
+	case 2:data = 0x25;break;
+	case 4:data = 0x26;break;
+	default:data = 0x24;break;
+	}
 
- i2c_write(card, 0x00180080, 0x06, data);
- i2c_write(card, 0x00180080, 0x09, data);
- i2c_write(card, 0x00180080, 0x0c, data);
- i2c_write(card, 0x00180080, 0x0f, data);
+	i2c_write(card, 0x00180080, 0x06, data);
+	i2c_write(card, 0x00180080, 0x09, data);
+	i2c_write(card, 0x00180080, 0x0c, data);
+	i2c_write(card, 0x00180080, 0x0f, data);
 
- i2c_lock(card);
+	i2c_lock(card);
 
- /* unmute outputs */
- gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
- gpioorg = gpioorg | 0x40;
- hw_write_20kx(card, GPIO, gpioorg);
+	/* unmute outputs */
+	gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
+	gpioorg = gpioorg | 0x40;
+	hw_write_20kx(card, GPIO, gpioorg);
 
- return 0;
+	return 0;
 }
 
 //-------------------------------------------------------------------------
@@ -540,208 +558,213 @@ static void snd_emu20kx_ac97_init(struct emu20kx_card_s *card)
 //-------------------------------------------------------------------------
 
 static void snd_emu20kx_set_output_format(struct emu20kx_card_s *card,struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
- switch(aui->card_wave_id){
-  case MPXPLAY_WAVEID_PCM_FLOAT:card->sfnum=SRC_SF_F32;break;
-  default:
-   switch(aui->bits_card){
-    case 32:card->sfnum=SRC_SF_S32;break;
-    case 24:card->sfnum=SRC_SF_S24;break;
-    default:card->sfnum=SRC_SF_S16;aui->bits_card=16;break;
-   }
-   aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
- }
+	switch(aui->card_wave_id){
+	case MPXPLAY_WAVEID_PCM_FLOAT:card->sfnum=SRC_SF_F32;break;
+	default:
+		switch(aui->bits_card){
+		case 32:card->sfnum=SRC_SF_S32;break;
+		case 24:card->sfnum=SRC_SF_S24;break;
+		default:card->sfnum=SRC_SF_S16;aui->bits_card=16;break;
+		}
+		aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
+	}
 
- if(aui->freq_card<3000)
-  aui->freq_card=3000;
- else if((aui->freq_card>96000) && (aui->chan_set>2))
-  aui->freq_card=96000;
- else if(aui->freq_card>192000)
-  aui->freq_card=192000;
+	if(aui->freq_card<3000)
+		aui->freq_card=3000;
+	else if((aui->freq_card>96000) && (aui->chan_set>2))
+		aui->freq_card=96000;
+	else if(aui->freq_card>192000)
+		aui->freq_card=192000;
 
- if(aui->freq_card==44100){
-  card->dac_output_freq=44100;
-  card->rsr=44100;
-  card->msr=1;
- }else if(aui->freq_card<=48000){
-  card->dac_output_freq=48000;
-  card->rsr=48000;
-  card->msr=1;
- }else if(aui->freq_card<=96000){
-  card->dac_output_freq=96000;
-  card->rsr=48000;
-  card->msr=2;
- }else{
-  card->dac_output_freq=192000;
-  card->rsr=48000;
-  card->msr=4;
- }
+	if(aui->freq_card==44100){
+		card->dac_output_freq=44100;
+		card->rsr=44100;
+		card->msr=1;
+	}else if(aui->freq_card<=48000){
+		card->dac_output_freq=48000;
+		card->rsr=48000;
+		card->msr=1;
+	}else if(aui->freq_card<=96000){
+		card->dac_output_freq=96000;
+		card->rsr=48000;
+		card->msr=2;
+	}else{
+		card->dac_output_freq=192000;
+		card->rsr=48000;
+		card->msr=4;
+	}
 
- card->max_cisz=aui->chan_card*card->msr;
- card->max_cisz=128*((card->max_cisz<8)? card->max_cisz:8);
+	card->max_cisz=aui->chan_card*card->msr;
+	card->max_cisz=128*((card->max_cisz<8)? card->max_cisz:8);
 }
 
 
 //-------------------------------------------------------------------------
 
 static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int bytes_per_sample=((aui->bits_set>16) || (aui->card_wave_id==MPXPLAY_WAVEID_PCM_FLOAT))? 4:2;
- uint32_t pagecount,pcmbufp;
+	unsigned int bytes_per_sample=((aui->bits_set>16) || (aui->card_wave_id==MPXPLAY_WAVEID_PCM_FLOAT))? 4:2;
+	uint32_t pagecount,pcmbufp;
 
- card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,EMU20KX_PAGESIZE,bytes_per_sample,0);
- card->dm=MDma_alloc_cardmem( EMU20KX_MAXPAGES*sizeof(uint32_t)// virtualpage
+	card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,EMU20KX_PAGESIZE,bytes_per_sample,0);
+	card->dm=MDma_alloc_cardmem( EMU20KX_MAXPAGES*sizeof(uint32_t)// virtualpage
                             +EMU20KX_PAGESIZE                // silentpage
                             +card->pcmout_bufsize            // pcm output
                             +0x1000 );                       // to round
 
- card->silentpage=(void *)(((uint32_t)card->dm->linearptr+0x0fff)&0xfffff000); // buffer begins on page boundary
- card->virtualpagetable=(uint32_t *)((uint32_t)card->silentpage+EMU20KX_PAGESIZE);
- card->pcmout_buffer=(char *)(card->virtualpagetable+EMU20KX_MAXPAGES);
+	card->silentpage=(void *)(((uint32_t)card->dm->linearptr+0x0fff)&0xfffff000); // buffer begins on page boundary
+	card->virtualpagetable=(uint32_t *)((uint32_t)card->silentpage+EMU20KX_PAGESIZE);
+	card->pcmout_buffer=(char *)(card->virtualpagetable+EMU20KX_MAXPAGES);
 
- pcmbufp=(uint32_t)card->pcmout_buffer;
- pcmbufp<<=1;
- for(pagecount = 0; pagecount < (card->pcmout_bufsize/EMU20KX_PAGESIZE); pagecount++){
-  card->virtualpagetable[pagecount] = pcmbufp | pagecount;
-  pcmbufp+=EMU20KX_PAGESIZE*2;
- }
- for( ; pagecount<EMU20KX_MAXPAGES; pagecount++)
-  card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage)<<1;
+	pcmbufp=(uint32_t)card->pcmout_buffer;
+	pcmbufp<<=1;
+	for(pagecount = 0; pagecount < (card->pcmout_bufsize/EMU20KX_PAGESIZE); pagecount++){
+		card->virtualpagetable[pagecount] = pcmbufp | pagecount;
+		pcmbufp+=EMU20KX_PAGESIZE*2;
+	}
+	for( ; pagecount<EMU20KX_MAXPAGES; pagecount++)
+		card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage)<<1;
 
- aui->card_DMABUFF=card->pcmout_buffer;
- dbgprintf("buffer init: pcmoutbuf:%8X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
- return 1;
+	aui->card_DMABUFF=card->pcmout_buffer;
+	dbgprintf("buffer init: pcmoutbuf:%8X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	return 1;
 }
 
 static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
+//////////////////////////////////////////////////////////////////////
 {
- unsigned int i,gctl,trnctl,ctl_amoplo;
+	unsigned int i,gctl,trnctl,ctl_amoplo;
 
- // PLL init
- if(hw_pll_init(card)<0){
-  dbgprintf("chip_init: pll-init failed\n");
-  return 0;
- }
+	// PLL init
+	if(hw_pll_init(card)<0){
+		dbgprintf("chip_init: pll-init failed\n");
+		return 0;
+	}
 
- // auto-init
- gctl = hw_read_20kx(card, GCTL);
- set_field(&gctl, GCTL_EAI, 0);
- hw_write_20kx(card, GCTL, gctl);
- set_field(&gctl, GCTL_EAI, 1);
- hw_write_20kx(card, GCTL, gctl);
- pds_delay_10us(10*100);
- for(i = 0; i < 400000; i++) {
-  gctl = hw_read_20kx(card, GCTL);
-  if(get_field(gctl, GCTL_AID))
-   break;
- }
- if(!get_field(gctl, GCTL_AID)){
-  dbgprintf("chip_init: auto-init failed %8X\n",gctl);
-  return 0;
- }
+	// auto-init
+	gctl = hw_read_20kx(card, GCTL);
+	set_field(&gctl, GCTL_EAI, 0);
+	hw_write_20kx(card, GCTL, gctl);
+	set_field(&gctl, GCTL_EAI, 1);
+	hw_write_20kx(card, GCTL, gctl);
+	pds_delay_10us(10*100);
+	for(i = 0; i < 400000; i++) {
+		gctl = hw_read_20kx(card, GCTL);
+		if(get_field(gctl, GCTL_AID))
+			break;
+	}
+	if(!get_field(gctl, GCTL_AID)){
+		dbgprintf("chip_init: auto-init failed %8X\n",gctl);
+		return 0;
+	}
 
- // Enable audio ring
- gctl = hw_read_20kx(card, GCTL);
- set_field(&gctl, GCTL_EAC, 1);
- set_field(&gctl, GCTL_DBP, 1);
- set_field(&gctl, GCTL_TBP, 1);
- set_field(&gctl, GCTL_FBP, 1);
- set_field(&gctl, GCTL_ET, 1);
- hw_write_20kx(card, GCTL, gctl);
- pds_delay_10us(10*100);
+	// Enable audio ring
+	gctl = hw_read_20kx(card, GCTL);
+	set_field(&gctl, GCTL_EAC, 1);
+	set_field(&gctl, GCTL_DBP, 1);
+	set_field(&gctl, GCTL_TBP, 1);
+	set_field(&gctl, GCTL_FBP, 1);
+	set_field(&gctl, GCTL_ET, 1);
+	hw_write_20kx(card, GCTL, gctl);
+	pds_delay_10us(10*100);
 
- hw_write_20kx(card, GIE, 0); // Reset all global pending interrupts
- hw_write_20kx(card, SRCIP, 0); // Reset all SRC pending interrupts
- pds_delay_10us(30*100);
+	hw_write_20kx(card, GIE, 0); // Reset all global pending interrupts
+	hw_write_20kx(card, SRCIP, 0); // Reset all SRC pending interrupts
+	pds_delay_10us(30*100);
 
- // Detect the card ID and configure GPIO accordingly
- if((card->subsys_id == 0x0022) || (card->subsys_id == 0x002F)) { // SB055x cards
-  hw_write_20kx(card, GPIOCTL, 0x13fe);
- }else if ((card->subsys_id == 0x0029) || (card->subsys_id == 0x0031)) { // SB073x cards
-  hw_write_20kx(card, GPIOCTL, 0x00e6);
- }else if ((card->subsys_id & 0xf000) == 0x6000) { // Vista compatible cards
-  hw_write_20kx(card, GPIOCTL, 0x00c2);
- }else{
-  hw_write_20kx(card, GPIOCTL, 0x01e6);
- }
+	// Detect the card ID and configure GPIO accordingly
+	if((card->subsys_id == 0x0022) || (card->subsys_id == 0x002F)) { // SB055x cards
+		hw_write_20kx(card, GPIOCTL, 0x13fe);
+	}else if ((card->subsys_id == 0x0029) || (card->subsys_id == 0x0031)) { // SB073x cards
+		hw_write_20kx(card, GPIOCTL, 0x00e6);
+	}else if ((card->subsys_id & 0xf000) == 0x6000) { // Vista compatible cards
+		hw_write_20kx(card, GPIOCTL, 0x00c2);
+	}else{
+		hw_write_20kx(card, GPIOCTL, 0x01e6);
+	}
 
- // init transport operations
- trnctl = 0x13;  // 32-bit, 4k-size page
- hw_write_20kx(card, PTPALX, (uint32_t) card->virtualpagetable);// ptp_phys_low
- hw_write_20kx(card, PTPAHX, 0); // ptp_phys_high
- hw_write_20kx(card, TRNCTL, trnctl);
- hw_write_20kx(card, TRNIS, 0x200c01); /* realy needed? */
+	// init transport operations
+	trnctl = 0x13;  // 32-bit, 4k-size page
+	hw_write_20kx(card, PTPALX, (uint32_t) card->virtualpagetable);// ptp_phys_low
+	hw_write_20kx(card, PTPAHX, 0); // ptp_phys_high
+	hw_write_20kx(card, TRNCTL, trnctl);
+	hw_write_20kx(card, TRNIS, 0x200c01); /* realy needed? */
 
- hw_daio_init(card);
+	hw_daio_init(card);
 
- if(hw_dac_init(card)<0){
-  dbgprintf("chip_init: dac-init failed\n");
-  return 0;
- }
+	if(hw_dac_init(card)<0){
+		dbgprintf("chip_init: dac-init failed\n");
+		return 0;
+	}
 
- // ??? adc init
+	// ??? adc init
 
- i = hw_read_20kx(card, SRCMCTL);
- i|= 0x1; /* Enables input from the audio ring */
- hw_write_20kx(card, SRCMCTL, i);
+	i = hw_read_20kx(card, SRCMCTL);
+	i|= 0x1; /* Enables input from the audio ring */
+	hw_write_20kx(card, SRCMCTL, i);
 
- /*i=0;
- ctl_amoplo=0;
- set_field(&ctl_amoplo, AMOPLO_M, AMIXER_Y_IMMEDIATE);
- set_field(&ctl_amoplo, AMOPLO_X, AMIXER_MASTER_F);
- set_field(&ctl_amoplo, AMOPLO_Y, INIT_VOL);
- hw_write_20kx(card, AMOPLO+i*8, ctl_amoplo);
- i=1;
- ctl_amoplo=0;
- set_field(&ctl_amoplo, AMOPLO_M, AMIXER_Y_IMMEDIATE);
- set_field(&ctl_amoplo, AMOPLO_X, AMIXER_WAVE_F);
- set_field(&ctl_amoplo, AMOPLO_Y, INIT_VOL);
- hw_write_20kx(card, AMOPLO+i*8, ctl_amoplo);*/
+	/*i=0;
+	 ctl_amoplo=0;
+	 set_field(&ctl_amoplo, AMOPLO_M, AMIXER_Y_IMMEDIATE);
+	 set_field(&ctl_amoplo, AMOPLO_X, AMIXER_MASTER_F);
+	 set_field(&ctl_amoplo, AMOPLO_Y, INIT_VOL);
+	 hw_write_20kx(card, AMOPLO+i*8, ctl_amoplo);
+	 i=1;
+	 ctl_amoplo=0;
+	 set_field(&ctl_amoplo, AMOPLO_M, AMIXER_Y_IMMEDIATE);
+	 set_field(&ctl_amoplo, AMOPLO_X, AMIXER_WAVE_F);
+	 set_field(&ctl_amoplo, AMOPLO_Y, INIT_VOL);
+	 hw_write_20kx(card, AMOPLO+i*8, ctl_amoplo);*/
 
- card->last_rsr_cfg=card->rsr;
- card->last_msr_cfg=card->msr;
+	card->last_rsr_cfg=card->rsr;
+	card->last_msr_cfg=card->msr;
 
- dbgprintf("chip init end\n");
- return 1;
+	dbgprintf("chip init end\n");
+	return 1;
 }
 
 static void snd_emu20kx_chip_close(struct emu20kx_card_s *card)
+///////////////////////////////////////////////////////////////
 {
 }
 
 static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int pitch,pm_idx;
+	unsigned int pitch,pm_idx;
 
- if(card->last_rsr_cfg!=card->rsr){
-  hw_pll_init(card);
-  card->last_rsr_cfg=card->rsr;
- }
- if(card->last_msr_cfg!=card->msr){
-  hw_daio_init(card);
-  hw_dac_init(card);
-  card->last_msr_cfg=card->msr;
- }
+	if(card->last_rsr_cfg!=card->rsr){
+		hw_pll_init(card);
+		card->last_rsr_cfg=card->rsr;
+	}
+	if(card->last_msr_cfg!=card->msr){
+		hw_daio_init(card);
+		hw_dac_init(card);
+		card->last_msr_cfg=card->msr;
+	}
 
- pitch=snd_emu20kx_get_pitch(aui->freq_card,card->dac_output_freq);
+	pitch=snd_emu20kx_get_pitch(aui->freq_card,card->dac_output_freq);
 
- pm_idx = src_param_pitch_mixer(card->src_idx);
- hw_write_20kx(card, PRING_LO_HI+4*pm_idx, pitch);
- hw_write_20kx(card, PMOPLO+8*pm_idx, 0x3);
- hw_write_20kx(card, PMOPHI+8*pm_idx, 0x0);
+	pm_idx = src_param_pitch_mixer(card->src_idx);
+	hw_write_20kx(card, PRING_LO_HI+4*pm_idx, pitch);
+	hw_write_20kx(card, PMOPLO+8*pm_idx, 0x3);
+	hw_write_20kx(card, PMOPHI+8*pm_idx, 0x0);
 
- hw_write_20kx(card, SRCSA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer); // !!! & SRCSA_SA
- hw_write_20kx(card, SRCLA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + aui->card_dmasize); // !!! & SRCLA_LA
- hw_write_20kx(card, SRCCA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + card->max_cisz); // !!! & SRCCA_CA
- hw_write_20kx(card, SRCCF+card->src_idx*0x100, 0x0);
+	hw_write_20kx(card, SRCSA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer); // !!! & SRCSA_SA
+	hw_write_20kx(card, SRCLA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + aui->card_dmasize); // !!! & SRCLA_LA
+	hw_write_20kx(card, SRCCA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + card->max_cisz); // !!! & SRCCA_CA
+	hw_write_20kx(card, SRCCF+card->src_idx*0x100, 0x0);
 
- hw_write_20kx(card, SRCCCR+card->src_idx*0x100, card->max_cisz);
+	hw_write_20kx(card, SRCCCR+card->src_idx*0x100, card->max_cisz);
 
- set_field(&card->src_ctl,SRCCTL_ROM, snd_emu20kx_select_rom(pitch));
- set_field(&card->src_ctl,SRCCTL_SF, card->sfnum);
- set_field(&card->src_ctl,SRCCTL_PM, 0); // ??? (src->ops->next_interleave(src) != NULL)
+	set_field(&card->src_ctl,SRCCTL_ROM, snd_emu20kx_select_rom(pitch));
+	set_field(&card->src_ctl,SRCCTL_SF, card->sfnum);
+	set_field(&card->src_ctl,SRCCTL_PM, 0); // ??? (src->ops->next_interleave(src) != NULL)
 
- dbgprintf("prepare playback end\n");
+	dbgprintf("prepare playback end\n");
 }
 
 //-------------------------------------------------------------------------
@@ -754,128 +777,137 @@ static pci_device_s emu20kx_devices[]={
 static void EMU20KX_close(struct mpxplay_audioout_info_s *aui);
 
 static void EMU20KX_card_info(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- printf("XFI : Creative %s (%4.4X) found on port:%4.4X irq:%d\n",
-         card->pci_dev->device_name,card->subsys_id,card->iobase,card->irq);
+	struct emu20kx_card_s *card=aui->card_private_data;
+	printf("XFI : Creative %s (%4.4X) found on port:%4.4X irq:%d\n",
+		   card->pci_dev->device_name,card->subsys_id,card->iobase,card->irq);
 }
 
 static int EMU20KX_adetect(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card;
+	struct emu20kx_card_s *card;
 
- card=(struct emu20kx_card_s *)calloc(1,sizeof(struct emu20kx_card_s));
- if(!card)
-  return 0;
- aui->card_private_data=card;
+	card=(struct emu20kx_card_s *)calloc(1,sizeof(struct emu20kx_card_s));
+	if(!card)
+		return 0;
+	aui->card_private_data=card;
 
- card->pci_dev=(struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
- if(!card->pci_dev)
-  goto err_adetect;
+	card->pci_dev=(struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
+	if(!card->pci_dev)
+		goto err_adetect;
 
- if(pcibios_search_devices(&emu20kx_devices,card->pci_dev)!=PCI_SUCCESSFUL)
-  goto err_adetect;
+	if(pcibios_search_devices(&emu20kx_devices,card->pci_dev)!=PCI_SUCCESSFUL)
+		goto err_adetect;
 
- pcibios_set_master(card->pci_dev);
+	pcibios_set_master(card->pci_dev);
 
- card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
- card->iobase&=0xfffffff8;
- if(!card->iobase)
-  goto err_adetect;
+	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
+	card->iobase&=0xfffffff8;
+	if(!card->iobase)
+		goto err_adetect;
 
- card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
- card->subsys_id=pcibios_ReadConfig_Word(card->pci_dev,PCIR_SSID);
+	card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
+	card->subsys_id=pcibios_ReadConfig_Word(card->pci_dev,PCIR_SSID);
 
- dbgprintf("vend_id:%4X dev_id:%4X subid:%8X port:%8X\n",
-  card->pci_dev->vendor_id,card->pci_dev->device_id,card->subsys_id,card->iobase);
+	dbgprintf("vend_id:%4X dev_id:%4X subid:%8X port:%8X\n",
+			  card->pci_dev->vendor_id,card->pci_dev->device_id,card->subsys_id,card->iobase);
 
- if(!snd_emu20kx_buffer_init(card,aui))
-  goto err_adetect;
+	if(!snd_emu20kx_buffer_init(card,aui))
+		goto err_adetect;
 
- snd_emu20kx_set_output_format(card,aui);
+	snd_emu20kx_set_output_format(card,aui);
 
- if(!snd_emu20kx_chip_init(card))
-  goto err_adetect;
- //snd_emu20kx_ac97_init(card);
+	if(!snd_emu20kx_chip_init(card))
+		goto err_adetect;
+	//snd_emu20kx_ac97_init(card);
 
- return 1;
+	return 1;
 
 err_adetect:
- EMU20KX_close(aui);
- return 0;
+	EMU20KX_close(aui);
+	return 0;
 }
 
 static void EMU20KX_close(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- if(card){
-  if(card->iobase){
-   snd_emu20kx_chip_close(card);
-   pds_dpmi_unmap_physical_memory(card->iobase);
-  }
-  MDma_free_cardmem(card->dm);
-  if(card->pci_dev)
-   free(card->pci_dev);
-  free(card);
-  aui->card_private_data=NULL;
- }
+	struct emu20kx_card_s *card=aui->card_private_data;
+	if(card){
+		if(card->iobase){
+			snd_emu20kx_chip_close(card);
+			pds_dpmi_unmap_physical_memory(card->iobase);
+		}
+		MDma_free_cardmem(card->dm);
+		if(card->pci_dev)
+			free(card->pci_dev);
+		free(card);
+		aui->card_private_data=NULL;
+	}
 }
 
 static void EMU20KX_setrate(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- snd_emu20kx_set_output_format(card,aui);
- MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,EMU20KX_PAGESIZE,0);
- snd_emu20kx_prepare_playback(card,aui);
+	struct emu20kx_card_s *card=aui->card_private_data;
+	snd_emu20kx_set_output_format(card,aui);
+	MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,EMU20KX_PAGESIZE,0);
+	snd_emu20kx_prepare_playback(card,aui);
 }
 
 static void EMU20KX_start(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- set_field(&card->src_ctl,SRCCTL_BM, 1);
- set_field(&card->src_ctl,SRCCTL_STATE, SRC_STATE_INIT);
- hw_write_20kx(card, SRCCTL+card->src_idx*0x100, card->src_ctl);
+	struct emu20kx_card_s *card=aui->card_private_data;
+	set_field(&card->src_ctl,SRCCTL_BM, 1);
+	set_field(&card->src_ctl,SRCCTL_STATE, SRC_STATE_INIT);
+	hw_write_20kx(card, SRCCTL+card->src_idx*0x100, card->src_ctl);
 }
 
 static void EMU20KX_stop(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- set_field(&card->src_ctl,SRCCTL_BM, 0);
- set_field(&card->src_ctl,SRCCTL_STATE, SRC_STATE_OFF);
- hw_write_20kx(card, SRCCTL+card->src_idx*0x100, card->src_ctl);
+	struct emu20kx_card_s *card=aui->card_private_data;
+	set_field(&card->src_ctl,SRCCTL_BM, 0);
+	set_field(&card->src_ctl,SRCCTL_STATE, SRC_STATE_OFF);
+	hw_write_20kx(card, SRCCTL+card->src_idx*0x100, card->src_ctl);
 }
 
 //------------------------------------------------------------------------
 
 static long EMU20KX_getbufpos(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
- struct emu20kx_card_s *card=aui->card_private_data;
- unsigned long bufpos=0,ctl_ca;
+	struct emu20kx_card_s *card=aui->card_private_data;
+	unsigned long bufpos=0,ctl_ca;
 
- ctl_ca=hw_read_20kx(card, SRCCA+card->src_idx*0x100);
- bufpos=get_field(ctl_ca, SRCCA_CA);
+	ctl_ca=hw_read_20kx(card, SRCCA+card->src_idx*0x100);
+	bufpos=get_field(ctl_ca, SRCCA_CA);
 
- bufpos=(bufpos + aui->card_dmasize - card->max_cisz - (unsigned long)card->pcmout_buffer) % aui->card_dmasize;
+	bufpos=(bufpos + aui->card_dmasize - card->max_cisz - (unsigned long)card->pcmout_buffer) % aui->card_dmasize;
 
- aui->card_dma_lastgoodpos=bufpos;
+	aui->card_dma_lastgoodpos=bufpos;
 
- dbgprintf("bufpos:%5d dmasize:%5d\n",bufpos,aui->card_dmasize);
+	dbgprintf("bufpos:%5d dmasize:%5d\n",bufpos,aui->card_dmasize);
 
- return aui->card_dma_lastgoodpos;
+	return aui->card_dma_lastgoodpos;
 }
 
 //--------------------------------------------------------------------------
 //mixer
 
 static void EMU20KX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
- //struct emu20kx_card_s *card=aui->card_private_data;
+	//struct emu20kx_card_s *card=aui->card_private_data;
 }
 
 static unsigned long EMU20KX_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
+/////////////////////////////////////////////////////////////////////////////////////////////
 {
- //struct emu20kx_card_s *card=aui->card_private_data;
- return 0;
+	//struct emu20kx_card_s *card=aui->card_private_data;
+	return 0;
 }
 
 one_sndcard_info EMU20KX_sndcard_info={

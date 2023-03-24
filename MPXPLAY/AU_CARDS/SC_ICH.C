@@ -111,6 +111,7 @@ static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui);
 #define snd_intel_read_32(card,reg) inl(card->baseport_bm+reg)
 
 static unsigned int snd_intel_codec_ready(struct intel_card_s *card,unsigned int codec)
+///////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int retry;
 
@@ -128,6 +129,7 @@ static unsigned int snd_intel_codec_ready(struct intel_card_s *card,unsigned int
 }
 
 static void snd_intel_codec_semaphore(struct intel_card_s *card,unsigned int codec)
+///////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int retry;
 
@@ -147,12 +149,14 @@ static void snd_intel_codec_semaphore(struct intel_card_s *card,unsigned int cod
 }
 
 static void snd_intel_codec_write(struct intel_card_s *card,unsigned int reg,unsigned int data)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	snd_intel_codec_semaphore(card,ICH_GLOB_STAT_PCR);
 	outw(card->baseport_codec+reg,data);
 }
 
 static unsigned int snd_intel_codec_read(struct intel_card_s *card,unsigned int reg)
+////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int data = 0,retry;
 	snd_intel_codec_semaphore(card,ICH_GLOB_STAT_PCR);
@@ -167,9 +171,8 @@ static unsigned int snd_intel_codec_read(struct intel_card_s *card,unsigned int 
 	return data;
 }
 
-//-------------------------------------------------------------------------
-
 static unsigned int snd_intel_buffer_init(struct intel_card_s *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample=(aui->bits_set>16)? 4:2;
 
@@ -186,6 +189,7 @@ static unsigned int snd_intel_buffer_init(struct intel_card_s *card,struct mpxpl
 }
 
 static void snd_intel_chip_init(struct intel_card_s *card)
+//////////////////////////////////////////////////////////
 {
 	unsigned int cmd,retry;
 
@@ -226,12 +230,14 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 }
 
 static void snd_intel_chip_close(struct intel_card_s *card)
+///////////////////////////////////////////////////////////
 {
 	if(card->baseport_bm)
 		snd_intel_write_8(card,ICH_PO_CR_REG,ICH_PO_CR_RESET); // reset codec
 }
 
 static void snd_intel_ac97_init(struct intel_card_s *card,unsigned int freq_set)
+////////////////////////////////////////////////////////////////////////////////
 {
 	// initial ac97 volumes (and clear mute flag)
 	snd_intel_codec_write(card, AC97_MASTER_VOL_STEREO, 0x0202);
@@ -249,6 +255,7 @@ static void snd_intel_ac97_init(struct intel_card_s *card,unsigned int freq_set)
 }
 
 static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t *table_base;
 	unsigned int i,cmd,retry,spdif_rate,period_size_samples;
@@ -349,6 +356,7 @@ static pci_device_s ich_devices[]={
 static void INTELICH_close(struct mpxplay_audioout_info_s *aui);
 
 static void INTELICH_card_info(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	dbgprintf("ICH : Intel %s found on port:4X irq:%d (type:%s, bits:16%s)\n",
@@ -435,6 +443,7 @@ err_adetect:
 }
 
 static void INTELICH_close(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	if(card){
@@ -448,6 +457,7 @@ static void INTELICH_close(struct mpxplay_audioout_info_s *aui)
 }
 
 static void INTELICH_setrate(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	unsigned int dmabufsize;
@@ -475,6 +485,7 @@ static void INTELICH_setrate(struct mpxplay_audioout_info_s *aui)
 }
 
 static void INTELICH_start(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	unsigned char cmd;
@@ -487,6 +498,7 @@ static void INTELICH_start(struct mpxplay_audioout_info_s *aui)
 }
 
 static void INTELICH_stop(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	unsigned char cmd;
@@ -497,6 +509,7 @@ static void INTELICH_stop(struct mpxplay_audioout_info_s *aui)
 }
 
 static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	mpxp_int64_t starttime,endtime,timelen; // in usecs
@@ -551,6 +564,7 @@ static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui)
 //------------------------------------------------------------------------
 
 static void INTELICH_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left)
+////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	unsigned int index;
@@ -567,6 +581,7 @@ static void INTELICH_writedata(struct mpxplay_audioout_info_s *aui,char *src,uns
 }
 
 static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	unsigned long bufpos=0;
@@ -627,12 +642,14 @@ static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
 //mixer
 
 static void INTELICH_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	snd_intel_codec_write(card,reg,val);
 }
 
 static unsigned long INTELICH_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
+//////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	return snd_intel_codec_read(card,reg);
@@ -640,6 +657,7 @@ static unsigned long INTELICH_readMIXER(struct mpxplay_audioout_info_s *aui,unsi
 
 #ifdef SBEMU
 static int INTELICH_IRQRoutine(mpxplay_audioout_info_s* aui)
+////////////////////////////////////////////////////////////
 {
 	intel_card_s *card=aui->card_private_data;
 	int status = snd_intel_read_8(card,ICH_PO_SR_REG);

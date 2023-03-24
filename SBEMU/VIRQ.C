@@ -121,6 +121,7 @@ void VIRQ_Invoke(uint8_t irq )
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////
 {
     return out ? (VIRQ_Write(port, val), val) : (val &=~0xFF, val |= VIRQ_Read(port));
 }

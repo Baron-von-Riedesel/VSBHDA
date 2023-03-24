@@ -16,14 +16,17 @@ dwSizeTransferBuf dd ?	; size_of_transfer_buffer; /* >= 4k */
 dwPid             dd ?
 bMasterPICBase    db ?	; master_interrupt_controller_base;
 bSlavePICBase     db ?	; slave_interrupt_controller_base;
-wFlat             dw ?	; selector_for_linear_memory;
+wFlat             dw ?	; selector_for_linear_memory ( 0-10FFFF only );
 dwStubInfo        dd ?	; linear_address_of_stub_info_structure;
 dwPSP             dd ?	; linear_address_of_original_psp;
 wRunMode          dw ?	; run_mode;
 wRunModeInfo      dw ?	; run_mode_info;
 _GO32_INFO_BLOCK ends
 
-comm c _go32_info_block:_GO32_INFO_BLOCK
+;--- _go32_info_block is a comm var, but defining it as such
+;--- would actually include this module even if it's not used at all.
+
+externdef c _go32_info_block:_GO32_INFO_BLOCK
 
 	.code
 

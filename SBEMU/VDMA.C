@@ -30,6 +30,7 @@ static const uint8_t VDMA_PortChannelMap[16] =
 #define VMDA_IS_CHANNEL_VIRTUALIZED(channel) (channel != -1 && VDMA_VMask[channel])
 
 void VDMA_Write(uint16_t port, uint8_t byte)
+////////////////////////////////////////////
 {
     dbgprintf("VDMA write: %x, %x\n", port, byte);
     if(( port >= VDMA_REG_STATUS_CMD && port <= VDMA_REG_MULTIMASK) ||
@@ -92,6 +93,7 @@ void VDMA_Write(uint16_t port, uint8_t byte)
 }
 
 uint8_t VDMA_Read(uint16_t port)
+////////////////////////////////
 {
     dbgprintf("VDMA read: port=%x\n", port);
     int channel = -1;
@@ -151,12 +153,14 @@ uint8_t VDMA_Read(uint16_t port)
 }
 
 void VDMA_Virtualize(int channel, int enable)
+/////////////////////////////////////////////
 {
     if(channel >= 0 && channel <= 7)
         VDMA_VMask[channel] = enable ? 1 : 0;
 }
 
 uint32_t VDMA_GetAddress(int channel)
+/////////////////////////////////////
 {
     int size = channel <= 3 ? 1 : 2;
     uint32_t page = VDMA_Addr[channel] & 0xFF0000; //page not /2
@@ -164,18 +168,21 @@ uint32_t VDMA_GetAddress(int channel)
 }
 
 uint32_t VDMA_GetCounter(int channel)
+/////////////////////////////////////
 {
      int size = channel <= 3 ? 1 : 2;
    return VDMA_CurCounter[channel] * size;
 }
 
 int32_t VDMA_GetIndex(int channel)
+//////////////////////////////////
 {
      int size = channel <= 3 ? 1 : 2;
    return VDMA_Index[channel] * size;
 }
 
 int32_t VDMA_SetIndexCounter(int channel, int32_t index, int32_t counter)
+/////////////////////////////////////////////////////////////////////////
 {
     const int size = channel <= 3 ? 1 : 2;
     int base = channel <= 3 ? ( channel << 1 ) : 16 + ( (channel-4) << 1);
@@ -205,16 +212,19 @@ int32_t VDMA_SetIndexCounter(int channel, int32_t index, int32_t counter)
 }
 
 int VDMA_GetAuto(int channel)
+/////////////////////////////
 {
     return VDMA_Modes[channel] & ( 1<<4 );
 }
 
 void VDMA_ToggleComplete(int channel)
+/////////////////////////////////////
 {
     VDMA_Complete[channel] = 1;
 }
 
 uint32_t VDMA_DMA(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////
 {
     return out ? (VDMA_Write(port, val), val) : (val &=~0xFF, val |= VDMA_Read(port));
 }

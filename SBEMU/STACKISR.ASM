@@ -9,14 +9,16 @@
 	.data
 
 	public dfOldISR
+	public dwDS
 
 dfOldISR label fword
 dwOfsPM	dd ?	; old sound ISR
 wSegPM	dw ?,?	; old sound ISR
 dwISR	dd ?
-dwStack	dd ?
 dwDS    dd ?
 intno	db ?
+
+	comm c __djgpp_stack_top:dword
 
 	.code
 
@@ -33,26 +35,15 @@ SwitchStackISR proc
 	mov es, [dwDS]
 	cld
 	mov edx, ss
-	cmp dx, word ptr [dwDS]
-	jz noswitch
 	mov ecx, esp
-	lss esp, fword ptr [dwStack]
+	sub [__djgpp_stack_top], 4096
+	mov ss, [dwDS]
+	mov esp, [__djgpp_stack_top]
 	push edx
 	push ecx
 	call [dwISR]
 	lss esp, [esp]
-	jmp switchdone
-noswitch:
-if 0
-	mov ax, 3
-	int 10h
-	mov ax, 0E5Ah
-	mov bh,0
-	int 10h
-	jmp $
-endif
-	call [dwISR]
-switchdone:
+	add [__djgpp_stack_top], 4096
 	and eax, eax	; interrupt handled?
 	pop es
 	pop ds
@@ -67,7 +58,7 @@ SwitchStackISR endp
 ;--- install the sound ISR
 ;--- the idea is to hide this ISR from the ring3 DOS extender;
 
-_hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword, pStack:ptr
+_hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
 	mov bl, interrupt
 	mov ax, 204h
@@ -76,8 +67,6 @@ _hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword, pStack:ptr
 	mov dwOfsPM, edx
 	mov wSegPM, cx
 	mov intno, bl
-	mov edx, pStack
-	mov dwStack, edx
 	mov edx, isr
 	mov dwISR, edx
 	mov dwDS, ds

@@ -23,10 +23,6 @@
 #define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
 
-#if !TRIGGERATONCE
-extern int SBEMU_TriggerIRQ;
-#endif
-
 static mpxplay_audioout_info_s aui = {0};
 
 /* for AU_setrate() - use fixed rate */
@@ -60,7 +56,7 @@ static uint32_t MAIN_DMA_MappedAddr = 0;
 static uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
 static uint16_t MAIN_GLB_VOL = 0; //TODO: add hotkey
 
-static void MAIN_Interrupt();
+void MAIN_Interrupt();
 static int MAIN_InterruptPM();
 
 static const uint8_t MAIN_ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
@@ -180,6 +176,7 @@ static int MAIN_SB_DSPVersion[] =
 
 #if PREMAPDMA
 static uint32_t MapFirst16M( void )
+///////////////////////////////////
 {
     /* ensure the mapping doesn't cover linear address 4M.
      * to make this work, allocated uncommitted memory block of 63 MB.
@@ -200,6 +197,7 @@ static uint32_t MapFirst16M( void )
 #endif
 
 static int IsInstalled( void )
+//////////////////////////////
 {
     uint8_t bSB;
 	asm("mov $0x226, %%dx \n\t"
@@ -218,6 +216,7 @@ static int IsInstalled( void )
 }
 
 static void ReleaseRes( void )
+//////////////////////////////
 {
 	if (PM_ISR) HDPMIPT_UninstallISR();
 
@@ -236,6 +235,7 @@ static void ReleaseRes( void )
  * note: no printf() possible here, since stdio files are closed.
  */
 void MAIN_Uninstall( void )
+///////////////////////////
 {
 	DPMI_REG r = {0};
 	ReleaseRes();
@@ -284,6 +284,7 @@ static void IODT_DelEntries( int start, int end, int entries )
 #endif
 
 int main(int argc, char* argv[])
+////////////////////////////////
 {
     //dbgprintf("main argc=%u\n argv[1]=%s\n", argc, argv[1] ? argv[1] : "NULL" );
 	if( argc >= 2 && (*argv[1] == '/' || *argv[1] == '-') && ( *(argv[1]+1) == '?' || *(argv[1]+1) == 'h' ) ) {
@@ -532,8 +533,8 @@ int main(int argc, char* argv[])
         DPMI_StoreW( psp+0x2C, 0 );
         for ( int i = 0; i < 5; i++ )
             _dos_close( i );
-
         __djgpp_exception_toggle();
+        asm("push $0\n\t" "pop %gs\n\t" "push $0\n\t" "pop %fs"); /* clear fs/gs */
         r.w.dx= 0x10; /* only psp */
         r.w.ax = 0x3100;
         DPMI_CallRealModeINT(0x21, &r); //won't return on success
@@ -544,6 +545,7 @@ int main(int argc, char* argv[])
 }
 
 static int MAIN_InterruptPM( void )
+///////////////////////////////////
 {
     if(aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
     {
@@ -557,18 +559,17 @@ static int MAIN_InterruptPM( void )
     return(0);
 }
 
-static void MAIN_Interrupt()
+void MAIN_Interrupt()
+/////////////////////
 {
     int32_t vol;
     int32_t voicevol;
     int32_t midivol;
 
-#if !TRIGGERATONCE
-	if ( SBEMU_TriggerIRQ ) {
-		SBEMU_TriggerIRQ = 0;
-		VIRQ_Invoke( SBEMU_GetIRQ() );
-	}
-#endif
+    if ( SBEMU_TriggerIRQ ) {
+        SBEMU_TriggerIRQ = 0;
+        VIRQ_Invoke( SBEMU_GetIRQ() );
+    }
 
     if(MAIN_Options[OPT_TYPE].value < 4) //SB2.0 and before
     {

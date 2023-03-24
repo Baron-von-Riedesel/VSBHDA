@@ -6,8 +6,9 @@
 	option casemap:none
 	option proc:private
 
-TRIGGERIRQ equ 0
-COPYRMCS   equ 0
+;--- COPYRMCS must be 1 to make sbemu fully reentrant.
+
+COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
 
 PUSHADS struct
 _edi	dd ?
@@ -23,12 +24,10 @@ PUSHADS ends
 ;--- stack frame for StackSwitch()
 
 EXCFRAME struct
+		dd ?	; es
+		dd ?	; ds
 		PUSHADS <>
-		dd ?	; ret addr
-pProc   dd ?	; pProc
 dwMode  dd ?	; dwMode
-pStack 	dd ?	; pNewStack
-		dd ?	; ??? GCC has created a "push eax" ???
 		dd ?	; DPMI ret 
 		dd ?	; DPMI ret
 dwErr	dd ?
@@ -39,23 +38,34 @@ dwEsp	dd ?
 wSS		dw ?,?
 EXCFRAME ends
 
-if TRIGGERIRQ
-externdef SBEMU_TriggerIRQ:byte
-SBEMU_GetIRQ proto
-VIRQ_Invoke proto :dword
-endif
+	.data
+
+externdef dwDS:dword
+
+	comm c __djgpp_stack_top:dword
 
 	.code
+
+HDPMIPT_TrapHandler proto :dword, :dword, :dword
+
+SwitchStackIOIn proc public
+	push 0
+	jmp SwitchStackIO
+SwitchStackIOIn endp
+SwitchStackIOOut proc public
+	push 1
+SwitchStackIOOut endp
 
 ;--- switch stack, then call protected-mode port trap handler;
 ;--- handler expects port in dx, flags in cx and value in ax
 
-SwitchStackIO proc public
+SwitchStackIO proc
 
 	pushad
+	push ds
+	push es
 	mov ebp, esp
 	mov ecx, [ebp].EXCFRAME.dwErr
-	mov ebx, [ebp].EXCFRAME.pStack
 	and ecx, 7
 	add [ebp].EXCFRAME.dwEip, ecx
 	mov ecx, [ebp].EXCFRAME.dwErr
@@ -68,50 +78,22 @@ SwitchStackIO proc public
 	movzx dx, ch
 @@:
 	cld
-	movzx edx, dx
+	mov ds, cs:[dwDS]
+	assume ds:_DATA
+	mov ebx, ss
+	sub [__djgpp_stack_top], 4096
+	mov ss, [dwDS]
+	mov esp, [__djgpp_stack_top]
 	push ds
-	push es
-
-	push eax
-	push edx
-	mov eax, cs:[ebx+4]
-	mov edx, ss
-	mov ds, eax
-	mov es, eax
-	cmp ax, dx
-	pop edx
-	pop eax
-	jz noswitch
-	mov dword ptr [ebx+2*4], esp
-	mov word ptr  [ebx+3*4], ss
-	mov ebp, [ebp].EXCFRAME.pProc
-	lss esp, [ebx]
-	push eax
-	push ecx
-	push edx
-	call ebp
-	lss esp, [ebx+2*4]
-if TRIGGERIRQ
-	cmp [SBEMU_TriggerIRQ],0
-	jz @F
-	test byte ptr [esp+2*4].EXCFRAME.dwEfl+1, 2	;IF set?
-	jz @F
-	lss esp, [ebx]
-	call callirq
-	lss esp, [ebx+2*4]
-@@:
-endif
-	jmp switchdone
-noswitch:
-	push eax
-	push ecx
-	push edx
-	call [ebp].EXCFRAME.pProc
-	add esp, 3*4
-switchdone:
 	pop es
-	pop ds
-	mov ebp, esp
+	movzx edx, dx
+	push eax
+	push ecx
+	push edx
+	call HDPMIPT_TrapHandler
+	mov ss, ebx
+	mov esp, ebp
+	add [__djgpp_stack_top], 4096
 	test byte ptr [ebp].EXCFRAME.dwErr, 8h	; string?
 	jnz isstring
 	cmp [ebp].EXCFRAME.dwMode, 0			; IN?
@@ -131,18 +113,12 @@ isstring:
 	jz done
 	mov [ebp].EXCFRAME._ecx, 0
 done:
+	pop es
+	pop ds
 	popad
-	retn 4*4	; the caller does not clean the stack!
-
-if TRIGGERIRQ
-callirq:
-	push eax
-	mov [SBEMU_TriggerIRQ],0
-	invoke SBEMU_GetIRQ
-	invoke VIRQ_Invoke, eax
-	pop eax
-	retn
-endif
+	add esp, 4	; skip mode
+	retd
+	align 4
 
 SwitchStackIO endp
 
@@ -153,8 +129,6 @@ SwitchStackIO endp
 ;--- to trigger a "virtual interrupt" inside.
 
 	.data
-
-externdef HDPMIPT_NewStack:dword
 
 dwProc dd ?
 
@@ -188,65 +162,43 @@ SwitchStackIOrmcb proc
 	lodsw
 	mov es:[edi].RMCS.rCS, ax
 	add es:[edi].RMCS.rSP, 2+2
-	mov eax, esp
-	mov edx, ss
-	cmp dx, word ptr cs:[HDPMIPT_NewStack+4]
-	jz noswitch
-	lss esp, fword ptr cs:[HDPMIPT_NewStack]
-if COPYRMCS
-	mov esi, edi
-	push es
-	pop ds
-	push ss
-	pop es
-	sub esp, sizeof RMCS+2
-	mov ecx, (sizeof RMCS+2) shr 2
-	mov edi, esp
-	rep movsd
-	mov edi, esp
-endif
-	push edx
-	push eax
-ife COPYRMCS
-	push es
-endif
-	mov eax, ss
-	mov ds, eax
+
+	mov ds, cs:[dwDS]
 	assume ds:_DATA
-	mov es, eax
-	push edi
-	call [dwProc]
-	add esp, 4
-ife COPYRMCS
-	pop es
-endif
-	lss esp, [esp]
-	iretd
-noswitch:
+	sub [__djgpp_stack_top], 4096
+	mov ebx, ss
+	mov ebp, esp
+	mov eax, ds
+	mov ss, eax
+	mov esp, [__djgpp_stack_top]
 if COPYRMCS
 	mov esi, edi
 	push es
 	pop ds
-	push ss
-	pop es
+	mov es, eax
 	sub esp, sizeof RMCS+2
 	mov ecx, (sizeof RMCS+2) shr 2
 	mov edi, esp
 	rep movsd
 	mov edi, esp
-else
-	push es
-endif
-	mov eax, ss
 	mov ds, eax
+endif
+ife COPYRMCS
+	push es
 	mov es, eax
+endif
 	push edi
 	call [dwProc]
-	add esp, 4
+	add [__djgpp_stack_top], 4096
 ife COPYRMCS
+	add esp, 4
 	pop es
 endif
+	mov ss, ebx
+	mov esp, ebp
 	iretd
+	align 4
+
 SwitchStackIOrmcb endp
 
 _hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr

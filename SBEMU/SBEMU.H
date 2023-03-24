@@ -115,6 +115,10 @@ extern "C"
 {
 #endif
 
+#if 1 //!TRIGGERATONCE
+extern int SBEMU_TriggerIRQ;
+#endif
+
 //generic IO functions
 uint32_t SBEMU_SB_MixerAddr(uint32_t port, uint32_t val, uint32_t out);
 uint32_t SBEMU_SB_MixerData(uint32_t port, uint32_t val, uint32_t out);

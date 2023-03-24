@@ -18,6 +18,7 @@
 #define outp UntrappedIO_OUT
 
 void PIC_SendEOIWithIRQ(uint8_t irq)
+////////////////////////////////////
 {
 //    if(irq == 7 || irq == 15) //check spurious irq
 //        return PIC_SendEOI();
@@ -32,6 +33,7 @@ void PIC_SendEOIWithIRQ(uint8_t irq)
 #define outp outp
 
 void PIC_UnmaskIRQ(uint8_t irq)
+///////////////////////////////
 {
     uint16_t port = PIC_DATA1;
     if(irq >= 8)
@@ -46,12 +48,14 @@ void PIC_UnmaskIRQ(uint8_t irq)
 }
 
 uint16_t PIC_GetIRQMask(void)
+/////////////////////////////
 {
     uint16_t mask = (uint16_t)((inp(PIC_DATA2)<<8) | inp(PIC_DATA1));
     return mask;
 }
 
 void PIC_SetIRQMask(uint16_t mask)
+//////////////////////////////////
 {
     outp(PIC_DATA1, (uint8_t)mask);
     outp(PIC_DATA2, (uint8_t)(mask>>8));

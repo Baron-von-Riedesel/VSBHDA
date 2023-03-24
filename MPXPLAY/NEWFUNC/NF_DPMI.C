@@ -59,7 +59,6 @@ void pds_dpmi_setexcvect(unsigned int intno, farptr vect)
 	__dpmi_paddr addr = {vect.off, vect.sel};
 	__dpmi_set_processor_exception_handler_vector(intno, &addr);
 }
-#endif
 
 int pds_dpmi_dos_allocmem(dosmem_t *dm,unsigned int size)
 /////////////////////////////////////////////////////////
@@ -90,6 +89,7 @@ void pds_dpmi_dos_freemem(dosmem_t *dm)
 		dm->linearptr=NULL;
 	}
 }
+#endif
 
 #if 0
 void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi)

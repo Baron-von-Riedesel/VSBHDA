@@ -149,10 +149,10 @@ typedef struct ensoniq_card_s
  unsigned long cssr;
 }ensoniq_card_s;
 
-//-------------------------------------------------------------------------
 // low level write & read
 
 static unsigned int snd_es1371_wait_src_ready(struct ensoniq_card_s *card)
+//////////////////////////////////////////////////////////////////////////
 {
 	unsigned int t, r = 0;
 
@@ -169,11 +169,10 @@ static unsigned int snd_es1371_wait_src_ready(struct ensoniq_card_s *card)
 	return r;
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 /* it's undocumented what purpose bit 16 has ( neither is bit 17/18 explained ) */
 
 static unsigned int snd_es1371_src_read(struct ensoniq_card_s *card, unsigned short reg)
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int temp, i, orig, r;
 
@@ -210,9 +209,8 @@ static unsigned int snd_es1371_src_read(struct ensoniq_card_s *card, unsigned sh
 	return temp;
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static void snd_es1371_src_write(struct ensoniq_card_s * card, unsigned short reg, unsigned short data)
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int r;
 
@@ -223,9 +221,8 @@ static void snd_es1371_src_write(struct ensoniq_card_s * card, unsigned short re
 	outl((card->port + ES_REG_1371_SMPRATE), (r | ES_1371_SRC_RAM_WE));
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static void snd_es1371_codec_write(struct ensoniq_card_s *card, unsigned short reg, unsigned short val)
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int t, x;
 
@@ -263,9 +260,8 @@ static void snd_es1371_codec_write(struct ensoniq_card_s *card, unsigned short r
 	dbgprintf("codec_write: timeout (poll_count) r=%X\n",inl(card->port + ES_REG_1371_CODEC));
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigned short reg)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int t, x;
 
@@ -312,9 +308,8 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 	return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static void snd_es1371_adc_rate(struct ensoniq_card_s *card, unsigned int rate)
+///////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int n, truncm, freq, result;
 
@@ -339,9 +334,8 @@ static void snd_es1371_adc_rate(struct ensoniq_card_s *card, unsigned int rate)
 	snd_es1371_src_write(card, ES_SMPREG_VOL_ADC + 1, n << 8);
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static void snd_es1371_dac1_rate(struct ensoniq_card_s *card, unsigned int rate)
+////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int freq, r;
 
@@ -357,9 +351,8 @@ static void snd_es1371_dac1_rate(struct ensoniq_card_s *card, unsigned int rate)
 	outl((card->port + ES_REG_1371_SMPRATE), r);
 }
 
-//////////////////////////////////////////////////////////////////////////
-
 static void snd_es1371_dac2_rate(struct ensoniq_card_s *card, unsigned int rate)
+////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int freq, r;
 
@@ -375,6 +368,7 @@ static void snd_es1371_dac2_rate(struct ensoniq_card_s *card, unsigned int rate)
 //-------------------------------------------------------------------------
 
 static unsigned int snd_es1371_buffer_init(struct ensoniq_card_s *card,struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample=2; // 16 bit
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
@@ -386,6 +380,7 @@ static unsigned int snd_es1371_buffer_init(struct ensoniq_card_s *card,struct mp
 }
 
 static void snd_es1371_chip_init(struct ensoniq_card_s *card)
+/////////////////////////////////////////////////////////////
 {
 	int idx;
 
@@ -448,12 +443,14 @@ static void snd_es1371_chip_init(struct ensoniq_card_s *card)
 }
 
 static void snd_es1371_chip_close(struct ensoniq_card_s *card)
+//////////////////////////////////////////////////////////////
 {
 	outl((card->port + ES_REG_CONTROL), 0);
 	outl((card->port + ES_REG_SERIAL),  0);
 }
 
 static void snd_es1371_ac97_init(struct ensoniq_card_s *card)
+/////////////////////////////////////////////////////////////
 {
 	snd_es1371_codec_write(card, AC97_MASTER_VOL_STEREO, 0x0404);
 	snd_es1371_codec_write(card, AC97_PCMOUT_VOL,        0x0404);
@@ -463,6 +460,7 @@ static void snd_es1371_ac97_init(struct ensoniq_card_s *card)
 }
 
 static void snd_es1371_prepare_playback(struct ensoniq_card_s *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	funcbit_disable(card->ctrl, ES_DAC1_EN);
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
@@ -501,6 +499,7 @@ static pci_device_s amplifier_hack_devices[]={
 static void ES1371_close(struct mpxplay_audioout_info_s *aui);
 
 static void ES1371_card_info(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	printf("ENS : Ensoniq %s found on port:%X irq:%d rev:%X\n",
@@ -508,6 +507,7 @@ static void ES1371_card_info(struct mpxplay_audioout_info_s *aui)
 }
 
 static int ES1371_adetect(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card;
 
@@ -563,6 +563,7 @@ err_adetect:
 }
 
 static void ES1371_close(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	if(card){
@@ -576,6 +577,7 @@ static void ES1371_close(struct mpxplay_audioout_info_s *aui)
 }
 
 static void ES1371_setrate(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 
@@ -594,6 +596,7 @@ static void ES1371_setrate(struct mpxplay_audioout_info_s *aui)
 }
 
 static void ES1371_start(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	funcbit_enable(card->ctrl,ES_DAC1_EN);
@@ -606,15 +609,15 @@ static void ES1371_start(struct mpxplay_audioout_info_s *aui)
 }
 
 static void ES1371_stop(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	funcbit_enable(card->sctrl,ES_P1_PAUSE);
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
 
-//------------------------------------------------------------------------
-
 static long ES1371_getbufpos(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	unsigned long bufpos=0;
@@ -629,16 +632,17 @@ static long ES1371_getbufpos(struct mpxplay_audioout_info_s *aui)
 	return aui->card_dma_lastgoodpos;
 }
 
-//--------------------------------------------------------------------------
 //mixer
 
 static void ES1371_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	snd_es1371_codec_write(card,reg,val);
 }
 
 static unsigned long ES1371_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	return snd_es1371_codec_read(card,reg);
@@ -646,6 +650,7 @@ static unsigned long ES1371_readMIXER(struct mpxplay_audioout_info_s *aui,unsign
 
 #ifdef SBEMU
 static int ES1371_IRQRoutine(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
 	//dbgprintf("ES1371_IRQRoutine\n");

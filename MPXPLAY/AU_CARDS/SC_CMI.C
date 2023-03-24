@@ -377,31 +377,35 @@ extern unsigned int intsoundconfig,intsoundcontrol;
 #define snd_cmipci_read_32(cm,reg) inl(cm->iobase+reg)
 
 static void snd_cmipci_set_bit(cmi8x38_card *cm, unsigned int cmd, unsigned int flag)
+/////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int val;
- val = snd_cmipci_read_32(cm, cmd);
- val|= flag;
- snd_cmipci_write_32(cm, cmd, val);
+	unsigned int val;
+	val = snd_cmipci_read_32(cm, cmd);
+	val|= flag;
+	snd_cmipci_write_32(cm, cmd, val);
 }
 
 static void snd_cmipci_clear_bit(cmi8x38_card *cm, unsigned int cmd, unsigned int flag)
+///////////////////////////////////////////////////////////////////////////////////////
 {
- unsigned int val;
- val = snd_cmipci_read_32(cm, cmd);
- val&= ~flag;
- snd_cmipci_write_32(cm, cmd, val);
+	unsigned int val;
+	val = snd_cmipci_read_32(cm, cmd);
+	val&= ~flag;
+	snd_cmipci_write_32(cm, cmd, val);
 }
 
 static void snd_cmipci_mixer_write(cmi8x38_card *cm, unsigned char idx, unsigned char data)
+///////////////////////////////////////////////////////////////////////////////////////////
 {
- snd_cmipci_write_8(cm, CM_REG_SB16_ADDR, idx);
- snd_cmipci_write_8(cm, CM_REG_SB16_DATA, data);
+	snd_cmipci_write_8(cm, CM_REG_SB16_ADDR, idx);
+	snd_cmipci_write_8(cm, CM_REG_SB16_DATA, data);
 }
 
 static unsigned int snd_cmipci_mixer_read(cmi8x38_card *cm, unsigned char idx)
+//////////////////////////////////////////////////////////////////////////////
 {
- snd_cmipci_write_8(cm, CM_REG_SB16_ADDR, idx);
- return snd_cmipci_read_8(cm, CM_REG_SB16_DATA);
+	snd_cmipci_write_8(cm, CM_REG_SB16_ADDR, idx);
+	return snd_cmipci_read_8(cm, CM_REG_SB16_DATA);
 }
 
 //-------------------------------------------------------------------------
@@ -409,24 +413,27 @@ static unsigned int snd_cmipci_mixer_read(cmi8x38_card *cm, unsigned char idx)
 static unsigned int cmi_rates[] = { 5512, 11025, 22050, 44100, 8000, 16000, 32000, 48000 };
 
 static unsigned int snd_cmipci_rate_freq(unsigned int rate)
+///////////////////////////////////////////////////////////
 {
- unsigned int i;
- for(i = 0; i < 8; i++) {
-  if(cmi_rates[i] == rate)
-   return i;
- }
- return 7; // 48k
+	unsigned int i;
+	for(i = 0; i < 8; i++) {
+		if(cmi_rates[i] == rate)
+			return i;
+	}
+	return 7; // 48k
 }
 
 static void snd_cmipci_ch_reset(cmi8x38_card *cm, int ch)
+/////////////////////////////////////////////////////////
 {
- int reset = CM_RST_CH0 << ch;
- snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, CM_CHADC0 | reset);
- snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, CM_CHADC0 & (~reset));
- pds_delay_10us(1);
+	int reset = CM_RST_CH0 << ch;
+	snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, CM_CHADC0 | reset);
+	snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, CM_CHADC0 & (~reset));
+	pds_delay_10us(1);
 }
 
 static int set_dac_channels(cmi8x38_card *cm, int channels)
+///////////////////////////////////////////////////////////
 {
  /*if(channels > 2){
   if(!cm->can_multi_ch)
@@ -450,114 +457,117 @@ static int set_dac_channels(cmi8x38_card *cm, int channels)
    snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_ENCENTER);
   }
  }else{*/
-  if(cm->can_multi_ch){
-   snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_NXCHG);
-   snd_cmipci_clear_bit(cm, CM_REG_CHFORMAT, CM_CHB3D);
-   snd_cmipci_clear_bit(cm, CM_REG_CHFORMAT, CM_CHB3D5C);
-   snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_CHB3D6C);
-   snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_ENCENTER);
-  }
+	if(cm->can_multi_ch){
+		snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_NXCHG);
+		snd_cmipci_clear_bit(cm, CM_REG_CHFORMAT, CM_CHB3D);
+		snd_cmipci_clear_bit(cm, CM_REG_CHFORMAT, CM_CHB3D5C);
+		snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_CHB3D6C);
+		snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_ENCENTER);
+	}
  //}
- return 0;
+	return 0;
 }
 
 static void query_chip(cmi8x38_card *cm)
+////////////////////////////////////////
 {
- unsigned int detect;
+	unsigned int detect;
 
- /* check reg 0Ch, bit 24-31 */
- detect = snd_cmipci_read_32(cm, CM_REG_INT_HLDCLR) & CM_CHIP_MASK2;
- if(!detect){
-  /* check reg 08h, bit 24-28 */
-  detect = snd_cmipci_read_32(cm, CM_REG_CHFORMAT) & CM_CHIP_MASK1;
-  if(!detect) {
-   cm->chip_version = 33;
-   cm->max_channels = 2;
-   //if(cm->do_soft_ac3)
-   // cm->can_ac3_sw = 1;
-   //else
-   // cm->can_ac3_hw = 1;
-   //cm->has_dual_dac = 1;
-  }else{
-   cm->chip_version = 37;
-   cm->max_channels = 2;
-   //cm->can_ac3_hw = 1;
-   //cm->has_dual_dac = 1;
-  }
- }else{
-  /* check reg 0Ch, bit 26 */
-  if(detect&CM_CHIP_039){
-   cm->chip_version = 39;
-   if(detect & CM_CHIP_039_6CH)
-    cm->max_channels  = 6;
-   else
-    cm->max_channels = 4;
-   //cm->can_ac3_hw = 1;
-   //cm->has_dual_dac = 1;
-   cm->can_multi_ch = 1;
-  }else{
-   cm->chip_version = 55; /* 4 or 6 channels */
-   cm->max_channels  = 6;
-   //cm->can_ac3_hw = 1;
-   //cm->has_dual_dac = 1;
-   cm->can_multi_ch = 1;
-  }
- }
+	/* check reg 0Ch, bit 24-31 */
+	detect = snd_cmipci_read_32(cm, CM_REG_INT_HLDCLR) & CM_CHIP_MASK2;
+	if(!detect){
+		/* check reg 08h, bit 24-28 */
+		detect = snd_cmipci_read_32(cm, CM_REG_CHFORMAT) & CM_CHIP_MASK1;
+		if(!detect) {
+			cm->chip_version = 33;
+			cm->max_channels = 2;
+			//if(cm->do_soft_ac3)
+			// cm->can_ac3_sw = 1;
+			//else
+			// cm->can_ac3_hw = 1;
+			//cm->has_dual_dac = 1;
+		}else{
+			cm->chip_version = 37;
+			cm->max_channels = 2;
+			//cm->can_ac3_hw = 1;
+			//cm->has_dual_dac = 1;
+		}
+	}else{
+		/* check reg 0Ch, bit 26 */
+		if(detect&CM_CHIP_039){
+			cm->chip_version = 39;
+			if(detect & CM_CHIP_039_6CH)
+				cm->max_channels  = 6;
+			else
+				cm->max_channels = 4;
+			//cm->can_ac3_hw = 1;
+			//cm->has_dual_dac = 1;
+			cm->can_multi_ch = 1;
+		}else{
+			cm->chip_version = 55; /* 4 or 6 channels */
+			cm->max_channels  = 6;
+			//cm->can_ac3_hw = 1;
+			//cm->has_dual_dac = 1;
+			cm->can_multi_ch = 1;
+		}
+	}
 }
 
 static void cmi8x38_chip_init(struct cmi8x38_card *cm)
+//////////////////////////////////////////////////////
 {
- unsigned int val;
- cm->ctrl  = 0; // ch0 playback
+	unsigned int val;
+	cm->ctrl  = 0; // ch0 playback
 
- query_chip(cm);
+	query_chip(cm);
 
- /* initialize codec registers */
- snd_cmipci_write_32(cm, CM_REG_INT_HLDCLR, 0);    /* disable ints */
- snd_cmipci_ch_reset(cm, CM_CH_PLAY);
- snd_cmipci_ch_reset(cm, CM_CH_CAPT);
- snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, 0);    /* disable channels */
- snd_cmipci_write_32(cm, CM_REG_FUNCTRL1, 0);
+	/* initialize codec registers */
+	snd_cmipci_write_32(cm, CM_REG_INT_HLDCLR, 0);    /* disable ints */
+	snd_cmipci_ch_reset(cm, CM_CH_PLAY);
+	snd_cmipci_ch_reset(cm, CM_CH_CAPT);
+	snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, 0);    /* disable channels */
+	snd_cmipci_write_32(cm, CM_REG_FUNCTRL1, 0);
 
- snd_cmipci_write_32(cm, CM_REG_CHFORMAT, 0);
- snd_cmipci_set_bit(cm, CM_REG_MISC_CTRL, CM_ENDBDAC|CM_N4SPK3D);
- snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_XCHGDAC);
- /* Set Bus Master Request */
- snd_cmipci_set_bit(cm, CM_REG_FUNCTRL1, CM_BREQ);
+	snd_cmipci_write_32(cm, CM_REG_CHFORMAT, 0);
+	snd_cmipci_set_bit(cm, CM_REG_MISC_CTRL, CM_ENDBDAC|CM_N4SPK3D);
+	snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_XCHGDAC);
+	/* Set Bus Master Request */
+	snd_cmipci_set_bit(cm, CM_REG_FUNCTRL1, CM_BREQ);
 
- /* Assume TX and compatible chip set (Autodetection required for VX chip sets) */
- switch(cm->pci_dev->device_id) {
-  case PCI_DEVICE_ID_CMEDIA_CM8738:
-  case PCI_DEVICE_ID_CMEDIA_CM8738B:
-       /* PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82437VX */
-       if(pcibios_FindDevice(0x8086, 0x7030,NULL)==PCI_SUCCESSFUL)
-        snd_cmipci_set_bit(cm, CM_REG_MISC_CTRL, CM_TXVX);
-       break;
- }
+	/* Assume TX and compatible chip set (Autodetection required for VX chip sets) */
+	switch(cm->pci_dev->device_id) {
+	case PCI_DEVICE_ID_CMEDIA_CM8738:
+	case PCI_DEVICE_ID_CMEDIA_CM8738B:
+		/* PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82437VX */
+		if(pcibios_FindDevice(0x8086, 0x7030,NULL)==PCI_SUCCESSFUL)
+			snd_cmipci_set_bit(cm, CM_REG_MISC_CTRL, CM_TXVX);
+		break;
+	}
 
- /* disable FM */
- val = snd_cmipci_read_32(cm, CM_REG_LEGACY_CTRL) & (~CM_FMSEL_MASK);
- snd_cmipci_write_32(cm, CM_REG_LEGACY_CTRL, val);
- snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_FM_EN);
+	/* disable FM */
+	val = snd_cmipci_read_32(cm, CM_REG_LEGACY_CTRL) & (~CM_FMSEL_MASK);
+	snd_cmipci_write_32(cm, CM_REG_LEGACY_CTRL, val);
+	snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_FM_EN);
 
- /* reset mixer */
- snd_cmipci_mixer_write(cm, 0, 0);
+	/* reset mixer */
+	snd_cmipci_mixer_write(cm, 0, 0);
 }
 
 static void cmi8x38_chip_close(struct cmi8x38_card *cm)
+///////////////////////////////////////////////////////
 {
- if(cm->iobase){
-  snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_FM_EN);
-  snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_ENSPDOUT);
-  snd_cmipci_write_32(cm, CM_REG_INT_HLDCLR, 0);  /* disable ints */
-  snd_cmipci_ch_reset(cm, CM_CH_PLAY);
-  snd_cmipci_ch_reset(cm, CM_CH_CAPT);
-  snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, 0); /* disable channels */
-  snd_cmipci_write_32(cm, CM_REG_FUNCTRL1, 0);
+	if(cm->iobase){
+		snd_cmipci_clear_bit(cm, CM_REG_MISC_CTRL, CM_FM_EN);
+		snd_cmipci_clear_bit(cm, CM_REG_LEGACY_CTRL, CM_ENSPDOUT);
+		snd_cmipci_write_32(cm, CM_REG_INT_HLDCLR, 0);  /* disable ints */
+		snd_cmipci_ch_reset(cm, CM_CH_PLAY);
+		snd_cmipci_ch_reset(cm, CM_CH_CAPT);
+		snd_cmipci_write_32(cm, CM_REG_FUNCTRL0, 0); /* disable channels */
+		snd_cmipci_write_32(cm, CM_REG_FUNCTRL1, 0);
 
-  /* reset mixer */
-  snd_cmipci_mixer_write(cm, 0, 0);
- }
+		/* reset mixer */
+		snd_cmipci_mixer_write(cm, 0, 0);
+	}
 }
 
 //-------------------------------------------------------------------------
@@ -572,206 +582,216 @@ static pci_device_s cmi_devices[]={
 static void CMI8X38_close(struct mpxplay_audioout_info_s *aui);
 
 static void CMI8X38_card_info(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- char sout[100];
- printf("CMI : %s soundcard found on port:%4.4X irq:%d chipver:%d max-chans:%d\n",
-         card->pci_dev->device_name,card->iobase,card->irq,card->chip_version,card->max_channels);
+	struct cmi8x38_card *card=aui->card_private_data;
+	char sout[100];
+	printf("CMI : %s soundcard found on port:%4.4X irq:%d chipver:%d max-chans:%d\n",
+		   card->pci_dev->device_name,card->iobase,card->irq,card->chip_version,card->max_channels);
 }
 
 static int CMI8X38_adetect(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card;
+	struct cmi8x38_card *card;
 
- card=(struct cmi8x38_card *)pds_calloc(1,sizeof(struct cmi8x38_card));
- if(!card)
-  return 0;
- aui->card_private_data=card;
+	card=(struct cmi8x38_card *)pds_calloc(1,sizeof(struct cmi8x38_card));
+	if(!card)
+		return 0;
+	aui->card_private_data=card;
 
- card->pci_dev=(struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
- if(!card->pci_dev)
-  goto err_adetect;
+	card->pci_dev=(struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
+	if(!card->pci_dev)
+		goto err_adetect;
 
- if(pcibios_search_devices(&cmi_devices,card->pci_dev)!=PCI_SUCCESSFUL)
-  goto err_adetect;
+	if(pcibios_search_devices(&cmi_devices,card->pci_dev)!=PCI_SUCCESSFUL)
+		goto err_adetect;
 
- pcibios_set_master(card->pci_dev);
+	pcibios_set_master(card->pci_dev);
 
- card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR)&0xfff0;
- if(!card->iobase)
-  goto err_adetect;
- card->irq    = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
- card->chiprev=pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
- card->model  =pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
+	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR)&0xfff0;
+	if(!card->iobase)
+		goto err_adetect;
+	card->irq    = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
+	card->chiprev=pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
+	card->model  =pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
 
- // alloc buffers
- card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,PCMBUFFERPAGESIZE,2,0);
+	// alloc buffers
+	card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,PCMBUFFERPAGESIZE,2,0);
 
- card->dm=MDma_alloc_cardmem( card->pcmout_bufsize      // pcm output
-                            +PCMBUFFERPAGESIZE );      // to round
+	card->dm=MDma_alloc_cardmem( card->pcmout_bufsize      // pcm output
+								+PCMBUFFERPAGESIZE );      // to round
 
- card->pcmout_buffer=(void *)(((uint32_t)card->dm->linearptr+PCMBUFFERPAGESIZE-1)&(~(PCMBUFFERPAGESIZE-1))); // buffer begins on page (4096 bytes) boundary
+	card->pcmout_buffer=(void *)(((uint32_t)card->dm->linearptr+PCMBUFFERPAGESIZE-1)&(~(PCMBUFFERPAGESIZE-1))); // buffer begins on page (4096 bytes) boundary
 
- aui->card_DMABUFF=card->pcmout_buffer;
+	aui->card_DMABUFF=card->pcmout_buffer;
 
- // init chip
- cmi8x38_chip_init(card);
+	// init chip
+	cmi8x38_chip_init(card);
 
- return 1;
+	return 1;
 
 err_adetect:
- CMI8X38_close(aui);
- return 0;
+	CMI8X38_close(aui);
+	return 0;
 }
 
 static void CMI8X38_close(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- if(card){
-  if(card->iobase)
-   cmi8x38_chip_close(card);
-  MDma_free_cardmem(card->dm);
-  if(card->pci_dev)
-   pds_free(card->pci_dev);
-  pds_free(card);
-  aui->card_private_data=NULL;
- }
+	struct cmi8x38_card *card=aui->card_private_data;
+	if(card){
+		if(card->iobase)
+			cmi8x38_chip_close(card);
+		MDma_free_cardmem(card->dm);
+		if(card->pci_dev)
+			pds_free(card->pci_dev);
+		pds_free(card);
+		aui->card_private_data=NULL;
+	}
 }
 
 static void CMI8X38_setrate(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- unsigned int dmabufsize,val,freqnum;
+	struct cmi8x38_card *card=aui->card_private_data;
+	unsigned int dmabufsize,val,freqnum;
 
- if(aui->freq_card<5512)
-  aui->freq_card=5512;
- else{
-  if(aui->freq_card>48000)
-   aui->freq_card=48000;
- }
+	if(aui->freq_card<5512)
+		aui->freq_card=5512;
+	else{
+		if(aui->freq_card>48000)
+			aui->freq_card=48000;
+	}
 
- aui->chan_card=2;
- aui->bits_card=16;
- aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
+	aui->chan_card=2;
+	aui->bits_card=16;
+	aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
 
- dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
+	dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
 
- //hw config
+	//hw config
 
- //reset dac, disable ch
- card->ctrl &= ~CM_CHEN0;
- snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl | CM_RST_CH0);
- snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl & ~CM_RST_CH0);
+	//reset dac, disable ch
+	card->ctrl &= ~CM_CHEN0;
+	snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl | CM_RST_CH0);
+	snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl & ~CM_RST_CH0);
 
- //format cfg
- card->fmt=0;
- card->shift=0;
- if(aui->bits_card>=16){
-  card->fmt|=0x02;
-  card->shift++;
-  //if(aui->bits_card>16) // 24,32 bits ???
-  // card->shift++;
- }
- if(aui->chan_card>1){
-  card->fmt|=0x01;
-  card->shift++;
- }
+	//format cfg
+	card->fmt=0;
+	card->shift=0;
+	if(aui->bits_card>=16){
+		card->fmt|=0x02;
+		card->shift++;
+		//if(aui->bits_card>16) // 24,32 bits ???
+		// card->shift++;
+	}
+	if(aui->chan_card>1){
+		card->fmt|=0x01;
+		card->shift++;
+	}
 
- //
- if(set_dac_channels(card,aui->chan_card)!=0)
-  return;
+	//
+	if(set_dac_channels(card,aui->chan_card)!=0)
+		return;
 
- //buffer cfg
- card->dma_size    = dmabufsize >> card->shift;
- card->period_size = dmabufsize >> card->shift;
- //card->dma_size    >>= card->ac3_shift;
- //card->period_size >>= card->ac3_shift;
+	//buffer cfg
+	card->dma_size    = dmabufsize >> card->shift;
+	card->period_size = dmabufsize >> card->shift;
+	//card->dma_size    >>= card->ac3_shift;
+	//card->period_size >>= card->ac3_shift;
 
- //if(aui->chan_card>2){
- // card->dma_size    = (card->dma_size * aui->chan_card) / 2;
- // card->period_size = (card->period_size * aui->chan_card) / 2;
- //}
+	//if(aui->chan_card>2){
+	// card->dma_size    = (card->dma_size * aui->chan_card) / 2;
+	// card->period_size = (card->period_size * aui->chan_card) / 2;
+	//}
 
- // set buffer address
- snd_cmipci_write_32(card, CM_REG_CH0_FRAME1, (long)card->pcmout_buffer);
- // program sample counts
- snd_cmipci_write_16(card, CM_REG_CH0_FRAME2    , card->dma_size - 1);
- snd_cmipci_write_16(card, CM_REG_CH0_FRAME2 + 2, card->period_size - 1);
+	// set buffer address
+	snd_cmipci_write_32(card, CM_REG_CH0_FRAME1, (long)card->pcmout_buffer);
+	// program sample counts
+	snd_cmipci_write_16(card, CM_REG_CH0_FRAME2    , card->dma_size - 1);
+	snd_cmipci_write_16(card, CM_REG_CH0_FRAME2 + 2, card->period_size - 1);
 
- // set sample rate
- freqnum = snd_cmipci_rate_freq(aui->freq_card);
- aui->freq_card=cmi_rates[freqnum]; // if the freq-config is not standard at CMI
- val = snd_cmipci_read_32(card, CM_REG_FUNCTRL1);
- val &= ~CM_DSFC_MASK;
- val |= (freqnum << CM_DSFC_SHIFT) & CM_DSFC_MASK;
- snd_cmipci_write_32(card, CM_REG_FUNCTRL1, val);
+	// set sample rate
+	freqnum = snd_cmipci_rate_freq(aui->freq_card);
+	aui->freq_card=cmi_rates[freqnum]; // if the freq-config is not standard at CMI
+	val = snd_cmipci_read_32(card, CM_REG_FUNCTRL1);
+	val &= ~CM_DSFC_MASK;
+	val |= (freqnum << CM_DSFC_SHIFT) & CM_DSFC_MASK;
+	snd_cmipci_write_32(card, CM_REG_FUNCTRL1, val);
 
- // set format
- val = snd_cmipci_read_32(card, CM_REG_CHFORMAT);
- val &= ~CM_CH0FMT_MASK;
- val |= card->fmt << CM_CH0FMT_SHIFT;
- snd_cmipci_write_32(card, CM_REG_CHFORMAT, val);
+	// set format
+	val = snd_cmipci_read_32(card, CM_REG_CHFORMAT);
+	val &= ~CM_CH0FMT_MASK;
+	val |= card->fmt << CM_CH0FMT_SHIFT;
+	snd_cmipci_write_32(card, CM_REG_CHFORMAT, val);
 
- // set SPDIF
- //if((aui->freq_card==44100 || aui->freq_card==48000) && (aui->chan_card==2) && (aui->bits_card==16))
- // snd_cmipci_set_bit(card, CM_REG_FUNCTRL1, CM_PLAYBACK_SPDF);
- //else
-  snd_cmipci_clear_bit(card, CM_REG_FUNCTRL1, CM_PLAYBACK_SPDF);
+	// set SPDIF
+	//if((aui->freq_card==44100 || aui->freq_card==48000) && (aui->chan_card==2) && (aui->bits_card==16))
+	// snd_cmipci_set_bit(card, CM_REG_FUNCTRL1, CM_PLAYBACK_SPDF);
+	//else
+	snd_cmipci_clear_bit(card, CM_REG_FUNCTRL1, CM_PLAYBACK_SPDF);
 }
 
 static void CMI8X38_start(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- card->ctrl |= CM_CHEN0;
- card->ctrl &= ~CM_PAUSE0;
- snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl);
+	struct cmi8x38_card *card=aui->card_private_data;
+	card->ctrl |= CM_CHEN0;
+	card->ctrl &= ~CM_PAUSE0;
+	snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl);
 }
 
 static void CMI8X38_stop(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- card->ctrl |= CM_PAUSE0;
- snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl);
+	struct cmi8x38_card *card=aui->card_private_data;
+	card->ctrl |= CM_PAUSE0;
+	snd_cmipci_write_32(card, CM_REG_FUNCTRL0, card->ctrl);
 }
 
 static long CMI8X38_getbufpos(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- unsigned long bufpos;
+	struct cmi8x38_card *card=aui->card_private_data;
+	unsigned long bufpos;
 
- bufpos = snd_cmipci_read_16(card, CM_REG_CH0_FRAME2);
- if(bufpos && (bufpos<=card->dma_size)){
-  bufpos = card->dma_size -bufpos;
-  bufpos <<= card->shift;
-  //bufpos <<= card->ac3_shift;
-  //if(aui->chan_card > 2)
-  // bufpos = (bufpos * 2) / aui->chan_card;
+	bufpos = snd_cmipci_read_16(card, CM_REG_CH0_FRAME2);
+	if(bufpos && (bufpos<=card->dma_size)){
+		bufpos = card->dma_size -bufpos;
+		bufpos <<= card->shift;
+		//bufpos <<= card->ac3_shift;
+		//if(aui->chan_card > 2)
+		// bufpos = (bufpos * 2) / aui->chan_card;
 
-  if(bufpos<aui->card_dmasize)
-   aui->card_dma_lastgoodpos=bufpos;
- }
+		if(bufpos<aui->card_dmasize)
+			aui->card_dma_lastgoodpos=bufpos;
+	}
 
- return aui->card_dma_lastgoodpos;
+	return aui->card_dma_lastgoodpos;
 }
 
 static void CMI8X38_clearbuf(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
- MDma_clearbuf(aui);
+	MDma_clearbuf(aui);
 }
 
 //--------------------------------------------------------------------------
 //mixer
 
 static void CMI8X38_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- snd_cmipci_mixer_write(card,reg,val);
+	struct cmi8x38_card *card=aui->card_private_data;
+	snd_cmipci_mixer_write(card,reg,val);
 }
 
 static unsigned long CMI8X38_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
+/////////////////////////////////////////////////////////////////////////////////////////////
 {
- struct cmi8x38_card *card=aui->card_private_data;
- return snd_cmipci_mixer_read(card,reg);
+	struct cmi8x38_card *card=aui->card_private_data;
+	return snd_cmipci_mixer_read(card,reg);
 }
 
 //like SB16

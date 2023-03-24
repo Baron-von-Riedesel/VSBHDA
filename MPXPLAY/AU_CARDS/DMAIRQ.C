@@ -134,31 +134,31 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 		dmabufsize -= (dmabufsize%pagesize);
 	}
 
-	funcbit_smp_int32_put(aui->card_bytespersign,aui->chan_card*((bit_width+7)/8));
+	funcbit_smp_int32_put( aui->card_bytespersign, aui->chan_card * ((bit_width+7)/8));
 
 	//dmabufsize-=(dmabufsize%aui->card_bytespersign);
 
-	funcbit_smp_int32_put(aui->card_dmasize,dmabufsize);
+	funcbit_smp_int32_put( aui->card_dmasize, dmabufsize);
 
 	if(!aui->card_outbytes)
-		funcbit_smp_int32_put(aui->card_outbytes,PCM_OUTSAMPLES*aui->card_bytespersign); // not exact
+		funcbit_smp_int32_put( aui->card_outbytes, PCM_OUTSAMPLES * aui->card_bytespersign); // not exact
 
 	tmp=(long) ( (float)aui->freq_card*(float)aui->card_bytespersign
 				/((float)INT08_DIVISOR_DEFAULT*(float)INT08_CYCLES_DEFAULT/(float)INT08_DIVISOR_NEW) );
 
-	tmp+=aui->card_bytespersign-1;                              // rounding up
-	tmp-=(aui->card_dmaout_under_int08%aui->card_bytespersign); // to pcm_samples
-	funcbit_smp_int32_put(aui->card_dmaout_under_int08,tmp);
+	tmp += aui->card_bytespersign-1;                              // rounding up
+	tmp -= (aui->card_dmaout_under_int08%aui->card_bytespersign); // to pcm_samples
+	funcbit_smp_int32_put( aui->card_dmaout_under_int08, tmp);
 
-	funcbit_smp_int32_put(aui->card_dma_lastgoodpos,0); // !!! the soundcard also must to do this
-	tmp =aui->card_dmasize/2;
-	tmp-=aui->card_dmalastput%aui->card_bytespersign; // round down to pcm_samples
-	funcbit_smp_int32_put(aui->card_dmalastput,tmp);
-	funcbit_smp_int32_put(aui->card_dmafilled,aui->card_dmalastput);
-	funcbit_smp_int32_put(aui->card_dmaspace,aui->card_dmasize-aui->card_dmafilled);
+	funcbit_smp_int32_put( aui->card_dma_lastgoodpos, 0); // !!! the soundcard also must to do this
+	tmp = aui->card_dmasize / 2;
+	tmp -= aui->card_dmalastput%aui->card_bytespersign; // round down to pcm_samples
+	funcbit_smp_int32_put( aui->card_dmalastput, tmp);
+	funcbit_smp_int32_put( aui->card_dmafilled, aui->card_dmalastput);
+	funcbit_smp_int32_put( aui->card_dmaspace, aui->card_dmasize-aui->card_dmafilled);
 
-	freq=(aui->freq_song<22050)? 22050.0:(float)aui->freq_song;
-	funcbit_smp_int32_put(aui->int08_decoder_cycles,(long)(freq/(float)PCM_OUTSAMPLES)*(float)INT08_DIVISOR_NEW/(float)(INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT)+1);
+	freq = (aui->freq_song<22050) ? 22050.0 : (float)aui->freq_song;
+	funcbit_smp_int32_put( aui->int08_decoder_cycles, (long)(freq/ (float)PCM_OUTSAMPLES) * (float)INT08_DIVISOR_NEW / (float)(INT08_CYCLES_DEFAULT * INT08_DIVISOR_DEFAULT)+1);
 
 	asm("frstor (%esp) \n\tadd $200, %esp \n\t");
 

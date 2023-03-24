@@ -127,9 +127,8 @@ extern unsigned int intsoundconfig,intsoundcontrol;
 
 static unsigned int via8233_dxs_volume=0x02;
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_channel_reset(struct via82xx_card *card)
+////////////////////////////////////////////////////////////
 {
 	unsigned int baseport = card->iobase;
 
@@ -142,9 +141,8 @@ static void via82xx_channel_reset(struct via82xx_card *card)
 	outl(baseport + VIA_REG_OFFSET_CURR_PTR, 0);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_chip_init(struct via82xx_card *card)
+////////////////////////////////////////////////////////
 {
 	unsigned int data,retry;
 
@@ -208,16 +206,14 @@ static void via82xx_chip_init(struct via82xx_card *card)
 	via82xx_ac97_write(card->iobase, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_chip_close(struct via82xx_card *card)
+/////////////////////////////////////////////////////////
 {
 	via82xx_channel_reset(card);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_set_table_ptr(struct via82xx_card *card)
+////////////////////////////////////////////////////////////
 {
 	via82xx_AC97Codec_ready(card->iobase);
 	outl(card->iobase + VIA_REG_OFFSET_TABLE_PTR,(unsigned long)pds_cardmem_physicalptr(card->dm,card->virtualpagetable));
@@ -234,18 +230,16 @@ static pci_device_s via_devices[]={
 
 static void VIA82XX_close(struct mpxplay_audioout_info_s *aui);
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_card_info(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	printf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
 		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card;
 
@@ -305,9 +299,8 @@ err_adetect:
 	return 0;
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	if(card){
@@ -321,9 +314,8 @@ static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
 	}
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	unsigned int dmabufsize,pagecount,spdif_rate;
@@ -400,9 +392,8 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 	via82xx_AC97Codec_ready(card->iobase);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	if(card->pci_dev->device_id==PCI_DEVICE_ID_VT82C686)
@@ -411,17 +402,15 @@ static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START | VIA_REG_CTRL_AUTOSTART);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_stop(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	unsigned int baseport=card->iobase;
@@ -455,17 +444,16 @@ static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
 	return aui->card_dma_lastgoodpos;
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_clearbuf(struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////
 {
 	MDma_clearbuf(aui);
 }
 
-//--------------------------------------------------------------------------
 //mixer
 
 static unsigned long via82xx_ReadAC97Codec_sub(unsigned int baseport)
+/////////////////////////////////////////////////////////////////////
 {
 	unsigned long d0;
 	int retry = 2048;
@@ -481,9 +469,8 @@ static unsigned long via82xx_ReadAC97Codec_sub(unsigned int baseport)
 	return d0;
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_AC97Codec_ready(unsigned int baseport)
+//////////////////////////////////////////////////////////
 {
 	unsigned long d0;
 	int retry = 2048;
@@ -496,18 +483,16 @@ static void via82xx_AC97Codec_ready(unsigned int baseport)
 	}while(--retry);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_WriteAC97Codec_sub(unsigned int baseport,unsigned long value)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	via82xx_AC97Codec_ready(baseport);
 	outl(baseport + VIA_REG_AC97_CTRL, value);
 	via82xx_AC97Codec_ready(baseport);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_ac97_write(unsigned int baseport,unsigned int reg, unsigned int value)
+//////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned long d0;
 
@@ -518,9 +503,8 @@ static void via82xx_ac97_write(unsigned int baseport,unsigned int reg, unsigned 
 	via82xx_WriteAC97Codec_sub(baseport,d0);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static unsigned int via82xx_ac97_read(unsigned int baseport, unsigned int reg)
+//////////////////////////////////////////////////////////////////////////////
 {
 	long d0;
 
@@ -532,9 +516,8 @@ static unsigned int via82xx_ac97_read(unsigned int baseport, unsigned int reg)
 	return via82xx_ReadAC97Codec_sub(baseport);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void via82xx_dxs_write(unsigned int baseport,unsigned int reg, unsigned int val)
+///////////////////////////////////////////////////////////////////////////////////////
 {
 	outb(baseport+reg+0x00,val);
 	//outb(baseport+reg+0x10,val);
@@ -543,16 +526,14 @@ static void via82xx_dxs_write(unsigned int baseport,unsigned int reg, unsigned i
 	via8233_dxs_volume=val;
 }
 
-/////////////////////////////////////////////////////////////////
-
 static unsigned int via82xx_dxs_read(unsigned int baseport,unsigned int reg)
+////////////////////////////////////////////////////////////////////////////
 {
 	return via8233_dxs_volume; // is the dxs write-only?
 }
 
-/////////////////////////////////////////////////////////////////
-
 static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 
@@ -564,9 +545,8 @@ static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long
 		via82xx_ac97_write(card->iobase,reg,val);
 }
 
-/////////////////////////////////////////////////////////////////
-
 static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
+/////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 	unsigned int retval=0;
@@ -583,9 +563,8 @@ static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsig
 
 #ifdef SBEMU
 
-/////////////////////////////////////////////////////////////////
-
 static int VIA82XX_IRQRoutine(mpxplay_audioout_info_s* aui)
+///////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
 
