@@ -8,30 +8,28 @@
 
    2. Usage
 
-   The best environment to run SBEMU is
+   The steps to load SBEMU are
    
    - load JemmEx/Jemm386 in CONFIG.SYS
+   - set environment variable BLASTER
    - run "JLoad QPIEMU.DLL"
    - run "HDPMI32i -x"
    - run "SBEMU"
 
-   QPIEMU.DLL is needed for real-mode port trapping. Without this helper dll
+    QPIEMU.DLL is needed for real-mode port trapping. Without this helper dll
    support for real-mode cannot be activated by SBEMU - and, btw, it is also
-   needed by UNINST.COM, a small tool to unload SBEMU.
+   needed by UNINST.COM, a program to unload SBEMU.
+    With the BLASTER variable one can select what card SBEMU is to emulate:
+   SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
+   a SB16.
 
 
    3. SETPVI/RESPVI
 
     A few protected-mode games will not run with the default settings of SBEMU.
-   Then there's a chance that running SETPVI may fix that. However, there exist
-   BIOSes that aren't compatible with SETPVI - then you're out of luck. Also,
-   SETPVI won't work with Qemm.
+   Then there's a chance that running SETPVI may fix that. Note that SETPVI
+   won't work with Qemm.
 
     SETPVI will set the PVI flag in cpu register CR4, RESPVI will reset it. When
    this bit is set, it's not possible to disable interrupts in ring 3, since
    CLI/STI will modify the virtual interrupt flag (VIF) only.
-
-    Games that may need SETPVI:
-   
-   - Stargunner
-   - Rise Of The Triad
