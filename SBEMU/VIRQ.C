@@ -109,7 +109,8 @@ void VIRQ_Invoke(uint8_t irq )
 
     VIRQ_Irq = -1;
 #if !SETIF
-    CLI(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
+	//CLI(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
+	asm("mov $0x900, %ax\n\t" "int $0x31" );
 #endif
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */

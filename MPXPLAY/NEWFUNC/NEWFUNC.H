@@ -138,9 +138,9 @@ typedef int           mpxp_ptrsize_t;
 #define PDS_PUTB_LE64(p,v) *((mpxp_int64_t *)(p))=(v)              // int64 to 8bytes LE
 #define PDS_PUTB_BEU64(p,v) *((mpxp_uint32_t *)(p)+1)=pds_bswap32((v)&0xffffffff); *((mpxp_uint32_t *)(p))=pds_bswap32((mpxp_uint64_t)(v)>>32)
 
-#define pds_newfunc_regp_clear(regp) pds_memset(regp,0,sizeof(union REGPACK))
-#define pds_newfunc_regs_clear(regs) pds_memset(regs,0,sizeof(union REGS))
-#define pds_newfunc_sregs_clear(sregs) pds_memset(sregs,0,sizeof(struct SREGS))
+//#define pds_newfunc_regp_clear(regp) pds_memset(regp,0,sizeof(union REGPACK))
+//#define pds_newfunc_regs_clear(regs) pds_memset(regs,0,sizeof(union REGS))
+//#define pds_newfunc_sregs_clear(sregs) pds_memset(sregs,0,sizeof(struct SREGS))
 
 #define TEXTCURSORSHAPE_NORMAL  0x0607
 #define TEXTCURSORSHAPE_FULLBOX 0x0007
@@ -209,13 +209,13 @@ extern unsigned long pds_dpmi_map_physical_memory(unsigned long phys_addr,unsign
 extern void pds_dpmi_unmap_physical_memory(unsigned long linear_address);
 
 //memory.c
-extern void newfunc_memory_init(void);
+//extern void newfunc_memory_init(void);
 #include <string.h>
 #define pds_memset(t,v,l)   memset(t,v,l)
 #define pds_memcpy(t,s,l)   memcpy(t,s,l)
 extern void *pds_malloc(unsigned int bufsize);
 extern void *pds_calloc(unsigned int nitems,unsigned int itemsize);
-extern void *pds_realloc(void *bufptr,unsigned int bufsize);
+//extern void *pds_realloc(void *bufptr,unsigned int bufsize);
 extern void pds_free(void *bufptr);
 
 //string.c

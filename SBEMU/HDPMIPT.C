@@ -14,6 +14,7 @@ BOOL _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
 BOOL _hdpmi_UninstallISR( void );
 BOOL _hdpmi_InstallInt31( uint8_t );
 BOOL _hdpmi_UninstallInt31( void );
+BOOL _hdpmi_CliHandler( void );
 void SwitchStackIOIn(  void );
 void SwitchStackIOOut( void );
 
@@ -138,6 +139,17 @@ BOOL HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 		"lcall *%0\n\t"
 		"pop %%ebx"
 		::"m"(HDPMIPT_Entry)
+	);
+
+	asm(
+		"push %%ebx \n\t"
+		"mov $0, %%bl \n\t"
+		"mov $9, %%ax \n\t"
+		"mov %%cs, %%ecx \n\t"
+		"lea %1, %%edx \n\t"
+		"lcall *%0\n\t"
+		"pop %%ebx"
+		::"m"(HDPMIPT_Entry), "m"(_hdpmi_CliHandler)
 	);
 
 	for ( int i = 0; i < max; i++ ) {

@@ -13,17 +13,13 @@
 #define __INLINE inline
 
 //looks ugly. only if we can work preprocessing with raw string literals (R"()")
-//raw string can work with preprocessor using gcc -E or cpp in the triditional way. need a special pass for file with asm
+//raw string can work with preprocessor using gcc -E or cpp in the traditional way. need a special pass for file with asm
 #define _ASM_BEGIN asm __volatile__(".intel_syntax noprefix\n\t" 
 #define _ASM_END ".att_syntax noprefix");
 #define _ASM(...) #__VA_ARGS__"\n\t"
 #define _ASMLBL _ASM
 #define _ASM2 _ASM
-#define _ASM_OPERAND_SIZE _ASM(.byte 0x66)  //switch oprand size, 32bit to 16bit or 16 to 32
-#define _ASM_LIDT(x) _ASM(lidt x)
-#define _ASM_LGDT(x) _ASM(lgdt x)
-#define _ASM_SIDT(x) _ASM(sidt x)
-#define _ASM_SGDT(x) _ASM(sgdt x)
+#define _ASM_OPERAND_SIZE _ASM(.byte 0x66)  //switch operand size, 32bit to 16bit or 16 to 32
 
 #define _ASM_BEGIN16 _ASM_BEGIN ".code16\n\t" 
 #define _ASM_END16 ".code32\n\t" _ASM_END

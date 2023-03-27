@@ -22,19 +22,16 @@
 
    3. SETPVI/RESPVI
 
-    SETPVI sets the PVI flag in cpu register CR4, RESPVI resets it. When this
-   bit is set, it's not possible to disable interrupts in ring 3, since CLI/STI
-   will modify the virtual interrupt flag (VIF) only.
+    A few protected-mode games will not run with the default settings of SBEMU.
+   Then there's a chance that running SETPVI may fix that. However, there exist
+   BIOSes that aren't compatible with SETPVI - then you're out of luck. Also,
+   SETPVI won't work with Qemm.
 
-    The HDPMI32i variant supplied with the original SBEMU has some modifications
-   to make it compatible with the DOS4/G[W] DOS extender ( this extender isn't
-   prepared to run with IOPL=0 and inadvertently disables interrupts ). This
-   works, but OTOH makes it incompatible with HX binaries. Hence this fork, that
-   doesn't need those adjustments for HDPMI.
-    To achieve compatibility with DOS4/G[W], another approach has been chosen:
-   run SETPVI.EXE before running any DOS4/G[W] binary. Usually that's it, most
-   programs will run fine. However, a few won't be happy with the effect done
-   by SETPVI; then RESPVI.EXE, will undo that effect.
-    Besides DOS4/G[W], the PMODE[W] extender also has problems running with
-   IOPL=0, so games written with for this extender may also need SETPVI.
+    SETPVI will set the PVI flag in cpu register CR4, RESPVI will reset it. When
+   this bit is set, it's not possible to disable interrupts in ring 3, since
+   CLI/STI will modify the virtual interrupt flag (VIF) only.
 
+    Games that may need SETPVI:
+   
+   - Stargunner
+   - Rise Of The Triad

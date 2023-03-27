@@ -26,11 +26,13 @@
 #endif
 
 unsigned long pds_gettimeh(void)
+////////////////////////////////
 {
- return ((unsigned long)clock()*100/CLOCKS_PER_SEC);
+	return ((unsigned long)clock()*100/CLOCKS_PER_SEC);
 }
 
 mpxp_int64_t pds_gettimem(void)
+///////////////////////////////
 {
 	mpxp_int64_t time_ms;
 	time_ms = (mpxp_int64_t)clock() * (mpxp_int64_t)1000 / (mpxp_int64_t)CLOCKS_PER_SEC;
@@ -38,6 +40,7 @@ mpxp_int64_t pds_gettimem(void)
 }
 
 mpxp_int64_t pds_gettimeu(void)
+///////////////////////////////
 {
 	mpxp_int64_t time_ms;
 	time_ms = (mpxp_int64_t)clock() * (mpxp_int64_t)1000000 / (mpxp_int64_t)CLOCKS_PER_SEC;
@@ -45,43 +48,50 @@ mpxp_int64_t pds_gettimeu(void)
 }
 
 void pds_delay_10us(unsigned int ticks) //each tick is 10us
+///////////////////////////////////////
 {
 #ifdef __DOS__
- //unsigned int divisor=(oldint08_handler)? INT08_DIVISOR_NEW:INT08_DIVISOR_DEFAULT; // ???
- unsigned int divisor=INT08_DIVISOR_DEFAULT; // ???
- unsigned int i,oldtsc, tsctemp, tscdif;
 
- for(i=0;i<ticks;i++){
-  _disable();
-  outp(0x43,0x04);
-  oldtsc=inp(0x40);
-  oldtsc+=inp(0x40)<<8;
-  _enable();
+#define _disableint() asm("mov $0x900, %%ax \n\t" "int $0x31 \n\t" "mov %%ax, %0\n\t" : "=m"(oldstate) :: "eax" )
+#define _restoreint() asm("mov %0, %%ax \n\t" "int $0x31 \n\t" :: "m"(oldstate) : "eax" )
 
-  do{
-   _disable();
-   outp(0x43,0x04);
-   tsctemp=inp(0x40);
-   tsctemp+=inp(0x40)<<8;
-   _enable();
-   if(tsctemp<=oldtsc)
-    tscdif=oldtsc-tsctemp; // handle overflow
-   else
-    tscdif=divisor+oldtsc-tsctemp;
-  }while(tscdif<12); //wait for 10us  (12/(65536*18) sec)
- }
+	//unsigned int divisor=(oldint08_handler)? INT08_DIVISOR_NEW:INT08_DIVISOR_DEFAULT; // ???
+	unsigned int divisor=INT08_DIVISOR_DEFAULT; // ???
+	unsigned int i,oldtsc, tsctemp, tscdif;
+	unsigned short oldstate;
+
+	for( i = 0; i < ticks; i++){
+		_disableint();
+		outp(0x43,0x04);
+		oldtsc=inp(0x40);
+		oldtsc+=inp(0x40)<<8;
+		_restoreint();
+
+		do{
+			_disableint();
+			outp(0x43,0x04);
+			tsctemp=inp(0x40);
+			tsctemp+=inp(0x40)<<8;
+			_restoreint();
+			if(tsctemp<=oldtsc)
+				tscdif=oldtsc-tsctemp; // handle overflow
+			else
+				tscdif=divisor+oldtsc-tsctemp;
+		}while(tscdif<12); //wait for 10us  (12/(65536*18) sec)
+	}
 #else
- pds_mdelay((ticks+99)/100);
- //unsigned int oldclock=clock();
- //while(oldclock==clock()){} // 1ms not 0.01ms (10us)
+	pds_mdelay((ticks+99)/100);
+	//unsigned int oldclock=clock();
+	//while(oldclock==clock()){} // 1ms not 0.01ms (10us)
 #endif
 }
 
 void pds_mdelay(unsigned long msec)
+///////////////////////////////////
 {
 #ifdef __DOS__
- delay(msec);
+	delay(msec);
 #else
- pds_threads_sleep(msec);
+	pds_threads_sleep(msec);
 #endif
 }

@@ -80,7 +80,7 @@ void VDMA_Write(uint16_t port, uint8_t byte)
             VDMA_CurCounter[channel] = VDMA_Counter[channel] = VDMA_Regs[base+port] + 1;
 
     } else if(port >= 0x80 && port <= 0x8F)  { //page registers 0x87~0x8F
-        int channel = VDMA_PortChannelMap[port-0x80];
+        int channel = VDMA_PortChannelMap[port - 0x80];
         if( channel != -1 ) {
             VDMA_PageRegs[channel] = byte;
             VDMA_Index[channel] = 0;

@@ -8,7 +8,7 @@
 
 #define SB16 1        /* support SB16 */
 #define ADPCM 1       /* support ADPCM */
-#define SETIF 0       /* enable interrupts when ISR is entered */
+#define SETIF 1       /* enable interrupts when ISR is entered */
 #define QEMMPICTRAPDYN 1 /* trap PIC for v86-mode dynamically when needed */
 #define TRIGGERATONCE 1  /* trigger IRQ from inside trap handler */
 

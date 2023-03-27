@@ -223,4 +223,35 @@ error:
 	ret
 _hdpmi_rmcbIO endp
 
+IRETDS struct
+rEip	dd ?
+rCS		dd ?
+rEfl	dd ?
+IRETDS ends
+
+_hdpmi_CliHandler proc public
+	push ds
+	push esi
+
+;--- if CLI is to be a NOP, activate next line
+;	jmp enable
+
+	lds esi, fword ptr [esp+2*4].IRETDS.rEip
+	cmp esi, 3
+	jb unchanged
+	cmp word ptr [esi-3], 589Ch	; "pushfd" "pop eax"; needed by ID games' DOS/4G
+	jz enable
+	cmp byte ptr [esi-2], 9Ch	; "pushfd"; needed by Stargunner?
+	jnz unchanged
+enable:
+	push eax
+	mov ax,901h
+	int 31h
+	pop eax
+unchanged:
+	pop esi
+	pop ds
+	iretd
+_hdpmi_CliHandler endp
+
 	END

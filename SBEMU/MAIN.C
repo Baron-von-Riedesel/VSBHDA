@@ -566,11 +566,12 @@ void MAIN_Interrupt()
     int32_t voicevol;
     int32_t midivol;
 
+#if 0
     if ( SBEMU_TriggerIRQ ) {
         SBEMU_TriggerIRQ = 0;
         VIRQ_Invoke( SBEMU_GetIRQ() );
     }
-
+#endif
     if(MAIN_Options[OPT_TYPE].value < 4) //SB2.0 and before
     {
         vol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MASTERVOL) >> 1)*256/7;

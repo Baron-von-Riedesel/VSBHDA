@@ -16,10 +16,6 @@
 
 #include "mpxplay.h"
 
-void newfunc_memory_init(void)
-{
-}
-
 #include <malloc.h>
 
 //extern unsigned int intsoundconfig,intsoundcontrol;
@@ -40,12 +36,6 @@ void *pds_calloc(unsigned int nitems,unsigned int itemsize)
 	if(!nitems || !itemsize)
 		return NULL;
 	bufptr=calloc(nitems,(itemsize + 8));
-	return bufptr;
-}
-
-void *pds_realloc(void *bufptr,unsigned int bufsize)
-{
-	bufptr=realloc(bufptr,(bufsize + 8));
 	return bufptr;
 }
 

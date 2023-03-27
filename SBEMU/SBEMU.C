@@ -163,7 +163,7 @@ static void SBEMU_DSP_Reset( uint8_t value )
         MAIN_Uninstall();
 }
 
-void MAIN_Interrupt( void );
+//void MAIN_Interrupt( void );
 
 static void SBEMU_DSP_Write( uint8_t value )
 ////////////////////////////////////////////
@@ -181,10 +181,15 @@ static void SBEMU_DSP_Write( uint8_t value )
         case SBEMU_CMD_TRIGGER_IRQ16: /* F3 */
 #endif
             SBEMU_MixerRegs[SBEMU_MIXERREG_INT_STS] |= ( value == SBEMU_CMD_TRIGGER_IRQ ? 0x1 : 0x2 );
-            SBEMU_TriggerIRQ = 1;
 #if TRIGGERATONCE
-            //VIRQ_Invoke(SBEMU_GetIRQ()); /* if this func is called instead, reset SBEMU_TriggerIRQ! */
-            MAIN_Interrupt(); /* will reset SBEMU_TriggerIRQ */
+# if 1
+            /* no need to reset SBEMU_TriggerIRQ in MAIN_Interrupt() */
+            VIRQ_Invoke(SBEMU_GetIRQ());
+# else
+            /* calling MAIN_Interrupt() directly might cause problems if SETIF is 1 */
+            SBEMU_TriggerIRQ = 1;
+            //MAIN_Interrupt(); /* will reset SBEMU_TriggerIRQ */
+# endif
 #endif
             break;
         case SBEMU_CMD_DAC_SPEAKER_ON: /* D1 */
