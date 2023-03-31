@@ -65,17 +65,16 @@ extern "C" {
 #define PLAYC_RUNNING         64 // playing is running
 
 //intsoundconfig and intsoundcontrol function bits
-#define INTSOUND_NONE      0  // no interrupt functions
+//#define INTSOUND_NONE      0  // no interrupt functions
 #define INTSOUND_DECODER   1  // interrupt decoder
-#define INTSOUND_TSR       2  // tsr mode
-#define INTSOUND_FUNCTIONS (INTSOUND_DECODER|INTSOUND_TSR)
-#define INTSOUND_NOINTDEC  4  // disable interrupt decoder (intsoundconfig)
-#define INTSOUND_NOINT08   8  // disable int08 (intsoundconfig)
-#define INTSOUND_DOSSHELL  16 // intsoundconfig:-xs intsoundcontrol:ctrl-d
+//#define INTSOUND_TSR       2  // tsr mode
+//#define INTSOUND_FUNCTIONS (INTSOUND_DECODER|INTSOUND_TSR)
+//#define INTSOUND_NOINTDEC  4  // disable interrupt decoder (intsoundconfig)
+//#define INTSOUND_DOSSHELL  16 // intsoundconfig:-xs intsoundcontrol:ctrl-d
 #ifdef SBEMU
 #define INTSOUND_NOBUSYWAIT 32
 #endif
-#define INTSOUND_INT08RUN  1024 // int08 process is running (has not finished)
+//#define INTSOUND_INT08RUN  1024 // int08 process is running (has not finished)
 
 //timer settings
 #define INT08_DIVISOR_DEFAULT  65536
@@ -164,94 +163,10 @@ extern "C" {
 #define MPXPLAY_WAVEID_UNSUPPORTED 0x0001FFFF // !!! higher wave-ids blocked (fails) in decoder.c (modify it if it's required)
 
 //------------------------------------------------------------------------
-//main structure definitions
 
 #include "in_file.h"
-#include "au_cards\au_cards.h"
-
-#define MPXPLAY_MPXPFRAME_FLAG_OWN_SRVFFMV_CALLBACK  (1 << 0)  // parser has own dispqt_worker callback function (in_ffmpeg.c)
-#define MPXPLAY_MPXPFRAME_FLAG_SRVFFMV_CALLBACK      (1 << 1)  // else we use a general callback (in_file.c)
-#define MPXPLAY_MPXPFRAME_FLAG_FILEFORMAT_CONTAINER  (1 << 4)
-
-struct mpxpframe_s {
- long frameNum;
- long allframes;
- long timesec;
- unsigned long framecounter;
- long index_start; // =0         if not indexed
- long index_end;   // =allframes if not indexed
- long index_len;   // =allframes if not indexed (avoids inline calculation)
-
- unsigned int filetype;     // HFT_XXX
-
- //file/source infos
- mpxp_filesize_t filesize;
- mpxp_filesize_t filepos;
- struct mpxplay_diskdrive_data_s *mdds;
- struct mpxplay_filehand_low_func_s *filehand_funcs;
- void *filehand_datas; // private datas of filehand_funcs
- mpxp_uint64_t readwait_endtime;
-
- //file-buffer variables
- unsigned int buffertype;
- char *prebufferbegin;
- long prebufferblocksize;
- long prebuffersize;   // frp->prebufferblocksize * prebufferblocks (4 or 32)
- long prebuffergetp;
- long prebufferputp;
- long prebufferbytes_rewind;
- long prebufferbytes_forward;
- mpxp_filesize_t prebuffer_seek_retry;
- struct mpxplay_filehand_buffered_func_s *filebuf_funcs; // static!
-
- //decoder infos
- struct mpxplay_infile_info_s *infile_infos; // !!! static! don't clear!
- struct mpxplay_infile_func_s *infile_funcs;
-
- //pcm (decoder,mixer,card)
- mpxp_uint8_t *pcmdec_buffer;
- unsigned int pcmdec_bufsize;
- unsigned int pcmdec_storedsamples;
- unsigned int pcmdec_leftsamples;
- mpxp_uint8_t *pcmout_buffer;
- unsigned int pcmout_bufsize;        // in bytes
- unsigned int pcmout_blocksize;      // samplenum (with ch)
- unsigned int pcmout_storedsamples;  // samplenum (with ch)
-
- struct mainvars *mvp;
-// struct playlist_side_info *psi;
-// struct playlist_entry_info *pei;
- struct mpxp_aumixer_passinfo_s *mpi;
-// void *mutexhnd_frame;
-// void *mutexhnd_fillbuffer;
- int  last_errorcode;
- // for internal use only (DLL API break)
- unsigned int flags;      // MPXPLAY_MPXPFRAME_FLAG_
-#if defined(MPXPLAY_LINK_INFILE_FF_MPEG) && defined(MPXPLAY_GUI_QT)
- mpxplay_packetqueue_t audio_packet_queue; // for audio visualization
- mpxp_int64_t avsync_clocktime;
- mpxp_int64_t avsync_timestamp;
-#endif
- struct mpxpframe_s *fro; // crosslink (fr[0]->fr[1],fr[1]->fr[0])
-};
-
-#include "au_mixer\au_mixer.h"
-
-struct mainvars{
- struct mpxplay_audioout_info_s *aui;
- int idone;                          // end of decoding
- unsigned int sndempty;              // no sound (above soundlimit)
- //unsigned int partselect;            // open newfile or decoding
- //unsigned int foundfile;             // found 1 playable audio file (at least) in the playlist
- //struct crossfade_info *cfi;
- struct mpxp_aumixer_main_info_s mmi;
-};
-
-//----------------------------------------------------------------------
-
-//newfunc
-//extern int  mpxplay_bitstream_fill(struct mpxplay_bitstreambuf_s *bs,struct mpxplay_filehand_buffered_func_s *fbfs,void *fbds,unsigned int needbytes); // fill with a file-read
-//extern unsigned int newfunc_newhandler08_maincycles_init(struct mainvars *mvp,void *cycleinit,void *cycle1,void *cycle2);
+#include "au_cards.h"
+#include "au_mixer.h"
 
 #ifdef __cplusplus
 }

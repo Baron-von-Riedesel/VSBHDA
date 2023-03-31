@@ -1,9 +1,10 @@
+
+#include <stdio.h>
+#include <stdbool.h>
 #include "VDMA.H"
 #include "UNTRAPIO.H"
 #include "PLATFORM.H"
 #include "sbemucfg.h"
-
-#include <stdio.h>
 
 //registers
 static uint16_t VDMA_Regs[32];
@@ -64,12 +65,12 @@ void VDMA_Write(uint16_t port, uint8_t byte)
         dbgprintf("VDMA_Write: base=%d port=%x\n", base, port);
 
         if( ( ( VDMA_Regs[base+VDMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
-            VDMA_InIO[channel] = TRUE;
+            VDMA_InIO[channel] = true;
             VDMA_Regs[base+port] = (VDMA_Regs[base+port] & ~0xFF) | byte;
         } else {
             VDMA_Regs[base+port] = (VDMA_Regs[base+port] & ~0xFF00) | ( byte << 8 );
-            VDMA_InIO[channel] = FALSE;
-            VDMA_DelayUpdate[channel] = FALSE;
+            VDMA_InIO[channel] = false;
+            VDMA_DelayUpdate[channel] = false;
         }
 
         /* update addr or counter */
@@ -118,7 +119,7 @@ uint8_t VDMA_Read(uint16_t port)
             int value = VDMA_Regs[base+port];
             dbgprintf("VDMA %s: %d\n", ((port&0x1) == 1) ? "counter" : "addr", value);
             if( ( ( VDMA_Regs[base+VDMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
-                VDMA_InIO[channel] = TRUE;
+                VDMA_InIO[channel] = true;
                 return value & 0xFF;
             }
             uint8_t ret = ((value>>8)&0xFF);
@@ -129,8 +130,8 @@ uint8_t VDMA_Read(uint16_t port)
                 VDMA_Regs[base2] = VDMA_Addr[channel] + VDMA_Index[channel]; //update addr reg
                 VDMA_PageRegs[channel] = (VDMA_Addr[channel] + VDMA_Index[channel]) >> 16;
             }
-            VDMA_InIO[channel] = FALSE;
-            VDMA_DelayUpdate[channel] = FALSE;
+            VDMA_InIO[channel] = false;
+            VDMA_DelayUpdate[channel] = false;
             return ret;
         }
         return VDMA_PageRegs[channel];
@@ -206,7 +207,7 @@ int32_t VDMA_SetIndexCounter(int channel, int32_t index, int32_t counter)
         VDMA_PageRegs[channel] = (VDMA_Addr[channel] + VDMA_Index[channel]) >> 16;
     }
     else
-        VDMA_DelayUpdate[channel] = TRUE;
+        VDMA_DelayUpdate[channel] = true;
     //dbgprintf("cur counter: %d\n", counter);
     return VDMA_Index[channel] * size;
 }

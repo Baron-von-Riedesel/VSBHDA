@@ -364,7 +364,7 @@ typedef struct cmi8x38_card
 static void cmi8x38_ac97_write(unsigned int baseport,unsigned int reg, unsigned int value);
 static unsigned int cmi8x38_ac97_read(unsigned int baseport, unsigned int reg);
 
-extern unsigned int intsoundconfig,intsoundcontrol;
+//extern unsigned int intsoundconfig,intsoundcontrol;
 
 //-------------------------------------------------------------------------
 // low level write & read

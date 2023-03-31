@@ -23,7 +23,7 @@
 #include <go32.h>
 
 #include "dpmi_.h"
-#include "newfunc\newfunc.h"
+#include "newfunc.h"
 #include "pcibios.h"
 
 #define PCIDEVNUM(bParam)      (bParam >> 3)

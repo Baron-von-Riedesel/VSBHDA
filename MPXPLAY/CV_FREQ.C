@@ -14,11 +14,11 @@
 //**************************************************************************
 //function: speed/freq control
 
-#include "mpxplay.h"
 #include <math.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "sbemucfg.h"
+#include "mpxplay.h"
 
 #define MALLOCSTATIC 1
 

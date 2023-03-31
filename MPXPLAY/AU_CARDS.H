@@ -94,44 +94,6 @@ typedef struct aucards_onemixerchan_s{
 
 typedef struct aucards_onemixerchan_s* aucards_allmixerchan_s;
 
-/*typedef struct au_cardbuf_v0154_s{
- char          *card_DMABUFF;        // pointer to dma buffer
- unsigned long  card_dma_buffer_size;// allocated size
- unsigned long  card_dmasize;        // used size
- unsigned long  card_dmalastput;     // last put position
- unsigned long  card_dma_lastgoodpos;// last good bufferpos
- unsigned long  card_dmafilled;      // databytes in buffer
- unsigned long  card_dmaspace;       // dmasize - dmafilled (empty bytes)
- unsigned int   card_dmaout_under_int08;
-}au_cardbuf_v0150_s;
-
-typedef struct au_cardconfig_v0154_s{
- unsigned int   card_wave_id;        // 0x0001,0x0003,0x0055,0x2000,etc.
- char          *card_wave_name;      // pcm-xx,pcm-fp,"MP3","AC3" (WAV-out/disk-writer(s) needs it)
- unsigned long  card_controlbits;    // card control flags
- unsigned long  card_infobits;       // card info flags
- unsigned long  card_freq;
- unsigned int   card_chans;
- unsigned int   card_bits;           // pcm or scale bits
- unsigned long  set_freq;
- unsigned int   set_chans;
- unsigned int   set_bits;
-}au_cardconfig_v0150_s;*/
-
-/*typedef struct au_cardinfo_s{
- one_sndcard_info *card_handler;    // function structure of the card
- void         *card_private_data;   // extra private datas can be pointed here (with malloc)
- char         *card_selectname;     // select card by name
- struct au_cardconfig_v0154_s cardconfig;
- struct au_cardbuf_v0154_s    cardbuf;
- unsigned int  card_bytespersample; // float-pcm:4, int-pcm:(bits+7)/8
- unsigned int  card_bytespersign;   // pcm: card_bytespersample*card_chans, bitstream:1 (for masking)
- unsigned long card_outbytes;       // samplenum*bytespersample_card
- unsigned int  int08_decoder_cycles;
- struct playlist_entry_info *pei;   // used by disk writers (filename,id3-info)
- unsigned int  card_mixer_values[AU_MIXCHANS_NUM];
-}au_cardinfo_s;*/
-
 #define AU_CARDS_LINK_ISA 0
 #define AU_CARDS_LINK_PCI 1
 
@@ -154,7 +116,7 @@ typedef struct au_cardconfig_v0154_s{
 #define AU_CARDS_LINK_VIA82XX 1
 #endif
 
-#include <newfunc\newfunc.h>
+#include "newfunc.h"
 
 typedef struct mpxplay_audioout_info_s{
  short *pcm_sample;
@@ -199,8 +161,7 @@ typedef struct mpxplay_audioout_info_s{
  unsigned char  card_isa_dma;
  unsigned char  card_isa_hidma;
 
- struct mainvars *mvp;
- struct playlist_entry_info *pei; // for encoders
+ //struct playlist_entry_info *pei; // for encoders
  int card_master_volume;
  int card_mixer_values[AU_MIXCHANS_NUM]; // -1, 0-100
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100

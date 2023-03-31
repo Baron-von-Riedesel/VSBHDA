@@ -30,7 +30,7 @@ int dbgprintf(const char *fmt, ... );
 
 //declared in control.c
 extern struct mpxplay_audioout_info_s au_infos;
-extern unsigned int intsoundconfig,intsoundcontrol;
+//extern unsigned int intsoundconfig,intsoundcontrol;
 
 //**************************************************************************
 // DMA functions

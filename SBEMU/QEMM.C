@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <dos.h>
 #include <fcntl.h>
@@ -160,14 +161,14 @@ BOOL QEMM_Prepare_IOPortTrap()
     r.w.ax = 0x1A06;
     /* get current trap handler */
     if(DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags & CPU_CFLAG))
-        return FALSE;
+        return false;
     QEMM_OldCallbackIP = r.w.es;
     QEMM_OldCallbackCS = r.w.di;
     dbgprintf("QEMM_Prepare_IOPortTrap: old callback=%x:%x\n",r.w.es, r.w.di);
 
     /* get a realmode callback */
     if ( _hdpmi_rmcbIO( &QEMM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
-        return FALSE;
+        return false;
 
 #if HANDLE_IN_388H_DIRECTLY
     /* copy 16-bit code to DOS memory
@@ -188,8 +189,8 @@ BOOL QEMM_Prepare_IOPortTrap()
 #endif
     r.w.ax = 0x1A07;
     if( DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags & CPU_CFLAG))
-        return FALSE;
-    return TRUE;
+        return false;
+    return true;
 }
 
 
@@ -217,7 +218,7 @@ static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t e
 		DPMI_CallRealModeRETF(&r); /* trap port */
 		iodt[i].flags |= IODT_FLGS_RMINST;
     }
-    return TRUE;
+    return true;
 }
 
 int QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
@@ -283,10 +284,10 @@ BOOL QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
 	r.w.es = QEMM_OldCallbackCS;
 	r.w.di = QEMM_OldCallbackIP;
 	if( DPMI_CallRealModeRETF(&r) != 0) //restore old handler
-		return FALSE;
+		return false;
 
 	DPMI_FreeRMCB( &rmcb );
 
-    return TRUE;
+    return true;
 }
 

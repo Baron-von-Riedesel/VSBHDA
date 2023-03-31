@@ -409,6 +409,7 @@ long pds_atol16(char *strp)
 	return number;
 }
 
+#if 0
 void pds_str_to_hexs(char *src,char *dest,unsigned int destlen)
 ///////////////////////////////////////////////////////////////
 {
@@ -466,4 +467,4 @@ void pds_hexs_to_str(char *src,char *dest,unsigned int destlen)
 	}while(destlen>1);
 	*dest=0;
 }
-
+#endif

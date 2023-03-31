@@ -62,9 +62,8 @@ typedef struct mpxp_aumixer_passinfo_s{
  int  bits_card;
  int  pcmout_savedsamples;
  struct mpxp_aumixer_main_info_s *mmi;
- struct mainvars *mvp;
  struct mpxplay_audioout_info_s *aui;
- struct mpxpframe_s *frp;
+ //struct mpxpframe_s *frp;
  void *mutex_aumixer;
  void *mixerfuncs_private_datas[MIXER_MAX_FUNCTIONS];
 }mpxp_aumixer_passinfo_s;

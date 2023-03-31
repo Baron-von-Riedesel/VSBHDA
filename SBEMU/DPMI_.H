@@ -78,10 +78,6 @@ uint16_t DPMI_CallRealModeIRET(DPMI_REG* reg);
 //uint32_t DPMI_AllocateRMCB_IRET(void(*Fn)(void), DPMI_REG* reg);
 uint16_t DPMI_FreeRMCB( __dpmi_raddr * );
 
-//virtual interrupt states
-uint8_t DPMI_DisableInterrupt();
-void DPMI_RestoreInterrupt(uint8_t state);
-
 void DPMI_Init(void);
 
 //linear memory access
@@ -99,6 +95,11 @@ void DPMI_MaskD(uint32_t addr, uint32_t mand, uint32_t mor);
 
 void DPMI_CopyLinear(uint32_t dest, uint32_t src, uint32_t size);
 void DPMI_SetLinear(uint32_t dest, uint8_t val, uint32_t size);
+
+//#define _disable_ints() asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" );
+static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
+//#define _enable_ints() asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" );
+static inline void _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
 
 #ifdef __cplusplus
 }

@@ -8,7 +8,13 @@
 
 VioPutChar proto
 
+	.data
+
+externdef c bDbgInit:byte
+
 	.code
+
+	assume ds:_DATA
 
 ;--- i64toa(long long n, char * s, int base);
 ;--- convert 64-bit long long to string
@@ -209,7 +215,13 @@ handle_char:
 	call @F
 	mov al,10
 @@:
-	call VioPutChar
+	.if bDbgInit
+		mov dl, al
+		mov ah, 2
+		int 21h
+	.else
+		call VioPutChar
+	.endif
 	retn
 	align 4
 

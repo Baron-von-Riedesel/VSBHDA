@@ -15,11 +15,11 @@ OUTD=build
 C_DEBUG_FLAGS=
 endif
 
-vpath_src=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu
+vpath_src=mpxplay sbemu
 vpath %.c $(vpath_src)
 vpath %.cpp $(vpath_src)
 vpath %.asm $(vpath_src)
-vpath_header=./sbemu ./mpxplay ./mpxplay/au_cards ./mpxplay/au_mixer ./mpxplay/newfunc
+vpath_header=./sbemu ./mpxplay
 vpath %.h $(vpath_header)
 vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
@@ -35,7 +35,7 @@ OBJFILES=\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
 INCLUDE_DIRS=./mpxplay ./sbemu
-SRC_DIRS=mpxplay/au_cards mpxplay/newfunc mpxplay/au_mixer sbemu
+SRC_DIRS=mpxplay sbemu
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
 C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU -DSBLSUPP
@@ -55,17 +55,11 @@ $(OUTD)/%.o: SBEMU/%.c
 $(OUTD)/%.o: SBEMU/%.cpp
 	$(COMPILE.cpp.o)
 
-$(OUTD)/%.o: MPXPLAY/AU_CARDS/%.c
-	$(COMPILE.c.o)
-
-$(OUTD)/%.o: MPXPLAY/AU_MIXER/%.c
-	$(COMPILE.c.o)
-
-$(OUTD)/%.o: MPXPLAY/NEWFUNC/%.c
-	$(COMPILE.c.o)
-
 $(OUTD)/%.o: SBEMU/%.asm
 	$(COMPILE.asm.o)
+
+$(OUTD)/%.o: MPXPLAY/%.c
+	$(COMPILE.c.o)
 
 all:: $(OUTD) $(OUTD)/sbemu.exe
 
@@ -81,19 +75,19 @@ $(OUTD)/sbemu.exe:: $(OUTD)/sbemu.ar
 $(OUTD)/sbemu.ar:: $(OBJFILES)
 	ar --target=coff-go32 r $(OUTD)/sbemu.ar $(OBJFILES)
 
-$(OUTD)/ac97_def.o:: ac97_def.c  ac97_def.h au_cards.h au_mixer.h in_file.h mpxplay.h newfunc.h
-$(OUTD)/au_cards.o:: au_cards.c  au_cards.h dmairq.h au_mixer.h in_file.h mpxplay.h newfunc.h sbemucfg.h
-$(OUTD)/cv_bits.o::  cv_bits.c   au_cards.h au_mixer.h in_file.h mpxplay.h newfunc.h
-$(OUTD)/cv_chan.o::  cv_chan.c   au_cards.h au_mixer.h in_file.h mpxplay.h newfunc.h
-$(OUTD)/cv_freq.o::  cv_freq.c   au_cards.h au_mixer.h in_file.h mpxplay.h newfunc.h
+$(OUTD)/ac97_def.o:: ac97_def.c  ac97_def.h in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
+$(OUTD)/au_cards.o:: au_cards.c  in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h dmairq.h sbemucfg.h
+$(OUTD)/cv_bits.o::  cv_bits.c   in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
+$(OUTD)/cv_chan.o::  cv_chan.c   in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
+$(OUTD)/cv_freq.o::  cv_freq.c   in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
-$(OUTD)/dmairq.o::   dmairq.c    au_cards.h dmairq.h au_mixer.h in_file.h mpxplay.h newfunc.h
+$(OUTD)/dmairq.o::   dmairq.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h dmairq.h
 $(OUTD)/dpmi.o::     dpmi.c      dpmi_.h platform.h
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/hdpmipt.o::  hdpmipt.c   hdpmipt.h qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
 $(OUTD)/int31.o::    int31.asm
 $(OUTD)/main.o::     main.c      hdpmipt.h qemm.h dpmi_.h opl3emu.h pic.h platform.h sbemu.h sbemucfg.h untrapio.h vdma.h virq.h in_file.h mpxplay.h au_cards.h au_mixer.h mix_func.h newfunc.h
-$(OUTD)/memory.o::   memory.c    au_cards.h in_file.h mpxplay.h au_mixer.h newfunc.h
+$(OUTD)/memory.o::   memory.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/nf_dpmi.o::  nf_dpmi.c   newfunc.h
 $(OUTD)/opl3emu.o::  opl3emu.cpp dbopl.h opl3emu.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
@@ -102,14 +96,14 @@ $(OUTD)/qemm.o::     qemm.c      qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
 $(OUTD)/sbemu.o::    sbemu.c     dpmi_.h platform.h sbemu.h sbemucfg.h
 $(OUTD)/sc_e1371.o:: sc_e1371.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
 $(OUTD)/sc_ich.o::   sc_ich.c    ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h in_file.h mpxplay.h dmairq.h pcibios.h sc_inthd.h au_mixer.h newfunc.h
-$(OUTD)/sc_sbl24.o:: sc_sbl24.c  ac97_def.h in_file.h mpxplay.h sc_sbl24.h emu10k1.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
-$(OUTD)/sc_sbliv.o:: sc_sbliv.c  ac97_def.h in_file.h mpxplay.h sc_sbliv.h emu10k1.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c             in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h sc_inthd.h 
+$(OUTD)/sc_sbl24.o:: sc_sbl24.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h sc_sbl24.h emu10k1.h 
+$(OUTD)/sc_sbliv.o:: sc_sbliv.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h sc_sbliv.h emu10k1.h 
 $(OUTD)/sc_via82.o:: sc_via82.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
-$(OUTD)/string.o::   string.c    au_cards.h in_file.h mpxplay.h au_mixer.h newfunc.h
-$(OUTD)/time.o::     time.c      au_cards.h au_mixer.h in_file.h mpxplay.h newfunc.h
+$(OUTD)/string.o::   string.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
+$(OUTD)/time.o::     time.c      in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/untrapio.o:: untrapio.c  untrapio.h
 $(OUTD)/vdma.o::     vdma.c      dpmi_.h platform.h untrapio.h vdma.h sbemucfg.h
 $(OUTD)/vioout.o::   vioout.asm

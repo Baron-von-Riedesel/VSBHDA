@@ -18,7 +18,7 @@
 #include "HDPMIPT.H"
 
 #include <MPXPLAY.H>
-#include <AU_MIXER/MIX_FUNC.H>
+#include <MIX_FUNC.H>
 
 #define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
@@ -44,6 +44,7 @@ static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
 static BOOL enableRM;
 static BOOL enablePM;
 static BOOL PM_ISR;
+uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 
 
 #if PREMAPDMA
@@ -510,6 +511,7 @@ int main(int argc, char* argv[])
 
     PIC_UnmaskIRQ(aui.card_irq);
 
+    bDbgInit = 0;
     AU_prestart(&aui);
     AU_start(&aui);
 
@@ -550,7 +552,7 @@ static int MAIN_InterruptPM( void )
     if(aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
     {
 #if SETIF
-        asm("sti");
+        _enable_ints();
 #endif
         MAIN_Interrupt();
         PIC_SendEOIWithIRQ(aui.card_irq);
@@ -566,37 +568,37 @@ void MAIN_Interrupt()
     int32_t voicevol;
     int32_t midivol;
 
-#if 0
+#if !TRIGGERATONCE
     if ( SBEMU_TriggerIRQ ) {
         SBEMU_TriggerIRQ = 0;
-        VIRQ_Invoke( SBEMU_GetIRQ() );
+        VIRQ_Invoke();
     }
 #endif
     if(MAIN_Options[OPT_TYPE].value < 4) //SB2.0 and before
     {
-        vol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MASTERVOL) >> 1)*256/7;
-        voicevol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_VOICEVOL) >> 1)*256/3;
-        midivol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MIDIVOL) >> 1)*256/7;
+        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERVOL) >> 1) * 256 / 7;
+        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICEVOL) >> 1) * 256 / 3;
+        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDIVOL) >> 1) * 256 / 7;
     }
     else if(MAIN_Options[OPT_TYPE].value == 6) //SB16
     {
-        vol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MASTERSTEREO)>>4)*256/15; //4:4
-        voicevol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_VOICESTEREO)>>4)*256/15; //4:4
-        midivol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MIDISTEREO)>>4)*256/15; //4:4
+        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 4) * 256 / 15; //4:4
+        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 4) * 256 / 15; //4:4
+        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 4) * 256 / 15; //4:4
         //dbgprintf("vol: %d, voicevol: %d, midivol: %d\n", vol, voicevol, midivol);
     }
     else //SBPro
     {
-        vol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MASTERSTEREO)>>5)*256/7; //3:1:3:1 stereo usually the same for both channel for games?;
-        voicevol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_VOICESTEREO)>>5)*256/7; //3:1:3:1
-        midivol = (SBEMU_GetMixerReg(SBEMU_MIXERREG_MIDISTEREO)>>5)*256/7;
+        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 5) * 256 / 7; //3:1:3:1 stereo usually the same for both channel for games?;
+        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 5) * 256 / 7; //3:1:3:1
+        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 5) * 256 / 7;
     }
-    if(MAIN_SB_VOL != vol*MAIN_GLB_VOL/9)
+    if(MAIN_SB_VOL != vol * MAIN_GLB_VOL / 9)
     {
         //dbgprintf("set sb volume:%d %d\n", MAIN_SB_VOL, vol*MAIN_GLB_VOL/9);
-        MAIN_SB_VOL = vol*MAIN_GLB_VOL/9;
+        MAIN_SB_VOL =  vol * MAIN_GLB_VOL / 9;
         //asm("sub $200, %esp \n\tfsave (%esp)"); /* needed if AU_setmixer_one() uses floats */
-        AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol*100/256);
+        AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol * 100 / 256 );
         //asm("frstor (%esp) \n\tadd $200, %esp \n\t");
     }
 
@@ -611,8 +613,7 @@ void MAIN_Interrupt()
     int dma = SBEMU_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
 
-    if(digital)//&& DMA_Count != 0x10000) //-1(0xFFFF)+1=0
-    {
+    if( digital ) {
         uint32_t DMA_Addr = VDMA_GetAddress(dma);
         int32_t DMA_Index = VDMA_GetIndex(dma);
         uint32_t SB_Bytes = SBEMU_GetSampleBytes();
@@ -693,7 +694,7 @@ void MAIN_Interrupt()
                 if(!SBEMU_GetAuto())
                     SBEMU_Stop();
                 SB_Pos = SBEMU_SetPos(0);
-                VIRQ_Invoke( SBEMU_GetIRQ() );
+                VIRQ_Invoke();
                 SB_Bytes = SBEMU_GetSampleBytes();
                 SB_Pos = SBEMU_GetPos();
                 SB_Rate = SBEMU_GetSampleRate();
@@ -710,10 +711,9 @@ void MAIN_Interrupt()
         samples = min(samples, pos);
     }
     else if(!MAIN_Options[OPT_OPL].value)
-        memset(MAIN_PCM, 0, samples*sizeof(int16_t)*2); //output muted samples.
+        memset( MAIN_PCM, 0, samples * sizeof(int16_t) * 2 ); //output muted samples.
 
-    if(MAIN_Options[OPT_OPL].value)
-    {
+    if(MAIN_Options[OPT_OPL].value) {
         int16_t* pcm = digital ? MAIN_OPLPCM : MAIN_PCM;
         OPL3EMU_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
@@ -721,23 +721,20 @@ void MAIN_Interrupt()
         if(channels == 1)
             cv_channels_1_to_n(pcm, samples, 2, SBEMU_BITS/8);
 
-        if(digital)
-        {
-            for(int i = 0; i < samples*2; ++i)
-            {
-                int a = (int)(MAIN_PCM[i]*voicevol/256) + 32768;
-                int b = (int)(MAIN_OPLPCM[i]*midivol/256) + 32768;
-                int mixed = (a < 32768 || b < 32768) ? (a*b/32768) : ((a+b)*2 - a*b/32768 - 65536);
+        if( digital ) {
+            for(int i = 0; i < samples*2; ++i) {
+                int a = (int)(MAIN_PCM[i] * voicevol / 256) + 32768;
+                int b = (int)(MAIN_OPLPCM[i] * midivol / 256) + 32768;
+                int mixed = (a < 32768 || b < 32768) ? ( a * b / 32768) : ((a+b) * 2 - a*b/32768 - 65536);
                 if(mixed == 65536) mixed = 65535;
                 MAIN_PCM[i] = mixed - 32768;
             }
-        }
-        else for(int i = 0; i < samples*2; ++i)
-            MAIN_PCM[i] = MAIN_PCM[i]*midivol/256;
-    }
-    else if(digital)
-        for(int i = 0; i < samples*2; ++i)
-            MAIN_PCM[i] = MAIN_PCM[i]*voicevol/256;
+        } else
+            for(int i = 0; i < samples*2; ++i)
+                MAIN_PCM[i] = MAIN_PCM[i] * midivol / 256;
+    } else if( digital )
+        for( int i = 0; i < samples*2; ++i)
+            MAIN_PCM[i] = MAIN_PCM[i] * voicevol / 256;
     samples *= 2; //to stereo
 
     aui.samplenum = samples;

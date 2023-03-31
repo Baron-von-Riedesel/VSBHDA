@@ -58,15 +58,15 @@ enum {
  */
 #define AC_VERB_GET_STREAM_FORMAT        0x0a00
 #define AC_VERB_GET_AMP_GAIN_MUTE        0x0b00
-#define AC_VERB_GET_PROC_COEF            0x0c00
-#define AC_VERB_GET_COEF_INDEX           0x0d00
+#define AC_VERB_GET_PROC_COEF            0x0c00 /* get processing coefficient value */
+#define AC_VERB_GET_COEF_INDEX           0x0d00 /* get processing coefficient index */
 #define AC_VERB_PARAMETERS               0x0f00
-#define AC_VERB_GET_CONNECT_SEL          0x0f01
+#define AC_VERB_GET_CONNECT_SEL          0x0f01 /* get currently selected connection */
 #define AC_VERB_GET_CONNECT_LIST         0x0f02
-#define AC_VERB_GET_PROC_STATE           0x0f03
+#define AC_VERB_GET_PROC_STATE           0x0f03 /* processing state */
 #define AC_VERB_GET_SDI_SELECT           0x0f04
 #define AC_VERB_GET_POWER_STATE          0x0f05
-#define AC_VERB_GET_CONV                 0x0f06
+#define AC_VERB_GET_CONV                 0x0f06 /* converter stream, channel */
 #define AC_VERB_GET_PIN_WIDGET_CONTROL   0x0f07
 #define AC_VERB_GET_UNSOLICITED_RESPONSE 0x0f08
 #define AC_VERB_GET_PIN_SENSE            0x0f09
@@ -85,8 +85,8 @@ enum {
 /*
  * SET verbs
  */
-#define AC_VERB_SET_STREAM_FORMAT        0x200
-#define AC_VERB_SET_AMP_GAIN_MUTE        0x300
+#define AC_VERB_SET_STREAM_FORMAT        0x200 /* */
+#define AC_VERB_SET_AMP_GAIN_MUTE        0x300 /* */
 #define AC_VERB_SET_PROC_COEF            0x400
 #define AC_VERB_SET_COEF_INDEX           0x500
 #define AC_VERB_SET_CONNECT_SEL          0x701
@@ -200,9 +200,7 @@ enum {
 #define AC_AMPCAP_OFFSET_SHIFT     0
 #define AC_AMPCAP_NUM_STEPS       (0x7f<<8)  /* number of steps */
 #define AC_AMPCAP_NUM_STEPS_SHIFT  8
-#define AC_AMPCAP_STEP_SIZE       (0x7f<<16) /* step size 0-32dB
-                            * in 0.25dB
-                            */
+#define AC_AMPCAP_STEP_SIZE       (0x7f<<16) /* step size 0-32dB, in 0.25dB  */
 #define AC_AMPCAP_STEP_SIZE_SHIFT  16
 #define AC_AMPCAP_MUTE            (1<<31)    /* mute capable */
 #define AC_AMPCAP_MUTE_SHIFT       31
@@ -223,7 +221,9 @@ enum {
 #define AC_PWRST_D2            0x02
 #define AC_PWRST_D3            0x03
 
-/* Processing capabilies */
+/* Processing capabilies
+ * correect? docs say: 0=off, 1=on, 2=benign, 3-7f reserved, 80-ff vendor specific
+ */
 #define AC_PCAP_BENIGN            (1<<0)
 #define AC_PCAP_NUM_COEF        (0xff<<8)
 
@@ -235,45 +235,47 @@ enum {
  * Control Parameters
  */
 
-/* Amp gain/mute */
-#define AC_AMP_MUTE            (1<<7)
-#define AC_AMP_GAIN            (0x7f)
-#define AC_AMP_GET_INDEX        (0xf<<0)
+/* Amp gain/mute response format + bits 0-7 of set */
+#define AC_AMP_MUTE             (1<<7)
+#define AC_AMP_GAIN             (0x7f)
 
-#define AC_AMP_GET_LEFT            (1<<13)
+/* verb GET_AMP_GAIN_MUTE */
+#define AC_AMP_GET_INDEX        (0xf<<0)
+#define AC_AMP_GET_LEFT         (1<<13)
 #define AC_AMP_GET_RIGHT        (0<<13)
-#define AC_AMP_GET_OUTPUT        (1<<15)
+#define AC_AMP_GET_OUTPUT       (1<<15)
 #define AC_AMP_GET_INPUT        (0<<15)
 
+/* verb SET_AMP_GAIN_MUTE  */
 #define AC_AMP_SET_INDEX        (0xf<<8)
-#define AC_AMP_SET_INDEX_SHIFT        8
+#define AC_AMP_SET_INDEX_SHIFT  8
 #define AC_AMP_SET_RIGHT        (1<<12)
-#define AC_AMP_SET_LEFT            (1<<13)
+#define AC_AMP_SET_LEFT         (1<<13)
 #define AC_AMP_SET_INPUT        (1<<14)
-#define AC_AMP_SET_OUTPUT        (1<<15)
+#define AC_AMP_SET_OUTPUT       (1<<15)
 
 /* DIGITAL1 bits */
-#define AC_DIG1_ENABLE            (1<<0)
-#define AC_DIG1_V            (1<<1)
+#define AC_DIG1_ENABLE          (1<<0)
+#define AC_DIG1_V               (1<<1)
 #define AC_DIG1_VCFG            (1<<2)
 #define AC_DIG1_EMPHASIS        (1<<3)
-#define AC_DIG1_COPYRIGHT        (1<<4)
+#define AC_DIG1_COPYRIGHT       (1<<4)
 #define AC_DIG1_NONAUDIO        (1<<5)
-#define AC_DIG1_PROFESSIONAL        (1<<6)
-#define AC_DIG1_LEVEL            (1<<7)
+#define AC_DIG1_PROFESSIONAL    (1<<6)
+#define AC_DIG1_LEVEL           (1<<7)
 
-/* Pin widget control - 8bit */
+/* Verb Pin widget control (F07) - 8bit */
 #define AC_PINCTL_VREFEN        (0x7<<0)
-#define AC_PINCTL_VREF_HIZ        0    /* Hi-Z */
+#define AC_PINCTL_VREF_HIZ       0    /* Hi-Z */
 #define AC_PINCTL_VREF_50        1    /* 50% */
-#define AC_PINCTL_VREF_GRD        2    /* ground */
+#define AC_PINCTL_VREF_GRD       2    /* ground */
 #define AC_PINCTL_VREF_80        4    /* 80% */
-#define AC_PINCTL_VREF_100        5    /* 100% */
-#define AC_PINCTL_IN_EN            (1<<5)
-#define AC_PINCTL_OUT_EN        (1<<6)
-#define AC_PINCTL_HP_EN            (1<<7)
+#define AC_PINCTL_VREF_100       5    /* 100% */
+#define AC_PINCTL_IN_ENABLE     (1<<5)
+#define AC_PINCTL_OUT_ENABLE    (1<<6)
+#define AC_PINCTL_HP_ENABLE     (1<<7) /* low impedance amplifier enable/disable */
 
-#define AC_PINCTL_EAPD_EN               (1<<1)
+#define AC_PINCTL_EAPD_ENABLE   (1<<1) /* for digital widgets */
 
 /* Unsolicited response - 8bit */
 #define AC_USRSP_EN            (1<<7)

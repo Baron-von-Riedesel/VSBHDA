@@ -233,8 +233,8 @@ extern unsigned int pds_strcutspc(char *src); // returns (new)len
 extern void  pds_ltoa(int,char *);
 extern long  pds_atol(char *);
 extern long  pds_atol16(char *);
-extern void pds_str_to_hexs(char *src,char *dest,unsigned int destlen);
-extern void pds_hexs_to_str(char *src,char *dest,unsigned int destlen);
+//extern void pds_str_to_hexs(char *src,char *dest,unsigned int destlen);
+//extern void pds_hexs_to_str(char *src,char *dest,unsigned int destlen);
 
 //time.c
 extern unsigned long pds_gettimeh(void); // clock time in hsec

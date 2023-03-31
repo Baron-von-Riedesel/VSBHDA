@@ -59,14 +59,16 @@ static uint8_t VIRQ_Read(uint16_t port)
     return UntrappedIO_IN(port);
 }
 
-void VIRQ_Invoke(uint8_t irq )
-//////////////////////////////
+void VIRQ_Invoke( void )
+////////////////////////
 {
+    uint8_t irq;
 
 #if QEMMPICTRAPDYN
 	QEMM_SetPICPortTrap( 1 );
 #endif
 
+	irq = SBEMU_GetIRQ();
 
 #if CHANGEPICMASK
     int mask = PIC_GetIRQMask();
@@ -109,8 +111,7 @@ void VIRQ_Invoke(uint8_t irq )
 
     VIRQ_Irq = -1;
 #if !SETIF
-	//CLI(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
-	asm("mov $0x900, %ax\n\t" "int $0x31" );
+	_disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
 #endif
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */

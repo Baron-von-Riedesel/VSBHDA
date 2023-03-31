@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <assert.h>
 #ifndef __GNUC__ //make vscode happy
@@ -158,16 +159,16 @@ BOOL HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 			end = iodt[Rangetab[i+1]-1].port;
 			dbgprintf("HDPMIPT_Install_PortTraps: %X-%X\n", start, end );
 			if (!(traphdl[i] = HDPMI_Internal_InstallTrap( start, end, &SwitchStackIOIn, &SwitchStackIOOut)))
-				return FALSE;
+				return false;
 		}
 	}
-	return TRUE;
+	return true;
 }
 
 static BOOL HDPMI_Internal_UninstallTrap( uint32_t handle )
 ///////////////////////////////////////////////////////////
 {
-    BOOL result = FALSE;
+    BOOL result = false;
     asm(
     "mov %2, %%edx \n\t"  //EDX=handle
     "mov $7, %%ax \n\t"   //ax=7, unistall port trap
@@ -190,7 +191,7 @@ BOOL HDPMIPT_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
     for ( int i = 0; traphdl[i]; i++ )
         HDPMI_Internal_UninstallTrap( traphdl[i] );
 
-    return TRUE;
+    return true;
 }
 
 BOOL HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
@@ -199,7 +200,7 @@ BOOL HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
     if ( _hdpmi_InstallISR( interrupt, ISR ) ) {
         return ( _hdpmi_InstallInt31( interrupt ) );
     }
-    return FALSE;
+    return false;
 }
 
 BOOL HDPMIPT_UninstallISR( void )

@@ -9,6 +9,7 @@
 ;--- COPYRMCS must be 1 to make sbemu fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
+TRIGGERIRQ equ 1
 
 PUSHADS struct
 _edi	dd ?
@@ -41,6 +42,10 @@ EXCFRAME ends
 	.data
 
 externdef dwDS:dword
+if TRIGGERIRQ
+externdef SBEMU_TriggerIRQ:dword
+VIRQ_Invoke proto c
+endif
 
 	comm c __djgpp_stack_top:dword
 
@@ -113,6 +118,21 @@ isstring:
 	jz done
 	mov [ebp].EXCFRAME._ecx, 0
 done:
+if TRIGGERIRQ
+	cmp [SBEMU_TriggerIRQ], 0
+	jz @F
+	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2
+	jz @F
+	mov [SBEMU_TriggerIRQ], 0
+	sub [__djgpp_stack_top], 4096
+	mov ss, [dwDS]
+	mov esp, [__djgpp_stack_top]
+	call VIRQ_Invoke
+	mov ss, ebx
+	mov esp, ebp
+	add [__djgpp_stack_top], 4096
+@@:
+endif
 	pop es
 	pop ds
 	popad
@@ -222,6 +242,9 @@ error:
 	xor eax, eax
 	ret
 _hdpmi_rmcbIO endp
+
+;--- CLI trap handler
+;--- will only be called if CR4.PVI is 0.
 
 IRETDS struct
 rEip	dd ?

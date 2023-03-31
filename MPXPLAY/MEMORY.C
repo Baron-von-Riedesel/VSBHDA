@@ -18,8 +18,6 @@
 
 #include <malloc.h>
 
-//extern unsigned int intsoundconfig,intsoundcontrol;
-
 // can be different (more safe) than the normal malloc
 void *pds_malloc(unsigned int bufsize)
 {

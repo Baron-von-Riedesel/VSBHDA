@@ -1,6 +1,7 @@
 
-#include <conio.h>
+//#include <conio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <go32.h>
 #include <sys/farptr.h>
 #include <sys/segments.h>
@@ -223,7 +224,7 @@ void DPMI_Init(void)
     __dpmi_set_segment_base_address(DPMI_Selector4G, 0);
     __dpmi_set_segment_limit(DPMI_Selector4G, 0xFFFFFFFF);
     DPMI_Addressing.selector = DPMI_Selector4G;
-    DPMI_Addressing.physical = FALSE;
+    DPMI_Addressing.physical = false;
 
     __dpmi_get_segment_base_address(_my_ds(), &DPMI_DSBase);
     //DPMI_DSLimit = __dpmi_get_segment_limit(_my_ds());
@@ -261,17 +262,17 @@ BOOL DPMI_UnmapMemory(uint32_t mappedaddr)
 {
     int index = FindAddressMap(mappedaddr);
     if(index == -1)
-        return FALSE;
+        return false;
     AddressMap* map = &AddresMapTable[index];
     if(map->Handle == 0 || map->Handle == ~0x0UL)
-        return FALSE;
+        return false;
     __dpmi_meminfo info;
     info.handle = map->Handle;
     info.address = map->LinearAddr;
     info.size = map->Size;
     __dpmi_free_physical_address_mapping(&info);
     memset(map, 0, sizeof(*map));
-    return TRUE;
+    return true;
 }
 
 uint16_t DPMI_CallRealModeRETF(DPMI_REG* reg)
@@ -304,16 +305,3 @@ uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
         return 0;
 }
 
-#if 0
-uint8_t DPMI_DisableInterrupt()
-///////////////////////////////
-{
-    return __dpmi_get_and_disable_virtual_interrupt_state();
-}
-
-void DPMI_RestoreInterrupt(uint8_t state)
-/////////////////////////////////////////
-{
-    __dpmi_get_and_set_virtual_interrupt_state(state);
-}
-#endif
