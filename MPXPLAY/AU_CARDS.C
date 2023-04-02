@@ -145,7 +145,7 @@ static one_sndcard_info *all_sndcard_info[]={
 };
 
 //control\control.c
-extern struct mpxplay_audioout_info_s au_infos;
+//extern struct mpxplay_audioout_info_s au_infos;
 //extern unsigned int playcontrol,outmode;
 //extern unsigned int intsoundconfig,intsoundcontrol;
 //extern unsigned long allcpuusage,allcputime;
@@ -155,8 +155,9 @@ extern unsigned long mpxplay_signal_events;
 #endif
 
 #ifdef SBEMU
-struct mpxplay_audioout_info_s au_infos = {0};
-static unsigned int playcontrol,outmode = OUTMODE_TYPE_AUDIO;
+//struct mpxplay_audioout_info_s au_infos = {0};
+static unsigned int playcontrol;
+static unsigned int outmode = OUTMODE_TYPE_AUDIO;
 unsigned int intsoundconfig = INTSOUND_NOBUSYWAIT;
 unsigned int intsoundcontrol;
 static unsigned long allcpuusage,allcputime;
@@ -309,8 +310,8 @@ jump_back:
 	aui->bits_card = 16;
 	aui->bytespersample_card = (aui->bits_card+7)/8;
 
-	aui->card_port = aui->card_type=0xffff;
-	aui->card_irq = aui->card_isa_dma=aui->card_isa_hidma=0xff;
+	aui->card_port = aui->card_type = 0xffff;
+	aui->card_irq = aui->card_isa_dma = aui->card_isa_hidma = 0xff;
 	aui->freq_card = 44100;
 	aui->chan_card = 2;
 
@@ -331,7 +332,7 @@ jump_back:
 			if(do_retry && !retry){
 				printf("Warning: initial soundcard config failed! Using default values: stereo, 16 bits\n");
 			}
-			if(aui->card_handler->card_info && (aui->card_controlbits&AUINFOS_CARDCNTRLBIT_TESTCARD))
+			if(aui->card_handler->card_info && (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD))
 				aui->card_handler->card_info(aui);
 			return 1;
 		}

@@ -1321,7 +1321,7 @@ static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
 		if( card->iobase & 0x1 ) // we handle memory mapping only
 			card->iobase = 0;
 		if( !card->iobase ) {
-			dbgprintf("HDA_adetect: card index %u ignored, iobase==0\n", aui->card_select_devicenum );
+			dbgprintf("HDA_adetect: card index %u skipped (no PCI base addr)\n", aui->card_select_devicenum );
 			continue;
 		}
 		card->iobase &= 0xfffffff8;
@@ -1360,7 +1360,7 @@ static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
 				}
 			}
 		}
-		printf("HDA: card %u ignored - mixer init failure\n", aui->card_select_devicenum );
+		printf("HDA: card %u skipped (mixer init error)\n", aui->card_select_devicenum );
 		HDA_cardclose( card );
 	}
 	HDA_close( aui );

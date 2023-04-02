@@ -33,3 +33,24 @@
     SETPVI will set the PVI flag in cpu register CR4, RESPVI will reset it. When
    this bit is set, it's not possible to disable interrupts in ring 3, since
    CLI/STI will modify the virtual interrupt flag (VIF) only.
+
+
+   4. Extended Memory
+
+    Some DOS games refuse to run if too much extended memory is available. There
+   are some simple software workarounds for such issues:
+
+   - HDPMI32i's -x cmdline option: this restricts the free DPMI memory to 256MB.
+     Optionally, this can be further reduced by appending a digit to -x: -x2
+     reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
+     since it's just the amount of memory that's reported as free - the program 
+     may still allocate more than that, if available.
+   
+   - HDPMI32i's -v cmdline option: this tells HDPMI to allocate physical memory
+     by using VCPI. Since VCPI memory is usually more restricted and since this
+     is a hard limit, it may help in cases where option -x won't do it. Jemm's
+     default limit for VCPI memory is 128MB, but may be set to 32MB by using
+     option MAX=32M.
+
+   - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount of
+     extended memory.

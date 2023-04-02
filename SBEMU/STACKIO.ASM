@@ -209,6 +209,15 @@ ife COPYRMCS
 endif
 	push edi
 	call [dwProc]
+if TRIGGERIRQ
+	cmp [SBEMU_TriggerIRQ], 0
+	jz @F
+	test es:[edi].RMCS.rFlags+1, 2
+	jz @F
+	mov [SBEMU_TriggerIRQ], 0
+	call VIRQ_Invoke
+@@:
+endif
 	add [__djgpp_stack_top], 4096
 ife COPYRMCS
 	add esp, 4

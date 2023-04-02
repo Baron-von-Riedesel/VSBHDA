@@ -29,7 +29,7 @@ int dbgprintf(const char *fmt, ... );
 #include "dmairq.h"
 
 //declared in control.c
-extern struct mpxplay_audioout_info_s au_infos;
+//extern struct mpxplay_audioout_info_s au_infos;
 //extern unsigned int intsoundconfig,intsoundcontrol;
 
 //**************************************************************************
