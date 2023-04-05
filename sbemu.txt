@@ -23,7 +23,7 @@
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
     Some sound hardware detection programs may need to add cmdline option /SAFE
-   to SBEMU.
+   to SBEMU. Run "SBEMU -?" to see all available options.
 
 
    3. SETPVI/RESPVI
