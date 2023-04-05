@@ -5,6 +5,7 @@
 #include "UNTRAPIO.H"
 #include "VIRQ.H"
 #include "QEMM.H"
+#include "SBEMU.H"
 #include <dos.h>
 
 #define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
@@ -15,14 +16,18 @@ static uint8_t VIRQ_OCW[2];
 
 #define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
 
+void SafeCall( uint8_t irq );
+void FastCall( uint8_t irq );
+
+void (* CallIRQ)(uint8_t) = &FastCall;
+
 static void VIRQ_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
-    //dbgprintf("VIRQW:%x,%x\n",port,value);
     if(VIRQ_IS_VIRTUALIZING())
     {
-        dbgprintf("VIRQW:%x,%x\n",port,value);
-        if((port&0x0F) == 0x00)
+        dbgprintf("VIRQ_Write:%x,%x\n",port,value);
+        if((port & 0x0F) == 0x00)
         {
             int index = ((port==0x20) ? 0 : 1);
             VIRQ_OCW[index] = value;
@@ -47,16 +52,46 @@ static uint8_t VIRQ_Read(uint16_t port)
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
-        dbgprintf("VIRQR:%x\n",port);
-        if((port&0x0F) == 0x00) {
-            int index = ((port==0x20) ? 0 : 1);
+        dbgprintf("VIRQ_Read:%x\n",port);
+        if((port & 0x0F) == 0x00) {
+            int index = ((port == 0x20) ? 0 : 1);
             if(VIRQ_OCW[index] == 0x0B) { //ISR
                 return VIRQ_ISR[index];
             }
         }
-        //return 0;
+        return 0;
     }
     return UntrappedIO_IN(port);
+}
+
+/* SafeCall: this approach works so long as HDPMI=1 is NOT set.
+ * Pro: it works if a protected-mode program has installed both a real-mode
+ *      AND a protected-mode handler routine.
+ * Con: if a protected-mode handler is installed, 4 extra mode switches are
+ *      triggered (PM->RM->RMCB->RM->PM).
+ */
+void SafeCall( uint8_t irq )
+////////////////////////////
+{
+    static DPMI_REG r = {0};
+    int n = PIC_IRQ2VEC(irq);
+    r.w.ip = DPMI_LoadW(n*4);
+    r.w.cs = DPMI_LoadW(n*4+2);
+    DPMI_CallRealModeIRET(&r);
+}
+
+/*
+ * FastCall.
+ * Pro: fast, no unneeded mode switches for protected-mode handlers.
+ * Con: may not work if both a real-mode and protected-mode handler have been set.
+ */
+void FastCall( uint8_t irq )
+////////////////////////////
+{
+    if(irq == 7)
+        asm("int $0x0F");
+    else
+        asm("int $0x0D");
 }
 
 void VIRQ_Invoke( void )
@@ -64,16 +99,16 @@ void VIRQ_Invoke( void )
 {
     uint8_t irq;
 
-#if QEMMPICTRAPDYN
-	QEMM_SetPICPortTrap( 1 );
-#endif
-
-	irq = SBEMU_GetIRQ();
+    dbgprintf("VIRQ_Invoke\n");
+    irq = SBEMU_GetIRQ();
 
 #if CHANGEPICMASK
     int mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
 #endif
+
+    QEMM_SetPICPortTrap( 1 );
+
     VIRQ_ISR[0] = VIRQ_ISR[1] = 0;
     if(irq < 8) //master
         VIRQ_ISR[0] = 1 << irq;
@@ -84,42 +119,22 @@ void VIRQ_Invoke( void )
     }
     
     VIRQ_Irq = irq;
-#if 0
-    /* this approach makes HDPMI call the "previous" real-mode handler, that is the handler
-     * that was installed when HDPMI has been launched. That's why this strategy isn't successful here.
-     */
-    static DPMI_REG r = {0};
-    DPMI_CallRealModeINT(PIC_IRQ2VEC(irq), &r);
-#elif 0
-    /* this approach works so long as HDPMI=1 is NOT set. It has the other disadvantage that, if a protected-mode
-     * handler is installed, 4 extra mode switches are triggered (PM->RM->RMCB->RM->PM).
-     */
-    static DPMI_REG r = {0};
-    int n = PIC_IRQ2VEC(irq);
-    r.w.ip = DPMI_LoadW(n*4);
-    r.w.cs = DPMI_LoadW(n*4+2);
-    DPMI_CallRealModeIRET(&r);
-#else
-    /*
-     * A general problem: if the interrupt is handled in real mode, EOIs sent to the PICs cannot be trapped!
-     */
-    if(irq == 7)
-        asm("int $0x0F");
-    else
-        asm("int $0x0D");
-#endif
-
+    CallIRQ(irq);
     VIRQ_Irq = -1;
 #if !SETIF
-	_disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
+    _disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
 #endif
+    QEMM_SetPICPortTrap( 0 );
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */
 #endif
-#if QEMMPICTRAPDYN
-	QEMM_SetPICPortTrap( 0 );
-#endif
     return;
+}
+
+void VIRQ_SafeCall( void )
+//////////////////////////
+{
+    CallIRQ = &SafeCall;
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)

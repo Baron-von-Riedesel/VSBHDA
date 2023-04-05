@@ -28,11 +28,11 @@ void SBEMU_Init(int irq, int dma, int hdma, int DSPVer );
 uint8_t SBEMU_GetIRQ();
 uint8_t SBEMU_GetDMA();
 uint8_t SBEMU_GetHDMA();
-int SBEMU_HasStarted();
+int SBEMU_Running();
 void SBEMU_Stop();
 
 int SBEMU_GetDACSpeaker();
-int SBEMU_GetBits();
+unsigned int SBEMU_GetBits();
 int SBEMU_GetChannels();
 int SBEMU_GetSampleRate();
 int SBEMU_GetSampleBytes();

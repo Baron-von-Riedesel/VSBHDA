@@ -22,6 +22,8 @@
     With the BLASTER variable one can select what card SBEMU is to emulate:
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
+    Some sound hardware detection programs may need to add cmdline option /SAFE
+   to SBEMU.
 
 
    3. SETPVI/RESPVI
@@ -45,12 +47,9 @@
      reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
      since it's just the amount of memory that's reported as free - the program 
      may still allocate more than that, if available.
-   
-   - HDPMI32i's -v cmdline option: this tells HDPMI to allocate physical memory
-     by using VCPI. Since VCPI memory is usually more restricted and since this
-     is a hard limit, it may help in cases where option -x won't do it. Jemm's
-     default limit for VCPI memory is 128MB, but may be set to 32MB by using
-     option MAX=32M.
+
+   - XMSRes: tool to reduce free XMS memory. This TSR can be uninstalled, so
+     the reduction may be reverted without reboot.
 
    - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount of
      extended memory.

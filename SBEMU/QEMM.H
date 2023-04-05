@@ -27,9 +27,7 @@ uint16_t QEMM_GetVersion(void);
 BOOL QEMM_Prepare_IOPortTrap(void);
 BOOL QEMM_Install_PortTraps( QEMM_IODT *, int *, int );
 BOOL QEMM_Uninstall_PortTraps( QEMM_IODT *, int );
-#if QEMMPICTRAPDYN
 void QEMM_SetPICPortTrap( int );
-#endif
 
 #ifdef __cplusplus
 }

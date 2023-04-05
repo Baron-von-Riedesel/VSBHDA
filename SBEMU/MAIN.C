@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <dos.h>
@@ -124,6 +125,7 @@ struct {
     "/OPL", "Enable OPL3 emulation", TRUE,
     "/PM", "Support protected mode games", TRUE,
     "/RM", "Support real mode games", TRUE,
+    "/SAFE", "Safe mode - may be needed for HW detection programs", 0,
     "/VOL", "Set master volume (0-9)", 7,
     "/O", "Select output (HDA only); 0=lineout, 1=speaker, 2=headphone", 0,
     "/DEV", "Set device index (HDA only); in case there exist multiple devices", 0,
@@ -142,6 +144,7 @@ enum EOption
     OPT_OPL,
     OPT_PM,
     OPT_RM,
+    OPT_SAFE,
     OPT_VOL,
     OPT_OUTPUT,
     OPT_DEVIDX,
@@ -166,11 +169,11 @@ static int MAIN_SB_DSPVersion[] =
     0,
     0x0100,
     0x0105,
-    0x0202,
+    0x0202, /* type 2: SB 2.0 */
     0x0302,
     0x0302,
 #if SB16
-    0x0400,
+    0x0405, /* type 6: SB16 */
 #endif
 };
 
@@ -323,15 +326,15 @@ int main(int argc, char* argv[])
         }
     }
 
-    for(int i = 1; i < argc; ++i)
-    {
-        for(int j = 0; j < OPT_COUNT; ++j)
-        {
+    for(int i = 1; i < argc; ++i) {
+        for(int j = 0; j < OPT_COUNT; ++j) {
             int len = strlen(MAIN_Options[j].option);
-            if(memicmp(argv[i], MAIN_Options[j].option, len) == 0)
-            {
+            if( memicmp(argv[i], MAIN_Options[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
                     MAIN_Options[j].value = strtol(&argv[i][len], NULL, (j == OPT_ADDR) ? 16 : 10 );
+                    break;
+                } else if ( argv[i][len] == 0 && MAIN_Options[j].value == false ) {
+                    MAIN_Options[j].value = true;
                     break;
                 }
             }
@@ -408,6 +411,8 @@ int main(int argc, char* argv[])
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
+    if(MAIN_Options[OPT_SAFE].value)
+        VIRQ_SafeCall();
     
     aui.card_select_config = MAIN_Options[OPT_OUTPUT].value;
     aui.card_select_devicenum = MAIN_Options[OPT_DEVIDX].value;
@@ -490,7 +495,7 @@ int main(int argc, char* argv[])
 		if(( bHdpmi = HDPMIPT_Install_PortTraps( MAIN_IODT, portranges, countof(portranges)-1 )) == 0 )
 			printf("Error: Failed installing IO port trap for HDPMI.\n");
 #ifdef _DEBUG
-        HDPMIPT_PrintPorts( MAIN_IODT, portranges[END_IODT] ); /* for debugging */
+        //HDPMIPT_PrintPorts( MAIN_IODT, portranges[END_IODT] ); /* for debugging */
 #endif
     }
 
@@ -606,10 +611,10 @@ void MAIN_Interrupt()
     int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
     //dbgprintf("samples:%u ",samples);
 
-    if(samples == 0)
+    if(samples == 0) /* no free space in DMA buffer? */
         return;
 
-    BOOL digital = SBEMU_HasStarted();
+    BOOL digital = SBEMU_Running();
     int dma = SBEMU_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
 
@@ -657,25 +662,25 @@ void MAIN_Interrupt()
                 resample = FALSE;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
-            if(SBEMU_GetBits()<8) //ADPCM 8bit
+            if(SBEMU_GetBits() < 8) //ADPCM 8bit
                 count = max(1, count / (9 / SBEMU_GetBits()));
             int bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer
              */
 #if PREMAPDMA
-            DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM+pos*2), MAIN_MappedBase + DMA_Addr + DMA_Index, bytes);
+            DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM + pos * 2), MAIN_MappedBase + DMA_Addr + DMA_Index, bytes);
 #else
             if( MAIN_DMA_MappedAddr == 0) {//map failed?
-                memset(MAIN_PCM+pos*2, 0, bytes);
+                memset(MAIN_PCM + pos * 2, 0, bytes);
             } else
-                DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM+pos*2), MAIN_DMA_MappedAddr+(DMA_Addr-MAIN_DMA_Addr)+DMA_Index, bytes);
+                DPMI_CopyLinear(DPMI_PTR2L(MAIN_PCM + pos * 2), MAIN_DMA_MappedAddr+(DMA_Addr-MAIN_DMA_Addr)+DMA_Index, bytes);
 #endif
 
             /* format conversion needed? */
 #if ADPCM
             if(SBEMU_GetBits()<8) //ADPCM  8bit
-                count = SBEMU_DecodeADPCM((uint8_t*)(MAIN_PCM+pos*2), bytes);
+                count = SBEMU_DecodeADPCM((uint8_t*)(MAIN_PCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
                 cv_bits_n_to_m( MAIN_PCM + pos * 2, count * channels, samplesize, 2);
@@ -691,6 +696,7 @@ void MAIN_Interrupt()
             SB_Pos = SBEMU_SetPos( SB_Pos + bytes );
             if(SB_Pos >= SB_Bytes)
             {
+                dbgprintf("MAIN_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) );
                 if(!SBEMU_GetAuto())
                     SBEMU_Stop();
                 SB_Pos = SBEMU_SetPos(0);
@@ -703,9 +709,9 @@ void MAIN_Interrupt()
                 DMA_Count = VDMA_GetCounter(dma);
                 DMA_Addr = VDMA_GetAddress(dma);
             }
-        } while(VDMA_GetAuto(dma) && (pos < samples) && SBEMU_HasStarted());
+        } while(VDMA_GetAuto(dma) && (pos < samples) && SBEMU_Running());
 
-        //dbgprintf("digital end %d %d\n", samples, pos);
+        dbgprintf("MAIN_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, SBEMU_Running() );
         //for(int i = pos; i < samples; ++i)
         //    MAIN_PCM[i*2+1] = MAIN_PCM[i*2] = 0;
         samples = min(samples, pos);

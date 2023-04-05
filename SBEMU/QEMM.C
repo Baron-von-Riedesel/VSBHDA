@@ -16,11 +16,11 @@
 #include "UNTRAPIO.H"
 
 #define HANDLE_IN_388H_DIRECTLY 1
+#define RMPICTRAPDYN 0 /* trap PIC for v86-mode dynamically when needed */
 
 uint32_t _hdpmi_rmcbIO( void(*Fn)( DPMI_REG*), DPMI_REG* reg, __dpmi_raddr * );
 
-static uint16_t QEMM_EntryIP;
-static uint16_t QEMM_EntryCS;
+static __dpmi_raddr QEMM_Entry;
 
 //static BOOL QEMM_InCallback;
 static uint16_t QEMM_OldCallbackIP;
@@ -34,6 +34,10 @@ static int PICIndex;
 static void __NAKED QEMM_RM_Wrapper()
 {//al=data,cl=out,dx=port
     _ASM_BEGIN16
+#if !RMPICTRAPDYN
+        _ASM(.byte 0x81, 0xFA, 0x20, 0x00) /* cmp dx, 0x20 */
+        _ASM(je is20)
+#endif
 #if HANDLE_IN_388H_DIRECTLY
         _ASM(cmp dx, 0x388)
         _ASM(je is388)
@@ -67,7 +71,24 @@ static void __NAKED QEMM_RM_Wrapper()
         _ASM(cmp byte ptr cs:[4], 4) //timer reg?
         _ASM(jne normal)
         _ASM(mov cs:[5], al)
-        _ASM(jmp normal)        
+        _ASM(jmp normal)
+#endif
+#if !RMPICTRAPDYN
+    _ASMLBL(is20:)
+        _ASM(push bx)
+        _ASM(test cl,4)
+        _ASM(jnz OUT20H)
+        _ASM(mov ax,0x1a00)
+        _ASM(call dword ptr cs:[8])
+        _ASM(mov al,bl)
+        _ASM(pop bx)
+        _ASM(retf)
+    _ASMLBL(OUT20H:)
+        _ASM(mov bl,al)
+        _ASM(mov ax,0x1a01)
+        _ASM(call dword ptr cs:[8])
+        _ASM(pop bx)
+        _ASM(retf)
 #endif
     _ASM_END16
 }
@@ -144,8 +165,8 @@ uint16_t QEMM_GetVersion(void)
         r.w.cs = r.w.es;
     }
     r.h.ah = 0x03; /* get version */
-    QEMM_EntryIP = r.w.ip;
-    QEMM_EntryCS = r.w.cs;
+    QEMM_Entry.offset16 = r.w.ip;
+    QEMM_Entry.segment  = r.w.cs;
     if( DPMI_CallRealModeRETF(&r) == 0 )
         return r.w.ax;
     return 0;
@@ -156,8 +177,8 @@ BOOL QEMM_Prepare_IOPortTrap()
 {
 	static DPMI_REG TrapHandlerREG; /* static RMCS for RMCB */
     DPMI_REG r = {0};
-    r.w.cs = QEMM_EntryCS;
-    r.w.ip = QEMM_EntryIP;
+    r.w.ip = QEMM_Entry.offset16;
+    r.w.cs = QEMM_Entry.segment;
     r.w.ax = 0x1A06;
     /* get current trap handler */
     if(DPMI_CallRealModeRETF(&r) != 0 || (r.w.flags & CPU_CFLAG))
@@ -170,19 +191,23 @@ BOOL QEMM_Prepare_IOPortTrap()
     if ( _hdpmi_rmcbIO( &QEMM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
         return false;
 
-#if HANDLE_IN_388H_DIRECTLY
+#if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
     /* copy 16-bit code to DOS memory
      * bytes 0-3 are the realmode callback
      * bytes 4-5 are used as data
      */
     uint32_t codesize = (uintptr_t)&QEMM_RM_WrapperEnd - (uintptr_t)&QEMM_RM_Wrapper;
     uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
-    DPMI_CopyLinear( dosmem, DPMI_PTR2L(&rmcb), 4);
-    DPMI_CopyLinear( dosmem + 4 + 2, DPMI_PTR2L( &QEMM_RM_Wrapper ), codesize);
+    DPMI_CopyLinear( dosmem, DPMI_PTR2L(&rmcb), 4 );
+    DPMI_StoreD( dosmem + 4, 0 );
+#if !RMPICTRAPDYN
+    DPMI_CopyLinear( dosmem + 8, DPMI_PTR2L(&QEMM_Entry), 4 );
+#endif
+    DPMI_CopyLinear( dosmem + 4 + 4 + 4, DPMI_PTR2L( &QEMM_RM_Wrapper ), codesize );
 
     /* set new trap handler ES:DI */
     r.w.es = dosmem >> 4;
-    r.w.di = 4+2;
+    r.w.di = 4+4+4;
 #else
     r.w.es = rmcb.segment;
     r.w.di = rmcb.offset16;
@@ -199,8 +224,8 @@ static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t e
 {
 	DPMI_REG r = {0};
 
-	r.w.cs = QEMM_EntryCS;
-	r.w.ip = QEMM_EntryIP;
+	r.w.ip = QEMM_Entry.offset16;
+	r.w.cs = QEMM_Entry.segment;
 	for( int i = start; i < end; i++ ) {
 		if ( QEMM_OldCallbackCS ) {
 			/* this is unreliable, since if the port was already trapped, there's no
@@ -228,7 +253,7 @@ int QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 	maxports = Rangetab[max];
 
 	for ( int i = 0; i < max; i++ ) {
-#if QEMMPICTRAPDYN
+#if RMPICTRAPDYN
 		if ( iodt[Rangetab[i]].port == 0x20 ) {
 			PICIndex = Rangetab[i];
 			continue;
@@ -239,36 +264,43 @@ int QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
     return 1;
 }
 
-#if QEMMPICTRAPDYN
 void QEMM_SetPICPortTrap( int bSet )
 ////////////////////////////////////
 {
 	/* might be called even if support for v86 is disabled */
-	if ( QEMM_EntryCS ) {
+	if ( QEMM_Entry.segment ) {
+#if RMPICTRAPDYN
 		DPMI_REG r = {0};
-		r.w.cs = QEMM_EntryCS;
-		r.w.ip = QEMM_EntryIP;
+		r.w.ip = QEMM_Entry.offset16;
+		r.w.cs = QEMM_Entry.segment;
 		r.w.dx = (pIodt+PICIndex)->port;
 		if ( bSet ) {
-			r.w.ax = 0x1A09;
+			r.w.ax = 0x1A09; /* trap */
 			(pIodt+PICIndex)->flags |= IODT_FLGS_RMINST;
 		} else {
-			r.w.ax = 0x1A0A;
+			r.w.ax = 0x1A0A; /* untrap */
 			(pIodt+PICIndex)->flags &= ~IODT_FLGS_RMINST;
 		}
 		DPMI_CallRealModeRETF(&r); /* trap port */
+#else
+		uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
+		if ( bSet ) {
+			DPMI_StoreW( dosmem+12+2, -1 );  /* cmp dx,0xffff */
+		} else {
+			DPMI_StoreW( dosmem+12+2, 0x20); /* cmp dx,0x0020 */
+		}
+#endif
 	}
 	return;
 }
-#endif
 
 BOOL QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
 ////////////////////////////////////////////////////////
 {
 	DPMI_REG r = {0};
 
-	r.w.cs = QEMM_EntryCS;
-	r.w.ip = QEMM_EntryIP;
+	r.w.ip = QEMM_Entry.offset16;
+	r.w.cs = QEMM_Entry.segment;
 	for(int i = 0; i < max; ++i) {
 		if ( !( iodt[i].flags & 0xff00 )) {
 			if( iodt[i].flags & IODT_FLGS_RMINST ) {

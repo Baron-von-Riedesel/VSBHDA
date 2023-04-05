@@ -86,7 +86,7 @@ $(OUTD)/dpmi.o::     dpmi.c      dpmi_.h platform.h
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/hdpmipt.o::  hdpmipt.c   hdpmipt.h qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
 $(OUTD)/int31.o::    int31.asm
-$(OUTD)/main.o::     main.c      hdpmipt.h qemm.h dpmi_.h opl3emu.h pic.h platform.h sbemu.h sbemucfg.h untrapio.h vdma.h virq.h in_file.h mpxplay.h au_cards.h au_mixer.h mix_func.h newfunc.h
+$(OUTD)/main.o::     main.c      hdpmipt.h qemm.h dpmi_.h opl3emu.h pic.h platform.h sbemu.h sbemucfg.h untrapio.h vdma.h virq.h in_file.h mpxplay.h au_cards.h au_mixer.h mix_func.h newfunc.h ports.h
 $(OUTD)/memory.o::   memory.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/nf_dpmi.o::  nf_dpmi.c   newfunc.h
 $(OUTD)/opl3emu.o::  opl3emu.cpp dbopl.h opl3emu.h

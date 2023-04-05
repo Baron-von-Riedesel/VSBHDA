@@ -14,6 +14,7 @@ uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out);
 //uint8_t VIRQ_Read(uint16_t port);
 
 void VIRQ_Invoke( void );
+void VIRQ_SafeCall( void );
 
 #ifdef __cplusplus
 }

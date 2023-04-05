@@ -87,9 +87,9 @@
 #define SB16_MIXERREG_BASSL        0x46
 #define SB16_MIXERREG_BASSR        0x47
 #endif
-#define SB_MIXERREG_INT_STS      0x82 /* IRQ status, bits 0-2; SB16 only, but used internally */
 #define SB_MIXERREG_INT_SETUP    0x80 /* IRQ select, bits 0-3; SB16 only, but used internally */
 #define SB_MIXERREG_DMA_SETUP    0x81 /* DMA select, bits 0-7; SB16 only, but used internally */
+#define SB_MIXERREG_IRQ_STATUS   0x82 /* IRQ status, bits 0-2; SB16 only, but used internally */
 
 //DSP commands
 #define SB_DSP_SET_TIMECONST     0x40
@@ -102,8 +102,9 @@
 #endif
 #define SB_DSP_PAUSE_DAC         0x80 //pause by samples
 #define SB_DSP_HALT_DMA          0xD0
-#define SB_DSP_DAC_SPEAKER_ON    0xD1
-#define SB_DSP_DAC_SPEAKER_OFF   0xD3
+#define SB_DSP_SPEAKER_ON        0xD1
+#define SB_DSP_SPEAKER_OFF       0xD3
+#define SB_DSP_SPEAKER_STATUS    0xD8
 #define SB_DSP_CONTINUE_DMA      0xD4
 #if SB16
 #define SB_DSP_HALT_DMA16        0xD5 /* SB16 */
@@ -111,13 +112,15 @@
 #define SB_DSP_EXIT_16BIT_AUTO   0xD9 /* SB16 */
 #endif
 #define SB_DSP_EXIT_8BIT_AUTO    0xDA
-#define SB_DSP_DSP_ID            0xE0
-#define SB_DSP_DSP_GETVER        0xE1 //1st byte major, 2nd byte minor
-#define SB_DSP_DSP_COPYRIGHT     0xE3
+#define SB_DSP_ID                0xE0 /* SB: DSP identification */
+#define SB_DSP_GETVER            0xE1 //1st byte major, 2nd byte minor
+#define SB_DSP_COPYRIGHT         0xE3
+#define SB_DSP_WRITE_TESTREG     0xE4 /* SB 2.0 */
+#define SB_DSP_READ_TESTREG      0xE8 /* SB 2.0 */
 #define SB_DSP_TRIGGER_IRQ       0xF2
 #if SB16
 #define SB_DSP_TRIGGER_IRQ16     0xF3 /* SB16 trigger interrupt */
-#define SB_DSP_DSP_STATUS        0xFB /* SB16 DSP status */
+#define SB_DSP_STATUS            0xFB /* SB16 DSP status */
 #define SB_DSP_DSP_AUX_STATUS    0xFC /* SB16 DSP aux status */
 #define SB_DSP_DSP_CMD_STATUS    0xFD /* SB16 DSP cmd status */
 #endif

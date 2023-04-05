@@ -15,9 +15,6 @@
 //function: DMA & IRQ handling
 //based on the MPG123 (DOS)
 
-int dbgprintf(const char *fmt, ... );
-#define dbgprintf
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
@@ -25,6 +22,7 @@ int dbgprintf(const char *fmt, ... );
 #include <dos.h>
 #include <string.h>
 
+#include "sbemucfg.h"
 #include "mpxplay.h"
 #include "dmairq.h"
 

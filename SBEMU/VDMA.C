@@ -33,7 +33,7 @@ static const uint8_t VDMA_PortChannelMap[16] =
 void VDMA_Write(uint16_t port, uint8_t byte)
 ////////////////////////////////////////////
 {
-    dbgprintf("VDMA write: %x, %x\n", port, byte);
+    dbgprintf("VDMA_Write: %x, %x\n", port, byte);
     if(( port >= VDMA_REG_STATUS_CMD && port <= VDMA_REG_MULTIMASK) ||
        ( port >= VDMA_REG_STATUS_CMD16 && port <= VDMA_REG_MULTIMASK16 ) ) {
         int base = 0;
@@ -96,7 +96,7 @@ void VDMA_Write(uint16_t port, uint8_t byte)
 uint8_t VDMA_Read(uint16_t port)
 ////////////////////////////////
 {
-    dbgprintf("VDMA read: port=%x\n", port);
+	dbgprintf("VDMA_Read: port=%x\n", port);
     int channel = -1;
 
     if( port <= VDMA_REG_CH3_COUNTER )
@@ -117,7 +117,7 @@ uint8_t VDMA_Read(uint16_t port)
             //dbgprintf("base:%d port:%d\n", base, port);
 
             int value = VDMA_Regs[base+port];
-            dbgprintf("VDMA %s: %d\n", ((port&0x1) == 1) ? "counter" : "addr", value);
+            dbgprintf("VDMA_Read %s: %d\n", ((port&0x1) == 1) ? "counter" : "addr", value);
             if( ( ( VDMA_Regs[base+VDMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
                 VDMA_InIO[channel] = true;
                 return value & 0xFF;
@@ -148,7 +148,7 @@ uint8_t VDMA_Read(uint16_t port)
                 VDMA_Complete[i] = 0; //clear on read
             }
         }
-        dbgprintf("VDMA status: %02x\n", result);
+        dbgprintf("VDMA_Read status: %02x\n", result);
     }
     return result;
 }
