@@ -18,8 +18,6 @@
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
-#ifdef AU_CARDS_LINK_IHD
-
 #include <string.h>
 #include "dmairq.h"
 #include "pcibios.h"
@@ -778,11 +776,10 @@ static unsigned int snd_hda_buffer_init(struct mpxplay_audioout_info_s *aui,stru
 	unsigned long allbufsize=BDL_SIZE+1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
 	unsigned int beginmem_aligned;
 
-	allbufsize += card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,AZX_PERIOD_SIZE,bytes_per_sample*aui->chan_card/2,aui->freq_set);
+	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,AZX_PERIOD_SIZE,bytes_per_sample*aui->chan_card/2,aui->freq_set);
 	card->dm = MDma_alloc_cardmem( allbufsize );
 	if(!card->dm)
 		return 0;
-
 	beginmem_aligned = (((unsigned long)card->dm->linearptr + 1023) & (~1023));
 	card->table_buffer = (uint32_t *)beginmem_aligned;
 	card->pcmout_buffer = (char *)(beginmem_aligned + BDL_SIZE);
@@ -1541,5 +1538,3 @@ one_sndcard_info IHD_sndcard_info={
  &HDA_readMIXER,
  &ihd_mixerset[0]
 };
-
-#endif // AU_CARDS_LINK_IHD

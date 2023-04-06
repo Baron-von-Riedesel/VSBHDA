@@ -19,8 +19,6 @@
 #include "mpxplay.h"
 #include <time.h>
 
-#ifdef AU_CARDS_LINK_ICH
-
 #include <string.h>
 #include "dmairq.h"
 #include "pcibios.h"
@@ -177,7 +175,9 @@ static unsigned int snd_intel_buffer_init(struct intel_card_s *card,struct mpxpl
 	unsigned int bytes_per_sample=(aui->bits_set>16)? 4:2;
 
 	card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,ICH_DMABUF_ALIGN,bytes_per_sample,0);
-	card->dm=MDma_alloc_cardmem(ICH_DMABUF_PERIODS*2*sizeof(uint32_t)+card->pcmout_bufsize);
+	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS*2*sizeof(uint32_t)+card->pcmout_bufsize);
+	if (!card->dm)
+        return 0;
 	card->virtualpagetable=(uint32_t *)card->dm->linearptr; // pagetable requires 8 byte align, but dos-allocmem gives 16 byte align (so we don't need alignment correction)
 	card->pcmout_buffer=((char *)card->virtualpagetable)+ICH_DMABUF_PERIODS*2*sizeof(uint32_t);
 	aui->card_DMABUFF=card->pcmout_buffer;
@@ -695,5 +695,3 @@ one_sndcard_info ICH_sndcard_info={
  &INTELICH_readMIXER,
  &mpxplay_aucards_ac97chan_mixerset[0]
 };
-
-#endif

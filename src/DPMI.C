@@ -257,7 +257,7 @@ uint32_t DPMI_MapMemory(uint32_t physicaladdr, uint32_t size)
     return 0;
 }
 
-BOOL DPMI_UnmapMemory(uint32_t mappedaddr)
+bool DPMI_UnmapMemory(uint32_t mappedaddr)
 //////////////////////////////////////////
 {
     int index = FindAddressMap(mappedaddr);

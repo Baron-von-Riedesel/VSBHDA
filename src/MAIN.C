@@ -42,9 +42,9 @@ static mpxplay_audio_decoder_info_s adi = {
 static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
 static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
 
-static BOOL enableRM;
-static BOOL enablePM;
-static BOOL PM_ISR;
+static bool enableRM;
+static bool enablePM;
+static bool PM_ISR;
 uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 
 
@@ -103,8 +103,8 @@ static int portranges[] = {
 #undef tport
 #undef tportx
 
-static BOOL bQemm = FALSE;
-static BOOL bHdpmi = FALSE;
+static bool bQemm = FALSE;
+static bool bHdpmi = FALSE;
 
 struct {
     const char* option;
@@ -125,7 +125,7 @@ struct {
     "/OPL", "Enable OPL3 emulation", TRUE,
     "/PM", "Support protected mode games", TRUE,
     "/RM", "Support real mode games", TRUE,
-    "/SAFE", "Safe mode - may be needed for HW detection programs", 0,
+    "/SAFE", "Safe mode - may be needed by some protected-mode programs", 0,
     "/VOL", "Set master volume (0-9)", 7,
     "/O", "Select output (HDA only); 0=lineout, 1=speaker, 2=headphone", 0,
     "/DEV", "Set device index (HDA only); in case there exist multiple devices", 0,
@@ -290,44 +290,31 @@ static void IODT_DelEntries( int start, int end, int entries )
 int main(int argc, char* argv[])
 ////////////////////////////////
 {
-    //dbgprintf("main argc=%u\n argv[1]=%s\n", argc, argv[1] ? argv[1] : "NULL" );
-	if( argc >= 2 && (*argv[1] == '/' || *argv[1] == '-') && ( *(argv[1]+1) == '?' || *(argv[1]+1) == 'h' ) ) {
-		printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
-		int i = 0;
-		while(MAIN_Options[i].option) {
-			printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, MAIN_Options[i].value);
-			++i;
-		}
-		printf("\nNote: SBEMU will read BLASTER environment variable and use it, " HELPNOTE );
-		printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
-		return 0;
-	}
-	//parse BLASTER env first.
-	{
-		char* blaster = getenv("BLASTER");
-		if(blaster != NULL)
-        {
-            char c;
-            while((c=toupper(*(blaster++))))
-            {
-                if(c == 'I')
-                    MAIN_Options[OPT_IRQ].value = *(blaster++) - '0';
-                else if(c == 'D')
-                    MAIN_Options[OPT_DMA].value = *(blaster++) - '0';
-                else if(c == 'A')
-                    MAIN_Options[OPT_ADDR].value = strtol(blaster, &blaster, 16);
-                else if(c =='T')
-                    MAIN_Options[OPT_TYPE].value = *(blaster++) - '0';
+
+    //parse BLASTER env first.
+    char* blaster = getenv("BLASTER");
+    if(blaster != NULL) {
+        char c;
+        while((c=toupper(*(blaster++)))) {
+            if(c == 'I')
+                MAIN_Options[OPT_IRQ].value = *(blaster++) - '0';
+            else if(c == 'D')
+                MAIN_Options[OPT_DMA].value = *(blaster++) - '0';
+            else if(c == 'A')
+                MAIN_Options[OPT_ADDR].value = strtol(blaster, &blaster, 16);
+            else if(c =='T')
+                MAIN_Options[OPT_TYPE].value = *(blaster++) - '0';
 #if SB16
-                else if(c =='H')
-                    MAIN_Options[OPT_HDMA].value = *(blaster++) - '0';
+            else if(c =='H')
+                MAIN_Options[OPT_HDMA].value = *(blaster++) - '0';
 #endif
-            }
         }
     }
 
+    /* check cmdline arguments */
     for(int i = 1; i < argc; ++i) {
-        for(int j = 0; j < OPT_COUNT; ++j) {
+        int j;
+        for( j = 0; j < OPT_COUNT; ++j) {
             int len = strlen(MAIN_Options[j].option);
             if( memicmp(argv[i], MAIN_Options[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
@@ -339,6 +326,22 @@ int main(int argc, char* argv[])
                 }
             }
         }
+        if ( j == OPT_COUNT )
+            MAIN_Options[OPT_Help].value = true;
+    }
+
+    /* if -? or unrecognised option was entered, display help and exit */
+    if( MAIN_Options[OPT_Help].value ) {
+        MAIN_Options[OPT_Help].value = 0;
+        printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
+        int i = 0;
+        while(MAIN_Options[i].option) {
+            printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, MAIN_Options[i].value);
+            ++i;
+        }
+        printf("\nNote: SBEMU will read BLASTER environment variable and use it, " HELPNOTE );
+        printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
+        return 0;
     }
 
     if(MAIN_Options[OPT_ADDR].value != 0x220 && MAIN_Options[OPT_ADDR].value != 0x240)
@@ -399,7 +402,7 @@ int main(int argc, char* argv[])
     }
     if(MAIN_Options[OPT_PM].value)
     {
-        BOOL hasHDPMI = HDPMIPT_Detect(); //another DPMI host used other than HDPMI
+        bool hasHDPMI = HDPMIPT_Detect(); //another DPMI host used other than HDPMI
         if(!hasHDPMI)
             printf("HDPMI not installed, disable protected mode support.\n");
         MAIN_Options[OPT_PM].value = hasHDPMI;
@@ -614,7 +617,7 @@ void MAIN_Interrupt()
     if(samples == 0) /* no free space in DMA buffer? */
         return;
 
-    BOOL digital = SBEMU_Running();
+    bool digital = SBEMU_Running();
     int dma = SBEMU_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
 
@@ -651,7 +654,7 @@ void MAIN_Interrupt()
             }
 #endif
             int count = samples - pos;
-            BOOL resample = TRUE; //don't resample if sample rates are close
+            bool resample = TRUE; //don't resample if sample rates are close
             if(SB_Rate < aui.freq_card)
                 //count = max(channels, count/((aui.freq_card+SB_Rate-1)/SB_Rate));
                 count = max(1, count * SB_Rate / aui.freq_card );

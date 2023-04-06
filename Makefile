@@ -15,11 +15,11 @@ OUTD=build
 C_DEBUG_FLAGS=
 endif
 
-vpath_src=mpxplay sbemu
+vpath_src=src mpxplay
 vpath %.c $(vpath_src)
 vpath %.cpp $(vpath_src)
 vpath %.asm $(vpath_src)
-vpath_header=./sbemu ./mpxplay
+vpath_header=src mpxplay
 vpath %.h $(vpath_header)
 vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
@@ -31,11 +31,11 @@ OBJFILES=\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/nf_dpmi.o	$(OUTD)/string.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
-	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o\
+	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
-INCLUDE_DIRS=./mpxplay ./sbemu
-SRC_DIRS=mpxplay sbemu
+INCLUDE_DIRS=src mpxplay
+SRC_DIRS=src mpxplay
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
 C_EXTRA_FLAGS=-march=i386 -D__DOS__ -DSBEMU -DSBLSUPP
@@ -49,16 +49,16 @@ COMPILE.asm.o=jwasm.exe -q -djgpp -Fo$@ $<
 COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
-$(OUTD)/%.o: SBEMU/%.c
+$(OUTD)/%.o: src/%.c
 	$(COMPILE.c.o)
 
-$(OUTD)/%.o: SBEMU/%.cpp
+$(OUTD)/%.o: src/%.cpp
 	$(COMPILE.cpp.o)
 
-$(OUTD)/%.o: SBEMU/%.asm
+$(OUTD)/%.o: src/%.asm
 	$(COMPILE.asm.o)
 
-$(OUTD)/%.o: MPXPLAY/%.c
+$(OUTD)/%.o: mpxplay/%.c
 	$(COMPILE.c.o)
 
 all:: $(OUTD) $(OUTD)/sbemu.exe
@@ -93,6 +93,7 @@ $(OUTD)/opl3emu.o::  opl3emu.cpp dbopl.h opl3emu.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h untrapio.h
 $(OUTD)/qemm.o::     qemm.c      qemm.h dpmi_.h platform.h untrapio.h sbemucfg.h
+$(OUTD)/rmwrap.o::   rmwrap.asm
 $(OUTD)/sbemu.o::    sbemu.c     dpmi_.h platform.h sbemu.h sbemucfg.h
 $(OUTD)/sc_e1371.o:: sc_e1371.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
 $(OUTD)/sc_ich.o::   sc_ich.c    ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h

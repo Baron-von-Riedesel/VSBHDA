@@ -15,6 +15,7 @@
 #include "DPMI_.H"
 #include "UNTRAPIO.H"
 
+// next 2 defines must match EQUs in rmwrap.asm!
 #define HANDLE_IN_388H_DIRECTLY 1
 #define RMPICTRAPDYN 0 /* trap PIC for v86-mode dynamically when needed */
 
@@ -22,7 +23,7 @@ uint32_t _hdpmi_rmcbIO( void(*Fn)( DPMI_REG*), DPMI_REG* reg, __dpmi_raddr * );
 
 static __dpmi_raddr QEMM_Entry;
 
-//static BOOL QEMM_InCallback;
+//static bool QEMM_InCallback;
 static uint16_t QEMM_OldCallbackIP;
 static uint16_t QEMM_OldCallbackCS;
 static __dpmi_raddr rmcb;
@@ -31,68 +32,10 @@ static QEMM_IODT *pIodt;
 static int maxports;
 static int PICIndex;
 
-static void __NAKED QEMM_RM_Wrapper()
-{//al=data,cl=out,dx=port
-    _ASM_BEGIN16
-#if !RMPICTRAPDYN
-        _ASM(.byte 0x81, 0xFA, 0x20, 0x00) /* cmp dx, 0x20 */
-        _ASM(je is20)
+#if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
+extern void QEMM_RM_Wrapper( void );
+extern void QEMM_RM_WrapperEnd( void );
 #endif
-#if HANDLE_IN_388H_DIRECTLY
-        _ASM(cmp dx, 0x388)
-        _ASM(je is388)
-        _ASM(cmp dx, 0x389)
-        _ASM(je is389)
-    _ASMLBL(normal:)
-        _ASM(jmp dword ptr cs:[0])
-    _ASM(is388:)
-        _ASM(test cl, 4)     // is it OUT?
-        _ASM(jnz OUT388H)
-        _ASM(mov al, cs:[5]) //in 388h
-        _ASM(and al, 0x03)
-        _ASM(test al, 0x01)
-        _ASM(jz nexttimer)
-        _ASM(mov al, 0xC0)
-        _ASM(retf)
-    _ASMLBL(nexttimer:)
-        _ASM(test al, 0x02)
-        _ASM(jz ret0)
-        _ASM(mov al, 0xA0)
-        _ASM(retf)
-    _ASMLBL(ret0:)
-        _ASM(xor al,al)
-        _ASM(retf)
-    _ASMLBL(OUT388H:)
-        _ASM(mov cs:[4], al)
-        _ASM(jmp normal)        
-    _ASMLBL(is389:)
-        _ASM(test cl, 4)     // is it OUT?
-        _ASM(jz normal)
-        _ASM(cmp byte ptr cs:[4], 4) //timer reg?
-        _ASM(jne normal)
-        _ASM(mov cs:[5], al)
-        _ASM(jmp normal)
-#endif
-#if !RMPICTRAPDYN
-    _ASMLBL(is20:)
-        _ASM(push bx)
-        _ASM(test cl,4)
-        _ASM(jnz OUT20H)
-        _ASM(mov ax,0x1a00)
-        _ASM(call dword ptr cs:[8])
-        _ASM(mov al,bl)
-        _ASM(pop bx)
-        _ASM(retf)
-    _ASMLBL(OUT20H:)
-        _ASM(mov bl,al)
-        _ASM(mov ax,0x1a01)
-        _ASM(call dword ptr cs:[8])
-        _ASM(pop bx)
-        _ASM(retf)
-#endif
-    _ASM_END16
-}
-static void __NAKED QEMM_RM_WrapperEnd() {}
 
 static void QEMM_TrapHandler( DPMI_REG * regs)
 //////////////////////////////////////////////
@@ -172,7 +115,7 @@ uint16_t QEMM_GetVersion(void)
     return 0;
 }
 
-BOOL QEMM_Prepare_IOPortTrap()
+bool QEMM_Prepare_IOPortTrap()
 //////////////////////////////
 {
 	static DPMI_REG TrapHandlerREG; /* static RMCS for RMCB */
@@ -196,7 +139,7 @@ BOOL QEMM_Prepare_IOPortTrap()
      * bytes 0-3 are the realmode callback
      * bytes 4-5 are used as data
      */
-    uint32_t codesize = (uintptr_t)&QEMM_RM_WrapperEnd - (uintptr_t)&QEMM_RM_Wrapper;
+    uint32_t codesize = (void *)&QEMM_RM_WrapperEnd - (void *)&QEMM_RM_Wrapper;
     uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
     DPMI_CopyLinear( dosmem, DPMI_PTR2L(&rmcb), 4 );
     DPMI_StoreD( dosmem + 4, 0 );
@@ -219,7 +162,7 @@ BOOL QEMM_Prepare_IOPortTrap()
 }
 
 
-static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t end )
+static bool QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t end )
 ////////////////////////////////////////////////////////////////////////////////////
 {
 	DPMI_REG r = {0};
@@ -246,8 +189,8 @@ static BOOL QEMM_Install_IOPortTrap(QEMM_IODT iodt[], uint16_t start, uint16_t e
     return true;
 }
 
-int QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
-//////////////////////////////////////////////////////////////////////
+bool QEMM_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
+////////////////////////////////////////////////////////////////////////
 {
 	pIodt = iodt;
 	maxports = Rangetab[max];
@@ -294,7 +237,7 @@ void QEMM_SetPICPortTrap( int bSet )
 	return;
 }
 
-BOOL QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
+bool QEMM_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
 ////////////////////////////////////////////////////////
 {
 	DPMI_REG r = {0};

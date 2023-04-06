@@ -1,4 +1,7 @@
 
+#include <stdbool.h>
+#include <dos.h>
+
 #include "SBEMUCFG.H"
 #include "PIC.H"
 #include "DPMI_.H"
@@ -6,7 +9,6 @@
 #include "VIRQ.H"
 #include "QEMM.H"
 #include "SBEMU.H"
-#include <dos.h>
 
 #define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
 

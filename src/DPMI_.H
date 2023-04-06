@@ -65,7 +65,7 @@ void* DPMI_L2PTR(uint32_t addr); /* convert a linear addr to a (near) ptr */
 uint32_t DPMI_MapMemory(uint32_t physicaladdr, uint32_t size);
 
 /* free linear address range with mapped physical memory */
-BOOL DPMI_UnmapMemory(uint32_t mappedaddr);
+bool DPMI_UnmapMemory(uint32_t mappedaddr);
 
 //RM call. return 0 on succeed.
 uint16_t DPMI_CallRealModeINT(uint8_t i, DPMI_REG* reg);

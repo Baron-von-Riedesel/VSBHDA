@@ -18,8 +18,6 @@
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
-#ifdef AU_CARDS_LINK_VIA82XX
-
 #include <string.h>
 #include "dmairq.h"
 #include "pcibios.h"
@@ -273,14 +271,14 @@ static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
 #endif
 
 	// alloc buffers
-	card->pcmout_bufsize=MDma_get_max_pcmoutbufsize(aui,0,PCMBUFFERPAGESIZE,2,0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,PCMBUFFERPAGESIZE,2,0);
 
-	card->dm=MDma_alloc_cardmem( VIRTUALPAGETABLESIZE   // virtualpagetable
-								+card->pcmout_bufsize   // pcm output
-								+4096 );                // to round
+	card->dm = MDma_alloc_cardmem( VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 );
+	if (!card->dm)
+		return 0;
 
-	card->virtualpagetable=(void *)(((uint32_t)card->dm->linearptr+4095)&(~4095));
-	card->pcmout_buffer=(char *)card->virtualpagetable+VIRTUALPAGETABLESIZE;
+	card->virtualpagetable = (void *)(((uint32_t)card->dm->linearptr + 4095) & (~4095));
+	card->pcmout_buffer = (char *)card->virtualpagetable + VIRTUALPAGETABLESIZE;
 
 #ifdef SBEMU
 	memset(card->virtualpagetable, 0, VIRTUALPAGETABLESIZE);
@@ -639,5 +637,3 @@ one_sndcard_info VIA82XX_sndcard_info={
  &VIA82XX_readMIXER,
  &via82xx_mixerset[0]
 };
-
-#endif

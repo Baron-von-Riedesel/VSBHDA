@@ -44,15 +44,14 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 	cardmem_t *dm;
 	dm=calloc(1,sizeof(cardmem_t));
 	if(!dm)
-		exit(MPXERROR_XMS_MEM);
+		return NULL;
 #ifndef DJGPP
 	if(!pds_dpmi_dos_allocmem(dm,buffsize)) {
 #else
 	if(!pds_dpmi_xms_allocmem(dm,buffsize)) {
 #endif
 		free(dm);
-		//exit(MPXERROR_CONVENTIONAL_MEM);
-		exit(MPXERROR_XMS_MEM); /* error msg has been displayed already */
+		return NULL;
 	}
 	memset( dm->linearptr, 0, buffsize);
 	dbgprintf("MDma_alloc_cardmem: %X\n", dm->linearptr);

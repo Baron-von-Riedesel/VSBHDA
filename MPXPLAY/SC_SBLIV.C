@@ -19,8 +19,6 @@
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
-#ifdef AU_CARDS_LINK_SBLIVE
-
 #include "dmairq.h"
 #include "pcibios.h"
 #include "ac97_def.h"
@@ -1496,5 +1494,3 @@ static void sblive_select_mixer(struct emu10k1_card *card)
 {
 	SBLIVE_sndcard_info.card_mixerchans=card->driver_funcs->mixerset;
 }
-
-#endif

@@ -18,8 +18,6 @@
 #include "sbemucfg.h"
 #include "mpxplay.h"
 
-#ifdef AU_CARDS_LINK_ES1371
-
 #include "dmairq.h"
 #include "pcibios.h"
 #include "ac97_def.h"
@@ -373,6 +371,8 @@ static unsigned int snd_es1371_buffer_init(struct ensoniq_card_s *card,struct mp
 	unsigned int bytes_per_sample=2; // 16 bit
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
 	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize );
+	if (!card->dm)
+        return 0;
 	card->pcmout_buffer = (char *)card->dm->linearptr;
 	aui->card_DMABUFF = card->pcmout_buffer;
 	dbgprintf("buffer init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
@@ -691,5 +691,3 @@ one_sndcard_info ES1371_sndcard_info={
  &ES1371_readMIXER,
  &mpxplay_aucards_ac97chan_mixerset[0]
 };
-
-#endif // AUCARDS_LINK_ES1371

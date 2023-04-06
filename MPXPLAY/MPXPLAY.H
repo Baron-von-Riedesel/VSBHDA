@@ -27,16 +27,10 @@
 extern "C" {
 #endif
 
-#define MPXPLAY_LINK_FULL     0
-
 // out pcm defs
 #define PCM_OUTSAMPLES    1152     // at 44100Hz
 #define PCM_MIN_CHANNELS     1
-#ifdef MPXPLAY_LINK_FULL
-#define PCM_MAX_CHANNELS     8     // au_mixer output (au_card input) limit
-#else
 #define PCM_MAX_CHANNELS     2     // au_mixer output (au_card input) limit
-#endif
 #define PCM_CHANNELS_DEFAULT 2
 #define PCM_CHANNELS_CFG ((aui->chan_card)? aui->chan_card:((aui->chan_set)? aui->chan_set:PCM_CHANNELS_DEFAULT))
 #define PCM_MIN_BITS      1
@@ -94,73 +88,11 @@ extern "C" {
 // Mpxplay exit error codes
 #define MPXERROR_OK                0
 #define MPXERROR_SNDCARD           8
-#define MPXERROR_XMS_MEM           9
-//#define MPXERROR_CONVENTIONAL_MEM 10
-#define MPXERROR_NOFILE           11
-#define MPXERROR_CANTWRITEFILE    12
-#define MPXERROR_DIV0             13
-#define MPXERROR_EXCEPTION        14
 #define MPXERROR_UNDEFINED        15 // sometimes not error, just don't save playlists and mpxplay.ini
 
-// Mpxplay error range begins
-#define MPXPLAY_ERROR_RANGE_INFILE          0
-#define MPXPLAY_ERROR_RANGE_MPXINBUF     -100
-#define MPXPLAY_ERROR_RANGE_FILEHAND     -200
-#define MPXPLAY_ERROR_RANGE_CFGFUNC      -300
-#define MPXPLAY_ERROR_RANGE_DISKDRIV     -400
-#define MPXPLAY_ERROR_RANGE_GENERAL      -800
-
-#define MPXPLAY_ERROR_OK                   0
-#define MPXPLAY_ERROR_MPXINBUF_OK          0 // no error
-#define MPXPLAY_ERROR_MPXINBUF_READ_EOF -100 // can't read, because EOF
-#define MPXPLAY_ERROR_MPXINBUF_READ_BUF -101 // can't read, because no data left in buffer
-#define MPXPLAY_ERROR_MPXINBUF_READ_LOW -102 // can't read from file-device (but not eof yet)
-#define MPXPLAY_ERROR_MPXINBUF_SEEK_EOF -110 // invalid newfilepos (out of filesize)
-#define MPXPLAY_ERROR_MPXINBUF_SEEK_BUF -111 // newfilepos is out of buffer
-#define MPXPLAY_ERROR_MPXINBUF_SEEK_LOW -112 // can't seek file-device
-#define MPXPLAY_ERROR_MPXINBUF_ARGUMENT -120 // argument error
-
-#define MPXPLAY_ERROR_CFGFUNC_INVALIDDATA     -300
-#define MPXPLAY_ERROR_CFGFUNC_UNSUPPFUNC      -301
-#define MPXPLAY_ERROR_CFGFUNC_ARGUMENTMISSING -302
-
-#define MPXPLAY_ERROR_ARGS              -800
-
-//dosshell types
-#define DSH_NO        0
-#define DSH_CHILD     1
-#define DSH_NEWSHELL  2
-#define DSH_START     3
-
-//other
-//#define IRQ_STACK_SIZE 16384   // size of irq (errorhand and soundcard) stacks
-
-//wave (codec) IDs at input/output
 #define MPXPLAY_WAVEID_UNKNOWN   0x0000
 #define MPXPLAY_WAVEID_PCM_SLE   0x0001 // signed little endian
 #define MPXPLAY_WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
-#define MPXPLAY_WAVEID_AC3       0x2000
-#define MPXPLAY_WAVEID_DTS       0x2001
-#define MPXPLAY_WAVEID_MP2       0x0050
-#define MPXPLAY_WAVEID_MP3       0x0055
-#define MPXPLAY_WAVEID_WMAV1     0x0160 // 7.0
-#define MPXPLAY_WAVEID_WMAV2     0x0161 // 8.0
-#define MPXPLAY_WAVEID_LATMAAC   0x1602 // AAC with LATM header
-#define MPXPLAY_WAVEID_AAC       0x706D
-#define MPXPLAY_WAVEID_FLAC      0xF1AC
-#define MPXPLAY_WAVEID_VORBIS    (('V' << 8) + 'o') // ??? from FFmpeg
-// non-standard (internal) wave-ids
-#define MPXPLAY_WAVEID_PCM_ULE   0x00017000 // unsigned little endian pcm
-#define MPXPLAY_WAVEID_PCM_SBE   0x00017001 // signed big endian pcm
-#define MPXPLAY_WAVEID_PCM_UBE   0x00017002 // unsigned big endian pcm
-#define MPXPLAY_WAVEID_PCM_DVD   0x00017005 // big endian interleaved 16 + 4/8 bits
-#define MPXPLAY_WAVEID_PCM_F32BE 0x00017010 // 32-bit float big endian
-#define MPXPLAY_WAVEID_PCM_F64LE 0x00017015 // 64-bit float little endian
-#define MPXPLAY_WAVEID_PCM_F64BE 0x00017016 // 64-bit float big endian
-#define MPXPLAY_WAVEID_SPEEX     0x00018002
-#define MPXPLAY_WAVEID_OPUS      0x00018003
-#define MPXPLAY_WAVEID_ALAC      0x00018005
-#define MPXPLAY_WAVEID_UNSUPPORTED 0x0001FFFF // !!! higher wave-ids blocked (fails) in decoder.c (modify it if it's required)
 
 //------------------------------------------------------------------------
 

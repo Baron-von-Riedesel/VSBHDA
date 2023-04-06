@@ -24,9 +24,9 @@ typedef struct QEMM_IODispatchTable
 uint16_t QEMM_GetVersion(void);
 
 //I/O virtualize
-BOOL QEMM_Prepare_IOPortTrap(void);
-BOOL QEMM_Install_PortTraps( QEMM_IODT *, int *, int );
-BOOL QEMM_Uninstall_PortTraps( QEMM_IODT *, int );
+bool QEMM_Prepare_IOPortTrap(void);
+bool QEMM_Install_PortTraps( QEMM_IODT *, int *, int );
+bool QEMM_Uninstall_PortTraps( QEMM_IODT *, int );
 void QEMM_SetPICPortTrap( int );
 
 #ifdef __cplusplus

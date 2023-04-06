@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <conio.h>
 #include <io.h>
 #include <dos.h>

@@ -11,11 +11,11 @@
 #include "DPMI_.H"
 #include "HDPMIPT.H"
 
-BOOL _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
-BOOL _hdpmi_UninstallISR( void );
-BOOL _hdpmi_InstallInt31( uint8_t );
-BOOL _hdpmi_UninstallInt31( void );
-BOOL _hdpmi_CliHandler( void );
+bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
+bool _hdpmi_UninstallISR( void );
+bool _hdpmi_InstallInt31( uint8_t );
+bool _hdpmi_UninstallInt31( void );
+bool _hdpmi_CliHandler( void );
 void SwitchStackIOIn(  void );
 void SwitchStackIOOut( void );
 
@@ -87,10 +87,10 @@ static int HDPMIPT_GetVendorEntry( void )
     return (result&0xFF) == 0; //al=0 to succeed
 }
 
-BOOL HDPMIPT_Detect()
+bool HDPMIPT_Detect()
 /////////////////////
 {
-    BOOL result = HDPMIPT_GetVendorEntry();
+    bool result = HDPMIPT_GetVendorEntry();
     return( result && HDPMIPT_Entry.es );
 }
 
@@ -125,7 +125,7 @@ static uint32_t HDPMI_Internal_InstallTrap( int start, int end, void(*handlerIn)
     return handle;
 }
 
-BOOL HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
+bool HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 ///////////////////////////////////////////////////////////////////////////
 {
     int start, end;
@@ -165,10 +165,10 @@ BOOL HDPMIPT_Install_PortTraps( QEMM_IODT iodt[], int Rangetab[], int max )
 	return true;
 }
 
-static BOOL HDPMI_Internal_UninstallTrap( uint32_t handle )
+static bool HDPMI_Internal_UninstallTrap( uint32_t handle )
 ///////////////////////////////////////////////////////////
 {
-    BOOL result = false;
+    bool result = false;
     asm(
     "mov %2, %%edx \n\t"  //EDX=handle
     "mov $7, %%ax \n\t"   //ax=7, unistall port trap
@@ -184,7 +184,7 @@ static BOOL HDPMI_Internal_UninstallTrap( uint32_t handle )
     return result;
 }
 
-BOOL HDPMIPT_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
+bool HDPMIPT_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
 ///////////////////////////////////////////////////////////
 {
 
@@ -194,7 +194,7 @@ BOOL HDPMIPT_Uninstall_PortTraps(QEMM_IODT* iodt, int max )
     return true;
 }
 
-BOOL HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
+bool HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
 /////////////////////////////////////////////////////////////
 {
     if ( _hdpmi_InstallISR( interrupt, ISR ) ) {
@@ -203,7 +203,7 @@ BOOL HDPMIPT_InstallISR( uint8_t interrupt, int(*ISR)(void) )
     return false;
 }
 
-BOOL HDPMIPT_UninstallISR( void )
+bool HDPMIPT_UninstallISR( void )
 /////////////////////////////////
 {
     /* first uninstall int 31h, then ISR! */

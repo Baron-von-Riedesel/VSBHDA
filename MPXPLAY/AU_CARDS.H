@@ -94,28 +94,6 @@ typedef struct aucards_onemixerchan_s{
 
 typedef struct aucards_onemixerchan_s* aucards_allmixerchan_s;
 
-#define AU_CARDS_LINK_ISA 0
-#define AU_CARDS_LINK_PCI 1
-
-//link low level soundcard routines
-#if AU_CARDS_LINK_ISA
-#define AU_CARDS_LINK_SB16    1
-#define AU_CARDS_LINK_ESS     1
-#define AU_CARDS_LINK_WSS     1
-#define AU_CARDS_LINK_GUS     1
-#define AU_CARDS_LINK_SB      1
-//#define AU_CARDS_LINK_MIDAS  1
-#endif
-#ifdef AU_CARDS_LINK_PCI
-#define AU_CARDS_LINK_CMI8X38 1
-//#define AU_CARDS_LINK_EMU20KX 1
-#define AU_CARDS_LINK_ES1371  1
-#define AU_CARDS_LINK_ICH     1
-#define AU_CARDS_LINK_IHD     1
-#define AU_CARDS_LINK_SBLIVE  1
-#define AU_CARDS_LINK_VIA82XX 1
-#endif
-
 #include "newfunc.h"
 
 typedef struct mpxplay_audioout_info_s{

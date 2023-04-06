@@ -45,7 +45,6 @@ static int aucards_writedata_nowait(struct mpxplay_audioout_info_s *aui,unsigned
 static void aucards_interrupt_decoder(void);
 #endif
 
-#ifdef __DOS__
 extern one_sndcard_info ES1371_sndcard_info;
 extern one_sndcard_info ICH_sndcard_info;
 extern one_sndcard_info IHD_sndcard_info;
@@ -53,94 +52,15 @@ extern one_sndcard_info VIA82XX_sndcard_info;
 #ifdef SBLSUPP
 extern one_sndcard_info SBLIVE_sndcard_info;
 #endif
-#ifndef SBEMU
-extern one_sndcard_info ESS_sndcard_info;
-extern one_sndcard_info WSS_sndcard_info;
-extern one_sndcard_info SB16_sndcard_info;
-extern one_sndcard_info EMU20KX_sndcard_info;
-extern one_sndcard_info CMI8X38_sndcard_info;
-extern one_sndcard_info GUS_sndcard_info;
-extern one_sndcard_info SB_sndcard_info;
-extern one_sndcard_info MIDAS_sndcard_info;
-#else
-#undef AU_CARDS_LINK_ESS
-#undef AU_CARDS_LINK_WSS
-#ifndef SBLSUPP
-#undef AU_CARDS_LINK_SBLIVE
-#endif
-#undef AU_CARDS_LINK_SB16
-#undef AU_CARDS_LINK_EMU20KX
-#undef AU_CARDS_LINK_CMI8X38
-#undef AU_CARDS_LINK_GUS
-#undef AU_CARDS_LINK_SB
-#undef AU_CARDS_LINK_MIDAS
-#endif
-#endif
-
-#ifdef AU_CARDS_LINK_WIN
-extern one_sndcard_info WINDSOUND_sndcard_info;
-extern one_sndcard_info WINWAVOUT_sndcard_info;
-#endif
-
-#ifndef SBEMU
-extern one_sndcard_info WAV_sndcard_info;
-extern one_sndcard_info NON_sndcard_info;
-extern one_sndcard_info TST_sndcard_info;
-extern one_sndcard_info NUL_sndcard_info;
-#endif
 
 static one_sndcard_info *all_sndcard_info[]={
-#ifdef AU_CARDS_LINK_SB16
- &SB16_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_ESS
- &ESS_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_WSS
- &WSS_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_SBLIVE
+ &ES1371_sndcard_info,
+ &ICH_sndcard_info,
+ &IHD_sndcard_info,
+#ifdef SBLSUPP
  &SBLIVE_sndcard_info,
 #endif
-#ifdef AU_CARDS_LINK_EMU20KX
- &EMU20KX_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_CMI8X38
- &CMI8X38_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_ES1371
- &ES1371_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_ICH
- &ICH_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_IHD
- &IHD_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_VIA82XX
  &VIA82XX_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_GUS
- &GUS_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_SB
- &SB_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_MIDAS
- &MIDAS_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_WINDSOUND
- &WINDSOUND_sndcard_info,
-#endif
-#ifdef AU_CARDS_LINK_WINWAVOUT
- &WINWAVOUT_sndcard_info,
-#endif
-#ifndef SBEMU
- &WAV_sndcard_info,
- &NON_sndcard_info,
- &TST_sndcard_info,
- &NUL_sndcard_info,
-#endif
  NULL
 };
 
