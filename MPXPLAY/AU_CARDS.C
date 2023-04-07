@@ -21,10 +21,10 @@
 #include <dos.h>
 
 #include "SBEMUCFG.H"
-#include "mpxplay.h"
-#include "dmairq.h"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
 #ifndef SBEMU
-#include "au_mixer.h"
+#include "AU_MIXER.H"
 #endif
 
 typedef int (*aucards_writedata_t)(struct mpxplay_audioout_info_s *aui,unsigned long);
@@ -69,10 +69,6 @@ static one_sndcard_info *all_sndcard_info[]={
 //extern unsigned int playcontrol,outmode;
 //extern unsigned int intsoundconfig,intsoundcontrol;
 //extern unsigned long allcpuusage,allcputime;
-#ifdef __DOS__
-extern unsigned long mpxplay_signal_events;
-//extern unsigned int iswin9x;
-#endif
 
 #ifdef SBEMU
 //struct mpxplay_audioout_info_s au_infos = {0};

@@ -2,8 +2,6 @@
 #define _PIC_H_
 //8259 Programmable Interrupt Controller
 
-#include "PLATFORM.H"
-
 //real mode vector mapping (also for DPMI interface)
 //although DPMI server might have remapped the PIC, the real mode vector is still used as a compatible interface
 //i.e. you can set DPMI interrupt vector (real mode or protected mode) using those number.

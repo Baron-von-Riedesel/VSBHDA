@@ -16,14 +16,13 @@
 //based on the Creative (http://sourceforge.net/projects/emu10k1)
 //         and ALSA (http://www.alsa-project.org) drivers
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
-
-#include "dmairq.h"
-#include "pcibios.h"
-#include "ac97_def.h"
-#include "emu10k1.h"
-#include "sc_sbliv.h"
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "AC97_DEF.H"
+#include "EMU10K1.H"
+#include "SC_SBLIV.H"
 
 #define VOICE_FLAGS_MASTER      0x01
 #define VOICE_FLAGS_STEREO    0x02

@@ -17,8 +17,9 @@
 #include <math.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "sbemucfg.h"
-#include "mpxplay.h"
+
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
 
 #define MALLOCSTATIC 1
 

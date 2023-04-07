@@ -1,7 +1,7 @@
 #ifndef mix_func_h
 #define mix_func_h
 
-#include "au_mixer.h"
+#include "AU_MIXER.H"
 
 #ifdef __cplusplus
 extern "C" {

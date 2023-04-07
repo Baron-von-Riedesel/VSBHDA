@@ -14,9 +14,9 @@
 //**************************************************************************
 //function: memory handling
 
-#include "mpxplay.h"
-
 #include <malloc.h>
+
+#include "MPXPLAY.H"
 
 // can be different (more safe) than the normal malloc
 void *pds_malloc(unsigned int bufsize)

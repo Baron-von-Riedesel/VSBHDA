@@ -1,7 +1,14 @@
-#include <dos.h>
-#include "PIC.H"
+
 //reference: https://wiki.osdev.org/PIC
-#include "UNTRAPIO.H"
+
+#include <dos.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "PLATFORM.H"
+#include "PIC.H"
+#include "PTRAP.H"
+
 #define inp UntrappedIO_IN
 #define outp UntrappedIO_OUT
 

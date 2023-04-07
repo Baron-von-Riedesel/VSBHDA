@@ -15,14 +15,14 @@
 //function: Intel ICH audiocards low level routines
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
 #include <time.h>
-
 #include <string.h>
-#include "dmairq.h"
-#include "pcibios.h"
-#include "ac97_def.h"
+
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "AC97_DEF.H"
 
 #define ICH_PO_CR_REG     0x1b  // PCM out Control Register
 #define ICH_PO_CR_START   0x01  // start codec

@@ -37,7 +37,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "dbopl.h"
+#include "DBOPL.H"
 
 
 #ifndef PI

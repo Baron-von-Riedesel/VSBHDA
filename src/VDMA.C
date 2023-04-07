@@ -1,10 +1,12 @@
 
-#include <stdio.h>
+#include <stdint.h>
 #include <stdbool.h>
-#include "VDMA.H"
-#include "UNTRAPIO.H"
+#include <stdio.h>
+
+#include "SBEMUCFG.H"
 #include "PLATFORM.H"
-#include "sbemucfg.h"
+#include "VDMA.H"
+#include "PTRAP.H"
 
 //registers
 static uint16_t VDMA_Regs[32];

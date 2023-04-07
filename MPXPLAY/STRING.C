@@ -15,7 +15,7 @@
 //function: string handling
 
 #include <string.h>
-#include "mpxplay.h"
+#include "MPXPLAY.H"
 
 unsigned int pds_strcpy(char *dest,char *src)
 /////////////////////////////////////////////

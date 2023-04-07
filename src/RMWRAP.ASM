@@ -1,26 +1,32 @@
 
-;--- 16-bit helper code for QEMM.C
+;--- 16-bit helper code for PTRAP.C, real-mode part.
+;--- if IRQs > 8 are to be supported, this code needs adjustments.
+;--- must be assembled with JWasm v2.18+
 
 	.286
 	.model small
 	option proc:private
 	option casemap:none
 
-HANDLE_IN_388H_DIRECTLY equ 1 ; must match #define in qemm.c
-RMPICTRAPDYN            equ 0 ; must match #define in qemm.c
+HANDLE_IN_388H_DIRECTLY equ 1 ; must match #define in ptrap.c
+RMPICTRAPDYN            equ 0 ; must match #define in ptrap.c
 
 	.code
+
+	assume ds:nothing, ss:nothing
 
 _0000 dd 0	; rmcb to sbemu port trap handler
 _0004 db 0 
 _0005 db 0
       dw 0
-_0008 dd 0	; entry Jemm "untrapped io"
+_0008 dd 0	; entry Jemm/Qemm "untrapped io"
 
-QEMM_RM_Wrapper proc c public
+;--- port trap proc, called by Jemm/Qemm
+
+PTRAP_RM_Wrapper proc c public
 
 ife RMPICTRAPDYN
-	cmp dx, word ptr 0020h	; must be the WORD variant, since it's patched - see qemm.c
+	cmp dx, word ptr 0020h	; must be the WORD variant, since it's patched - see ptrap.c
 	je is20
 endif
 
@@ -30,12 +36,11 @@ if HANDLE_IN_388H_DIRECTLY
 	cmp dx, 389h
 	je is389
 normal:
-	jmp cs:[_0000]
+	jmp [_0000]
 is388:
 	test cl, 4			; OUT instr?
 	jnz is388out
-	mov al, cs:[_0005]	; in 388h
-	and al, 3
+	mov al, [_0005]		; IN 388h
 	test al, 1
 	jz @F
 	mov al, 0C0h
@@ -49,14 +54,14 @@ is388:
 	xor al,al
 	retf
 is388out:
-	mov cs:[_0004], al
+	mov [_0004], al
 	jmp normal
 is389:
 	test cl, 4			; OUT instr?
 	jz normal
-	cmp cs:[_0004], 4	; timer reg?
+	cmp [_0004], 4		; timer reg?
 	jne normal
-	mov cs:[_0005], al
+	mov [_0005], al
 	jmp normal
 endif
 
@@ -66,22 +71,21 @@ is20:
 	test cl, 4			; OUT instr?
 	jnz is20out
 	mov ax, 1a00h
-	call cs:[_0008]  
+	call [_0008]  
 	mov al, bl
 	pop bx
 	retf
 is20out:
 	mov bl, al
 	mov ax, 1a01h
-	call cs:[_0008]
+	call [_0008]
 	pop bx
 	retf
 endif
 
-QEMM_RM_Wrapper endp
+PTRAP_RM_Wrapper endp
 
-QEMM_RM_WrapperEnd proc c public
-QEMM_RM_WrapperEnd endp
+PTRAP_RM_WrapperEnd proc c public
+PTRAP_RM_WrapperEnd endp
 
 	end
-

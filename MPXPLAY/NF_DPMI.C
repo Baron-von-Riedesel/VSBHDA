@@ -14,92 +14,14 @@
 //**************************************************************************
 //function: DPMI callings
 
-#ifdef __DOS__
-
 #include <dpmi.h>
 #include <sys/exceptn.h>
-#include "newfunc.h"
-#include "sbemucfg.h"
 
-#if 0
-long pds_dpmi_segment_to_selector(unsigned int segment)
-///////////////////////////////////////////////////////
-{
-	return __dpmi_segment_to_descriptor(segment);
-}
-
-void far *pds_dpmi_getrmvect(unsigned int intno) // real mode vector
-////////////////////////////////////////////////
-{
-	__dpmi_raddr addr;
-	if( __dpmi_get_real_mode_interrupt_vector(intno, &addr) == 0)
-		return (void*)(long)(addr.offset16 | (addr.segment<<16));
-	return NULL;
-}
-
-void pds_dpmi_setrmvect(unsigned int intno, unsigned int segment,unsigned int offset)
-/////////////////////////////////////////////////////////////////////////////////////
-{
-	__dpmi_raddr addr = {segment, offset};
-	__dpmi_set_real_mode_interrupt_vector(intno, &addr);
-}
-
-farptr pds_dpmi_getexcvect(unsigned int intno)
-//////////////////////////////////////////////
-{
-	__dpmi_paddr addr;
-	__dpmi_get_processor_exception_handler_vector(intno, &addr);
-	farptr ptr = {addr.offset32, addr.selector};
-	return ptr;
-}
-
-void pds_dpmi_setexcvect(unsigned int intno, farptr vect)
-/////////////////////////////////////////////////////////
-{
-	__dpmi_paddr addr = {vect.off, vect.sel};
-	__dpmi_set_processor_exception_handler_vector(intno, &addr);
-}
-
-int pds_dpmi_dos_allocmem(dosmem_t *dm,unsigned int size)
-/////////////////////////////////////////////////////////
-{
-	if(dm->selector){
-		pds_dpmi_dos_freemem(dm);
-		dm->selector=0;
-	}
-	int sel = 0;
-	int seg = __dpmi_allocate_dos_memory((size+15)>>4, &sel);
-	if(seg != -1)
-	{
-		dm->segment = seg;
-		dm->selector = sel;
-		dm->linearptr=(void *)(dm->segment<<4);
-		return 1;
-	}
-	dm->selector = 0;
-	return 0;
-}
-
-void pds_dpmi_dos_freemem(dosmem_t *dm)
-///////////////////////////////////////
-{
-	if(dm->selector){
-		__dpmi_free_dos_memory(dm->selector);
-		dm->selector=dm->segment=0;
-		dm->linearptr=NULL;
-	}
-}
-#endif
-
-#if 0
-void pds_dpmi_realmodeint_call(unsigned int intnum,struct rminfo *rmi)
-//////////////////////////////////////////////////////////////////////
-{
-	__dpmi_simulate_real_mode_interrupt(intnum, (__dpmi_regs*)rmi);
-}
-#endif
+#include "NEWFUNC.H"
+#include "SBEMUCFG.H"
 
 #define PHYSICAL_MAP_COUNT 64
+
 static __dpmi_meminfo physicalmaps[PHYSICAL_MAP_COUNT];
 
 unsigned long pds_dpmi_map_physical_memory( unsigned long phys_addr, unsigned long memsize)
@@ -306,5 +228,3 @@ void pds_dpmi_xms_freemem(xmsmem_t * mem)
 	}
 	pds_xms_free(mem->xms);
 }
-
-#endif // __DOS__

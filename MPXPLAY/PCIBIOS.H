@@ -1,26 +1,7 @@
 #ifndef pcibios_h
 #define pcibios_h
 
-#if defined(HAVE_INTTYPES_H) || (__WATCOMC__>=1240) || defined(DJGPP) // OW 1.4
-
 #include <inttypes.h>
-
-#else
-
-#ifndef uint8_t
-typedef unsigned char    uint8_t;
-#endif
-#ifndef uint16_t
-typedef unsigned short    uint16_t;
-#endif
-#ifndef int32_t
-typedef long            int32_t;
-#endif
-#ifndef uint32_t
-typedef unsigned long    uint32_t;
-#endif
-
-#endif
 
 //for Linux/GCC/ALSA routines
 #ifndef outb

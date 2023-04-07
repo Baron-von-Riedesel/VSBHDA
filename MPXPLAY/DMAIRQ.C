@@ -22,9 +22,9 @@
 #include <dos.h>
 #include <string.h>
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
-#include "dmairq.h"
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
 
 //declared in control.c
 //extern struct mpxplay_audioout_info_s au_infos;
@@ -36,7 +36,7 @@
 
 //-----------------------------------------------------------------------
 //common (ISA & PCI)
-#ifdef __DOS__
+
 cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 ////////////////////////////////////////////////////
 {
@@ -45,11 +45,7 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 	dm=calloc(1,sizeof(cardmem_t));
 	if(!dm)
 		return NULL;
-#ifndef DJGPP
-	if(!pds_dpmi_dos_allocmem(dm,buffsize)) {
-#else
 	if(!pds_dpmi_xms_allocmem(dm,buffsize)) {
-#endif
 		free(dm);
 		return NULL;
 	}
@@ -63,15 +59,10 @@ void MDma_free_cardmem(cardmem_t *dm)
 {
     dbgprintf("MDma_free_cardmem\n");
 	if(dm){
-#ifndef DJGPP
-		pds_dpmi_dos_freemem(dm);
-#else
 		pds_dpmi_xms_freemem(dm);
-#endif
 		free(dm);
 	}
 }
-#endif
 
 unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsigned int max_bufsize,unsigned int pagesize,unsigned int samplesize,unsigned long freq_config)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -16,16 +16,17 @@
 //based on a code of Taichi Sugiyama (YAMAHA)
 
 #include <stdlib.h>
-#include <stdio.h>
+#include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <conio.h>
 #include <io.h>
 #include <dos.h>
 #include <go32.h>
 
-#include "dpmi_.h"
-#include "newfunc.h"
-#include "pcibios.h"
+#include "DPMIHLP.H"
+#include "NEWFUNC.H"
+#include "PCIBIOS.H"
 
 #define PCIDEVNUM(bParam)      (bParam >> 3)
 #define PCIFUNCNUM(bParam)     (bParam & 0x07)

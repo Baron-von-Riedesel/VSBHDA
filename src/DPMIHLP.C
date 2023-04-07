@@ -1,6 +1,6 @@
 
-//#include <conio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <go32.h>
 #include <sys/farptr.h>
@@ -8,10 +8,10 @@
 #include <sys/exceptn.h>
 #include <crt0.h>
 #include <assert.h>
-//#include <signal.h>
-//#include <stdio.h>
 #include <string.h>
-#include "DPMI_.H"
+
+#include "PLATFORM.H"
+#include "DPMIHLP.H"
 
 int _crt0_startup_flags = _CRT0_FLAG_PRESERVE_FILENAME_CASE | _CRT0_FLAG_KEEP_QUOTES;
 
@@ -304,4 +304,3 @@ uint16_t DPMI_FreeRMCB( __dpmi_raddr *rmcb )
     else
         return 0;
 }
-

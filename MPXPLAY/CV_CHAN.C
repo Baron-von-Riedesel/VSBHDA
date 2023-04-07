@@ -14,7 +14,7 @@
 //**************************************************************************
 //function: channel conversions
 
-#include "mpxplay.h"
+#include "MPXPLAY.H"
 
 int MIXER_var_swapchan;
 

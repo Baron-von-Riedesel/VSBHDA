@@ -15,14 +15,13 @@
 //function: SB Live24/Audigy LS (CA0106) low level routines (with sc_sbliv.c)
 //based on the ALSA (http://www.alsa-project.org)
 
-#include "mpxplay.h"
-#include "sbemucfg.h"
-
-#include "dmairq.h"
-#include "pcibios.h"
-#include "sc_sbliv.h"
-#include "ac97_def.h"
-#include "sc_sbl24.h"
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "SC_SBLIV.H"
+#include "AC97_DEF.H"
+#include "SC_SBL24.H"
 
 #define CA0106_DMABUF_PERIODS    8 // max
 #define CA0106_PERIOD_ALIGN     64

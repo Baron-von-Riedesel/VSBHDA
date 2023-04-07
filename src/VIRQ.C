@@ -1,20 +1,22 @@
 
+#include <stdint.h>
 #include <stdbool.h>
 #include <dos.h>
 
 #include "SBEMUCFG.H"
 #include "PIC.H"
-#include "DPMI_.H"
-#include "UNTRAPIO.H"
+#include "DPMIHLP.H"
+#include "PTRAP.H"
 #include "VIRQ.H"
-#include "QEMM.H"
-#include "SBEMU.H"
+#include "VSB.H"
 
 #define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
 
 static int VIRQ_Irq = -1;
 static uint8_t VIRQ_ISR[2];
 static uint8_t VIRQ_OCW[2];
+
+static uint16_t OrgCS;
 
 #define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
 
@@ -102,14 +104,14 @@ void VIRQ_Invoke( void )
     uint8_t irq;
 
     dbgprintf("VIRQ_Invoke\n");
-    irq = SBEMU_GetIRQ();
+    irq = VSB_GetIRQ();
 
 #if CHANGEPICMASK
     int mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
 #endif
 
-    QEMM_SetPICPortTrap( 1 );
+    PTRAP_SetPICPortTrap( 1 );
 
     VIRQ_ISR[0] = VIRQ_ISR[1] = 0;
     if(irq < 8) //master
@@ -126,7 +128,7 @@ void VIRQ_Invoke( void )
 #if !SETIF
     _disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
 #endif
-    QEMM_SetPICPortTrap( 0 );
+    PTRAP_SetPICPortTrap( 0 );
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */
 #endif
@@ -136,7 +138,19 @@ void VIRQ_Invoke( void )
 void VIRQ_SafeCall( void )
 //////////////////////////
 {
-    CallIRQ = &SafeCall;
+#if 1
+	int n = PIC_IRQ2VEC( VSB_GetIRQ() );
+	CallIRQ = ( DPMI_LoadW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
+#else
+	CallIRQ = &SafeCall;
+#endif
+}
+
+void VIRQ_Init( void )
+//////////////////////
+{
+	int n = PIC_IRQ2VEC( VSB_GetIRQ() );
+	OrgCS = DPMI_LoadW(n*4+2);
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)
@@ -144,5 +158,3 @@ uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)
 {
     return out ? (VIRQ_Write(port, val), val) : (val &=~0xFF, val |= VIRQ_Read(port));
 }
-
-

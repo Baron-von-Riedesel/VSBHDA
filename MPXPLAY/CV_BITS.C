@@ -14,7 +14,7 @@
 //**************************************************************************
 //function: bit conversions
 
-#include "mpxplay.h"
+#include "MPXPLAY.H"
 
 #define USE_ASM_CV_BITS 1
 

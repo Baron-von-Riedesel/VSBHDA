@@ -43,7 +43,7 @@ EXCFRAME ends
 
 externdef dwDS:dword
 if TRIGGERIRQ
-externdef SBEMU_TriggerIRQ:dword
+externdef VSB_TriggerIRQ:dword
 VIRQ_Invoke proto c
 endif
 
@@ -51,7 +51,7 @@ endif
 
 	.code
 
-HDPMIPT_TrapHandler proto :dword, :dword, :dword
+PM_TrapHandler proto :dword, :dword, :dword
 
 SwitchStackIOIn proc public
 	push 0
@@ -95,7 +95,7 @@ SwitchStackIO proc
 	push eax
 	push ecx
 	push edx
-	call HDPMIPT_TrapHandler
+	call PM_TrapHandler
 	mov ss, ebx
 	mov esp, ebp
 	add [__djgpp_stack_top], 4096
@@ -119,11 +119,11 @@ isstring:
 	mov [ebp].EXCFRAME._ecx, 0
 done:
 if TRIGGERIRQ
-	cmp [SBEMU_TriggerIRQ], 0
+	cmp [VSB_TriggerIRQ], 0
 	jz @F
 	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2
 	jz @F
-	mov [SBEMU_TriggerIRQ], 0
+	mov [VSB_TriggerIRQ], 0
 	sub [__djgpp_stack_top], 4096
 	mov ss, [dwDS]
 	mov esp, [__djgpp_stack_top]
@@ -210,11 +210,11 @@ endif
 	push edi
 	call [dwProc]
 if TRIGGERIRQ
-	cmp [SBEMU_TriggerIRQ], 0
+	cmp [VSB_TriggerIRQ], 0
 	jz @F
 	test es:[edi].RMCS.rFlags+1, 2
 	jz @F
-	mov [SBEMU_TriggerIRQ], 0
+	mov [VSB_TriggerIRQ], 0
 	call VIRQ_Invoke
 @@:
 endif

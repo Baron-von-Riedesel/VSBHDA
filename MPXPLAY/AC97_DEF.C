@@ -14,11 +14,9 @@
 //**************************************************************************
 //function: common AC97 definitions (for SB Live, ES1371, ICH)
 
-#ifdef SBEMU
-#include "mpxplay.h"
-#endif
-#include "au_cards.h"
-#include "ac97_def.h"
+#include "MPXPLAY.H"
+#include "AU_CARDS.H"
+#include "AC97_DEF.H"
 
 static aucards_onemixerchan_s mpxplay_aucards_ac97chan_master_vol={
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,

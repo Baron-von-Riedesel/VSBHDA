@@ -15,13 +15,13 @@
 //function: Intel HD audio driver for Mpxplay
 //based on ALSA (http://www.alsa-project.org) and WSS libs
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
-
 #include <string.h>
-#include "dmairq.h"
-#include "pcibios.h"
-#include "sc_inthd.h"
+
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "SC_INTHD.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 1

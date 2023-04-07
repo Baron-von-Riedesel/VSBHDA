@@ -73,7 +73,8 @@ extern "C" {
 //timer settings
 #define INT08_DIVISOR_DEFAULT  65536
 #define INT08_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
-#ifdef __DOS__
+
+#if 1//def __DOS__
  #define INT08_DIVISOR_NEW     10375  // = 18.181818*65536 / (3 * 44100/1152)
  //#define INT08_DIVISOR_NEW      1194  // for 1ms (1/1000 sec) refresh (not recommended)
 #else
@@ -96,9 +97,9 @@ extern "C" {
 
 //------------------------------------------------------------------------
 
-#include "in_file.h"
-#include "au_cards.h"
-#include "au_mixer.h"
+#include "IN_FILE.H"
+#include "AU_CARDS.H"
+#include "AU_MIXER.H"
 
 #ifdef __cplusplus
 }

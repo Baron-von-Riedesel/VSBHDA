@@ -15,12 +15,11 @@
 //function: Ensoniq 1371/1373 low level routines (for SB PCI 16/64/128 cards)
 //based on ALSA (http://www.alsa-project.org)
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
-
-#include "dmairq.h"
-#include "pcibios.h"
-#include "ac97_def.h"
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "AC97_DEF.H"
 
 #define ES1371_DMABUF_PERIODS  32
 #define ES1371_MAX_CHANNELS     2

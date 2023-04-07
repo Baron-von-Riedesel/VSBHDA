@@ -1,6 +1,6 @@
-#ifndef _DPMI_H_
-#define _DPMI_H_
-#include "PLATFORM.H"
+#ifndef _DPMIHLP_H_
+#define _DPMIHLP_H_
+
 #include <dpmi.h>
 
 //a DPMI wrapper

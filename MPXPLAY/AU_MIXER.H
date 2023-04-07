@@ -1,7 +1,7 @@
 #ifndef au_mixer_h
 #define au_mixer_h
 
-#include "mpxplay.h"
+#include "MPXPLAY.H"
 
 #ifdef __cplusplus
 extern "C" {

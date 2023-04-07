@@ -15,13 +15,13 @@
 //function: VIA VT82C686, VT8233 (VT8235?) low level routines (onboard chips on AMD Athlon mainboards)
 //some routines are based on the ALSA (http://www.alsa-project.org)
 
-#include "sbemucfg.h"
-#include "mpxplay.h"
-
 #include <string.h>
-#include "dmairq.h"
-#include "pcibios.h"
-#include "ac97_def.h"
+
+#include "SBEMUCFG.H"
+#include "MPXPLAY.H"
+#include "DMAIRQ.H"
+#include "PCIBIOS.H"
+#include "AC97_DEF.H"
 
 // ac97
 #define VIA_REG_AC97_CTRL               0x80

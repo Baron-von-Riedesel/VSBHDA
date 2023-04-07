@@ -24,15 +24,6 @@
 extern "C" {
 #endif
 
-#ifdef MPXPLAY_UTF8
-#define MAX_PATHNAMELEN 300*3
-#define MAX_PATHNAMEU08 MAX_PATHNAMELEN // utf8
-#define MAX_PATHNAMEU16 300             // utf16
-#else
-#define MAX_PATHNAMELEN 300
-#define MAX_PATHNAMEU08 MAX_PATHNAMELEN*3
-#endif
-
 typedef unsigned int   mpxp_bool_t;
 typedef long long      mpxp_int64_t;
 typedef unsigned long long mpxp_uint64_t;

@@ -10,6 +10,21 @@
 #define ADPCM 1       /* support ADPCM */
 #define SETIF 1       /* enable interrupts when ISR is entered */
 #define TRIGGERATONCE 1  /* trigger IRQ from inside trap handler */
+#define REINITOPL 1   /* reinit OPL during RESET */
+
+struct globalvars {
+	int base;
+	int irq;
+	int dma;
+	int hdma;
+	int type;
+	int opl3;
+    int rm;
+	int pm;
+	int vol;
+	int pin;
+	int device;
+};
 
 int dbgprintf(const char *fmt, ... );
 #ifdef _DEBUG

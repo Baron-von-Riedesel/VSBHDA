@@ -1,10 +1,7 @@
 #ifndef dmairq_h
 #define dmairq_h
 
-#include "mpxplay.h"
-#ifdef __DOS__
-#include <conio.h>
-#endif
+#include "MPXPLAY.H"
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,6 +1,8 @@
-#include <stdio.h>
+
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <dos.h>
@@ -8,21 +10,21 @@
 #include <sys/exceptn.h>
 
 #include "SBEMUCFG.H"
+#include "PLATFORM.H"
 #include "PIC.H"
-#include "OPL3EMU.H"
+#include "DPMIHLP.H"
+#include "PTRAP.H"
 #include "VDMA.H"
 #include "VIRQ.H"
-#include "SBEMU.H"
-#include "UNTRAPIO.H"
-#include "DPMI_.H"
-#include "QEMM.H"
-#include "HDPMIPT.H"
+#include "VOPL3.H"
+#include "VSB.H"
 
 #include <MPXPLAY.H>
 #include <MIX_FUNC.H>
 
 #define PREMAPDMA 0
 #define MAIN_PCM_SAMPLESIZE 16384
+#define SUPPSAFE 0
 
 static mpxplay_audioout_info_s aui = {0};
 
@@ -42,8 +44,6 @@ static mpxplay_audio_decoder_info_s adi = {
 static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
 static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
 
-static bool enableRM;
-static bool enablePM;
 static bool PM_ISR;
 uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 
@@ -61,74 +61,46 @@ static uint16_t MAIN_GLB_VOL = 0; //TODO: add hotkey
 void MAIN_Interrupt();
 static int MAIN_InterruptPM();
 
-static const uint8_t MAIN_ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
-
-#define tport( port, proc ) TPORT_ ## port,
-#define tportx( port, proc, table ) TPORT_ ## port,
-enum TrappedPorts {
-#include "PORTS.H"
-#undef tport
-#undef tportx
-    NUM_TPORTS
-};
-
-#define tport( port, proc ) { port, 0, proc },
-#define tportx( port, proc, table ) { port, 0, proc },
-static QEMM_IODT MAIN_IODT[] = {
-#include "PORTS.H"
-#undef tport
-#undef tportx
-};
-
-/* order of port ranges */
-#define OPL3_IODT  0
-#define IRQ_IODT   1
-#define DMA_IODT   2
-#define DMAPG_IODT 3
-#if SB16
-#define HDMA_IODT  4
-#define SB_IODT    5
-#define END_IODT   6
-#else
-#define SB_IODT    4
-#define END_IODT   5
-#endif
-
-#define tport( port, proc )
-#define tportx( port, proc, table ) TPORT_ ## port,
-static int portranges[] = {
-#include "PORTS.H"
-    NUM_TPORTS
-};
-#undef tport
-#undef tportx
+bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
+bool _hdpmi_UninstallISR( void );
+bool _hdpmi_InstallInt31( uint8_t );
+bool _hdpmi_UninstallInt31( void );
 
 static bool bQemm = FALSE;
 static bool bHdpmi = FALSE;
+static int bHelp = FALSE;
+
+#if SB16
+struct globalvars gvars = { 0x220, 7, 1, 0, 5, true, true, true, 7 };
+#else
+struct globalvars gvars = { 0x220, 7, 1, 5, true, true, true, 7 };
+#endif
 
 struct {
     const char* option;
     const char* desc;
-    int value;
+    int *pValue;
 } MAIN_Options[] =
 {
-    "/?", "Show help", FALSE,
-    "/A", "Specify IO address, valid value: 220,240", 0x220,
-    "/I", "Specify IRQ number, valid value: 5,7", 7,
-    "/D", "Specify DMA channel, valid value: 0,1,3", 1,
+    "/?", "Show help", &bHelp,
+    "/A", "Specify IO address, valid value: 220,240", &gvars.base,
+    "/I", "Specify IRQ number, valid value: 5,7", &gvars.irq,
+    "/D", "Specify DMA channel, valid value: 0,1,3", &gvars.dma,
 #if SB16
-    "/H", "Specify High DMA channel, valid value: 5,6,7", 0,
-    "/T", "Specify SB Type, valid value: 0-6", 5,
+    "/H", "Specify High DMA channel, valid value: 5,6,7", &gvars.hdma,
+    "/T", "Specify SB Type, valid value: 0-6", &gvars.type,
 #else
-    "/T", "Specify SB Type, valid value: 0-5", 5,
+    "/T", "Specify SB Type, valid value: 0-5", &gvars.type,
 #endif
-    "/OPL", "Enable OPL3 emulation", TRUE,
-    "/PM", "Support protected mode games", TRUE,
-    "/RM", "Support real mode games", TRUE,
-    "/SAFE", "Safe mode - may be needed by some protected-mode programs", 0,
-    "/VOL", "Set master volume (0-9)", 7,
-    "/O", "Select output (HDA only); 0=lineout, 1=speaker, 2=headphone", 0,
-    "/DEV", "Set device index (HDA only); in case there exist multiple devices", 0,
+    "/OPL", "Enable OPL3 emulation", &gvars.opl3,
+    "/PM", "Support protected mode games", &gvars.pm,
+    "/RM", "Support real mode games", &gvars.rm,
+#if SUPPSAFE
+	"/SAFE", "Safe mode - may be needed by some protected-mode programs", &gvars.safe,
+#endif
+	"/VOL", "Set master volume (0-9)", &gvars.vol,
+    "/O", "Select output (HDA only); 0=lineout, 1=speaker, 2=headphone", &gvars.pin,
+    "/DEV", "Set device index (HDA only); in case there exist multiple devices", &gvars.device,
     NULL, NULL, 0,
 };
 enum EOption
@@ -144,8 +116,10 @@ enum EOption
     OPT_OPL,
     OPT_PM,
     OPT_RM,
-    OPT_SAFE,
-    OPT_VOL,
+#if SUPPSAFE
+	OPT_SAFE,
+#endif
+	OPT_VOL,
     OPT_OUTPUT,
     OPT_DEVIDX,
     OPT_COUNT,
@@ -163,20 +137,6 @@ static const char* MAIN_SBTypeString[] =
     "16",
 #endif
 };
-
-static int MAIN_SB_DSPVersion[] =
-{
-    0,
-    0x0100,
-    0x0105,
-    0x0202, /* type 2: SB 2.0 */
-    0x0302,
-    0x0302,
-#if SB16
-    0x0405, /* type 6: SB16 */
-#endif
-};
-
 
 #if PREMAPDMA
 static uint32_t MapFirst16M( void )
@@ -219,16 +179,34 @@ static int IsInstalled( void )
     return( bSB == 0xAA );
 }
 
+static bool InstallISR( uint8_t interrupt, int(*ISR)(void) )
+////////////////////////////////////////////////////////////
+{
+    if ( _hdpmi_InstallISR( interrupt, ISR ) ) {
+        return ( _hdpmi_InstallInt31( interrupt ) );
+    }
+    return false;
+}
+
+static bool UninstallISR( void )
+////////////////////////////////
+{
+    /* first uninstall int 31h, then ISR! */
+    _hdpmi_UninstallInt31();
+    return ( _hdpmi_UninstallISR() );
+}
+
+
 static void ReleaseRes( void )
 //////////////////////////////
 {
-	if (PM_ISR) HDPMIPT_UninstallISR();
+	if (PM_ISR) UninstallISR();
 
-	if( enableRM )
-		QEMM_Uninstall_PortTraps( MAIN_IODT, portranges[END_IODT] );
+	if( gvars.rm )
+		PTRAP_Uninstall_RM_PortTraps();
 
-	if( enablePM ) {
-		HDPMIPT_Uninstall_PortTraps( MAIN_IODT, portranges[END_IODT] );
+	if( gvars.pm ) {
+		PTRAP_Uninstall_PM_PortTraps();
 	}
     return;
 }
@@ -265,19 +243,18 @@ void MAIN_Uninstall( void )
 	return;
 }
 
-static void IODT_DelEntries( int start, int end, int entries )
-//////////////////////////////////////////////////////////////
+#if REINITOPL
+void MAIN_ReinitOPL( void )
+///////////////////////////
 {
-    int i;
-	for ( i = start; i < end - entries; i++ ) {
-		MAIN_IODT[i].port = MAIN_IODT[i+entries].port;
-		MAIN_IODT[i].handler = MAIN_IODT[i+entries].handler;
-	}
-	for ( i = 0; i < countof(portranges); i++ ) {
-		if ( portranges[i] > start )
-			portranges[i] -= entries;
+	if( gvars.opl3 ) {
+		uint8_t buffer[200];
+		asm("fsave %0"::"m"(buffer));
+		VOPL3_Reinit(aui.freq_card);
+		asm("frstor %0"::"m"(buffer));
 	}
 }
+#endif
 
 #if SB16
 #define MAXTYPE 6
@@ -297,16 +274,16 @@ int main(int argc, char* argv[])
         char c;
         while((c=toupper(*(blaster++)))) {
             if(c == 'I')
-                MAIN_Options[OPT_IRQ].value = *(blaster++) - '0';
+                *MAIN_Options[OPT_IRQ].pValue = *(blaster++) - '0';
             else if(c == 'D')
-                MAIN_Options[OPT_DMA].value = *(blaster++) - '0';
+                *MAIN_Options[OPT_DMA].pValue = *(blaster++) - '0';
             else if(c == 'A')
-                MAIN_Options[OPT_ADDR].value = strtol(blaster, &blaster, 16);
+                *MAIN_Options[OPT_ADDR].pValue = strtol(blaster, &blaster, 16);
             else if(c =='T')
-                MAIN_Options[OPT_TYPE].value = *(blaster++) - '0';
+                *MAIN_Options[OPT_TYPE].pValue = *(blaster++) - '0';
 #if SB16
             else if(c =='H')
-                MAIN_Options[OPT_HDMA].value = *(blaster++) - '0';
+                *MAIN_Options[OPT_HDMA].pValue = *(blaster++) - '0';
 #endif
         }
     }
@@ -318,25 +295,25 @@ int main(int argc, char* argv[])
             int len = strlen(MAIN_Options[j].option);
             if( memicmp(argv[i], MAIN_Options[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
-                    MAIN_Options[j].value = strtol(&argv[i][len], NULL, (j == OPT_ADDR) ? 16 : 10 );
+                    *MAIN_Options[j].pValue = strtol(&argv[i][len], NULL, (j == OPT_ADDR) ? 16 : 10 );
                     break;
-                } else if ( argv[i][len] == 0 && MAIN_Options[j].value == false ) {
-                    MAIN_Options[j].value = true;
+                } else if ( argv[i][len] == 0 && *MAIN_Options[j].pValue == false ) {
+                    *MAIN_Options[j].pValue = true;
                     break;
                 }
             }
         }
         if ( j == OPT_COUNT )
-            MAIN_Options[OPT_Help].value = true;
+            bHelp = true;
     }
 
     /* if -? or unrecognised option was entered, display help and exit */
-    if( MAIN_Options[OPT_Help].value ) {
-        MAIN_Options[OPT_Help].value = 0;
+    if( bHelp ) {
+        bHelp = false;
         printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
         int i = 0;
         while(MAIN_Options[i].option) {
-            printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, MAIN_Options[i].value);
+            printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, *MAIN_Options[i].pValue);
             ++i;
         }
         printf("\nNote: SBEMU will read BLASTER environment variable and use it, " HELPNOTE );
@@ -344,39 +321,39 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    if(MAIN_Options[OPT_ADDR].value != 0x220 && MAIN_Options[OPT_ADDR].value != 0x240)
+    if( gvars.base != 0x220 && gvars.base != 0x240 )
     {
-        printf("Error: invalid IO port address: %x.\n", MAIN_Options[OPT_ADDR].value);
+        printf("Error: invalid IO port address: %x.\n", gvars.base );
         return 1;
     }
-    if(MAIN_Options[OPT_IRQ].value != 0x5 && MAIN_Options[OPT_IRQ].value != 0x7)
+    if( gvars.irq != 0x5 && gvars.irq != 0x7 )
     {
-        printf("Error: invalid IRQ: %d.\n", MAIN_Options[OPT_IRQ].value);
+        printf("Error: invalid IRQ: %d.\n", gvars.irq );
         return 1;
     }
-    if(MAIN_Options[OPT_DMA].value != 0x0 && MAIN_Options[OPT_DMA].value != 1 && MAIN_Options[OPT_DMA].value != 3)
+    if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 )
     {
         printf("Error: invalid DMA channel.\n");
         return 1;
     }
 #if SB16
-    if(MAIN_Options[OPT_HDMA].value != 0x0 && ( MAIN_Options[OPT_HDMA].value <= 4 || MAIN_Options[OPT_HDMA].value > 7))
+    if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7))
     {
-        printf("Error: invalid HDMA channel: %u\n", MAIN_Options[OPT_HDMA].value );
+        printf("Error: invalid HDMA channel: %u\n", gvars.hdma );
         return 1;
     }
 #endif
-    if(MAIN_Options[OPT_TYPE].value <= 0 || MAIN_Options[OPT_TYPE].value > MAXTYPE )
+    if( gvars.type <= 0 || gvars.type > MAXTYPE )
     {
-        printf("Error: invalid SB Type: %d\n", MAIN_Options[OPT_TYPE].value );
+        printf("Error: invalid SB Type: %d\n", gvars.type );
         return 1;
     }
-    if(MAIN_Options[OPT_OUTPUT].value < 0 || MAIN_Options[OPT_OUTPUT].value > 2)
+    if( gvars.pin < 0 || gvars.pin > 2)
     {
-		printf("Error: Invalid Output: %d\n", MAIN_Options[OPT_OUTPUT].value );
+        printf("Error: Invalid Output: %d\n", gvars.pin );
         return 1;
     }
-     if(MAIN_Options[OPT_VOL].value < 0 || MAIN_Options[OPT_VOL].value > 9)
+     if( gvars.vol < 0 || gvars.vol > 9)
     {
         printf("Error: Invalid Volume.\n");
         return 1;
@@ -390,132 +367,111 @@ int main(int argc, char* argv[])
         return(0);
     }
 
-    if(MAIN_Options[OPT_RM].value)
+    if( gvars.rm )
     {
-        int bcd = QEMM_GetVersion();
+        int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
         if(bcd < 0x703)
         {
             printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd>>8, bcd&0xFF);
-            MAIN_Options[OPT_RM].value = FALSE;
+            gvars.rm = FALSE;
         }
     }
-    if(MAIN_Options[OPT_PM].value)
+    if( gvars.pm )
     {
-        bool hasHDPMI = HDPMIPT_Detect(); //another DPMI host used other than HDPMI
+        bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used other than HDPMI
         if(!hasHDPMI)
             printf("HDPMI not installed, disable protected mode support.\n");
-        MAIN_Options[OPT_PM].value = hasHDPMI;
+        gvars.pm = hasHDPMI;
     }
-    enablePM = MAIN_Options[OPT_PM].value;
-    enableRM = MAIN_Options[OPT_RM].value;
-    if(!enablePM && !enableRM)
+    if( !gvars.pm && !gvars.rm )
     {
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
+#if SUPPSAFE
     if(MAIN_Options[OPT_SAFE].value)
         VIRQ_SafeCall();
-    
-    aui.card_select_config = MAIN_Options[OPT_OUTPUT].value;
-    aui.card_select_devicenum = MAIN_Options[OPT_DEVIDX].value;
+#else
+    VIRQ_Init();
+#endif
+    aui.card_select_config = gvars.pin;
+    aui.card_select_devicenum = gvars.device;
     AU_init(&aui);
     if(!aui.card_handler)
         return 0;
-    if(aui.card_irq == MAIN_Options[OPT_IRQ].value)
-    {
+    if( aui.card_irq == gvars.irq ) {
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
     AU_ini_interrupts(&aui);
     AU_setmixer_init(&aui);
     AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, 95);
-    MAIN_GLB_VOL = MAIN_Options[OPT_VOL].value;
+    MAIN_GLB_VOL = gvars.vol;
     MAIN_SB_VOL = 256*MAIN_GLB_VOL/9;
     AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, MAIN_GLB_VOL*100/9);
     AU_setrate(&aui, &adi);
 
-    if( enableRM ) {
-        enableRM = QEMM_Prepare_IOPortTrap();
-        if ( !enableRM ) {
-            printf("Error: Failed setting IO port handler for QEMM.\n");
+    if( gvars.rm ) {
+        gvars.rm = PTRAP_Prepare_RM_PortTrap();
+        if ( !gvars.rm ) {
+            printf("Error: Failed setting IO port handler for real-mode.\n");
             return 1;
         }
     }
 
-    printf("Real mode support: %s.\n", enableRM ? "enabled" : "disabled");
-    printf("Protected mode support: %s.\n", enablePM ? "enabled" : "disabled");
+    printf("Real mode support: %s.\n", gvars.rm ? "enabled" : "disabled");
+    printf("Protected mode support: %s.\n", gvars.pm ? "enabled" : "disabled");
 
-    if(enablePM) {
-        UntrappedIO_OUT_Handler = &HDPMIPT_UntrappedIO_OUT;
-        UntrappedIO_IN_Handler = &HDPMIPT_UntrappedIO_IN;
+    if( gvars.pm ) {
+        UntrappedIO_OUT_Handler = &PTRAP_UntrappedIO_OUT;
+        UntrappedIO_IN_Handler = &PTRAP_UntrappedIO_IN;
     }
-    /* adjust IODT port table */
-	MAIN_IODT[portranges[DMA_IODT]].port   = MAIN_Options[OPT_DMA].value * 2;
-	MAIN_IODT[portranges[DMA_IODT]+1].port = MAIN_Options[OPT_DMA].value * 2 + 1;
-	MAIN_IODT[portranges[DMAPG_IODT]].port = MAIN_ChannelPageMap[ MAIN_Options[OPT_DMA].value];
+
 #if SB16
-	if ( MAIN_Options[OPT_HDMA].value ) {
-		MAIN_IODT[portranges[HDMA_IODT]].port    = MAIN_Options[OPT_HDMA].value * 4 + (0xC0-0x10);
-		MAIN_IODT[portranges[HDMA_IODT]+1].port  = MAIN_Options[OPT_HDMA].value * 4 + 2 + (0xC0-0x10);
-		MAIN_IODT[portranges[DMAPG_IODT]+1].port = MAIN_ChannelPageMap[ MAIN_Options[OPT_HDMA].value];
-	}
+    if ( gvars.type < 6 )
+        gvars.hdma = 0;
 #endif
-	if ( MAIN_Options[OPT_ADDR].value != 0x220 )
-		for( int i = portranges[SB_IODT]; i < portranges[SB_IODT+1]; i++ )
-			MAIN_IODT[i].port += MAIN_Options[OPT_ADDR].value - 0x220;
 
-	/* if no OPL3 emulation, skip ports 0x388-0x38b and 0x220-0x223 */
-	if ( !MAIN_Options[OPT_OPL].value ) {
-		//asm("int3");
-		IODT_DelEntries( portranges[OPL3_IODT], portranges[END_IODT], 4 );
-		IODT_DelEntries( portranges[SB_IODT], portranges[END_IODT], 4 );
-	}
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
+
 
 #if SB16
-	/* if no SB16 emulation, skip all HDMA ports */
-	if ( MAIN_Options[OPT_TYPE].value < 6 || MAIN_Options[OPT_HDMA].value == 0 ) {
-		IODT_DelEntries( portranges[DMAPG_IODT]+1, portranges[END_IODT], 1 );
-		IODT_DelEntries( portranges[HDMA_IODT], portranges[END_IODT], portranges[HDMA_IODT+1] - portranges[HDMA_IODT] );
-	}
-	SBEMU_Init( MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value,
-			   MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
+    VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
 #else
-	SBEMU_Init( MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, 0,
-			   MAIN_SB_DSPVersion[ MAIN_Options[OPT_TYPE].value ] );
+    VSB_Init( gvars.irq, gvars.dma, 0, gvars.type );
 #endif
-    VDMA_Virtualize( MAIN_Options[OPT_DMA].value, TRUE );
+    VDMA_Virtualize( gvars.dma, TRUE );
 #if SB16
-	if( MAIN_Options[OPT_HDMA].value > 0 )
-		VDMA_Virtualize( MAIN_Options[OPT_HDMA].value, TRUE );
+    if( gvars.hdma > 0 )
+        VDMA_Virtualize( gvars.hdma, TRUE );
 #endif
 
-	if ( enableRM ) {
-		if ((bQemm = QEMM_Install_PortTraps( MAIN_IODT, portranges, countof(portranges)-1 )) == 0 )
-			printf("Error: Failed installing IO port trap for Qemm/JemmEx.\n");
-	}
-    if ( enablePM ) {
-		if(( bHdpmi = HDPMIPT_Install_PortTraps( MAIN_IODT, portranges, countof(portranges)-1 )) == 0 )
-			printf("Error: Failed installing IO port trap for HDPMI.\n");
+    if ( gvars.rm ) {
+        if ((bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
+            printf("Error: Failed installing IO port trap for real-mode.\n");
+    }
+    if ( gvars.pm ) {
+        if(( bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
+            printf("Error: Failed installing IO port trap for protected-mode.\n");
 #ifdef _DEBUG
-        //HDPMIPT_PrintPorts( MAIN_IODT, portranges[END_IODT] ); /* for debugging */
+        //PTRAP_PrintPorts(); /* for debugging */
 #endif
     }
 
-	if( MAIN_Options[OPT_OPL].value ) {
-		OPL3EMU_Init(aui.freq_card);
-		printf("OPL3 emulation enabled at port 388h.\n");
-	}
+    if( gvars.opl3 ) {
+        VOPL3_Init(aui.freq_card);
+        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", aui.freq_card );
+    }
 
 #if SB16
     printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, TYPE=%d\n",
-           MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value, MAIN_Options[OPT_HDMA].value, MAIN_Options[OPT_TYPE].value );
+           gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type );
 #else
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u\n", MAIN_Options[OPT_ADDR].value, MAIN_Options[OPT_IRQ].value, MAIN_Options[OPT_DMA].value);
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u\n", gvars.base, gvars.irq, gvars.dma );
 #endif
 
-
-    PM_ISR = HDPMIPT_InstallISR(PIC_IRQ2VEC( aui.card_irq), &MAIN_InterruptPM );
+    PM_ISR = InstallISR(PIC_IRQ2VEC( aui.card_irq), &MAIN_InterruptPM );
 
     PIC_UnmaskIRQ(aui.card_irq);
 
@@ -536,7 +492,7 @@ int main(int argc, char* argv[])
     if (p = malloc( 0x10000 ) )
         free( p );
 
-	if(PM_ISR && ( bQemm || (!enableRM) ) && ( bHdpmi || (!enablePM) ) ) {
+    if( PM_ISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
         DPMI_REG r = {0};
         uint32_t psp = _go32_info_block.linear_address_of_original_psp;
         __dpmi_free_dos_memory( DPMI_LoadW( psp+0x2C ) );
@@ -577,37 +533,38 @@ void MAIN_Interrupt()
     int32_t midivol;
 
 #if !TRIGGERATONCE
-    if ( SBEMU_TriggerIRQ ) {
-        SBEMU_TriggerIRQ = 0;
+    if ( VSB_TriggerIRQ ) {
+        VSB_TriggerIRQ = 0;
         VIRQ_Invoke();
     }
 #endif
-    if(MAIN_Options[OPT_TYPE].value < 4) //SB2.0 and before
+    if( gvars.type < 4) //SB2.0 and before
     {
-        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERVOL) >> 1) * 256 / 7;
-        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICEVOL) >> 1) * 256 / 3;
-        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDIVOL) >> 1) * 256 / 7;
+        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) >> 1) * 256 / 7;
+        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL) >> 1) * 256 / 3;
+        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDIVOL) >> 1) * 256 / 7;
     }
-    else if(MAIN_Options[OPT_TYPE].value == 6) //SB16
+    else if( gvars.type == 6) //SB16
     {
-        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 4) * 256 / 15; //4:4
-        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 4) * 256 / 15; //4:4
-        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 4) * 256 / 15; //4:4
+        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 4) * 256 / 15; //4:4
+        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 4) * 256 / 15; //4:4
+        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 4) * 256 / 15; //4:4
         //dbgprintf("vol: %d, voicevol: %d, midivol: %d\n", vol, voicevol, midivol);
     }
     else //SBPro
     {
-        vol = (SBEMU_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 5) * 256 / 7; //3:1:3:1 stereo usually the same for both channel for games?;
-        voicevol = (SBEMU_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 5) * 256 / 7; //3:1:3:1
-        midivol = (SBEMU_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 5) * 256 / 7;
+        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 5) * 256 / 7; //3:1:3:1 stereo usually the same for both channel for games?;
+        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 5) * 256 / 7; //3:1:3:1
+        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 5) * 256 / 7;
     }
     if(MAIN_SB_VOL != vol * MAIN_GLB_VOL / 9)
     {
         //dbgprintf("set sb volume:%d %d\n", MAIN_SB_VOL, vol*MAIN_GLB_VOL/9);
         MAIN_SB_VOL =  vol * MAIN_GLB_VOL / 9;
-        //asm("sub $200, %esp \n\tfsave (%esp)"); /* needed if AU_setmixer_one() uses floats */
+        //uint8_t buffer[200];
+        //asm("fsave %0": "m"(buffer)); /* needed if AU_setmixer_one() uses floats */
         AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol * 100 / 256 );
-        //asm("frstor (%esp) \n\tadd $200, %esp \n\t");
+        //asm("frstor %0": "m"(buffer));
     }
 
     aui.card_outbytes = aui.card_dmasize;
@@ -617,18 +574,18 @@ void MAIN_Interrupt()
     if(samples == 0) /* no free space in DMA buffer? */
         return;
 
-    bool digital = SBEMU_Running();
-    int dma = SBEMU_GetDMA();
+    bool digital = VSB_Running();
+    int dma = VSB_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
 
     if( digital ) {
         uint32_t DMA_Addr = VDMA_GetAddress(dma);
         int32_t DMA_Index = VDMA_GetIndex(dma);
-        uint32_t SB_Bytes = SBEMU_GetSampleBytes();
-        uint32_t SB_Pos = SBEMU_GetPos();
-        uint32_t SB_Rate = SBEMU_GetSampleRate();
-        int samplesize = max(1,SBEMU_GetBits()/8);
-        int channels = SBEMU_GetChannels();
+        uint32_t SB_Bytes = VSB_GetSampleBytes();
+        uint32_t SB_Pos = VSB_GetPos();
+        uint32_t SB_Rate = VSB_GetSampleRate();
+        int samplesize = max(1,VSB_GetBits()/8);
+        int channels = VSB_GetChannels();
         //dbgprintf("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels );
         //dbgprintf("DMA index: %x\n", DMA_Index);
         int pos = 0;
@@ -665,8 +622,8 @@ void MAIN_Interrupt()
                 resample = FALSE;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
-            if(SBEMU_GetBits() < 8) //ADPCM 8bit
-                count = max(1, count / (9 / SBEMU_GetBits()));
+            if(VSB_GetBits() < 8) //ADPCM 8bit
+                count = max(1, count / (9 / VSB_GetBits()));
             int bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer
@@ -682,8 +639,8 @@ void MAIN_Interrupt()
 
             /* format conversion needed? */
 #if ADPCM
-            if(SBEMU_GetBits()<8) //ADPCM  8bit
-                count = SBEMU_DecodeADPCM((uint8_t*)(MAIN_PCM + pos * 2), bytes);
+            if(VSB_GetBits()<8) //ADPCM  8bit
+                count = VSB_DecodeADPCM((uint8_t*)(MAIN_PCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
                 cv_bits_n_to_m( MAIN_PCM + pos * 2, count * channels, samplesize, 2);
@@ -696,37 +653,37 @@ void MAIN_Interrupt()
             DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index+bytes, DMA_Count-bytes);
             //int LastDMACount = DMA_Count;
             DMA_Count = VDMA_GetCounter( dma );
-            SB_Pos = SBEMU_SetPos( SB_Pos + bytes );
+            SB_Pos = VSB_SetPos( SB_Pos + bytes );
             if(SB_Pos >= SB_Bytes)
             {
                 dbgprintf("MAIN_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) );
-                if(!SBEMU_GetAuto())
-                    SBEMU_Stop();
-                SB_Pos = SBEMU_SetPos(0);
+                if(!VSB_GetAuto())
+                    VSB_Stop();
+                SB_Pos = VSB_SetPos(0);
                 VIRQ_Invoke();
-                SB_Bytes = SBEMU_GetSampleBytes();
-                SB_Pos = SBEMU_GetPos();
-                SB_Rate = SBEMU_GetSampleRate();
+                SB_Bytes = VSB_GetSampleBytes();
+                SB_Pos = VSB_GetPos();
+                SB_Rate = VSB_GetSampleRate();
                 //incase IRQ handler re-programs DMA
                 DMA_Index = VDMA_GetIndex(dma);
                 DMA_Count = VDMA_GetCounter(dma);
                 DMA_Addr = VDMA_GetAddress(dma);
             }
-        } while(VDMA_GetAuto(dma) && (pos < samples) && SBEMU_Running());
+        } while(VDMA_GetAuto(dma) && (pos < samples) && VSB_Running());
 
-        dbgprintf("MAIN_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, SBEMU_Running() );
+        dbgprintf("MAIN_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() );
         //for(int i = pos; i < samples; ++i)
         //    MAIN_PCM[i*2+1] = MAIN_PCM[i*2] = 0;
         samples = min(samples, pos);
     }
-    else if(!MAIN_Options[OPT_OPL].value)
+    else if( gvars.opl3 )
         memset( MAIN_PCM, 0, samples * sizeof(int16_t) * 2 ); //output muted samples.
 
-    if(MAIN_Options[OPT_OPL].value) {
+    if( gvars.opl3 ) {
         int16_t* pcm = digital ? MAIN_OPLPCM : MAIN_PCM;
-        OPL3EMU_GenSamples(pcm, samples); //will generate samples*2 if stereo
+        VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
-        int channels = OPL3EMU_GetMode() ? 2 : 1;
+        int channels = VOPL3_GetMode() ? 2 : 1;
         if(channels == 1)
             cv_channels_1_to_n(pcm, samples, 2, SBEMU_BITS/8);
 
@@ -750,6 +707,4 @@ void MAIN_Interrupt()
     aui.pcm_sample = MAIN_PCM;
 
     AU_writedata(&aui);
-
-    //dbgprintf("MAIN INT END\n");
 }
