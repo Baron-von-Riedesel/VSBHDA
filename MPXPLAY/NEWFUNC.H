@@ -54,14 +54,6 @@ typedef int           mpxp_ptrsize_t;
  typedef long          mpxp_filesize_t;
 #endif
 
-#ifndef FALSE
-#define FALSE 0
-#endif
-
-#ifndef TRUE
-#define TRUE 1
-#endif
-
 #ifndef offsetof
 #define offsetof(T, F) ((unsigned int)((char *)&((T *)0)->F))
 #endif
@@ -208,24 +200,6 @@ extern void *pds_malloc(unsigned int bufsize);
 extern void *pds_calloc(unsigned int nitems,unsigned int itemsize);
 //extern void *pds_realloc(void *bufptr,unsigned int bufsize);
 extern void pds_free(void *bufptr);
-
-//string.c
-extern unsigned int pds_strcpy(char *,char *); // returns the length of string!
-extern unsigned int pds_strmove(char *dest,char *src); // returns the length of string
-extern unsigned int pds_strncpy(char *dest,char *src,unsigned int maxlen); // returns the length of string!
-extern unsigned int pds_strcat(char *,char *); // returns the lenght of string!
-extern int  pds_strcmp(char *strp1,char *strp2);
-extern int  pds_stricmp(char *,char *);
-extern int  pds_strncmp(char *,char *,unsigned int);
-extern int  pds_strnicmp(char *strp1,char *strp2,unsigned int counter);
-extern unsigned int pds_strlen(char *strp);
-extern unsigned int pds_strlenc(char *strp,char seek);
-extern unsigned int pds_strcutspc(char *src); // returns (new)len
-extern void  pds_ltoa(int,char *);
-extern long  pds_atol(char *);
-extern long  pds_atol16(char *);
-//extern void pds_str_to_hexs(char *src,char *dest,unsigned int destlen);
-//extern void pds_hexs_to_str(char *src,char *dest,unsigned int destlen);
 
 //time.c
 extern unsigned long pds_gettimeh(void); // clock time in hsec

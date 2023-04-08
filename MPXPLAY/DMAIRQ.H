@@ -14,12 +14,6 @@ extern "C" {
 #define DMAMODE_AUTOINIT_OFF 0
 #define DMAMODE_AUTOINIT_ON  0x10
 
-typedef struct au_isadma_s{
- unsigned int dma_low;
- unsigned int dma_high;
- cardmem_t *card_dma_dosmem;
-}au_isadma_s;
-
 extern cardmem_t *MDma_alloc_cardmem(unsigned int buffsize);
 extern void MDma_free_cardmem(cardmem_t *dm);
 extern unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsigned int max_bufsize,unsigned int pagesize,unsigned int samplesize,unsigned long freq_config);

@@ -127,7 +127,6 @@ typedef struct mpxplay_audioout_info_s{
  unsigned int   card_bytespersign; // bytespersample_card*chan_card
  unsigned int   card_dmaout_under_int08;
  unsigned short int08_decoder_cycles;
- cardmem_t *card_dma_dosmem;
  char *card_DMABUFF;
 
  char *card_selectname;          // select card by name
@@ -170,7 +169,7 @@ typedef struct one_sndcard_info{
 }one_sndcard_info;
 
 //main soundcard routines
-extern void AU_init(struct mpxplay_audioout_info_s *aui);
+extern int  AU_init(struct mpxplay_audioout_info_s *aui);
 extern void AU_ini_interrupts(struct mpxplay_audioout_info_s *);
 extern void AU_del_interrupts(struct mpxplay_audioout_info_s *aui);
 extern void AU_prestart(struct mpxplay_audioout_info_s *);

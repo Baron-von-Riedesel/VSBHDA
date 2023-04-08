@@ -28,7 +28,7 @@ OBJFILES=\
 	$(OUTD)/main.o		$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/dpmihlp.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
-	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/nf_dpmi.o	$(OUTD)/string.o	$(OUTD)/time.o\
+	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/nf_dpmi.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
@@ -99,7 +99,6 @@ $(OUTD)/sc_sbliv.o:: sc_sbliv.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmair
 $(OUTD)/sc_via82.o:: sc_via82.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
-$(OUTD)/string.o::   string.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/time.o::     time.c      in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
 $(OUTD)/vdma.o::     vdma.c      dpmihlp.h platform.h ptrap.h vdma.h sbemucfg.h
 $(OUTD)/vioout.o::   vioout.asm

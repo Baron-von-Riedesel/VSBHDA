@@ -66,9 +66,9 @@ bool _hdpmi_UninstallISR( void );
 bool _hdpmi_InstallInt31( uint8_t );
 bool _hdpmi_UninstallInt31( void );
 
-static bool bQemm = FALSE;
-static bool bHdpmi = FALSE;
-static int bHelp = FALSE;
+static bool bQemm = false;
+static bool bHdpmi = false;
+static int bHelp = false;
 
 #if SB16
 struct globalvars gvars = { 0x220, 7, 1, 0, 5, true, true, true, 7 };
@@ -374,7 +374,7 @@ int main(int argc, char* argv[])
         if(bcd < 0x703)
         {
             printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd>>8, bcd&0xFF);
-            gvars.rm = FALSE;
+            gvars.rm = false;
         }
     }
     if( gvars.pm )
@@ -397,9 +397,11 @@ int main(int argc, char* argv[])
 #endif
     aui.card_select_config = gvars.pin;
     aui.card_select_devicenum = gvars.device;
-    AU_init(&aui);
-    if(!aui.card_handler)
-        return 0;
+    if ( !AU_init( &aui ) ) {
+        printf("No soundcard found!\n");
+        return 1;
+    }
+    printf("Found sound card: %s\n", aui.card_handler->shortname);
     if( aui.card_irq == gvars.irq ) {
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
@@ -441,10 +443,10 @@ int main(int argc, char* argv[])
 #else
     VSB_Init( gvars.irq, gvars.dma, 0, gvars.type );
 #endif
-    VDMA_Virtualize( gvars.dma, TRUE );
+    VDMA_Virtualize( gvars.dma, true );
 #if SB16
     if( gvars.hdma > 0 )
-        VDMA_Virtualize( gvars.hdma, TRUE );
+        VDMA_Virtualize( gvars.hdma, true );
 #endif
 
     if ( gvars.rm ) {
@@ -611,7 +613,7 @@ void MAIN_Interrupt()
             }
 #endif
             int count = samples - pos;
-            bool resample = TRUE; //don't resample if sample rates are close
+            bool resample = true; //don't resample if sample rates are close
             if(SB_Rate < aui.freq_card)
                 //count = max(channels, count/((aui.freq_card+SB_Rate-1)/SB_Rate));
                 count = max(1, count * SB_Rate / aui.freq_card );
@@ -619,7 +621,7 @@ void MAIN_Interrupt()
                 //count *= (SB_Rate + aui.freq_card/2)/aui.freq_card;
                 count = count * SB_Rate / aui.freq_card;
             else
-                resample = FALSE;
+                resample = false;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
             if(VSB_GetBits() < 8) //ADPCM 8bit

@@ -84,127 +84,47 @@ static aucards_writedata_t aucards_writedata_func;
 
 /* scan for audio devices */
 
-void AU_init(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////
+int AU_init(struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////
 {
-	unsigned int error_code = MPXERROR_SNDCARD;
 	one_sndcard_info **asip;
-	char cardselectname[32]="";
-	char sout[100];
 
-	dbgprintf("AU_init: card_selectname=%s\n", aui->card_selectname ? aui->card_selectname : "NULL" );
+	dbgprintf("AU_init\n");
 	aui->card_dmasize = aui->card_dma_buffer_size = MDma_get_max_pcmoutbufsize( aui, 65535, 4608, 2, 0);
 
-auinit_retry:
-
-	if( aui->card_selectname ) {
-		pds_strncpy( cardselectname, aui->card_selectname, sizeof(cardselectname) - 1 );
-		cardselectname[sizeof(cardselectname)-1] = 0;
-		pds_strcutspc(cardselectname);
-		if(pds_stricmp(cardselectname,"AUTO") == 0)
-			cardselectname[0] = 0;
-	}
-
-	if( cardselectname[0] ) {
+	if(!(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
 		asip = &all_sndcard_info[0];
 		aui->card_handler = *asip;
 		do{
-			if(pds_stricmp(cardselectname,aui->card_handler->shortname)==0)
-				break;
+			if(!(aui->card_handler->infobits & SNDCARD_SELECT_ONLY))
+				if(cardinit(aui))
+					break;
 			asip++;
 			aui->card_handler = *asip;
 		}while(aui->card_handler);
+	}
 
-		if(!aui->card_handler){
-			dbgprintf("Unknown soundcard (output module) name : %s\n",cardselectname);
-			goto err_out_auinit;
-		}
-		if(!cardinit(aui) || (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
-			if(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD) {
-				dbgprintf(sout,"Testing selected output/soundcard (%s)\n",cardselectname);
+	// test built-in cards
+	if(!aui->card_handler || (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
+		asip = &all_sndcard_info[0];
+		aui->card_handler = *asip;
+		dbgprintf("AU_init: autodetecting...\n" );
+		do{
+			dbgprintf("AU_init: checking card %s\n", aui->card_handler->shortname);
+			if( aui->card_handler->card_detect ) {
+				if( carddetect( aui, 0 ) )
+					break;
 			}
-			if(!carddetect(aui,1))
-				aui->card_handler=NULL;
-		}
-		if(!aui->card_handler){
-			printf("Cannot initialize %s soundcard (either doesn't exist or settings unsupported)!\n",cardselectname);
-			goto err_out_auinit;
-		}
-		if(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD){
-			dbgprintf("Testing finished...\n");
-			error_code = MPXERROR_UNDEFINED;
-			goto err_out_auinit;
-		}
-	} else {
-		dbgprintf("AU_init: card_selectname[0]=0\n" );
-		// init/search card(s) via environment variable
-		if(!(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
-			asip = &all_sndcard_info[0];
+			asip++;
 			aui->card_handler = *asip;
-			do{
-				if(!(aui->card_handler->infobits & SNDCARD_SELECT_ONLY))
-					if(cardinit(aui))
-						break;
-				asip++;
-				aui->card_handler = *asip;
-			}while(aui->card_handler);
-		}
-
-		// autodetect sound card(s) (on brutal force way)
-		if(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)  // -sct
-			printf("Autodetecting/testing available outputs/soundcards, please wait...\n");
-
-		// test built-in cards
-		if(!aui->card_handler || (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
-			asip = &all_sndcard_info[0];
-			aui->card_handler = *asip;
-			dbgprintf("AU_init: autodetecting...\n" );
-			do{
-				dbgprintf("AU_init: checking card %s\n", aui->card_handler->shortname);
-				if(aui->card_handler->card_detect){
-					if(!(aui->card_handler->infobits & SNDCARD_SELECT_ONLY)
-#ifndef MPXPLAY_WIN32
-					   && (!(aui->card_handler->infobits & SNDCARD_LOWLEVELHAND) || !iswin9x)
-#endif
-					  ){
-						if(carddetect(aui,0)){
-							if(!(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD))
-								break;
-							if(aui->card_handler->card_close)
-								aui->card_handler->card_close(aui);
-							aui->card_private_data = NULL;
-						}
-					}
-				}
-				asip++;
-				aui->card_handler=*asip;
-			}while(aui->card_handler);
-		}
-
-		if( aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD ) {
-			printf("Autodetecting finished... Exiting...\n");
-			error_code = MPXERROR_UNDEFINED;
-			goto err_out_auinit;
-		}
-		if( !aui->card_handler ) {
-			printf("No soundcard found!\n");
-			goto err_out_auinit;
-		}
+		} while( aui->card_handler );
 	}
 
-	printf("Found sound card: %s\n", aui->card_handler->shortname);
+	if( !aui->card_handler )
+		return(0);
 
-	//if(!(aui->card_handler->infobits & SNDCARD_INT08_ALLOWED))
-	//	funcbit_disable(intsoundconfig,INTSOUND_FUNCTIONS);
-
-	aui->freq_card=aui->chan_card=aui->bits_card = 0;
-	return;
-
-err_out_auinit:
-	if( pds_stricmp(aui->card_selectname, "NUL") != 0 ){
-		aui->card_selectname = "NUL";
-		goto auinit_retry;
-	}
+	aui->freq_card = aui->chan_card = aui->bits_card = 0;
+	return(1);
 }
 
 static unsigned int cardinit(struct mpxplay_audioout_info_s *aui)

@@ -135,7 +135,7 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 				/((float)INT08_DIVISOR_DEFAULT*(float)INT08_CYCLES_DEFAULT/(float)INT08_DIVISOR_NEW) );
 
 	tmp += aui->card_bytespersign-1;                              // rounding up
-	tmp -= (aui->card_dmaout_under_int08%aui->card_bytespersign); // to pcm_samples
+	tmp -= (aui->card_dmaout_under_int08 % aui->card_bytespersign); // to pcm_samples
 	funcbit_smp_int32_put( aui->card_dmaout_under_int08, tmp);
 
 	funcbit_smp_int32_put( aui->card_dma_lastgoodpos, 0); // !!! the soundcard also must to do this
