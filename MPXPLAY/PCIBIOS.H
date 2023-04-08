@@ -33,6 +33,7 @@
 #define    HiW(dw)    (uint16_t)((uint32_t)dw >> 16)
 #define    LoW(dw)    (uint16_t)((uint32_t)dw & 0xFFFF)
 
+/* PCI BIOS function numbers */
 #define PCI_FUNCTION_ID     0xB1
 #define PCI_BIOS_PRESENT    0x01
 #define PCI_FIND_DEVICE     0x02

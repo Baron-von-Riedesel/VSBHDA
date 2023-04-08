@@ -15,10 +15,6 @@
 //function: audio main functions
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <conio.h>
-#include <io.h>
-#include <dos.h>
 
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
@@ -30,7 +26,7 @@
 typedef int (*aucards_writedata_t)(struct mpxplay_audioout_info_s *aui,unsigned long);
 
 static unsigned int cardinit(struct mpxplay_audioout_info_s *aui);
-static unsigned int carddetect(struct mpxplay_audioout_info_s *aui, unsigned int retry);
+static unsigned int carddetect(struct mpxplay_audioout_info_s *aui);
 
 #ifndef SBEMU
 static unsigned int AU_cardbuf_space(struct mpxplay_audioout_info_s *aui);
@@ -49,7 +45,7 @@ extern one_sndcard_info ES1371_sndcard_info;
 extern one_sndcard_info ICH_sndcard_info;
 extern one_sndcard_info IHD_sndcard_info;
 extern one_sndcard_info VIA82XX_sndcard_info;
-#ifdef SBLSUPP
+#if SBLIVE
 extern one_sndcard_info SBLIVE_sndcard_info;
 #endif
 
@@ -57,7 +53,7 @@ static one_sndcard_info *all_sndcard_info[]={
  &ES1371_sndcard_info,
  &ICH_sndcard_info,
  &IHD_sndcard_info,
-#ifdef SBLSUPP
+#if SBLIVE
  &SBLIVE_sndcard_info,
 #endif
  &VIA82XX_sndcard_info,
@@ -74,10 +70,9 @@ static one_sndcard_info *all_sndcard_info[]={
 //struct mpxplay_audioout_info_s au_infos = {0};
 static unsigned int playcontrol;
 static unsigned int outmode = OUTMODE_TYPE_AUDIO;
-unsigned int intsoundconfig = INTSOUND_NOBUSYWAIT;
-unsigned int intsoundcontrol;
-static unsigned long allcpuusage,allcputime;
-static unsigned int iswin9x = 0;
+static unsigned int intsoundconfig = INTSOUND_NOBUSYWAIT;
+static unsigned int intsoundcontrol;
+//static unsigned long allcpuusage,allcputime;
 #endif
 
 static aucards_writedata_t aucards_writedata_func;
@@ -104,15 +99,13 @@ int AU_init(struct mpxplay_audioout_info_s *aui)
 		}while(aui->card_handler);
 	}
 
-	// test built-in cards
 	if(!aui->card_handler || (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD)){
 		asip = &all_sndcard_info[0];
 		aui->card_handler = *asip;
-		dbgprintf("AU_init: autodetecting...\n" );
 		do{
 			dbgprintf("AU_init: checking card %s\n", aui->card_handler->shortname);
 			if( aui->card_handler->card_detect ) {
-				if( carddetect( aui, 0 ) )
+				if( carddetect( aui ) )
 					break;
 			}
 			asip++;
@@ -132,48 +125,25 @@ static unsigned int cardinit(struct mpxplay_audioout_info_s *aui)
 {
 	if(aui->card_handler->card_init)
 		if(aui->card_handler->card_init(aui))
-			return 1;
-	return 0;
+			return(1);
+	return(0);
 }
 
-static unsigned int carddetect(struct mpxplay_audioout_info_s *aui, unsigned int do_retry)
-//////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int carddetect(struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////////
 {
-	unsigned int ok, retry = do_retry;
-jump_back:
-
 	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE; // integer pcm
 	aui->bits_card = 16;
-	aui->bytespersample_card = (aui->bits_card+7)/8;
-
+	aui->bytespersample_card = aui->bits_card/8;
 	aui->card_port = aui->card_type = 0xffff;
 	aui->card_irq = aui->card_isa_dma = aui->card_isa_hidma = 0xff;
 	aui->freq_card = 44100;
 	aui->chan_card = 2;
 
-	if(aui->card_handler->card_detect){
-		if(aui->card_handler->card_detect(aui))
-			ok = 1;
-		else{
-			if(!retry)
-				return 0;
-			funcbit_disable(outmode,OUTMODE_CONTROL_FILE_FLOATOUT);
-			aui->freq_set = 0;
-			aui->bits_set = 0;
-			aui->chan_set = 0;
-			retry = 0;
-			goto jump_back;
-		}
-		if(ok){
-			if(do_retry && !retry){
-				printf("Warning: initial soundcard config failed! Using default values: stereo, 16 bits\n");
-			}
-			if(aui->card_handler->card_info && (aui->card_controlbits & AUINFOS_CARDCNTRLBIT_TESTCARD))
-				aui->card_handler->card_info(aui);
-			return 1;
-		}
-	}
-	return 0;
+	if( aui->card_handler->card_detect )
+		if( aui->card_handler->card_detect(aui) )
+			return(1);
+	return(0);
 }
 
 void AU_ini_interrupts(struct mpxplay_audioout_info_s *aui)
@@ -245,50 +215,6 @@ void AU_stop(struct mpxplay_audioout_info_s *aui)
 		MPXPLAY_INTSOUNDDECODER_ALLOW;
 	}
 }
-
-#if 0
-void AU_wait_and_stop(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////
-{
-	unsigned int intsoundcntrl_save;
-	//mvp->idone=MPXPLAY_ERROR_INFILE_EOF;
-	if(aui->card_infobits&AUINFOS_CARDINFOBIT_PLAYING){
-		//this is not finished, not tested fully
-		//extra cardbuf_writedata may cause problems
-		/*int b,empty=0;
-		 AU_cardbuf_space(aui);
-		 b=aui->card_dmasize-aui->card_dmaspace;
-		 while(b>0){
-		 int s;
-		 AU_cardbuf_space(aui);
-		 s=aui->card_dmaspace&0xfffffffc;
-		 b-=s;
-		 while(s>0){
-		 aui->card_handler->cardbuf_writedata((char *)&empty,4);
-		 s-=4;
-		 }
-		 }*/
-		funcbit_smp_disable(aui->card_infobits,AUINFOS_CARDINFOBIT_PLAYING);
-		MPXPLAY_INTSOUNDDECODER_DISALLOW;
-		if(aui->card_handler && aui->card_handler->card_stop)
-			aui->card_handler->card_stop(aui);
-		//aui->card_dmalastput=aui->card_dmaspace=aui->card_dmafilled=aui->card_dmasize>>1;
-		//funcbit_enable(aui->card_controlbits,AUINFOS_CARDCNTRLBIT_DMACLEAR);
-		MPXPLAY_INTSOUNDDECODER_ALLOW;
-	}
-	funcbit_smp_disable(playcontrol,PLAYC_RUNNING);
-}
-#endif
-
-#if 0
-void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui)
-{
-}
-
-void AU_resume_decoding(struct mpxplay_audioout_info_s *aui)
-{
-}
-#endif
 
 void AU_close(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////

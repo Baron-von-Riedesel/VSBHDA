@@ -14,7 +14,6 @@
 //**************************************************************************
 // time,delay functions
 
-#include <conio.h>
 #include <time.h>
 #if defined(__GNUC__)
 #include <sys/time.h>

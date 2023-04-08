@@ -23,10 +23,6 @@ extern void MDma_clearbuf(struct mpxplay_audioout_info_s *aui);
 extern void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left);
 extern void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui);
 
-//extern unsigned int MIrq_Start(unsigned int irq_num,void (*irq_routine)(struct mpxplay_audioout_info_s *),unsigned long *card_infobits);
-//extern void MIrq_Stop(unsigned int irq_num,unsigned long *card_infobits);
-//extern unsigned int MIrq_autodetect(struct mpxplay_audioout_info_s *aui);
-
 #ifdef __cplusplus
 }
 #endif

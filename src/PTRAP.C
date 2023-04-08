@@ -98,15 +98,15 @@ static struct PortDispatchTable PDispTab[] = {
 
 /* order of port ranges - must match order in ports.h */
 enum PortRangeStartIndex {
-	OPL3_PDT,
-	IRQ_PDT,
-	DMA_PDT,
-	DMAPG_PDT,
+    OPL3_PDT,
+    IRQ_PDT,
+    DMA_PDT,
+    DMAPG_PDT,
 #if SB16
-	HDMA_PDT,
+    HDMA_PDT,
 #endif
-	SB_PDT,
-	END_PDT
+    SB_PDT,
+    END_PDT
 };
 
 #define tport( port, proc )
@@ -251,8 +251,8 @@ bool PTRAP_Prepare_RM_PortTrap()
 }
 
 
-static bool Install_RM_PortTrap(struct PortDispatchTable pdt[], uint16_t start, uint16_t end )
-//////////////////////////////////////////////////////////////////////////////////////////////
+static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
+///////////////////////////////////////////////////////////////
 {
     DPMI_REG r = {0};
 
@@ -266,14 +266,14 @@ static bool Install_RM_PortTrap(struct PortDispatchTable pdt[], uint16_t start, 
              * untrap the port in any case!
              */
             r.w.ax = 0x1A08;
-            r.w.dx = pdt[i].port;
+            r.w.dx = PDispTab[i].port;
             DPMI_CallRealModeRETF(&r);
-            pdt[i].flags |= (r.h.bl) << 8; //previously trapped state
+            PDispTab[i].flags |= (r.h.bl) << 8; //previously trapped state
         }
         r.w.ax = 0x1A09;
-        r.w.dx = pdt[i].port;
+        r.w.dx = PDispTab[i].port;
         DPMI_CallRealModeRETF(&r); /* trap port */
-        pdt[i].flags |= PDT_FLGS_RMINST;
+        PDispTab[i].flags |= PDT_FLGS_RMINST;
     }
     return true;
 }
@@ -281,18 +281,17 @@ static bool Install_RM_PortTrap(struct PortDispatchTable pdt[], uint16_t start, 
 bool PTRAP_Install_RM_PortTraps( void )
 ///////////////////////////////////////
 {
-    struct PortDispatchTable *pdt = PDispTab;
     int max = countof(portranges) - 1;
     maxports = portranges[max];
 
     for ( int i = 0; i < max; i++ ) {
 #if RMPICTRAPDYN
-        if ( pdt[portranges[i]].port == 0x20 ) {
+        if ( PDispTab[portranges[i]].port == 0x20 ) {
             PICIndex = portranges[i];
             continue;
         }
 #endif
-        Install_RM_PortTrap( pdt, portranges[i], portranges[i+1] );
+        Install_RM_PortTrap( portranges[i], portranges[i+1] );
     }
     return true;
 }
@@ -333,20 +332,19 @@ void PTRAP_SetPICPortTrap( int bSet )
 bool PTRAP_Uninstall_RM_PortTraps( void )
 /////////////////////////////////////////
 {
-	struct PortDispatchTable *pdt = PDispTab;
     int max = portranges[END_PDT];
     DPMI_REG r = {0};
 
     r.w.ip = QPI_Entry.offset16;
     r.w.cs = QPI_Entry.segment;
     for(int i = 0; i < max; ++i) {
-        if ( !( pdt[i].flags & 0xff00 )) {
-            if( pdt[i].flags & PDT_FLGS_RMINST ) {
+        if ( !( PDispTab[i].flags & 0xff00 )) {
+            if( PDispTab[i].flags & PDT_FLGS_RMINST ) {
                 r.w.ax = 0x1A0A; //clear trap
-                r.w.dx = pdt[i].port;
+                r.w.dx = PDispTab[i].port;
                 DPMI_CallRealModeRETF(&r);
-                pdt[i].flags &= ~PDT_FLGS_RMINST;
-                //dbgprintf("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", pdt[i].port );
+                PDispTab[i].flags &= ~PDT_FLGS_RMINST;
+                //dbgprintf("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PDispTab[i].port );
             }
         }
     }
@@ -449,7 +447,6 @@ static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(
 bool PTRAP_Install_PM_PortTraps( void )
 ///////////////////////////////////////
 {
-    struct PortDispatchTable *pdt = PDispTab;
     int max = countof(portranges) - 1;
     maxports = portranges[max];
     int start, end;
@@ -478,8 +475,8 @@ bool PTRAP_Install_PM_PortTraps( void )
 
     for ( int i = 0; i < max; i++ ) {
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
-            start = pdt[portranges[i]].port;
-            end = pdt[portranges[i+1]-1].port;
+            start = PDispTab[portranges[i]].port;
+            end = PDispTab[portranges[i+1]-1].port;
             dbgprintf("HDPMIPT_Install_PM_PortTraps: %X-%X\n", start, end );
             if (!(traphdl[i] = PTRAP_Int_Install_PM_Trap( start, end, &SwitchStackIOIn, &SwitchStackIOOut)))
                 return false;
@@ -492,37 +489,32 @@ static void PDT_DelEntries( int start, int end, int entries )
 /////////////////////////////////////////////////////////////
 {
     int i;
-	for ( i = start; i < end - entries; i++ ) {
-		PDispTab[i].port = PDispTab[i+entries].port;
-		PDispTab[i].handler = PDispTab[i+entries].handler;
-	}
-	for ( i = 0; i < countof(portranges); i++ ) {
-		if ( portranges[i] > start )
-			portranges[i] -= entries;
-	}
+    for ( i = start; i < end - entries; i++ ) {
+        PDispTab[i].port = PDispTab[i+entries].port;
+        PDispTab[i].handler = PDispTab[i+entries].handler;
+    }
+    for ( i = 0; i < countof(portranges); i++ ) {
+        if ( portranges[i] > start )
+            portranges[i] -= entries;
+    }
 }
 
-/* adjust PDT
- * - adjust the entry for DMA channel addr/count
- * - adjust the entry for DMA page reg
- * - remove the OPL ports if OPL isn't active
- * - adjust the SB ports to the selected base
- * if high DMA is set:
- * - adjust the entry for DMA channel addr/count
- * - adjust the entry for DMA page reg
- * else
- * - remove the HDMA ports if no high dma channel is set
- */
+/* adjust PDispTab[] to current settings of /D, /H, /A, /OPL */
+
 void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
 ////////////////////////////////////////////////////////////
 {
+    /* low dma: adjust the entry for DMA channel addr/count */
     PDispTab[portranges[DMA_PDT]].port   = dma * 2;
     PDispTab[portranges[DMA_PDT]+1].port = dma * 2 + 1;
+    /* low dma: adjust the entry for DMA page reg */
     PDispTab[portranges[DMAPG_PDT]].port = ChannelPageMap[ dma ];
 #if SB16
     if ( hdma ) {
+        /* high dma: adjust the entry for DMA channel addr/count */
         PDispTab[portranges[HDMA_PDT]].port    = hdma * 4 + (0xC0-0x10);
         PDispTab[portranges[HDMA_PDT]+1].port  = hdma * 4 + 2 + (0xC0-0x10);
+        /* high dma: adjust the entry for DMA page reg */
         PDispTab[portranges[DMAPG_PDT]+1].port = ChannelPageMap[ hdma ];
     } else {
         /* if no SB16 emulation, remove all HDMA ports */
@@ -530,6 +522,7 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
         PDT_DelEntries( portranges[HDMA_PDT], portranges[END_PDT], portranges[HDMA_PDT+1] - portranges[HDMA_PDT] );
     }
 #endif
+    /* adjust the SB ports to the selected base */
     if ( sbaddr != 0x220 )
         for( int i = portranges[SB_PDT]; i < portranges[SB_PDT+1]; i++ )
             PDispTab[i].port += sbaddr - 0x220;

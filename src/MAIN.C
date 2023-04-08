@@ -22,9 +22,10 @@
 #include <MPXPLAY.H>
 #include <MIX_FUNC.H>
 
-#define PREMAPDMA 0
-#define MAIN_PCM_SAMPLESIZE 16384
-#define SUPPSAFE 0
+#define PREMAPDMA 0 /* 1=map full 16MB ISA address range */
+#define SUPPSAFE 0 /* 1=support /SAFE cmdline option ( hardly needed ) */
+
+#define MAIN_PCM_SAMPLESIZE 16384 /* sample buffer size */
 
 static mpxplay_audioout_info_s aui = {0};
 
@@ -44,7 +45,6 @@ static mpxplay_audio_decoder_info_s adi = {
 static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
 static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
 
-static bool PM_ISR;
 uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 
 
@@ -56,7 +56,7 @@ static uint32_t MAIN_DMA_Size = 0;
 static uint32_t MAIN_DMA_MappedAddr = 0;
 #endif
 static uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
-static uint16_t MAIN_GLB_VOL = 0; //TODO: add hotkey
+static uint16_t MAIN_GLB_VOL = 0;
 
 void MAIN_Interrupt();
 static int MAIN_InterruptPM();
@@ -66,6 +66,7 @@ bool _hdpmi_UninstallISR( void );
 bool _hdpmi_InstallInt31( uint8_t );
 bool _hdpmi_UninstallInt31( void );
 
+static bool PM_ISR; /* 1=pm ISR installed */
 static bool bQemm = false;
 static bool bHdpmi = false;
 static int bHelp = false;
@@ -76,7 +77,7 @@ struct globalvars gvars = { 0x220, 7, 1, 0, 5, true, true, true, 7 };
 struct globalvars gvars = { 0x220, 7, 1, 5, true, true, true, 7 };
 #endif
 
-struct {
+static struct {
     const char* option;
     const char* desc;
     int *pValue;
@@ -226,9 +227,14 @@ void MAIN_Uninstall( void )
 	 * set TSR's int 22h to current PSP:0000;
 	 * switch to TSR PSP
 	 * run an int 21h, ah=4Ch in pm
+	 * todo: adjust value at psp:2Eh
 	 */
-	r.w.ax = 0x5100;
+	r.w.ax = 0x5100; /* get current PSP in BX (segment) */
 	DPMI_CallRealModeINT(0x21, &r);
+#if 0
+	uint32_t dwSSSP = DPMI_LoadD( (r.w.bx << 4) + 0x2E );
+	DPMI_StoreD( _go32_info_block.linear_address_of_original_psp+0x2E, dwSSSP );
+#endif
 	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0xA, 0 );
 	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0xC, r.w.bx );
 	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0x16, r.w.bx );
@@ -410,8 +416,8 @@ int main(int argc, char* argv[])
     AU_setmixer_init(&aui);
     AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, 95);
     MAIN_GLB_VOL = gvars.vol;
-    MAIN_SB_VOL = 256*MAIN_GLB_VOL/9;
-    AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, MAIN_GLB_VOL*100/9);
+    MAIN_SB_VOL = 256 * MAIN_GLB_VOL / 9;
+    AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, MAIN_GLB_VOL * 100/9 );
     AU_setrate(&aui, &adi);
 
     if( gvars.rm ) {

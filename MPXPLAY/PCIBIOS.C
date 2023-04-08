@@ -18,10 +18,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <conio.h>
-#include <io.h>
-#include <dos.h>
 #include <go32.h>
 
 #include "DPMIHLP.H"
@@ -36,7 +32,8 @@
 
 /* SBEMU: DPMI function 0x300 is used instead of int386(); this allows to set
  * a real-mode stack that is >= 1kB, as required by PCI BIOS specs.
- * The djgpp "transfer buffer" is used as this stack - be aware that this buffer
+ * The djgpp "transfer buffer" is used as this stack - be aware that this buffer,
+ * which is located just behind the PSP and is usually 16 kB,
  * isn't available anymore once sbemu is installed as TSR!
  */
 
@@ -396,8 +393,8 @@ void pcibios_set_master(pci_config_s *ppkey)
 ////////////////////////////////////////////
 {
 	unsigned int cmd;
-	cmd=pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
-	cmd|=0x01|0x04;
+	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD); /* read cmd register ( offset 4 ) */
+	cmd |= 0x01 | 0x04;  /* bit0: IO space, bit2: busmaster */
 	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
 }
 
@@ -405,8 +402,8 @@ void pcibios_enable_memmap_set_master(pci_config_s *ppkey)
 //////////////////////////////////////////////////////////
 {
 	unsigned int cmd;
-	cmd=pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
-	cmd&=~0x01;     // disable io-port mapping
-	cmd|=0x02|0x04; // enable memory mapping and set master
+	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
+	cmd &= ~0x01;     /* disable io-port mapping */
+	cmd |= 0x02 | 0x04; /* enable memory mapping and set master */
 	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
 }

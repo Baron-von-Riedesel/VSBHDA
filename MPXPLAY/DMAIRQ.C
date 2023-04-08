@@ -12,37 +12,23 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: DMA & IRQ handling
+//function: DMA handling
 //based on the MPG123 (DOS)
 
 #include <stdlib.h>
-#include <stdio.h>
-#include <conio.h>
-#include <io.h>
-#include <dos.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 
-//declared in control.c
-//extern struct mpxplay_audioout_info_s au_infos;
-//extern unsigned int intsoundconfig,intsoundcontrol;
-
-//**************************************************************************
-// DMA functions
-//**************************************************************************
-
-//-----------------------------------------------------------------------
-//common (ISA & PCI)
-
 cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 ////////////////////////////////////////////////////
 {
-    dbgprintf("MDma_alloc_cardmem\n");
 	cardmem_t *dm;
-	dm=calloc(1,sizeof(cardmem_t));
+	dbgprintf("MDma_alloc_cardmem(%u)\n", buffsize);
+	dm = calloc(1,sizeof(cardmem_t));
 	if(!dm)
 		return NULL;
 	if(!pds_dpmi_xms_allocmem(dm,buffsize)) {
@@ -57,7 +43,7 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 void MDma_free_cardmem(cardmem_t *dm)
 /////////////////////////////////////
 {
-    dbgprintf("MDma_free_cardmem\n");
+	dbgprintf("MDma_free_cardmem(%x)\n", dm);
 	if(dm){
 		pds_dpmi_xms_freemem(dm);
 		free(dm);
@@ -68,25 +54,25 @@ unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsi
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bufsize;
-	dbgprintf("MDma_get_max_pcmoutbufsize\n");
+	dbgprintf("MDma_get_max_pcmoutbufsize(%x, %u, %u, %u, %u\n", aui, max_bufsize, pagesize, samplesize, freq_config);
 	if(!max_bufsize)
-		max_bufsize=AUCARDS_DMABUFSIZE_MAX;
+		max_bufsize = AUCARDS_DMABUFSIZE_MAX;
 	if(!pagesize)
-		pagesize=AUCARDS_DMABUFSIZE_BLOCK;
-	if(samplesize<2)
-		samplesize=2;
-	bufsize=AUCARDS_DMABUFSIZE_NORMAL/2; // samplesize/=2;
+		pagesize = AUCARDS_DMABUFSIZE_BLOCK;
+	if(samplesize < 2)
+		samplesize = 2;
+	bufsize = AUCARDS_DMABUFSIZE_NORMAL/2; // samplesize/=2;
 
 	if(freq_config)
 		bufsize=(int)((float)bufsize*(float)freq_config/44100.0);
 
-	if(aui->card_controlbits&AUINFOS_CARDCNTRLBIT_DOUBLEDMA)
-		bufsize*=2;                  // 2x bufsize at -ddma
-	bufsize*=samplesize;          // 2x bufsize at 32-bit output (1.5x at 24)
-	bufsize+=(pagesize-1);        // rounding up to pagesize
-	bufsize-=(bufsize%pagesize);  //
-	if(bufsize>max_bufsize)
-		bufsize=max_bufsize-(max_bufsize%pagesize);
+	if(aui->card_controlbits & AUINFOS_CARDCNTRLBIT_DOUBLEDMA)
+		bufsize *= 2;             // 2x bufsize at -ddma
+	bufsize *= samplesize;        // 2x bufsize at 32-bit output (1.5x at 24)
+	bufsize += (pagesize-1);      // rounding up to pagesize
+	bufsize -= (bufsize % pagesize);  //
+	if(bufsize > max_bufsize)
+		bufsize = max_bufsize - (max_bufsize % pagesize);
 	return bufsize;
 }
 
@@ -95,8 +81,9 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 {
 	unsigned int dmabufsize,bit_width,tmp;
 	float freq;
+	uint8_t buffer[200];
 
-	asm("sub $200, %esp \n\tfsave (%esp)"); /* save/restore fpu state in case this function is called during interrupt time */
+	asm("fsave %0"::"m"(buffer)); /* save/restore fpu state in case this function is called during interrupt time */
 
 	dbgprintf("MDma_init_pcmoutbuf: maxbuf=%u freqcfg=%u freq=%u bits=%u\n", maxbufsize, freq_config, aui->freq_card, aui->bits_card );
 	freq = (freq_config) ? freq_config:44100;
@@ -148,7 +135,7 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 	freq = (aui->freq_song<22050) ? 22050.0 : (float)aui->freq_song;
 	funcbit_smp_int32_put( aui->int08_decoder_cycles, (long)(freq/ (float)PCM_OUTSAMPLES) * (float)INT08_DIVISOR_NEW / (float)(INT08_CYCLES_DEFAULT * INT08_DIVISOR_DEFAULT)+1);
 
-	asm("frstor (%esp) \n\tadd $200, %esp \n\t");
+	asm("frstor %0"::"m"(buffer));
 
 	dbgprintf("MDma_init_pcmoutbuf: done, dmabufsize=%u\n", dmabufsize );
 	return dmabufsize;
