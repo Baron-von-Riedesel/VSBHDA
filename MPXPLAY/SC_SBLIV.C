@@ -16,6 +16,8 @@
 //based on the Creative (http://sourceforge.net/projects/emu10k1)
 //         and ALSA (http://www.alsa-project.org) drivers
 
+#include <stdio.h>
+
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"

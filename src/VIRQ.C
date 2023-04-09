@@ -20,8 +20,8 @@ static uint16_t OrgCS;
 
 #define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
 
-void SafeCall( uint8_t irq );
-void FastCall( uint8_t irq );
+static void SafeCall( uint8_t irq );
+static void FastCall( uint8_t irq );
 
 void (* CallIRQ)(uint8_t) = &FastCall;
 
@@ -74,8 +74,8 @@ static uint8_t VIRQ_Read(uint16_t port)
  * Con: if a protected-mode handler is installed, 4 extra mode switches are
  *      triggered (PM->RM->RMCB->RM->PM).
  */
-void SafeCall( uint8_t irq )
-////////////////////////////
+static void SafeCall( uint8_t irq )
+///////////////////////////////////
 {
     static DPMI_REG r = {0};
     int n = PIC_IRQ2VEC(irq);
@@ -89,8 +89,8 @@ void SafeCall( uint8_t irq )
  * Pro: fast, no unneeded mode switches for protected-mode handlers.
  * Con: may not work if both a real-mode and protected-mode handler have been set.
  */
-void FastCall( uint8_t irq )
-////////////////////////////
+static void FastCall( uint8_t irq )
+///////////////////////////////////
 {
     if(irq == 7)
         asm("int $0x0F");
@@ -135,22 +135,22 @@ void VIRQ_Invoke( void )
     return;
 }
 
-void VIRQ_SafeCall( void )
-//////////////////////////
+/* set emulated IRQ call type depending on what's found at IVT 5/7
+ */
+
+void VIRQ_SetCallType( void )
+/////////////////////////////
 {
-#if 1
-	int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-	CallIRQ = ( DPMI_LoadW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
-#else
-	CallIRQ = &SafeCall;
-#endif
+    /* if IVT 5/7 has been modified, use SafeCall, else use FastCall */
+    int n = PIC_IRQ2VEC( VSB_GetIRQ() );
+    CallIRQ = ( DPMI_LoadW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
 }
 
 void VIRQ_Init( void )
 //////////////////////
 {
-	int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-	OrgCS = DPMI_LoadW(n*4+2);
+    int n = PIC_IRQ2VEC( VSB_GetIRQ() );
+    OrgCS = DPMI_LoadW(n*4+2);
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)

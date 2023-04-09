@@ -6,12 +6,13 @@
 #define SBEMU_CHANNELS 2
 #define SBEMU_BITS 16
 
-#define SB16 1        /* support SB16 */
-#define SBLIVE 1      /* support SBLIVE/AUDIGY */
-#define ADPCM 1       /* support ADPCM */
-#define SETIF 1       /* enable interrupts when ISR is entered */
-#define TRIGGERATONCE 1  /* trigger IRQ from inside trap handler */
-#define REINITOPL 1   /* reinit OPL during RESET */
+#define SB16 1        /* 1=support SB16 */
+#define SBLIVE 1      /* 1=support SBLIVE/AUDIGY */
+#define ADPCM 1       /* 1=support ADPCM */
+#define SETIF 1       /* 1=enable interrupts when ISR is entered */
+#define TRIGGERATONCE 1  /* 1=trigger IRQ from inside trap handler */
+#define REINITOPL 1   /* 1=reinit OPL during RESET */
+#define PREMAPDMA 0   /* 1=map full 16MB ISA address range */
 
 struct globalvars {
 	int base;

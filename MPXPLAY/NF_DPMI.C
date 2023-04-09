@@ -14,6 +14,7 @@
 //**************************************************************************
 //function: DPMI callings
 
+#include <stdio.h>
 #include <dpmi.h>
 #include <sys/exceptn.h>
 

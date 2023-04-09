@@ -17,7 +17,6 @@
 #ifndef mpxplay_newfunc_h
 #define mpxplay_newfunc_h
 
-#include <stdio.h>
 #include <stddef.h> // for offsetof
 
 #ifdef __cplusplus
@@ -121,25 +120,6 @@ typedef int           mpxp_ptrsize_t;
 #define PDS_PUTB_LE64(p,v) *((mpxp_int64_t *)(p))=(v)              // int64 to 8bytes LE
 #define PDS_PUTB_BEU64(p,v) *((mpxp_uint32_t *)(p)+1)=pds_bswap32((v)&0xffffffff); *((mpxp_uint32_t *)(p))=pds_bswap32((mpxp_uint64_t)(v)>>32)
 
-//#define pds_newfunc_regp_clear(regp) pds_memset(regp,0,sizeof(union REGPACK))
-//#define pds_newfunc_regs_clear(regs) pds_memset(regs,0,sizeof(union REGS))
-//#define pds_newfunc_sregs_clear(sregs) pds_memset(sregs,0,sizeof(struct SREGS))
-
-#define TEXTCURSORSHAPE_NORMAL  0x0607
-#define TEXTCURSORSHAPE_FULLBOX 0x0007
-#define TEXTCURSORSHAPE_HIDDEN  0x2000
-
-//uselfn
-#define USELFN_ENABLED         1 // lfn is enabled
-#define USELFN_AUTO_SFN_TO_LFN 2 // auto sfn to lfn conversion at playlists
-
-typedef struct dosmem_t{
- unsigned short selector;
- unsigned short segment;
- char *linearptr;
-}dosmem_t;
-
-#if defined(DJGPP)
 typedef struct xmsmem_t{
  unsigned short remap;
  unsigned short xms;
@@ -149,28 +129,6 @@ typedef struct xmsmem_t{
 }xmsmem_t;
 typedef xmsmem_t cardmem_t;
 #define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->linearptr))
-#else
-typedef dosmem_t cardmem_t;
-#define pds_cardmem_physicalptr(cardmem, ptr) (ptr)
-#endif
-
-#if 0
-//for DOS interrupt callings
-typedef struct rminfo{
- long EDI;
- long ESI;
- long EBP;
- long reserved_by_system;
- long EBX;
- long EDX;
- long ECX;
- long EAX;
- short flags;
- short ES,DS,FS,GS,IP,CS,SP,SS;
-}rminfo;
-
-#define RMINFO_FLAG_CARRY 1
-#endif
 
 typedef struct pds_fdate_t{
  unsigned short twosecs : 5;

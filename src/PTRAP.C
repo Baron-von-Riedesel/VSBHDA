@@ -50,11 +50,10 @@ extern void PTRAP_RM_WrapperEnd( void );
 
 static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
 
-typedef struct
-{
+struct HDPMIPT_ENTRY {
     uint32_t edi;
     uint16_t es;
-} HDPMIPT_ENTRY;
+};
 
 /* struct expected by HDPMI port trapping API ax=0006 in DS:ESI */
 
@@ -66,7 +65,7 @@ static struct __attribute__((packed)) _traphandler {
 } traphandler;
 
 static const char* VENDOR_HDPMI = "HDPMI"; /* vendor string */
-static HDPMIPT_ENTRY HDPMIPT_Entry;        /* vendor API entry */
+static struct HDPMIPT_ENTRY HDPMIPT_Entry; /* vendor API entry */
 
 void (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = &outp;
 uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = &inp;
@@ -80,7 +79,7 @@ struct PortDispatchTable {
 };
 
 #define tport( port, proc ) TPORT_ ## port,
-#define tportx( port, proc, table ) TPORT_ ## port,
+#define tportx( port, proc, range ) TPORT_ ## port,
 enum TrappedPorts {
 #include "PORTS.H"
 #undef tport
@@ -89,28 +88,25 @@ enum TrappedPorts {
 };
 
 #define tport( port, proc ) { port, 0, proc },
-#define tportx( port, proc, table ) { port, 0, proc },
+#define tportx( port, proc, range ) { port, 0, proc },
 static struct PortDispatchTable PDispTab[] = {
 #include "PORTS.H"
 #undef tport
 #undef tportx
 };
 
+#define tport( port, proc )
+#define tportx( port, proc, range )  range ## _PDT,
 /* order of port ranges - must match order in ports.h */
 enum PortRangeStartIndex {
-    OPL3_PDT,
-    IRQ_PDT,
-    DMA_PDT,
-    DMAPG_PDT,
-#if SB16
-    HDMA_PDT,
-#endif
-    SB_PDT,
+#include "PORTS.H"
     END_PDT
 };
+#undef tport
+#undef tportx
 
 #define tport( port, proc )
-#define tportx( port, proc, table ) TPORT_ ## port,
+#define tportx( port, proc, range ) TPORT_ ## port,
 static int portranges[] = {
 #include "PORTS.H"
     NUM_TPORTS
@@ -361,8 +357,8 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 
 /////////////////////////////////////////////////////////
 
-uint32_t PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
-////////////////////////////////////////////////////////////////////////
+uint32_t PTRAP_PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
+//////////////////////////////////////////////////////////////////////////////
 {
     for(int i = 0; i < maxports; i++ )
         if( PDispTab[i].port == port)

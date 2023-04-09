@@ -232,7 +232,7 @@ static void VIA82XX_card_info(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card=aui->card_private_data;
-	printf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
+	dbgprintf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
 		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model);
 }
 
@@ -262,7 +262,7 @@ static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
 	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
 #ifdef SBEMU
 	aui->card_irq = card->irq;
-	printf("VT82 irq: %d\n",aui->card_irq);
+	dbgprintf("VT82 irq: %d\n",aui->card_irq);
 	if(aui->card_irq == 0 || aui->card_irq == 0xFF)
 	{
 		aui->card_irq = card->irq = 10;

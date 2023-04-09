@@ -36,7 +36,7 @@ typedef struct
     int step;
     uint8_t ref;
     uint8_t useRef;
-}ADPCM_STATE;
+} ADPCM_STATE;
 
 void MAIN_Uninstall( void );
 
@@ -193,7 +193,7 @@ static void DSP_Reset( uint8_t value )
 #if LATERATE
         bTimeConst = 0xD2; /* = 22050 */
 #endif
-        VIRQ_SafeCall();
+        VIRQ_SetCallType();
         VSB_Mixer_WriteAddr( SB_MIXERREG_RESET );
         VSB_Mixer_Write( 1 );
 #if REINITOPL

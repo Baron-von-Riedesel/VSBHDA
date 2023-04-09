@@ -15,6 +15,7 @@
 //function: Intel HD audio driver for Mpxplay
 //based on ALSA (http://www.alsa-project.org) and WSS libs
 
+#include <stdio.h>
 #include <string.h>
 
 #include "SBEMUCFG.H"

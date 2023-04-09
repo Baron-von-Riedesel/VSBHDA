@@ -25,7 +25,7 @@ vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
 
 OBJFILES=\
-	$(OUTD)/main.o		$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/dpmihlp.o	$(OUTD)/pic.o\
+	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/dpmihlp.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/nf_dpmi.o	$(OUTD)/time.o\
@@ -97,6 +97,7 @@ $(OUTD)/sc_inthd.o:: sc_inthd.c             in_file.h mpxplay.h au_cards.h dmair
 $(OUTD)/sc_sbl24.o:: sc_sbl24.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h sc_sbl24.h emu10k1.h 
 $(OUTD)/sc_sbliv.o:: sc_sbliv.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h sc_sbliv.h emu10k1.h 
 $(OUTD)/sc_via82.o:: sc_via82.c  ac97_def.h in_file.h mpxplay.h au_cards.h dmairq.h pcibios.h au_mixer.h newfunc.h
+$(OUTD)/sndisr.o::   sndisr.c    dpmihlp.h vopl3.h pic.h platform.h sbemucfg.h vsb.h vdma.h virq.h in_file.h mpxplay.h au_cards.h au_mixer.h mix_func.h newfunc.h
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
 $(OUTD)/time.o::     time.c      in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h

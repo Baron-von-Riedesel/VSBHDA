@@ -11,6 +11,8 @@
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
 TRIGGERIRQ equ 1
 
+PTRAP_PM_TrapHandler proto :dword, :dword, :dword
+
 PUSHADS struct
 _edi	dd ?
 _esi	dd ?
@@ -50,8 +52,6 @@ endif
 	comm c __djgpp_stack_top:dword
 
 	.code
-
-PM_TrapHandler proto :dword, :dword, :dword
 
 SwitchStackIOIn proc public
 	push 0
@@ -95,7 +95,7 @@ SwitchStackIO proc
 	push eax
 	push ecx
 	push edx
-	call PM_TrapHandler
+	call PTRAP_PM_TrapHandler
 	mov ss, ebx
 	mov esp, ebp
 	add [__djgpp_stack_top], 4096
