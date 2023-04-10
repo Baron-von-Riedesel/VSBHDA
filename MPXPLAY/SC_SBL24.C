@@ -15,6 +15,8 @@
 //function: SB Live24/Audigy LS (CA0106) low level routines (with sc_sbliv.c)
 //based on the ALSA (http://www.alsa-project.org)
 
+#include <stdint.h>
+
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"

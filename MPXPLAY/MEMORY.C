@@ -14,6 +14,7 @@
 //**************************************************************************
 //function: memory handling
 
+#include <stdint.h>
 #include <malloc.h>
 
 #include "MPXPLAY.H"

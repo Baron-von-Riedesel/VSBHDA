@@ -15,6 +15,7 @@
 //function: VIA VT82C686, VT8233 (VT8235?) low level routines (onboard chips on AMD Athlon mainboards)
 //some routines are based on the ALSA (http://www.alsa-project.org)
 
+#include <stdint.h>
 #include <string.h>
 
 #include "SBEMUCFG.H"

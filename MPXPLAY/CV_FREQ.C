@@ -16,17 +16,23 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <stdint.h>
+//#include <assert.h>
 
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
 
 #define MALLOCSTATIC 1
 
+/* rate conversion.
+ * src & dst are 16-bit
+ */
+
 unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int samplerate, unsigned int newrate)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	const unsigned int instep=((samplerate/newrate)<<12) | (((4096*(samplerate%newrate)+newrate-1)/newrate)&0xFFF);
-	const unsigned int inend=(samplenum/channels) << 12;
+	const unsigned int instep = ((samplerate / newrate) << 12) | (((4096 * (samplerate % newrate) + newrate - 1 ) / newrate) & 0xFFF);
+	const unsigned int inend = (samplenum / channels) << 12;
 	PCM_CV_TYPE_S *pcmdst;
 	unsigned long ipi;
 	unsigned int inpos = 0;//(samplerate<newrate) ? instep/2 : 0;
@@ -39,8 +45,7 @@ unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 	//assert(((samplenum/channels)&0xFFF00000) == 0); //too many samples, need other approches.
 
 	/* changed: the source is now copied to the buffer and then the conversion is done into pcmsrc */
-	//unsigned int buffcount = max(((unsigned long long)max( samplenum, 512) * newrate + samplerate - 1)/samplerate,
-	//							 max(samplenum,512))*2+32;
+	//unsigned int buffcount = max(((unsigned long long)max( samplenum, 512) * newrate + samplerate - 1)/samplerate, max(samplenum,512))*2+32;
 	//PCM_CV_TYPE_S* buff = (PCM_CV_TYPE_S*)malloc(buffcount*sizeof(PCM_CV_TYPE_S));
 #if MALLOCSTATIC
 	if ( samplenum > maxsample ) {

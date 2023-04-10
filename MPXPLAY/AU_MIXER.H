@@ -7,12 +7,12 @@
 extern "C" {
 #endif
 
-typedef mpxp_int32_t  PCM_CV_TYPE_I;  // max. 32 bit input/output pcm format (integer)
-typedef mpxp_uint32_t PCM_CV_TYPE_UI; //
-typedef mpxp_float_t  PCM_CV_TYPE_F;  // 32-bit float part of mixer
-typedef mpxp_int16_t  PCM_CV_TYPE_S;  // 16-bit integer part of mixer
-typedef mpxp_int8_t   PCM_CV_TYPE_C;  // 8-bit signed
-typedef mpxp_uint8_t  PCM_CV_TYPE_UC; // 8-bit unsigned
+typedef int32_t  PCM_CV_TYPE_I;  // max. 32 bit input/output pcm format (integer)
+typedef uint32_t PCM_CV_TYPE_UI; //
+typedef float    PCM_CV_TYPE_F;  // 32-bit float part of mixer
+typedef int16_t  PCM_CV_TYPE_S;  // 16-bit integer part of mixer
+typedef int8_t   PCM_CV_TYPE_C;  // 8-bit signed
+typedef uint8_t  PCM_CV_TYPE_UC; // 8-bit unsigned
 typedef PCM_CV_TYPE_F PCM_CV_TYPE_MAX;// largest datatype (currently)
 
 #define MIXER_SCALE_BITS    16 // used bits in integer based (lq) functions and default scale bits in hq functions
@@ -38,14 +38,14 @@ typedef PCM_CV_TYPE_F PCM_CV_TYPE_MAX;// largest datatype (currently)
 #define MIXER_INFOBIT_PARALLEL_DEPENDENCY 32 // dependant/enabled by another mixer function too
 
 #define MPXPLAY_CFGFUNCNUM_AUMIXER_MAJOR 0x08000000
-#define MPXPLAY_CFGFUNCNUM_AUMIXER_GET_CARD_CHAN 0x08000126 // ccb_data:void*mpi argp1:mpxp_uint32_t*ret_value
+#define MPXPLAY_CFGFUNCNUM_AUMIXER_GET_CARD_CHAN 0x08000126 // ccb_data:void*mpi argp1:uint32_t * ret_value
 #define MPXPLAY_AUMIXER_MUTE_SWITCH_SIGN 65535  // on/off switch instead of 'push' (ctrl-'M')
 
-struct mpxp_aumixer_main_info_s;
+//struct mpxp_aumixer_main_info_s;
 
 typedef struct mpxp_aumixer_passinfo_s{
  // fixed structure -----------
- mpxp_int32_t (*control_cb)(void *ccb_data,mpxp_uint32_t cfgnum,void *argp1,void *argp2);
+ int32_t (*control_cb)(void *ccb_data,uint32_t cfgnum,void *argp1,void *argp2);
  void *ccb_data;
  void *private_data;
  short *pcm_sample;
@@ -61,13 +61,14 @@ typedef struct mpxp_aumixer_passinfo_s{
  int  bits_song;
  int  bits_card;
  int  pcmout_savedsamples;
- struct mpxp_aumixer_main_info_s *mmi;
+ //struct mpxp_aumixer_main_info_s *mmi;
  struct mpxplay_audioout_info_s *aui;
  //struct mpxpframe_s *frp;
  void *mutex_aumixer;
  void *mixerfuncs_private_datas[MIXER_MAX_FUNCTIONS];
 }mpxp_aumixer_passinfo_s;
 
+#if 0
 typedef struct mpxp_aumixer_main_info_s{
  short *pcm16;                  // at mixer end
  short *pcm_sample;             // at mixer end
@@ -76,6 +77,7 @@ typedef struct mpxp_aumixer_main_info_s{
  unsigned long MIXER_int16pcm_bufsize;
  unsigned long mixer_infobits;  // MIXERINFOBIT_
 }mpxp_aumixer_main_info_s;
+#endif
 
 typedef struct one_mixerfunc_info{
  char *name;
@@ -93,7 +95,7 @@ typedef struct one_mixerfunc_info{
  void (*own_setvar_routine)(struct mpxp_aumixer_passinfo_s *,unsigned int setmode,int value);
 }one_mixerfunc_info;
 
-extern mpxp_int32_t mpxplay_aumixer_control_cb(void *cb_data,mpxp_uint32_t funcnum,void *argp1,void *argp2);
+extern int32_t mpxplay_aumixer_control_cb(void *cb_data, uint32_t funcnum,void *argp1,void *argp2);
 
 #ifdef __cplusplus
 }

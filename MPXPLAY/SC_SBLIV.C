@@ -16,6 +16,7 @@
 //based on the Creative (http://sourceforge.net/projects/emu10k1)
 //         and ALSA (http://www.alsa-project.org) drivers
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include "SBEMUCFG.H"

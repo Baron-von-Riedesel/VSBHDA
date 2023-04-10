@@ -56,6 +56,7 @@ static int VSB_SampleRate = 22050;
 static int VSB_Samples = 0;
 static int VSB_Auto = false; /* auto-initialize mode active */
 static int VSB_HighSpeed = 0;
+static int VSB_Signed = false;
 static int VSB_DSPCMD = -1;
 static int VSB_DSPCMD_Subindex = 0;
 int VSB_TriggerIRQ = 0;
@@ -112,15 +113,15 @@ static void VSB_Mixer_Write( uint8_t value )
 {
 	dbgprintf("VSB_Mixer_Write[%u]: value=%x\n", VSB_MixerRegIndex, value);
 	VSB_MixerRegs[VSB_MixerRegIndex] = value;
-	if(VSB_MixerRegIndex == SB_MIXERREG_RESET) {
-		VSB_MixerRegs[SB_MIXERREG_MASTERVOL] = 0xE; //3:(1). default 4
-		VSB_MixerRegs[SB_MIXERREG_MIDIVOL] = 0xE;
-		/* todo: SB_MIXERREG_VOICEVOL is for SB20 only, for SBPro+ it's MIC level */
-		VSB_MixerRegs[SB_MIXERREG_VOICEVOL] = 0x6; //(1):2:(1) default 0
+	if( VSB_MixerRegIndex == SB_MIXERREG_RESET ) {
+		VSB_MixerRegs[SB_MIXERREG_MASTERVOL] = 0xD; /* 02: bits 1-3, L&R?, default 0x99?, for SBPro+: map to 0x22? */
+		VSB_MixerRegs[SB_MIXERREG_MIDIVOL] = 0xD;   /* 06: bits 1-3 */
+		/* todo: SB_MIXERREG_VOICEVOL is for SB20 only, for SBPro+ it's MIC level 2/3 bits */
+		VSB_MixerRegs[SB_MIXERREG_VOICEVOL] = 0x6;  /* 0A: bits 1-2, default ? */
 
-		VSB_MixerRegs[SB_MIXERREG_VOICESTEREO] = 0xDD;
-		VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xDD;
-		VSB_MixerRegs[SB_MIXERREG_MIDISTEREO] = 0xDD;
+		VSB_MixerRegs[SB_MIXERREG_VOICESTEREO] = 0xDD;  /* 04: */
+		VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xDD; /* 22: */
+		VSB_MixerRegs[SB_MIXERREG_MIDISTEREO] = 0xDD;   /* 26: */
 #if SB16
 		if(VSB_DSPVER >= 0x0400) { //SB16
 			VSB_MixerRegs[SB16_MIXERREG_MASTERL] = 0xC0; /* 5 bits only (3-7) */
@@ -137,17 +138,55 @@ static void VSB_Mixer_Write( uint8_t value )
 #endif
 	}
 #if SB16
-	if(VSB_DSPVER >= 0x0400) { //SB16
-		if(VSB_MixerRegIndex >= SB16_MIXERREG_MASTERL && VSB_MixerRegIndex <= SB16_MIXERREG_MIDIR) {
+	if( VSB_DSPVER >= 0x0400 ) { //SB16
+		if( VSB_MixerRegIndex >= SB16_MIXERREG_MASTERL && VSB_MixerRegIndex <= SB16_MIXERREG_MIDIR ) {
 			//5bits, drop 1 bit
 			value = (value >> 4) & 0xF;
 			switch(VSB_MixerRegIndex) {
-			case SB16_MIXERREG_MASTERL: VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] &= 0x0F; VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] |= (value<<4); break;
-			case SB16_MIXERREG_MASTERR: VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] &= 0xF0; VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] |= value; break;
-			case SB16_MIXERREG_VOICEL:  VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  &= 0x0F; VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  |= (value<<4); break;
-			case SB16_MIXERREG_VOICER:  VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  &= 0xF0; VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  |= value; break;
-			case SB16_MIXERREG_MIDIL:   VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   &= 0x0F; VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   |= (value<<4); break;
-			case SB16_MIXERREG_MIDIR:   VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   &= 0xF0; VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   |= value; break;
+			case SB16_MIXERREG_MASTERL:
+				VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] &= 0x0F;
+				VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] |= (value << 4);
+				break;
+			case SB16_MIXERREG_MASTERR:
+				VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] &= 0xF0;
+				VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] |= value;
+				break;
+			case SB16_MIXERREG_VOICEL:
+				VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  &= 0x0F;
+				VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  |= (value << 4);
+				break;
+			case SB16_MIXERREG_VOICER:
+				VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  &= 0xF0;
+				VSB_MixerRegs[SB_MIXERREG_VOICESTEREO]  |= value;
+				break;
+			case SB16_MIXERREG_MIDIL:
+				VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   &= 0x0F;
+				VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   |= (value << 4);
+				break;
+			case SB16_MIXERREG_MIDIR:
+				VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   &= 0xF0;
+				VSB_MixerRegs[SB_MIXERREG_MIDISTEREO]   |= value;
+				break;
+			}
+		} else {
+			/* map registers:
+			 * SB16: auto update MASTERL/MASTERR if MASTERSTEREO is set
+			 * SB16: auto update VOICEL/VOICER   if VOICESTEREO is set
+			 * SB16: auto update MIDIL/MIDIR     if MIDISTEREO is set
+			 */
+			switch ( VSB_MixerRegIndex ) {
+			case SB_MIXERREG_MASTERSTEREO:
+				VSB_MixerRegs[SB16_MIXERREG_MASTERR] = ((value & 0xF) << 4) | 8;
+				VSB_MixerRegs[SB16_MIXERREG_MASTERL] = (value & 0xF0) | 8;
+				break;
+			case SB_MIXERREG_VOICESTEREO:
+				VSB_MixerRegs[SB16_MIXERREG_VOICER] = ((value & 0xF) << 4) | 8;
+				VSB_MixerRegs[SB16_MIXERREG_VOICEL] = (value & 0xF0) | 8;
+				break;
+			case SB_MIXERREG_MIDISTEREO:
+				VSB_MixerRegs[SB16_MIXERREG_MIDIR] = ((value & 0xF) << 4) | 8;
+				VSB_MixerRegs[SB16_MIXERREG_MIDIL] = (value & 0xF0) | 8;
+				break;
 			}
 		}
 	}
@@ -186,6 +225,7 @@ static void DSP_Reset( uint8_t value )
         VSB_Started = 0;
         VSB_Samples = 0;
         VSB_Auto = false;
+        VSB_Signed = false;
         VSB_Bits = 8;
         VSB_Pos = 0;
         VSB_HighSpeed = 0;
@@ -328,6 +368,7 @@ static void DSP_Write( uint8_t value )
             VSB_Auto = ( ( VSB_DSPCMD & 0x4 ) ? true : false );
             VSB_Bits = ( ( VSB_DSPCMD & 0x40 ) ? 8 : 16 );
             /* bit 4 of value: 1=signed */
+            VSB_Signed = ( ( value & 0x10 ) ? true : false );
             /* bit 5 of value: 1=stereo */
             VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~2;
             VSB_MixerRegs[SB_MIXERREG_MODEFILTER] |= ( ( value & 0x20 ) ? 2 : 0 );
@@ -561,6 +602,12 @@ unsigned int VSB_GetBits()
 //////////////////////////
 {
     return VSB_Bits;
+}
+
+int VSB_IsSigned()
+//////////////////
+{
+    return VSB_Signed;
 }
 
 int VSB_GetChannels()

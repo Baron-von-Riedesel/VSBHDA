@@ -70,12 +70,12 @@ typedef struct mpxplay_audio_decoder_info_s{
  unsigned int freq;          // frequency (44100,48000,...)
  unsigned int filechannels;  // number of channels in file ( not used by SBEMU )
  unsigned int outchannels;   // decoded (used) channels, comes out from the decoder
- mpxp_uint8_t *chanmatrix;   // output channel matrix (ie: 5.1)
+ uint8_t *chanmatrix;        // output channel matrix (ie: 5.1)
  unsigned int bits;          // 8,16 ... (scalebits at float,filebits at integer output)
  unsigned int bytespersample;// used in au_mixer
  unsigned int bitrate;       // in kbit/s (lossy formats)(ie: mp3,ogg,ac3,dts)
  unsigned int pcm_framelen;  // comes out from the decoder (samplenum without channels!)(=bytes/bytespersample)
- //mpxp_float_t replaygain;    // not used yet
+ //float_t replaygain;         // not used yet
  char *shortname;            // set by decoder (3 chars), can static ("MP3","OGG","AC3","WMA")
  //char *bitratetext;          // set by decoder (8 chars), else displays bitrate (if exists) or bits
  //char *freqtext;             // set by decoder (7 chars), else displays freq
@@ -83,7 +83,7 @@ typedef struct mpxplay_audio_decoder_info_s{
  //control
  // unsigned int  channelcfg;    // configure output channels (eq to channelmode)
  //pcm out
- //mpxp_uint8_t *pcm_bufptr;    // head ptr in pcm_buffer
+ //uint8_t *pcm_bufptr;         // head ptr in pcm_buffer
  //unsigned int  pcm_samplenum; // got back from decoder (with ch)
  //unsigned char reserved[5*4];
 }mpxplay_audio_decoder_info_s;// 24*4=96 bytes

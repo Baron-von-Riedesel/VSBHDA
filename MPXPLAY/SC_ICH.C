@@ -15,6 +15,7 @@
 //function: Intel ICH audiocards low level routines
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
 
+#include <stdint.h>
 #include <time.h>
 #include <string.h>
 
@@ -513,7 +514,7 @@ static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
-	mpxp_int64_t starttime,endtime,timelen; // in usecs
+	int64_t starttime,endtime,timelen; // in usecs
 	long freq_save=aui->freq_card,dmabufsize;
 
 	aui->freq_card = 48000;

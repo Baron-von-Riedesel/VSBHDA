@@ -33,6 +33,7 @@ void VSB_Stop();
 
 int VSB_GetDACSpeaker();
 unsigned int VSB_GetBits();
+int VSB_IsSigned();
 int VSB_GetChannels();
 int VSB_GetSampleRate();
 int VSB_GetSampleBytes();

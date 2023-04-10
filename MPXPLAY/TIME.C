@@ -14,6 +14,7 @@
 //**************************************************************************
 // time,delay functions
 
+#include <stdint.h>
 #include <time.h>
 #if defined(__GNUC__)
 #include <sys/time.h>
@@ -31,19 +32,19 @@ unsigned long pds_gettimeh(void)
 	return ((unsigned long)clock()*100/CLOCKS_PER_SEC);
 }
 
-mpxp_int64_t pds_gettimem(void)
-///////////////////////////////
+int64_t pds_gettimem(void)
+//////////////////////////
 {
-	mpxp_int64_t time_ms;
-	time_ms = (mpxp_int64_t)clock() * (mpxp_int64_t)1000 / (mpxp_int64_t)CLOCKS_PER_SEC;
+	int64_t time_ms;
+	time_ms = (int64_t)clock() * (int64_t)1000 / (int64_t)CLOCKS_PER_SEC;
 	return time_ms;
 }
 
-mpxp_int64_t pds_gettimeu(void)
-///////////////////////////////
+int64_t pds_gettimeu(void)
+//////////////////////////
 {
-	mpxp_int64_t time_ms;
-	time_ms = (mpxp_int64_t)clock() * (mpxp_int64_t)1000000 / (mpxp_int64_t)CLOCKS_PER_SEC;
+	int64_t time_ms;
+	time_ms = (int64_t)clock() * (int64_t)1000000 / (int64_t)CLOCKS_PER_SEC;
 	return time_ms;
 }
 

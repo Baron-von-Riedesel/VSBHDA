@@ -15,6 +15,7 @@
 //function: Ensoniq 1371/1373 low level routines (for SB PCI 16/64/128 cards)
 //based on ALSA (http://www.alsa-project.org)
 
+#include <stdint.h>
 #include <stdio.h>
 
 #include "SBEMUCFG.H"

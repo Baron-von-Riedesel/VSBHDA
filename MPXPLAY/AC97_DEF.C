@@ -14,6 +14,8 @@
 //**************************************************************************
 //function: common AC97 definitions (for SB Live, ES1371, ICH)
 
+#include <stdint.h>
+
 #include "MPXPLAY.H"
 #include "AU_CARDS.H"
 #include "AC97_DEF.H"

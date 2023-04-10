@@ -27,6 +27,16 @@
 #define SUPPSAFE 0 /* 1=support /SAFE cmdline option ( hardly needed ) */
 
 #define MAIN_PCM_SAMPLESIZE 16384 /* sample buffer size */
+#define BASE_DEFAULT 0x220
+#define IRQ_DEFAULT 7
+#define DMA_DEFAULT 1
+#define TYPE_DEFAULT 5
+#if TYPE_DEFAULT < 6
+#define HDMA_DEFAULT 0
+#else
+#define HDMA_DEFAULT 5
+#endif
+#define VOL_DEFAULT 7
 
 extern int SNDISR_InterruptPM();
 
@@ -66,11 +76,11 @@ static bool bQemm = false;
 static bool bHdpmi = false;
 static int bHelp = false;
 
+struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT,
 #if SB16
-struct globalvars gvars = { 0x220, 7, 1, 0, 5, true, true, true, 7 };
-#else
-struct globalvars gvars = { 0x220, 7, 1, 5, true, true, true, 7 };
+HDMA_DEFAULT,
 #endif
+TYPE_DEFAULT, true, true, true, VOL_DEFAULT };
 
 static struct {
     const char* option;
@@ -79,24 +89,24 @@ static struct {
 } MAIN_Options[] =
 {
     "/?", "Show help", &bHelp,
-    "/A", "Specify IO address, valid value: 220,240", &gvars.base,
-    "/I", "Specify IRQ number, valid value: 5,7", &gvars.irq,
-    "/D", "Specify DMA channel, valid value: 0,1,3", &gvars.dma,
+    "/A", "Set IO base address, values: 220,240 [def 220]", &gvars.base,
+    "/I", "Set IRQ number, values: 5,7 [def 7]", &gvars.irq,
+	"/D", "Set DMA channel, values: 0,1,3 [def 1]", &gvars.dma,
 #if SB16
-    "/H", "Specify High DMA channel, valid value: 5,6,7", &gvars.hdma,
-    "/T", "Specify SB Type, valid value: 0-6", &gvars.type,
+    "/H", "Set High DMA channel, values: 5,6,7 [no def]", &gvars.hdma,
+    "/T", "Set SB Type, values: 0-6 [def 5]", &gvars.type,
 #else
-    "/T", "Specify SB Type, valid value: 0-5", &gvars.type,
+    "/T", "Set SB Type, values: 0-5 [def 5]", &gvars.type,
 #endif
-    "/OPL", "Enable OPL3 emulation", &gvars.opl3,
-    "/PM", "Support protected mode games", &gvars.pm,
-    "/RM", "Support real mode games", &gvars.rm,
+	"/OPL","Set OPL3 emulation, values: 0|1 [def 1]", &gvars.opl3,
+	"/PM", "Set protected mode games support, values: 0|1 [def 1]", &gvars.pm,
+	"/RM", "Set real mode games support, values: 0|1 [def 1]", &gvars.rm,
 #if SUPPSAFE
 	"/SAFE", "Safe mode - may be needed by some protected-mode programs", &gvars.safe,
 #endif
-	"/VOL", "Set master volume (0-9)", &gvars.vol,
-    "/O", "Select output (HDA only); 0=lineout, 1=speaker, 2=headphone", &gvars.pin,
-    "/DEV", "Set device index (HDA only); in case there exist multiple devices", &gvars.device,
+	"/VOL", "Set master volume, values: 0-9 [def 7]", &gvars.vol,
+	"/O", "Set output (HDA only), values: 0=lineout, 1=speaker, 2=hp [def 0]", &gvars.pin,
+    "/DEV", "Set device index (HDA only) if multiple devices exist [def 0]", &gvars.device,
     NULL, NULL, 0,
 };
 enum EOption
@@ -259,10 +269,10 @@ void MAIN_ReinitOPL( void )
 
 #if SB16
 #define MAXTYPE 6
-#define HELPNOTE "\n if /A /I /D /H /T set, they will internally override the BLASTER values.\n"
+#define HELPNOTE "\nOptions /A /I /D /H /T have precedence.\n"
 #else
 #define MAXTYPE 5
-#define HELPNOTE "\n if /A /I /D /T set, they will internally override the BLASTER values.\n"
+#define HELPNOTE "\nOptions /A /I /D /T have precedence.\n"
 #endif
 
 int main(int argc, char* argv[])
@@ -275,16 +285,16 @@ int main(int argc, char* argv[])
         char c;
         while((c=toupper(*(blaster++)))) {
             if(c == 'I')
-                *MAIN_Options[OPT_IRQ].pValue = *(blaster++) - '0';
+                gvars.irq = *(blaster++) - '0';
             else if(c == 'D')
-                *MAIN_Options[OPT_DMA].pValue = *(blaster++) - '0';
+                gvars.dma = *(blaster++) - '0';
             else if(c == 'A')
-                *MAIN_Options[OPT_ADDR].pValue = strtol(blaster, &blaster, 16);
+                gvars.base = strtol(blaster, &blaster, 16);
             else if(c =='T')
-                *MAIN_Options[OPT_TYPE].pValue = *(blaster++) - '0';
+                gvars.type = *(blaster++) - '0';
 #if SB16
             else if(c =='H')
-                *MAIN_Options[OPT_HDMA].pValue = *(blaster++) - '0';
+                gvars.hdma = *(blaster++) - '0';
 #endif
         }
     }
@@ -312,50 +322,42 @@ int main(int argc, char* argv[])
     if( bHelp ) {
         bHelp = false;
         printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
-        int i = 0;
-        while(MAIN_Options[i].option) {
-            printf(" %-8s: %s. Default: %x\n", MAIN_Options[i].option, MAIN_Options[i].desc, *MAIN_Options[i].pValue);
-            ++i;
-        }
-        printf("\nNote: SBEMU will read BLASTER environment variable and use it, " HELPNOTE );
+
+        for( int i = 0; MAIN_Options[i].option; i++ )
+            printf( " %-8s: %s\n", MAIN_Options[i].option, MAIN_Options[i].desc );
+
+        printf("\nNote: the BLASTER environment variable may change the default settings; " HELPNOTE );
         printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
         return 0;
     }
 
-    if( gvars.base != 0x220 && gvars.base != 0x240 )
-    {
+    if( gvars.base != 0x220 && gvars.base != 0x240 ) {
         printf("Error: invalid IO port address: %x.\n", gvars.base );
         return 1;
     }
-    if( gvars.irq != 0x5 && gvars.irq != 0x7 )
-    {
+    if( gvars.irq != 0x5 && gvars.irq != 0x7 ) {
         printf("Error: invalid IRQ: %d.\n", gvars.irq );
         return 1;
     }
-    if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 )
-    {
+    if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 ) {
         printf("Error: invalid DMA channel.\n");
         return 1;
     }
 #if SB16
-    if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7))
-    {
+    if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
         printf("Error: invalid HDMA channel: %u\n", gvars.hdma );
         return 1;
     }
 #endif
-    if( gvars.type <= 0 || gvars.type > MAXTYPE )
-    {
+    if( gvars.type <= 0 || gvars.type > MAXTYPE ) {
         printf("Error: invalid SB Type: %d\n", gvars.type );
         return 1;
     }
-    if( gvars.pin < 0 || gvars.pin > 2)
-    {
+    if( gvars.pin < 0 || gvars.pin > 2) {
         printf("Error: Invalid Output: %d\n", gvars.pin );
         return 1;
     }
-     if( gvars.vol < 0 || gvars.vol > 9)
-    {
+     if( gvars.vol < 0 || gvars.vol > 9) {
         printf("Error: Invalid Volume.\n");
         return 1;
     }
@@ -368,25 +370,21 @@ int main(int argc, char* argv[])
         return(0);
     }
 
-    if( gvars.rm )
-    {
+    if( gvars.rm ) {
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
-        if(bcd < 0x703)
-        {
+        if(bcd < 0x703) {
             printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd>>8, bcd&0xFF);
             gvars.rm = false;
         }
     }
-    if( gvars.pm )
-    {
+    if( gvars.pm ) {
         bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used other than HDPMI
         if(!hasHDPMI)
             printf("HDPMI not installed, disable protected mode support.\n");
         gvars.pm = hasHDPMI;
     }
-    if( !gvars.pm && !gvars.rm )
-    {
+    if( !gvars.pm && !gvars.rm ) {
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
@@ -409,10 +407,10 @@ int main(int argc, char* argv[])
     }
     AU_ini_interrupts(&aui);
     AU_setmixer_init(&aui);
-    AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, 95);
     //MAIN_GLB_VOL = gvars.vol;
-    MAIN_SB_VOL = 256 * gvars.vol / 9;
-    AU_setmixer_one(&aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    MAIN_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
+    AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    //AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     AU_setrate(&aui, &adi);
 
     if( gvars.rm ) {
@@ -468,11 +466,13 @@ int main(int argc, char* argv[])
     }
 
 #if SB16
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, TYPE=%d\n",
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, Type=%d\n",
            gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type );
 #else
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u\n", gvars.base, gvars.irq, gvars.dma );
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u, Type=%d\n", gvars.base, gvars.irq, gvars.dma, gvars.type );
 #endif
+    if ( gvars.vol != VOL_DEFAULT )
+        printf("Volume=%u\n", gvars.vol );
 
     PM_ISR = InstallISR(PIC_IRQ2VEC( aui.card_irq), &SNDISR_InterruptPM );
 

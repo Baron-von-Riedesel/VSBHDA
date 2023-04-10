@@ -15,6 +15,7 @@
 //function: audio main functions
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "SBEMUCFG.H"
 #include "MPXPLAY.H"
@@ -363,30 +364,35 @@ static aucards_onemixerchan_s *AU_search_mixerchan(aucards_allmixerchan_s *mixer
 	return NULL;
 }
 
-void AU_setmixer_one(struct mpxplay_audioout_info_s *aui,unsigned int mixchannum,unsigned int setmode,int newvalue)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/* set mixer volume for what exactly?
+ * mixchannum???
+ */
+
+void AU_setmixer_one( struct mpxplay_audioout_info_s *aui, unsigned int mixchannum, unsigned int setmode, int newvalue)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	one_sndcard_info *cardi;
 	aucards_onemixerchan_s *onechi; // one mixer channel infos (master,pcm,etc.)
 	unsigned int subchannelnum,sch,channel,function,intsoundcntrl_save;
 	long newpercentval, maxpercentval;
 
+	dbgprintf("AU_setmixer_one( %u, %u, %u )\n", mixchannum, setmode, newvalue );
 	//mixer structure/values verifying
-	function=AU_MIXCHANFUNCS_GETFUNC(mixchannum);
-	if(function>=AU_MIXCHANFUNCS_NUM)
+	function = AU_MIXCHANFUNCS_GETFUNC(mixchannum);
+	if(function >= AU_MIXCHANFUNCS_NUM)
 		return;
-	channel=AU_MIXCHANFUNCS_GETCHAN(mixchannum);
-	if(channel>AU_MIXCHANS_NUM)
+	channel = AU_MIXCHANFUNCS_GETCHAN(mixchannum);
+	if(channel > AU_MIXCHANS_NUM)
 		return;
-	cardi=aui->card_handler;
+	cardi = aui->card_handler;
 	if(!cardi)
 		return;
 	if(!cardi->card_writemixer || !cardi->card_readmixer || !cardi->card_mixerchans)
 		return;
-	onechi=AU_search_mixerchan(cardi->card_mixerchans,mixchannum);
+	onechi = AU_search_mixerchan(cardi->card_mixerchans,mixchannum);
 	if(!onechi)
 		return;
-	subchannelnum=onechi->subchannelnum;
+	subchannelnum = onechi->subchannelnum;
 	if(!subchannelnum || (subchannelnum>AU_MIXERCHAN_MAX_SUBCHANNELS))
 		return;
 
@@ -399,24 +405,25 @@ void AU_setmixer_one(struct mpxplay_audioout_info_s *aui,unsigned int mixchannum
 	//calculate new percent
 	switch(setmode){
 	case MIXER_SETMODE_ABSOLUTE:
-		newpercentval=newvalue;
+		dbgprintf("AU_setmixer_one( SETMOVE_ABSOLUE, %u %% )\n", newvalue );
+		newpercentval = newvalue;
 	break;
 	case MIXER_SETMODE_RELATIVE:
-		if(function==AU_MIXCHANFUNC_VOLUME)
-			newpercentval=aui->card_mixer_values[channel]+newvalue;
+		if(function == AU_MIXCHANFUNC_VOLUME)
+			newpercentval = aui->card_mixer_values[channel] + newvalue;
 		else
-			if(newvalue<0)
-				newpercentval=0;
+			if(newvalue < 0)
+				newpercentval = 0;
 			else
-				newpercentval=maxpercentval;
+				newpercentval = maxpercentval;
 		break;
 	default:
 		return;
 	}
-	if(newpercentval<0)
-		newpercentval=0;
-	if(newpercentval>maxpercentval)
-		newpercentval=maxpercentval;
+	if(newpercentval < 0)
+		newpercentval = 0;
+	if(newpercentval > maxpercentval)
+		newpercentval = maxpercentval;
 
 	MPXPLAY_INTSOUNDDECODER_DISALLOW;
 	//ENTER_CRITICAL;
@@ -506,8 +513,8 @@ static int AU_getmixer_one(struct mpxplay_audioout_info_s *aui,unsigned int mixc
 
 #define AU_MIXCHANS_OUTS 4
 
-static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS]={
-	AU_MIXCHAN_MASTER,AU_MIXCHAN_PCM,AU_MIXCHAN_HEADPHONE,AU_MIXCHAN_SPDIFOUT};
+static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
+	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
 
 void AU_setmixer_outs(struct mpxplay_audioout_info_s *aui,unsigned int setmode,int newvalue)
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -515,7 +522,7 @@ void AU_setmixer_outs(struct mpxplay_audioout_info_s *aui,unsigned int setmode,i
 	unsigned int i;
 
 	for( i = 0; i < AU_MIXCHANS_OUTS; i++ )
-		AU_setmixer_one( aui, AU_MIXCHANFUNCS_PACK(au_mixchan_outs[i],AU_MIXCHANFUNC_VOLUME), setmode, newvalue );
+		AU_setmixer_one( aui, AU_MIXCHANFUNCS_PACK(au_mixchan_outs[i], AU_MIXCHANFUNC_VOLUME ), setmode, newvalue );
 
 	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER]; // ???
 }

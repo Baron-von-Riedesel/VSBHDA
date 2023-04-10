@@ -8,6 +8,8 @@
 	option proc:private
 	option casemap:none
 
+	.errnz __JWASM__ lt 218,<JWasm v2.18+ required>
+
 HANDLE_IN_388H_DIRECTLY equ 1 ; must match #define in ptrap.c
 RMPICTRAPDYN            equ 0 ; must match #define in ptrap.c
 

@@ -18,9 +18,13 @@
 #include <MPXPLAY.H>
 #include <MIX_FUNC.H>
 
+#define SETABSVOL 0 /* the master volume is set by /VOL cmdline option and shouldn't be modified by the application */
+
 extern mpxplay_audioout_info_s aui;
 extern struct globalvars gvars;
+#if SETABSVOL
 extern uint16_t MAIN_SB_VOL;
+#endif
 #if PREMAPDMA
 extern uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
 #endif
@@ -54,9 +58,9 @@ int SNDISR_InterruptPM( void )
 static void SNDISR_Interrupt( void )
 ////////////////////////////////////
 {
-    int32_t vol;
-    int32_t voicevol;
-    int32_t midivol;
+    uint32_t mastervol;
+    uint32_t voicevol;
+    uint32_t midivol;
 
 #if !TRIGGERATONCE
     if ( VSB_TriggerIRQ ) {
@@ -64,35 +68,31 @@ static void SNDISR_Interrupt( void )
         VIRQ_Invoke();
     }
 #endif
-    if( gvars.type < 4) //SB2.0 and before
-    {
-        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) >> 1) * 256 / 7;
-        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL) >> 1) * 256 / 3;
-        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDIVOL) >> 1) * 256 / 7;
+    if( gvars.type < 4) { //SB2.0 and before
+        mastervol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) & 0xF) << 4; /* 3 bits (1-3) */
+        voicevol  = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL)  & 0x7) << 5; /* 2 bits (1-2) */
+        midivol   = (VSB_GetMixerReg( SB_MIXERREG_MIDIVOL)   & 0xF) << 4; /* 3 bits (1-3) */
+    } else {
+        /* SBPro: L&R, bits 1-3/5-7, bits 0,3=1 */
+        /* SB16:  L&R, bits 0-3/4-7 */
+        mastervol = VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) & 0xF0; /* 00,10,...F0 */
+        voicevol  = VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO)  & 0xF0;
+        midivol   = VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO)   & 0xF0;
     }
-    else if( gvars.type == 6) //SB16
-    {
-        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 4) * 256 / 15; //4:4
-        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 4) * 256 / 15; //4:4
-        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 4) * 256 / 15; //4:4
-        //dbgprintf("vol: %d, voicevol: %d, midivol: %d\n", vol, voicevol, midivol);
-    }
-    else //SBPro
-    {
-        vol = (VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) >> 5) * 256 / 7; //3:1:3:1 stereo usually the same for both channel for games?;
-        voicevol = (VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO) >> 5) * 256 / 7; //3:1:3:1
-        midivol = (VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO) >> 5) * 256 / 7;
-    }
-    if(MAIN_SB_VOL != vol * gvars.vol / 9)
-    {
-        //dbgprintf("set sb volume:%d %d\n", MAIN_SB_VOL, vol * gvars.vol/9);
-        MAIN_SB_VOL =  vol * gvars.vol / 9;
+#if SETABSVOL
+    if( MAIN_SB_VOL != mastervol * gvars.vol / 9) {
+        MAIN_SB_VOL =  mastervol * gvars.vol / 9;
         //uint8_t buffer[200];
         //asm("fsave %0": "m"(buffer)); /* needed if AU_setmixer_one() uses floats */
-        AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, vol * 100 / 256 );
+        AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
         //asm("frstor %0": "m"(buffer));
+        //dbgprintf("ISR: set master volume=%u\n", MAIN_SB_VOL );
     }
-
+#else
+    /* min: 0F*0F=E1 >> 8 = 0, max: FF*FF=FE00 >> 8 -> FE */
+    voicevol = ( (voicevol | 0xF) * (mastervol | 0xF) ) >> 8;
+    midivol  = ( (midivol  | 0xF) * (mastervol | 0xF) ) >> 8;
+#endif
     aui.card_outbytes = aui.card_dmasize;
     int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
     //dbgprintf("samples:%u ",samples);
@@ -165,11 +165,15 @@ static void SNDISR_Interrupt( void )
 
             /* format conversion needed? */
 #if ADPCM
-            if(VSB_GetBits()<8) //ADPCM  8bit
+            if( VSB_GetBits() < 8) //ADPCM  8bit
                 count = VSB_DecodeADPCM((uint8_t*)(ISR_PCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
                 cv_bits_n_to_m( ISR_PCM + pos * 2, count * channels, samplesize, 2);
+#if 0 /* set to 1 in case unsigned 16-bit is to be supported */
+            else if ( !VSB_IsSigned() )
+                cv_16bits_unsigned_to_signed( ISR_PCM, count );
+#endif
             if( resample ) /* SB_Rate != aui.freq_card*/
                 count = mixer_speed_lq( ISR_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
             if( channels == 1) //should be the last step
@@ -202,34 +206,32 @@ static void SNDISR_Interrupt( void )
         //    ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
         samples = min(samples, pos);
     }
+#if 0 /* nothing to do if just opl3 - VOPL3 will use the PCM buffer directly */
     else if( gvars.opl3 )
         memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 ); //output muted samples.
+#endif
+
+    /* software mixer: very simple mix - should work fine */
 
     if( gvars.opl3 ) {
         int16_t* pcm = digital ? ISR_OPLPCM : ISR_PCM;
         VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
         int channels = VOPL3_GetMode() ? 2 : 1;
-        if(channels == 1)
+        if( channels == 1 )
             cv_channels_1_to_n(pcm, samples, 2, SBEMU_BITS/8);
 
         if( digital ) {
-            for(int i = 0; i < samples*2; ++i) {
-                int a = (int)(ISR_PCM[i] * voicevol / 256) + 32768;
-                int b = (int)(ISR_OPLPCM[i] * midivol / 256) + 32768;
-                int mixed = (a < 32768 || b < 32768) ? ( a * b / 32768) : ((a+b) * 2 - a*b/32768 - 65536);
-                if(mixed == 65536) mixed = 65535;
-                ISR_PCM[i] = mixed - 32768;
-            }
+            for(int i = 0; i < samples * 2; i++ )
+                ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
         } else
-            for(int i = 0; i < samples*2; ++i)
-                ISR_PCM[i] = ISR_PCM[i] * midivol / 256;
+            for(int i = 0; i < samples * 2; i++ )
+                ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
     } else if( digital )
-        for( int i = 0; i < samples*2; ++i)
-            ISR_PCM[i] = ISR_PCM[i] * voicevol / 256;
-    samples *= 2; //to stereo
+        for( int i = 0; i < samples * 2; i++ )
+            ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
 
-    aui.samplenum = samples;
+    aui.samplenum = samples * 2;
     aui.pcm_sample = ISR_PCM;
 
     AU_writedata(&aui);

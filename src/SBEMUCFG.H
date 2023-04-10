@@ -18,7 +18,9 @@ struct globalvars {
 	int base;
 	int irq;
 	int dma;
+#if SB16
 	int hdma;
+#endif
 	int type;
 	int opl3;
     int rm;
