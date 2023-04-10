@@ -9,7 +9,6 @@ extern "C" {
 
 //cv_bits.c
 extern void cv_bits_n_to_m(PCM_CV_TYPE_S *pcm,unsigned int samplenum,unsigned int in_bytespersample,unsigned int out_bytespersample);
-extern void cv_16bits_unsigned_to_signed( unsigned short *pcm, unsigned int samplenum );
 //extern void aumixer_cvbits_float64le_to_float32le(PCM_CV_TYPE_S *pcm,unsigned int samplenum);
 
 //cv_freq.c

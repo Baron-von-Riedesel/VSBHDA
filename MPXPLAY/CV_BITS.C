@@ -111,11 +111,3 @@ void cv_bits_n_to_m( PCM_CV_TYPE_S *pcm, unsigned int samplenum, unsigned int in
 		}
 	}
 }
-
-#if 0
-void cv_16bits_unsigned_to_signed( unsigned short *pcm, unsigned int samplenum)
-///////////////////////////////////////////////////////////////////////////////
-{
-	for ( ; samplenum; *(pcm++) += 0x8000, samplenum-- );
-}
-#endif

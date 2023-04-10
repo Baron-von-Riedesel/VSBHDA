@@ -613,8 +613,8 @@ void PTRAP_PrintPorts( void )
 {
     int start = 0;
     dbgprintf( "ports:\n" );
-    for ( int i = 0; i < max; i++ ) {
-        if ( i < (max -1) && ( PDispTab[i+1].port != PDispTab[i].port+1 || PDispTab[i+1].flags != PDispTab[i].flags )) {
+    for ( int i = 0; i < maxports; i++ ) {
+        if ( i < (maxports -1) && ( PDispTab[i+1].port != PDispTab[i].port+1 || PDispTab[i+1].flags != PDispTab[i].flags )) {
             if ( i == start )
                 dbgprintf( "%X (%X)\n", PDispTab[start].port, PDispTab[start].flags );
             else

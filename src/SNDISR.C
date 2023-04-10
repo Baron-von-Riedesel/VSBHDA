@@ -19,6 +19,7 @@
 #include <MIX_FUNC.H>
 
 #define SETABSVOL 0 /* the master volume is set by /VOL cmdline option and shouldn't be modified by the application */
+#define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
 extern mpxplay_audioout_info_s aui;
 extern struct globalvars gvars;
@@ -170,9 +171,9 @@ static void SNDISR_Interrupt( void )
 #endif
             if( samplesize != 2 )
                 cv_bits_n_to_m( ISR_PCM + pos * 2, count * channels, samplesize, 2);
-#if 0 /* set to 1 in case unsigned 16-bit is to be supported */
+#if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
-                cv_16bits_unsigned_to_signed( ISR_PCM, count );
+                for ( int i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
 #endif
             if( resample ) /* SB_Rate != aui.freq_card*/
                 count = mixer_speed_lq( ISR_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
