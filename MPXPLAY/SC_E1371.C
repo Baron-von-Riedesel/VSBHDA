@@ -389,7 +389,7 @@ static void snd_es1371_chip_init(struct ensoniq_card_s *card)
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
 	outl((card->port + ES_REG_SERIAL), card->sctrl);
 	outl((card->port + ES_REG_1371_LEGACY), 0);
-	if(funcbit_test(card->infobits,ENSONIQ_CARD_INFOBIT_AC97RESETHACK)){
+	if( card->infobits & ENSONIQ_CARD_INFOBIT_AC97RESETHACK ){
 		dbgprintf("chip_init: AC97 cold reset\n");
 		outl((card->port + ES_REG_STATUS), card->cssr);
 		pds_delay_10us(20*100);
@@ -464,7 +464,7 @@ static void snd_es1371_ac97_init(struct ensoniq_card_s *card)
 static void snd_es1371_prepare_playback(struct ensoniq_card_s *card,struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	funcbit_disable(card->ctrl, ES_DAC1_EN);
+	card->ctrl &= ~ES_DAC1_EN;
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
 	outl((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 
@@ -472,8 +472,8 @@ static void snd_es1371_prepare_playback(struct ensoniq_card_s *card,struct mpxpl
 	outl((card->port + ES_REG_DAC1_FRAME), (unsigned long) card->pcmout_buffer);
 
 	outl((card->port + ES_REG_DAC1_SIZE), (aui->card_dmasize >> 2) - 1);
-	funcbit_disable( card->sctrl, (ES_P1_LOOP_SEL|ES_P1_PAUSE|ES_P1_SCT_RLD|ES_P1_MODEM ));
-	funcbit_enable( card->sctrl, ES_P1_MODEO(0x03) ); // stereo, 16 bits
+	card->sctrl &= ~(ES_P1_LOOP_SEL | ES_P1_PAUSE | ES_P1_SCT_RLD | ES_P1_MODEM );
+	card->sctrl |= ES_P1_MODEO(0x03); // stereo, 16 bits
 	outl((card->port + ES_REG_SERIAL), card->sctrl);
 	outl((card->port + ES_REG_DAC1_COUNT), (aui->card_dmasize >> 2) -1);
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
@@ -540,12 +540,12 @@ static int ES1371_adetect(struct mpxplay_audioout_info_s *aui)
 		((card->pci_dev->device_id==0x5880) && ((card->chiprev==CT5880REV_CT5880_C) || (card->chiprev==CT5880REV_CT5880_D) || (card->chiprev==CT5880REV_CT5880_E)))
 	   )
 	  ){
-		funcbit_enable(card->infobits,ENSONIQ_CARD_INFOBIT_AC97RESETHACK);
-		funcbit_enable(card->sctrl,ES_1371_ST_AC97_RST);
+		card->infobits |= ENSONIQ_CARD_INFOBIT_AC97RESETHACK;
+		card->sctrl |= ES_1371_ST_AC97_RST;
 	}
 
 	if( pcibios_search_devices( amplifier_hack_devices, NULL ) == PCI_SUCCESSFUL)
-		funcbit_enable(card->ctrl,ES_1371_GPIO_OUT(1)); // turn on amplifier
+		card->ctrl |= ES_1371_GPIO_OUT(1); // turn on amplifier
 
 	card->port &= 0xfff0;
 	dbgprintf("vend_id:%4X dev_id:%4X port:%X irq:%d rev:%2X info:%X\n",
@@ -601,11 +601,11 @@ static void ES1371_start(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
-	funcbit_enable(card->ctrl,ES_DAC1_EN);
+	card->ctrl |= ES_DAC1_EN;
 	outl(card->port + ES_REG_CONTROL, card->ctrl);
-	funcbit_disable(card->sctrl,ES_P1_PAUSE);
+	card->sctrl &= ~ES_P1_PAUSE;
 #ifdef SBEMU
-	funcbit_enable(card->sctrl, ES_DAC1_INT_EN );
+	card->sctrl |= ES_DAC1_INT_EN;
 #endif
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
@@ -614,7 +614,7 @@ static void ES1371_stop(struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card=aui->card_private_data;
-	funcbit_enable(card->sctrl,ES_P1_PAUSE);
+	card->sctrl |= ES_P1_PAUSE;
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
 

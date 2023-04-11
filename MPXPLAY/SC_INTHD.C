@@ -648,7 +648,7 @@ static void snd_hda_enable_eapd(struct intelhd_card_s *card, struct hda_gnode *n
 {
 	if(node->pin_caps & AC_PINCAP_EAPD){
 		unsigned int eapd_set = snd_hda_codec_read(card, node->nid, 0, AC_VERB_GET_EAPD_BTLENABLE, 0);
-		funcbit_enable(eapd_set, AC_PINCTL_EAPD_ENABLE);
+		eapd_set |= AC_PINCTL_EAPD_ENABLE;
 		snd_hda_codec_write(card, node->nid, 0, AC_VERB_SET_EAPD_BTLENABLE, eapd_set);
 	}
 }

@@ -122,8 +122,6 @@ static void via82xx_ac97_write(unsigned int baseport,unsigned int reg, unsigned 
 static unsigned int via82xx_ac97_read(unsigned int baseport, unsigned int reg);
 static void via82xx_dxs_write(unsigned int baseport,unsigned int reg, unsigned int val);
 
-//extern unsigned int intsoundconfig,intsoundcontrol;
-
 static unsigned int via8233_dxs_volume=0x02;
 
 static void via82xx_channel_reset(struct via82xx_card *card)

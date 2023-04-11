@@ -817,7 +817,7 @@ static unsigned int snd_emu10k2_selector(struct emu10k1_card *card,struct mpxpla
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips&EMU_CHIPS_10K2) && ((aui->bits_set<=16) || !(card->chips&EMU_CHIPS_0151))){
-		funcbit_disable(card->chip_select,EMU_CHIPS_0151);
+		card->chip_select &= ~EMU_CHIPS_0151;
 		return 1;
 	}
 	return 0;
@@ -1000,8 +1000,8 @@ static struct emu_driver_func_s emu_driver_10k2_funcs={
 static unsigned int snd_p16v_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if((card->chips&EMU_CHIPS_0151) && ((aui->bits_set>16) || !(card->chips&EMU_CHIPS_10KX))){
-		funcbit_disable(card->chip_select,EMU_CHIPS_10KX);
+	if((card->chips & EMU_CHIPS_0151) && ((aui->bits_set > 16) || !(card->chips & EMU_CHIPS_10KX))){
+		card->chip_select &= ~EMU_CHIPS_10KX;
 		return 1;
 	}
 	return 0;

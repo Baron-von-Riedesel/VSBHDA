@@ -275,12 +275,12 @@ static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_
 	snd_intel_write_8(card,ICH_PO_CR_REG, snd_intel_read_8(card, ICH_PO_CR_REG) | ICH_PO_CR_RESET);
 
 	// set channels (2) and bits (16/32)
-	cmd=snd_intel_read_32(card,ICH_GLOB_CNT_REG);
-	funcbit_disable(cmd,(ICH_PCM_246_MASK | ICH_PCM_20BIT));
+	cmd = snd_intel_read_32(card,ICH_GLOB_CNT_REG);
+	cmd &= ~(ICH_PCM_246_MASK | ICH_PCM_20BIT);
 	if(aui->bits_set>16){
 		if((card->device_type == DEVICE_INTEL_ICH4) && ((snd_intel_read_32(card,ICH_GLOB_STAT_REG)&ICH_SAMPLE_CAP)==ICH_SAMPLE_16_20)){
 			aui->bits_card = 32;
-			funcbit_enable(cmd,ICH_PCM_20BIT);
+			cmd |= ICH_PCM_20BIT;
 		}
 	}
 	snd_intel_write_32(card,ICH_GLOB_CNT_REG,cmd);
@@ -495,7 +495,7 @@ static void INTELICH_start(struct mpxplay_audioout_info_s *aui)
 	snd_intel_codec_ready(card,ICH_GLOB_STAT_PCR);
 
 	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
-	funcbit_enable(cmd,ICH_PO_CR_START);
+	cmd |= ICH_PO_CR_START;
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
 }
 
@@ -506,7 +506,7 @@ static void INTELICH_stop(struct mpxplay_audioout_info_s *aui)
 	unsigned char cmd;
 
 	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
-	funcbit_disable(cmd,ICH_PO_CR_START);
+	cmd &= ~ICH_PO_CR_START;
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
 }
 
@@ -599,7 +599,7 @@ static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
 			MDma_clearbuf(aui);
 			snd_intel_write_8(card,ICH_PO_LVI_REG,(ICH_DMABUF_PERIODS-1));
 			snd_intel_write_8(card,ICH_PO_CIV_REG,0);
-			funcbit_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAUNDERRUN);
+			aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			continue;
 		}
 #endif
@@ -614,7 +614,7 @@ static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
 				MDma_clearbuf(aui);
 				snd_intel_write_8(card,ICH_PO_LVI_REG,(index-1)%ICH_DMABUF_PERIODS); // to keep playing in an endless loop
 				//snd_intel_write_8(card,ICH_PO_CIV_REG,index); // ??? -RO
-				funcbit_enable(aui->card_infobits,AUINFOS_CARDINFOBIT_DMAUNDERRUN);
+				aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			}
 #ifndef SBEMU
 			continue;

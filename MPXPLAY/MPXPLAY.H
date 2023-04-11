@@ -17,12 +17,6 @@
 #ifndef mpxplay_h
 #define mpxplay_h
 
-#include <fcntl.h>
-
-#ifndef MPXPLAY
-#define MPXPLAY 1
-#endif
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -41,34 +35,8 @@ extern "C" {
 #define PCM_MAX_BYTES     (PCM_MAX_SAMPLES*(PCM_MAX_BITS/8))  // in one frame
 #define PCM_BUFFER_SIZE   (2*PCM_MAX_BYTES) // *2 : speed control expansion
 
-// outmodes
-#define OUTMODE_TYPE_NONE            0  // ie:-is,-iw
-#define OUTMODE_TYPE_TEST      (1 << 0) // testmode (-t) (null output without startup, to test the speed of decoding)
-#define OUTMODE_TYPE_AUDIO     (1 << 1) // audio mode
-#define OUTMODE_TYPE_FILE      (1 << 2) // write output into file (-o)
-#define OUTMODE_TYPE_NULL      (1 << 3) // null output with startup
-#define OUTMODE_TYPE_MASK      (OUTMODE_TYPE_TEST|OUTMODE_TYPE_AUDIO|OUTMODE_TYPE_FILE|OUTMODE_TYPE_NULL)
-#define OUTMODE_CONTROL_FILE_BITSTREAMOUT (1 <<  4) // -obs
-#define OUTMODE_CONTROL_FILE_FLOATOUT     (1 <<  5) // -obf
-#define OUTMODE_CONTROL_FILE_TAGLFN       (1 <<  6) // -oni
-#define OUTMODE_CONTROL_SNDCARD_DDMA      (1 <<  8) // -ddma
-//#define OUTMODE_CONTROL_FILE_MASK (OUTMODE_CONTROL_FILE_BITSTREAMOUT|OUTMODE_CONTROL_FILE_FLOATOUT|OUTMODE_CONTROL_FILE_TAGLFN)
-
-//playcontrol flags (status and control)
-#define PLAYC_STARTNEXT       32 // start playing at next song
-#define PLAYC_RUNNING         64 // playing is running
-
-//intsoundconfig and intsoundcontrol function bits
-//#define INTSOUND_NONE      0  // no interrupt functions
-#define INTSOUND_DECODER   1  // interrupt decoder
-//#define INTSOUND_TSR       2  // tsr mode
-//#define INTSOUND_FUNCTIONS (INTSOUND_DECODER|INTSOUND_TSR)
-//#define INTSOUND_NOINTDEC  4  // disable interrupt decoder (intsoundconfig)
-//#define INTSOUND_DOSSHELL  16 // intsoundconfig:-xs intsoundcontrol:ctrl-d
-#ifdef SBEMU
+//intsoundconfig function bits
 #define INTSOUND_NOBUSYWAIT 32
-#endif
-//#define INTSOUND_INT08RUN  1024 // int08 process is running (has not finished)
 
 //timer settings
 #define INT08_DIVISOR_DEFAULT  65536
@@ -83,13 +51,8 @@ extern "C" {
 #endif
 #define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
 
-#define MPXPLAY_INTSOUNDDECODER_DISALLOW intsoundcntrl_save=intsoundcontrol;funcbit_disable(intsoundcontrol,INTSOUND_DECODER);
-#define MPXPLAY_INTSOUNDDECODER_ALLOW    if(intsoundconfig&INTSOUND_DECODER) funcbit_copy(intsoundcontrol,intsoundcntrl_save,INTSOUND_DECODER);
-
-// Mpxplay exit error codes
-#define MPXERROR_OK                0
-#define MPXERROR_SNDCARD           8
-#define MPXERROR_UNDEFINED        15 // sometimes not error, just don't save playlists and mpxplay.ini
+#define MPXPLAY_INTSOUNDDECODER_DISALLOW
+#define MPXPLAY_INTSOUNDDECODER_ALLOW
 
 #define MPXPLAY_WAVEID_UNKNOWN   0x0000
 #define MPXPLAY_WAVEID_PCM_SLE   0x0001 // signed little endian

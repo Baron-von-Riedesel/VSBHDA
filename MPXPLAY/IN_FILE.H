@@ -23,20 +23,11 @@
 extern "C" {
 #endif
 
-typedef float MPXPLAY_PCMOUT_FLOAT_T;
-typedef short MPXPLAY_PCMOUT_INT16_T;
-
 //adi->infobits
 //info
-#define ADI_FLAG_FLOATOUT        (1 << 0) // float audio decoder output (else integer)
-#define ADI_FLAG_FPUROUND_CHOP   (1 << 1) // roundtype at float output (else round to nearest)
-#define ADI_FLAG_OWN_SPECTANAL   (1 << 2) // own spectrum analiser
 #define ADI_FLAG_BITSTREAMOUT    (1 << 3) // bitstream out is enabled/supported (controlled by ADI_CNTRLBIT_BITSTREAMOUT)
 #define ADI_FLAG_BITSTREAMNOFRH  (1 << 4) // bitstream out "no-frame-headers" is supported
 #define ADI_FLAG_BITSTREAMHEAD   (1 << 5) // write a header at the begin of file (ie: AAC,OGG) (controlled by ADI_CNTRLBIT_BITSTREAMOUT)
-#define ADI_FLAG_FLOAT64OUT      (1 << 6) // 64-bit float output
-#define ADI_FLAG_FLOAT80OUT      (ADI_FLAG_FLOATOUT | ADI_FLAG_FLOAT64OUT) // 80-bit float output ???
-#define ADI_FLAG_FLOATMASK       (ADI_FLAG_FLOATOUT | ADI_FLAG_FLOAT64OUT)
 //control
 #define ADI_CNTRLBIT_DECODERSPECINF  (1 <<  7) // bitstream (init) contains a decoder specific info
 #define ADI_CNTRLBIT_BITSTREAMOUT    (1 <<  8) // bitstream out (don't decode) (write into file or soundcard decoding) (except: APE,CDW,MPC,WAV)

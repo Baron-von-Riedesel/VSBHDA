@@ -17,30 +17,14 @@
 #include <stdint.h>
 #include <malloc.h>
 
-#include "MPXPLAY.H"
-
-// can be different (more safe) than the normal malloc
-void *pds_malloc(unsigned int bufsize)
+void *pds_calloc( unsigned int nitems, unsigned int itemsize)
+/////////////////////////////////////////////////////////////
 {
-	void *bufptr;
-	if(!bufsize)
-		return NULL;
-	bufptr=malloc(bufsize + 8);
-	return bufptr;
+	return calloc( nitems, itemsize + 8 );
 }
 
-void *pds_calloc(unsigned int nitems,unsigned int itemsize)
+void pds_free( void *bufptr )
+/////////////////////////////
 {
-	void *bufptr;
-	if(!nitems || !itemsize)
-		return NULL;
-	bufptr=calloc(nitems,(itemsize + 8));
-	return bufptr;
-}
-
-void pds_free(void *bufptr)
-{
-	if(bufptr){
-		free(bufptr);
-	}
+	free( bufptr );
 }
