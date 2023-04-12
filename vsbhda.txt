@@ -2,31 +2,31 @@
 
    1. About
 
-   This SBEMU variant is compatible with the standard HDPMI32i included in the
-   HX runtime package. 
+   VSBHDA is a fork of SBEMU - it's compatible with the standard HDPMI32i
+   included in the HX runtime package. 
 
 
    2. Usage
 
-   The steps to load SBEMU are
+   The steps to load VSBHDA are
    
    - load JemmEx/Jemm386 in CONFIG.SYS
    - set environment variable BLASTER
    - run "JLoad QPIEMU.DLL"
    - run "HDPMI32i -x"
-   - run "SBEMU"
+   - run "VSBHDA"
 
     QPIEMU.DLL is needed for real-mode port trapping. Without this helper dll
-   support for real-mode cannot be activated by SBEMU - and, btw, it is also
-   needed by UNINST.COM, a program to unload SBEMU.
-    With the BLASTER variable one can select what card SBEMU is to emulate:
+   support for real-mode cannot be activated by VSBHDA - and, btw, it is also
+   needed by UNINST.COM, a program to unload VSBHDA.
+    With the BLASTER variable one can select what card VSBHDA is to emulate:
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
 
 
    3. SETPVI/RESPVI
 
-    A few protected-mode games may "freeze" with the default settings of SBEMU.
+    A few protected-mode games may "freeze" with the default settings of VSBHDA.
    Then there's a chance that running SETPVI may fix that. Note that SETPVI
    won't work with Qemm.
 

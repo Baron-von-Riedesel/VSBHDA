@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"
@@ -977,6 +977,8 @@ static void azx_setup_periods(struct intelhd_card_s *card)
  }
 }
 
+/* called by HDA_setrate() */
+
 static void azx_setup_controller(struct intelhd_card_s *card)
 /////////////////////////////////////////////////////////////
 {
@@ -1012,7 +1014,7 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 	azx_sd_writel(card, SD_BDLPU, 0); // upper 32 bit
 	//azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_MASK);
 #ifdef SBEMU
-	azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_COMPLETE);
+	//azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_COMPLETE);
 #endif
 	pds_delay_10us(100);
 
@@ -1420,12 +1422,13 @@ static void HDA_start(struct mpxplay_audioout_info_s *aui)
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
-	dbgprintf("HDA_start\n" );
-	//const unsigned int stream_index=0;
-	//azx_writeb(card, INTCTL, azx_readb(card, INTCTL) | (1 << stream_index)); // enable SIE
-	//azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START | SD_INT_MASK); // start DMA
 
-	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START); // start DMA
+	dbgprintf("HDA_start\n" );
+	//const unsigned int stream_index = 0;
+	//azx_writeb(card, INTCTL, azx_readb(card, INTCTL) | (1 << stream_index)); // enable SIE
+
+	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START | SD_INT_MASK); // start DMA
+	//azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START); // start DMA
 
 	timeout = 500;
 	while(!(azx_sd_readb(card, SD_CTL) & SD_CTL_DMA_START) && --timeout) // wait for DMA start
@@ -1439,7 +1442,9 @@ static void HDA_stop(struct mpxplay_audioout_info_s *aui)
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
-	//const unsigned int stream_index=0;
+
+	dbgprintf("HDA_start\n" );
+
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~(SD_CTL_DMA_START | SD_INT_MASK)); // stop DMA
 
 	timeout = 200;
@@ -1449,6 +1454,8 @@ static void HDA_stop(struct mpxplay_audioout_info_s *aui)
 	pds_delay_10us(100);
 
 	//azx_sd_writeb( card, SD_STS, SD_INT_MASK); // to be sure
+
+	//const unsigned int stream_index = 0;
 	//azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index));
 }
 
@@ -1494,7 +1501,7 @@ static int HDA_IRQRoutine(mpxplay_audioout_info_s* aui)
 ///////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card=aui->card_private_data;
-	int status = azx_sd_readb(card, SD_STS)&SD_INT_MASK;
+	int status = azx_sd_readb(card, SD_STS) & SD_INT_MASK;
 	if(status)
 		azx_sd_writeb(card, SD_STS, status); //ack all
 

@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
 #include "DPMIHLP.H"
@@ -207,30 +207,39 @@ static void SNDISR_Interrupt( void )
         //    ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
         samples = min(samples, pos);
     }
-#if 0 /* nothing to do if just opl3 - VOPL3 will use the PCM buffer directly */
-    else if( gvars.opl3 )
-        memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 ); //output muted samples.
-#endif
 
-    /* software mixer: very simple mix - should work fine */
+    /* software mixer: very simple implemented - but should work quite well */
 
-    if( gvars.opl3 ) {
+    //if( gvars.opl3 ) {
+    if( VOPL3_IsActive() ) {
         int16_t* pcm = digital ? ISR_OPLPCM : ISR_PCM;
         VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
         int channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
-            cv_channels_1_to_n(pcm, samples, 2, SBEMU_BITS/8);
+            cv_channels_1_to_n(pcm, samples, 2, HW_BITS/8);
 
         if( digital ) {
-            for(int i = 0; i < samples * 2; i++ )
-                ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
+#if 1
+            for(int i = 0; i < samples * 2; i++ ) {
+                int a = (int)(ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
+                int b = (int)(ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
+                int mixed = (a < 32768 || b < 32768) ? ( a * b / 32768) : ((a+b) * 2 - a * b / 32768 - 65536);
+                if ( mixed == 65536 ) mixed = 65535;
+                ISR_PCM[i] = mixed - 32768;
+            }
+#else
+            /* this variant is perhaps a bit too simple ... */
+            for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
+#endif
         } else
-            for(int i = 0; i < samples * 2; i++ )
-                ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
-    } else if( digital )
-        for( int i = 0; i < samples * 2; i++ )
-            ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
+            for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
+    } else {
+        if( digital )
+            for( int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
+        else
+            memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 );
+    }
 
     aui.samplenum = samples * 2;
     aui.pcm_sample = ISR_PCM;

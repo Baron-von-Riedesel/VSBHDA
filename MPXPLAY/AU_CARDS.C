@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 #ifndef SBEMU

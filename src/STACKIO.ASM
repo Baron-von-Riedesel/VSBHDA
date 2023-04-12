@@ -6,7 +6,7 @@
 	option casemap:none
 	option proc:private
 
-;--- COPYRMCS must be 1 to make sbemu fully reentrant.
+;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
 TRIGGERIRQ equ 1

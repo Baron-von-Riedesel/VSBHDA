@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "PLATFORM.H"
 #include "VDMA.H"
 #include "PTRAP.H"

@@ -17,7 +17,7 @@ RMPICTRAPDYN            equ 0 ; must match #define in ptrap.c
 
 	assume ds:nothing, ss:nothing
 
-_0000 dd 0	; rmcb to sbemu port trap handler
+_0000 dd 0	; rmcb to vsbhda port trap handler
 _0004 db 0 
 _0005 db 0
       dw 0

@@ -17,7 +17,7 @@
 
 #include <stdint.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"

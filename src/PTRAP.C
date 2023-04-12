@@ -16,7 +16,7 @@
 #include <sys/ioctl.h>
 #endif
 
-#include "SBEMUCFG.h"
+#include "CONFIG.H"
 #include "PLATFORM.H"
 #include "DPMIHLP.H"
 #include "PTRAP.H"

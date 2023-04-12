@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "PLATFORM.H"
 #include "CTADPCM.H"
 #include "VSB.H"
@@ -725,7 +725,7 @@ int VSB_DecodeADPCM(uint8_t* adpcm, int bytes)
         }
     }
     //assert(outcount <= outbytes);
-    dbgprintf("SBEMU: adpcm decode: %d %d\n", outcount, outbytes);
+    dbgprintf("VSB: adpcm decode: %d %d\n", outcount, outbytes);
     memcpy(adpcm, pcm, outcount);
     free(pcm);
     return outcount;

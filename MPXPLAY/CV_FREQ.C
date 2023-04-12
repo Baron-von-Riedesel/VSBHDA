@@ -19,7 +19,7 @@
 #include <stdint.h>
 //#include <assert.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "MPXPLAY.H"
 
 #define MALLOCSTATIC 1

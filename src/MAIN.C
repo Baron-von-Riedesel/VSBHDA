@@ -11,7 +11,7 @@
 #include <go32.h>
 #include <sys/exceptn.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
 #include "DPMIHLP.H"
@@ -47,12 +47,12 @@ static mpxplay_audio_decoder_info_s adi = {
 	NULL, /* private data */
 	0, /* infobits */
 	MPXPLAY_WAVEID_PCM_SLE, /* 16-bit samples */
-	SBEMU_SAMPLERATE, /* 22050 or 44100 */
-	SBEMU_CHANNELS, /* channels in file (not used) */
-	SBEMU_CHANNELS, /* decoded channels */
+	HW_SAMPLERATE, /* 22050 or 44100 */
+	HW_CHANNELS, /* channels in file (not used) */
+	HW_CHANNELS, /* decoded channels */
 	NULL, /* output channel matrix */
-	SBEMU_BITS, /* 16 */
-	SBEMU_BITS/8, /* bytes per sample */
+	HW_BITS, /* 16 */
+	HW_BITS/8, /* bytes per sample */
 	0}; /* bitrate */
 
 static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
@@ -217,9 +217,9 @@ static void ReleaseRes( void )
     return;
 }
 
-/* uninstall SBEMU.
+/* uninstall.
  * uninstall a protected-mode TSR is best done from real-mode.
- * for SBEMU, it's triggered by an OUT 226h, 55h ( see sbemu.c ).
+ * for VSBHDA, it's triggered by an OUT 226h, 55h ( see vsb.c ).
  * note: no printf() possible here, since stdio files are closed.
  */
 void MAIN_Uninstall( void )
@@ -321,7 +321,7 @@ int main(int argc, char* argv[])
     /* if -? or unrecognised option was entered, display help and exit */
     if( bHelp ) {
         bHelp = false;
-        printf("SBEMU: Sound Blaster emulation on AC97. Usage:\n");
+        printf("VSBHDA: Sound Blaster emulation on AC97. Usage:\n");
 
         for( int i = 0; MAIN_Options[i].option; i++ )
             printf( " %-8s: %s\n", MAIN_Options[i].option, MAIN_Options[i].desc );
@@ -366,7 +366,7 @@ int main(int argc, char* argv[])
     DPMI_Init();
 
     if ( IsInstalled() ) {
-        printf("SB found - probably SBEMU already installed.\n" );
+        printf("SB found - probably VSBHDA already installed.\n" );
         return(0);
     }
 
