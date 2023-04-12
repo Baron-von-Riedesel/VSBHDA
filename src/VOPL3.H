@@ -19,6 +19,7 @@ uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t out);
+bool VOPL3_IsActive( void );
 
 #ifdef __cplusplus
 }

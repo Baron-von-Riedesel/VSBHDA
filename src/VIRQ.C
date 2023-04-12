@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <dos.h>
 
-#include "SBEMUCFG.H"
+#include "CONFIG.H"
 #include "PIC.H"
 #include "DPMIHLP.H"
 #include "PTRAP.H"

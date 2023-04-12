@@ -1,10 +1,10 @@
-#ifndef _SBEMUCFG_H_
-#define _SBEMUCFG_H_
+#ifndef _CONFIG_H_
+#define _CONFIG_H_
 
-#define SBEMU_SAMPLERATE    22050
-//#define SBEMU_SAMPLERATE    44100
-#define SBEMU_CHANNELS 2
-#define SBEMU_BITS 16
+#define HW_SAMPLERATE    22050
+//#define HW_SAMPLERATE    44100
+#define HW_CHANNELS 2
+#define HW_BITS 16
 
 #define SB16 1        /* 1=support SB16 */
 #define SBLIVE 1      /* 1=support SBLIVE/AUDIGY */
@@ -37,4 +37,4 @@ int dbgprintf(const char *fmt, ... );
 #define dbgprintf
 #endif
 
-#endif//_SBEMUCFG_H_
+#endif//_CONFIG_H_

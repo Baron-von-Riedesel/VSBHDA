@@ -19,8 +19,8 @@
 #include <dpmi.h>
 #include <sys/exceptn.h>
 
+#include "CONFIG.H"
 #include "NEWFUNC.H"
-#include "SBEMUCFG.H"
 
 #define PHYSICAL_MAP_COUNT 64
 

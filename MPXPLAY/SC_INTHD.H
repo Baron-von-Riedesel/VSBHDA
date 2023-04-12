@@ -513,8 +513,7 @@ enum {
 #define SD_INT_DESC_ERR        0x10    /* descriptor error interrupt */
 #define SD_INT_FIFO_ERR        0x08    /* FIFO error interrupt */
 #define SD_INT_COMPLETE        0x04    /* completion interrupt */
-#define SD_INT_MASK        (SD_INT_DESC_ERR|SD_INT_FIFO_ERR|\
-                 SD_INT_COMPLETE)
+#define SD_INT_MASK            (SD_INT_DESC_ERR | SD_INT_FIFO_ERR | SD_INT_COMPLETE)
 
 #define RIRB_INT_MASK        0x05
 

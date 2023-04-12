@@ -1,5 +1,5 @@
-# SBEMU
-Sound blaster emulation for AC97/HDA/SBLive; a fork of crazii's SBEMU: https://github.com/crazii/SBEMU
+# VSBHDA
+Sound blaster emulation for HDA (and AC97/SBLive); a fork of crazii's SBEMU: https://github.com/crazii/SBEMU
 
 Works with unmodified HDPMI32i, making it compatible with HX.
 
@@ -17,6 +17,6 @@ Requirements:
  * HDPMI32i - DPMI host with port trapping; protected-mode
  * JEMMEX 5.84 - V86 monitor with port trapping; v86-mode
  
-SBEMU uses some source codes from:
+VSBHDA uses some source codes from:
  * MPXPlay: https://mpxplay.sourceforge.net/, for sound card drivers
  * DOSBox: https://www.dosbox.com/, for OPL3 FM emulation
