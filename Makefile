@@ -32,7 +32,7 @@ OBJFILES=\
 	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o	$(OUTD)/cv_bits.o	$(OUTD)/cv_chan.o	$(OUTD)/cv_freq.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/nf_dpmi.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
-	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o\
+	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
 INCLUDE_DIRS=src mpxplay
@@ -88,6 +88,7 @@ $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/int31.o::    int31.asm
 $(OUTD)/main.o::     main.c      ptrap.h dpmihlp.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h in_file.h mpxplay.h au_cards.h au_mixer.h mix_func.h newfunc.h
 $(OUTD)/memory.o::   memory.c    in_file.h mpxplay.h au_cards.h au_mixer.h newfunc.h
+$(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/nf_dpmi.o::  nf_dpmi.c   newfunc.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h

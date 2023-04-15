@@ -47,6 +47,7 @@ externdef dwDS:dword
 if TRIGGERIRQ
 externdef VSB_TriggerIRQ:dword
 VIRQ_Invoke proto c
+VSB_SetIRQStatus proto c
 endif
 
 	comm c __djgpp_stack_top:dword
@@ -127,6 +128,7 @@ if TRIGGERIRQ
 	sub [__djgpp_stack_top], 4096
 	mov ss, [dwDS]
 	mov esp, [__djgpp_stack_top]
+	call VSB_SetIRQStatus
 	call VIRQ_Invoke
 	mov ss, ebx
 	mov esp, ebp
@@ -215,6 +217,7 @@ if TRIGGERIRQ
 	test es:[edi].RMCS.rFlags+1, 2
 	jz @F
 	mov [VSB_TriggerIRQ], 0
+	call VSB_SetIRQStatus
 	call VIRQ_Invoke
 @@:
 endif

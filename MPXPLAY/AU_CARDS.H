@@ -32,11 +32,11 @@ extern "C" {
 #define SNDCARD_SELECT_ONLY     1 // program doesn't try to use automatically (ie: wav output)
 //#define SNDCARD_INT08_ALLOWED   2 // use of INT08 (and interrupt decoder) is allowed
 #define SNDCARD_CARDBUF_SPACE   4 // routine gives back the cardbuf space, not the bufpos
-#define SNDCARD_SPECIAL_IRQ     8 // card has a special (long) irq routine (requires stack & irq protection)
+//#define SNDCARD_SPECIAL_IRQ     8 // card has a special (long) irq routine (requires stack & irq protection)
 #define SNDCARD_SETRATE        16 // always call setrate before each song (special wav-out and test-out flag!)
 #define SNDCARD_LOWLEVELHAND   32 // native soundcard handling (PCI)
-#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
-#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
+//#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
+//#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
 
 //au_cards mixer channels
 #define AU_AUTO_UNMUTE 1 // automatically unmute (switch off mute flags) at -scv

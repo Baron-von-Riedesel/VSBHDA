@@ -16,34 +16,23 @@
 
 #include <stdint.h>
 
+#include "CONFIG.H"
 #include "MPXPLAY.H"
 
-#define USE_ASM_CV_BITS 1
+//#define USE_ASM_CV_BITS 1
 
-static void cv_8bits_unsigned_to_signed(PCM_CV_TYPE_S *pcm,unsigned int samplenum)
-//////////////////////////////////////////////////////////////////////////////////
+static void cv_8bits_unsigned_to_signed( PCM_CV_TYPE_UC *pcm, unsigned int samplenum)
+/////////////////////////////////////////////////////////////////////////////////////
 {
-	PCM_CV_TYPE_UC *inptr = (PCM_CV_TYPE_UC *)pcm;
-
-	do{
-		PCM_CV_TYPE_I insamp = (PCM_CV_TYPE_I)*inptr;
-		insamp -= 128;
-		*((PCM_CV_TYPE_C *)inptr) = (PCM_CV_TYPE_C)insamp;
-		inptr++;
-	}while(--samplenum);
+	dbgprintf("cv_8bits_unsigned_to_signed( pcm=%X, smpls=%u\n", pcm, samplenum );
+    for ( ; samplenum; *pcm ^= 0x80, pcm++, samplenum-- );
 }
 
-static void cv_8bits_signed_to_unsigned(PCM_CV_TYPE_S *pcm,unsigned int samplenum)
-//////////////////////////////////////////////////////////////////////////////////
+static void cv_8bits_signed_to_unsigned( PCM_CV_TYPE_UC *pcm, unsigned int samplenum)
+/////////////////////////////////////////////////////////////////////////////////////
 {
-	PCM_CV_TYPE_C *inptr = (PCM_CV_TYPE_C *)pcm;
-
-	do{
-		PCM_CV_TYPE_I insamp = (PCM_CV_TYPE_I)*inptr;
-		insamp += 128;
-		*((PCM_CV_TYPE_UC *)inptr) = (PCM_CV_TYPE_UC)insamp;
-		inptr++;
-	}while(--samplenum);
+	dbgprintf("cv_8bits_signed_to_unsigned( pcm=%X, smpls=%u\n", pcm, samplenum );
+    for ( ; samplenum; *pcm ^= 0x80, pcm++, samplenum-- );
 }
 
 /* compress 32->24, 32->16, 32->8, 24->16, 24->8, 16->8 */
@@ -67,28 +56,31 @@ static void cv_bits_down(PCM_CV_TYPE_S *pcm,unsigned int samplenum,unsigned int 
 
 /* expand 8->16, 8->24, 8->32, 16->24, 16->32, 24->32 */
 
-static void cv_bits_up(PCM_CV_TYPE_S *pcm,unsigned int samplenum,unsigned int instep,unsigned int outstep)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void cv_bits_up( PCM_CV_TYPE_S *pcm, unsigned int samplenum, unsigned int instep, unsigned int outstep)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	PCM_CV_TYPE_C *inptr = (PCM_CV_TYPE_C *)pcm;
 	PCM_CV_TYPE_C *outptr = (PCM_CV_TYPE_C *)pcm;
+
+	dbgprintf("cv_bits_up( pcm=%X, smpls=%u\n", pcm, samplenum );
+
 	inptr += samplenum * instep;
 	outptr += samplenum * outstep;
 
-	do{
+	for ( ; samplenum; samplenum-- ) {
 		unsigned int ii = instep;
 		unsigned int oi = outstep;
 		do{    //copy upper bits (bytes) to the right/correct place
 			inptr--;
 			outptr--;
-			*outptr=*inptr;
+			*outptr = *inptr;
 			oi--;
 		}while(--ii);
 		do{    //fill lower bits (bytes) with zeroes
 			outptr--;
-			*outptr=0;
+			*outptr = 0;
 		}while(--oi);
-	}while(--samplenum);
+	}
 }
 
 /*
@@ -99,15 +91,16 @@ static void cv_bits_up(PCM_CV_TYPE_S *pcm,unsigned int samplenum,unsigned int in
 void cv_bits_n_to_m( PCM_CV_TYPE_S *pcm, unsigned int samplenum, unsigned int in_bytespersample, unsigned int out_bytespersample)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf("cv_bits_n_to_m( pcm=%X, smpls=%u, in=%u, out=%u\n", pcm, samplenum, in_bytespersample, out_bytespersample );
 	if( out_bytespersample > in_bytespersample ){
 		if( in_bytespersample == 1 )
-			cv_8bits_unsigned_to_signed(pcm,samplenum);
-		cv_bits_up(pcm,samplenum,in_bytespersample,out_bytespersample);
+			cv_8bits_unsigned_to_signed( (PCM_CV_TYPE_UC *)pcm, samplenum );
+		cv_bits_up( pcm, samplenum, in_bytespersample, out_bytespersample );
 	} else {
 		if( out_bytespersample < in_bytespersample ) {
-			cv_bits_down( pcm,samplenum,in_bytespersample,out_bytespersample );
-			if(out_bytespersample == 1)
-				cv_8bits_signed_to_unsigned(pcm,samplenum);
+			cv_bits_down( pcm, samplenum, in_bytespersample, out_bytespersample );
+			if( out_bytespersample == 1 )
+				cv_8bits_signed_to_unsigned( (PCM_CV_TYPE_UC *)pcm, samplenum );
 		}
 	}
 }

@@ -100,7 +100,7 @@
 #define SB_DSP_CONT_8BIT_AUTO    0x45 /* SB16 */
 #define SB_DSP_CONT_16BIT_AUTO   0x47 /* SB16 */
 #endif
-#define SB_DSP_PAUSE_DAC         0x80 //pause by samples
+#define SB_DSP_SILENCE_DAC       0x80 /* SB; output silent samples */
 #define SB_DSP_HALT_DMA          0xD0
 #define SB_DSP_SPEAKER_ON        0xD1
 #define SB_DSP_SPEAKER_OFF       0xD3
@@ -139,7 +139,7 @@
 #define SB_DSP_3BIT_OUT_1        0x77 //3bit ADPCM
 #define SB_DSP_3BIT_OUT_1_NREF   0x76
 #define SB_DSP_3BIT_OUT_AUTO     0x7F
-#define SB_DSP_2BIT_OUT_1        0x17 //2bit  ADPCM
+#define SB_DSP_2BIT_OUT_1        0x17 //2bit ADPCM
 #define SB_DSP_2BIT_OUT_1_NREF   0x16
 #define SB_DSP_2BIT_OUT_AUTO     0x1F
 #endif

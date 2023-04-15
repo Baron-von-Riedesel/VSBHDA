@@ -34,12 +34,14 @@ void VSB_Stop();
 int VSB_GetDACSpeaker();
 unsigned int VSB_GetBits();
 int VSB_IsSigned();
+int VSB_IsSilent();
 int VSB_GetChannels();
 int VSB_GetSampleRate();
 int VSB_GetSampleBytes();
 int VSB_GetAuto();
 int VSB_GetPos(); //get pos in bytes
 int VSB_SetPos(int pos); //set pos in bytes
+void VSB_SetIRQStatus( void );
 //int VSB_IRQTriggered();
 //void VSB_ResetTriggeredIRQ();
 uint8_t VSB_GetMixerReg(uint8_t index);

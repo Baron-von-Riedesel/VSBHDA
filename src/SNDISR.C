@@ -21,6 +21,8 @@
 #define SETABSVOL 0 /* the master volume is set by /VOL cmdline option and shouldn't be modified by the application */
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
+void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+
 extern mpxplay_audioout_info_s aui;
 extern struct globalvars gvars;
 #if SETABSVOL
@@ -66,6 +68,7 @@ static void SNDISR_Interrupt( void )
 #if !TRIGGERATONCE
     if ( VSB_TriggerIRQ ) {
         VSB_TriggerIRQ = 0;
+        VSB_SetIRQStatus();
         VIRQ_Invoke();
     }
 #endif
@@ -111,7 +114,7 @@ static void SNDISR_Interrupt( void )
         uint32_t SB_Bytes = VSB_GetSampleBytes();
         uint32_t SB_Pos = VSB_GetPos();
         uint32_t SB_Rate = VSB_GetSampleRate();
-        int samplesize = max(1,VSB_GetBits()/8);
+        int samplesize = max( 1, VSB_GetBits() / 8 );
         int channels = VSB_GetChannels();
         //dbgprintf("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels );
         //dbgprintf("DMA index: %x\n", DMA_Index);
@@ -158,7 +161,7 @@ static void SNDISR_Interrupt( void )
 #if PREMAPDMA
             DPMI_CopyLinear(DPMI_PTR2L(ISR_PCM + pos * 2), MAIN_MappedBase + DMA_Addr + DMA_Index, bytes);
 #else
-            if( ISR_DMA_MappedAddr == 0) {//map failed?
+            if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
                 memset(ISR_PCM + pos * 2, 0, bytes);
             } else
                 DPMI_CopyLinear(DPMI_PTR2L(ISR_PCM + pos * 2), ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr)+DMA_Index, bytes);
@@ -170,7 +173,7 @@ static void SNDISR_Interrupt( void )
                 count = VSB_DecodeADPCM((uint8_t*)(ISR_PCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_n_to_m( ISR_PCM + pos * 2, count * channels, samplesize, 2);
+                cv_bits_n_to_m( ISR_PCM + pos * 2, count * channels, samplesize, 2 ); /* converts first to signed 8-bit, then to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
                 for ( int i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
@@ -184,13 +187,13 @@ static void SNDISR_Interrupt( void )
             DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index+bytes, DMA_Count-bytes);
             //int LastDMACount = DMA_Count;
             DMA_Count = VDMA_GetCounter( dma );
-            SB_Pos = VSB_SetPos( SB_Pos + bytes );
+            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status! (register 0x82) */
             if(SB_Pos >= SB_Bytes)
             {
                 dbgprintf("SNDISR_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) );
                 if(!VSB_GetAuto())
                     VSB_Stop();
-                SB_Pos = VSB_SetPos(0);
+                VSB_SetPos(0);
                 VIRQ_Invoke();
                 SB_Bytes = VSB_GetSampleBytes();
                 SB_Pos = VSB_GetPos();
@@ -222,15 +225,18 @@ static void SNDISR_Interrupt( void )
         if( digital ) {
 #if 1
             for(int i = 0; i < samples * 2; i++ ) {
-                int a = (int)(ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
-                int b = (int)(ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
+                int a = (ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
+                int b = (ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ( a * b / 32768) : ((a+b) * 2 - a * b / 32768 - 65536);
                 if ( mixed == 65536 ) mixed = 65535;
                 ISR_PCM[i] = mixed - 32768;
             }
-#else
-            /* this variant is perhaps a bit too simple ... */
+#elif 0
+            /* this variant is simple, but quiets too much ... */
             for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
+#else
+            /* in assembly it's probably easier to handle signed/unsigned shifts; doesn't work yet */
+            SNDISR_Mixer( ISR_PCM, ISR_OPLPCM, samples * 2, voicevol, midivol );
 #endif
         } else
             for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
