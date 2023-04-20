@@ -6,7 +6,6 @@
 
 #include "CONFIG.H"
 #include "PLATFORM.H"
-#include "CTADPCM.H"
 #include "VSB.H"
 #include "VIRQ.H"
 
@@ -17,7 +16,7 @@ extern void MAIN_ReinitOPL( void );
 #define SILENCE  1 /* 1=support DSP cmd 0x80 */
 #define LATERATE 0 /* 1=store time constant and compute rate when required */
 
-static int VSB_DSPVersion[] =
+static const int VSB_DSPVersion[] =
 {
     0,
     0x0100,
@@ -32,14 +31,11 @@ static int VSB_DSPVersion[] =
 
 extern void pds_mdelay(unsigned long x);
 
-typedef struct 
-{
-    int step;
-    uint8_t ref;
-    uint8_t useRef;
-} ADPCM_STATE;
-
 void MAIN_Uninstall( void );
+
+#if ADPCM
+extern ADPCM_STATE ISR_adpcm_state;
+#endif
 
 #define VSB_RESET_END 0
 #define VSB_RESET_START 1
@@ -69,16 +65,13 @@ static uint8_t VSB_TestReg;
 static uint8_t VSB_WS = 0x80;
 static uint8_t VSB_RS = 0x7F;
 static uint16_t VSB_DSPVER = 0x0302;
-#if ADPCM
-static ADPCM_STATE VSB_ADPCM;
-#endif
 static const int VSB_TimeConstantMapMono[][2] =
 {
     0xA5, 11025,
     0xD2, 22050,
     0xE9, 44100,
 };
-static uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.";
+static const uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.";
 
 static int DSPDataBytes = 0;
 static uint8_t *pData;
@@ -317,8 +310,8 @@ static void DSP_Write( uint8_t value )
         case SB_DSP_3BIT_OUT_AUTO: /* 7F */
         case SB_DSP_4BIT_OUT_AUTO: /* 7D */
             VSB_Auto = true;
-            VSB_ADPCM.useRef = true;
-            VSB_ADPCM.step = 0;
+            ISR_adpcm_state.useRef = true;
+            ISR_adpcm_state.step = 0;
             VSB_Bits = (value == SB_DSP_2BIT_OUT_AUTO) ? 2 : (value == SB_DSP_3BIT_OUT_AUTO) ? 3 : 4;
             VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~0x2;
             VSB_Silent = false;
@@ -342,7 +335,7 @@ static void DSP_Write( uint8_t value )
 			DataBuffer[1] = VSB_DSPVER & 0xFF;
 			break;
 		case SB_DSP_COPYRIGHT: /* E3 */
-			pData = SB_Copyright;
+			pData = (uint8_t *)SB_Copyright;
 			DSPDataBytes = sizeof( SB_Copyright ) - 1;
 			break;
 		case SB_DSP_READ_TESTREG: /* E8 */
@@ -444,8 +437,8 @@ static void DSP_Write( uint8_t value )
                 VSB_Auto = false;
                 /* useref is bit 0 */
                 //VSB_ADPCM.useRef = (VSB_DSPCMD == SB_DSP_2BIT_OUT_1 || VSB_DSPCMD == SB_DSP_3BIT_OUT_1 || VSB_DSPCMD == SB_DSP_4BIT_OUT_1);
-                VSB_ADPCM.useRef = (VSB_DSPCMD & 1 );
-                VSB_ADPCM.step = 0;
+                ISR_adpcm_state.useRef = (VSB_DSPCMD & 1 );
+                ISR_adpcm_state.step = 0;
                 VSB_Bits = (VSB_DSPCMD <= SB_DSP_2BIT_OUT_1) ? 2 : (VSB_DSPCMD >= SB_DSP_3BIT_OUT_1_NREF) ? 3 : 4;
                 VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~0x2; /* reset stereo */
                 VSB_Started = true; //start transfer here
@@ -727,59 +720,6 @@ uint8_t VSB_GetMixerReg(uint8_t index)
 {
     return VSB_MixerRegs[index];
 }
-
-#if ADPCM
-int VSB_DecodeADPCM(uint8_t* adpcm, int bytes)
-//////////////////////////////////////////////
-{
-    int start = 0;
-    if( VSB_ADPCM.useRef ) {
-        VSB_ADPCM.useRef = false;
-        VSB_ADPCM.ref = *adpcm;
-        VSB_ADPCM.step = 0;
-        start = 1;
-    }
-
-    /* bits may be 2,3,4 -> outbytes = bytes * 4,3,2 */
-    int outbytes = bytes * ( 9 / VSB_Bits );
-    uint8_t* pcm = (uint8_t*)malloc( outbytes );
-    dbgprintf("VSB_DecodeADPCM( %X, %u ): malloc(%u)=%X, bits=%u\n", adpcm, bytes, outbytes, pcm, VSB_Bits );
-    int outcount = 0;
-
-    switch ( VSB_Bits ) {
-    case 2:
-        for(int i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 0) & 0x3, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-        }
-        break;
-    case 3:
-        for(int i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-        }
-        break;
-    default:
-        for(int i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] >> 4,  &VSB_ADPCM.ref, &VSB_ADPCM.step);
-            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] & 0xf, &VSB_ADPCM.ref, &VSB_ADPCM.step);
-        }
-        break;
-    }
-    //assert(outcount <= outbytes);
-    dbgprintf("VSB_DecodeADPCM: outcount=%u\n", outcount );
-    memcpy( adpcm, pcm, outcount );
-    free(pcm);
-#ifdef _DEBUG
-    if (!outcount)
-        asm("int3");
-#endif
-    return outcount;
-}
-#endif
 
 uint32_t VSB_MixerAddr( uint32_t port, uint32_t val, uint32_t out )
 ///////////////////////////////////////////////////////////////////

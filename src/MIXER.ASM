@@ -1,4 +1,6 @@
 
+;--- not used yet
+
 	.386
 	.MODEL small
 	option casemap:none
@@ -7,6 +9,9 @@
 	.data
 
 	.code
+
+;--- doint just a "geometric" addition is surely not correct, since
+;--- if one factor is 0, the result will be 0.
 
 SNDISR_Mixer proc c public uses ebx esi edi pSrc1:ptr, pSrc2:ptr, dwSamples:dword, dwVol1:dword, dwVol2:dword
 
@@ -24,12 +29,21 @@ nextsample:
 	sar eax, 8
 	sar edx, 8
 	imul eax, edx		; do a "geometric" addition
-	sar eax, 15
+	jz @F
+	shr eax, 15
+done:
 	stosw
 	dec ecx
 	loop nextsample
 	lea ebp, [esp+3*4]
 	ret
+@@:
+	mov ax, [esi-2]
+	imul eax, ebp
+	sar eax, 8
+	add eax, edx
+	jmp done
+
 SNDISR_Mixer endp
 
 

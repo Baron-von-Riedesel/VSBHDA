@@ -1,8 +1,6 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
-#define HW_SAMPLERATE    22050
-//#define HW_SAMPLERATE    44100
 #define HW_CHANNELS 2
 #define HW_BITS 16
 
@@ -13,6 +11,7 @@
 #define TRIGGERATONCE 1  /* 1=trigger IRQ from inside trap handler */
 #define REINITOPL 1   /* 1=reinit OPL during RESET */
 #define PREMAPDMA 0   /* 1=map full 16MB ISA address range */
+#define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
 
 struct globalvars {
 	int base;
@@ -23,7 +22,7 @@ struct globalvars {
 #endif
 	int type;
 	int opl3;
-    int rm;
+	int rm;
 	int pm;
 	int vol;
 	int pin;

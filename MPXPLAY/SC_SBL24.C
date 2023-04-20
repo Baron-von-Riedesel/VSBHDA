@@ -280,11 +280,11 @@ static void snd_ca0106_pcm_prepare_playback(struct emu10k1_card *card,struct mpx
 	}
 
 	//snd_ca0106_ptr_write(card, PLAYBACK_LIST_ADDR, channel, (uint32_t)(table_base));
-	snd_ca0106_ptr_write(card, PLAYBACK_LIST_ADDR, channel, (uint32_t)pds_cardmem_physicalptr( card->dm, table_base ));
+	snd_ca0106_ptr_write(card, PLAYBACK_LIST_ADDR, channel, pds_cardmem_physicalptr( card->dm, table_base ));
 	snd_ca0106_ptr_write(card, PLAYBACK_LIST_SIZE, channel, (CA0106_DMABUF_PERIODS - 1) << 19);
 	snd_ca0106_ptr_write(card, PLAYBACK_LIST_PTR, channel, 0);
 	//snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, (uint32_t)card->pcmout_buffer);
-	snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, (uint32_t)pds_cardmem_physicalptr( card->dm, card->pcmout_buffer ));
+	snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, pds_cardmem_physicalptr( card->dm, card->pcmout_buffer ));
 	snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, 0);
 	//snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, period_size_bytes<<16);
 	snd_ca0106_ptr_write(card, PLAYBACK_POINTER, channel, 0);
@@ -385,7 +385,7 @@ static void snd_live24_mixer_write(struct emu10k1_card *card,unsigned int reg,un
 	snd_ca0106_ptr_write(card,reg,channel_id,value);
 }
 
-#ifdef SBEMU
+#if 1 /* vsbhda */
 static int snd_live24_isr(emu10k1_card *card)
 /////////////////////////////////////////////
 {
@@ -436,16 +436,12 @@ struct emu_driver_func_s emu_driver_audigyls_funcs={
 #ifdef AUDIGYLS_USE_AC97
  &snd_emu_ac97_read,
  &snd_emu_ac97_write,
-#ifdef SBEMU
- &snd_live24_isr,
-#endif
+ &snd_live24_isr, /* vsbhda */
  &mpxplay_aucards_ac97chan_mixerset[0]
 #else
  &snd_live24_mixer_read,
  &snd_live24_mixer_write,
-#ifdef SBEMU
- &snd_live24_isr,
-#endif
+ &snd_live24_isr, /* vsbhda */
  &emu_live24_mixerset[0]
 #endif
 };
@@ -462,8 +458,6 @@ struct emu_driver_func_s emu_driver_live24_funcs={
  NULL,
  &snd_live24_mixer_read,
  &snd_live24_mixer_write,
-#ifdef SBEMU
- &snd_live24_isr,
-#endif
+ &snd_live24_isr, /* vsbhda */
  &emu_live24_mixerset[0]
 };

@@ -25,10 +25,12 @@ static void MUTE_(const char* s) {}
 #define LOG_SB
 #define LOG_ERROR
 #include <stdint.h>
-typedef int Bits;
+typedef int Bits_t;
 
 
-static INLINE uint8_t decode_ADPCM_4_sample(uint8_t sample,uint8_t * reference,Bits* scale) {
+static INLINE uint8_t decode_ADPCM_4_sample(uint8_t sample,uint8_t * reference, Bits_t *scale)
+//////////////////////////////////////////////////////////////////////////////////////////////
+{
     static const int8_t scaleMap[64] = {
         0,  1,  2,  3,  4,  5,  6,  7,  0,  -1,  -2,  -3,  -4,  -5,  -6,  -7,
         1,  3,  5,  7,  9, 11, 13, 15, -1,  -3,  -5,  -7,  -9, -11, -13, -15,
@@ -46,7 +48,7 @@ static INLINE uint8_t decode_ADPCM_4_sample(uint8_t sample,uint8_t * reference,B
         240, 0, 0, 0, 0,  0,  0,  0
     };
 
-    Bits samp = sample + *scale;
+    Bits_t samp = sample + *scale;
 
     if ((samp < 0) || (samp > 63)) {
         LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-4 sample");
@@ -54,16 +56,18 @@ static INLINE uint8_t decode_ADPCM_4_sample(uint8_t sample,uint8_t * reference,B
         if(samp > 63) samp = 63;
     }
 
-    Bits ref = *reference + scaleMap[samp];
+    Bits_t ref = *reference + scaleMap[samp];
     if (ref > 0xff) *reference = 0xff;
     else if (ref < 0x00) *reference = 0x00;
-    else *reference = (uint8_t)(ref&0xff);
+    else *reference = (uint8_t)(ref & 0xff);
     *scale = (*scale + adjustMap[samp]) & 0xff;
 
     return *reference;
 }
 
-static INLINE uint8_t decode_ADPCM_2_sample(uint8_t sample,uint8_t * reference,Bits* scale) {
+static INLINE uint8_t decode_ADPCM_2_sample(uint8_t sample,uint8_t * reference, Bits_t *scale)
+//////////////////////////////////////////////////////////////////////////////////////////////
+{
     static const int8_t scaleMap[24] = {
         0,  1,  0,  -1,  1,  3,  -1,  -3,
         2,  6, -2,  -6,  4, 12,  -4, -12,
@@ -76,23 +80,25 @@ static INLINE uint8_t decode_ADPCM_2_sample(uint8_t sample,uint8_t * reference,B
         252, 0, 252, 0
     };
 
-    Bits samp = sample + *scale;
+    Bits_t samp = sample + *scale;
     if ((samp < 0) || (samp > 23)) {
         LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-2 sample");
         if(samp < 0 ) samp =  0;
         if(samp > 23) samp = 23;
     }
 
-    Bits ref = *reference + scaleMap[samp];
+    Bits_t ref = *reference + scaleMap[samp];
     if (ref > 0xff) *reference = 0xff;
     else if (ref < 0x00) *reference = 0x00;
-    else *reference = (uint8_t)(ref&0xff);
+    else *reference = (uint8_t)(ref & 0xff);
     *scale = (*scale + adjustMap[samp]) & 0xff;
 
     return *reference;
 }
 
-INLINE uint8_t decode_ADPCM_3_sample(uint8_t sample,uint8_t * reference,Bits* scale) {
+static INLINE uint8_t decode_ADPCM_3_sample(uint8_t sample,uint8_t * reference, Bits_t *scale)
+//////////////////////////////////////////////////////////////////////////////////////////////
+{
     static const int8_t scaleMap[40] = {
         0,  1,  2,  3,  0,  -1,  -2,  -3,
         1,  3,  5,  7, -1,  -3,  -5,  -7,
@@ -108,17 +114,17 @@ INLINE uint8_t decode_ADPCM_3_sample(uint8_t sample,uint8_t * reference,Bits* sc
         248, 0, 0, 0, 248, 0, 0, 0
     };
 
-    Bits samp = sample + *scale;
+    Bits_t samp = sample + *scale;
     if ((samp < 0) || (samp > 39)) {
         LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-3 sample");
         if(samp < 0 ) samp =  0;
         if(samp > 39) samp = 39;
     }
 
-    Bits ref = *reference + scaleMap[samp];
+    Bits_t ref = *reference + scaleMap[samp];
     if (ref > 0xff) *reference = 0xff;
     else if (ref < 0x00) *reference = 0x00;
-    else *reference = (uint8_t)(ref&0xff);
+    else *reference = (uint8_t)(ref & 0xff);
     *scale = (*scale + adjustMap[samp]) & 0xff;
 
     return *reference;

@@ -14,14 +14,13 @@
 #include "VIRQ.H"
 #include "VOPL3.H"
 #include "VSB.H"
+#include "CTADPCM.H"
 
-#include <MPXPLAY.H>
-#include <MIX_FUNC.H>
+#include "MPXPLAY.H"
 
-#define SETABSVOL 0 /* the master volume is set by /VOL cmdline option and shouldn't be modified by the application */
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
-void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+//void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
 
 extern mpxplay_audioout_info_s aui;
 extern struct globalvars gvars;
@@ -42,6 +41,158 @@ static void SNDISR_Interrupt( void );
 
 static int16_t ISR_OPLPCM[ISR_PCM_SAMPLESIZE+256];
 static int16_t ISR_PCM[ISR_PCM_SAMPLESIZE+256];
+
+#define MALLOCSTATIC 1
+
+#if ADPCM
+
+ADPCM_STATE ISR_adpcm_state;
+
+static int DecodeADPCM(uint8_t *adpcm, int bytes)
+/////////////////////////////////////////////////
+{
+    int start = 0;
+    int bits = VSB_GetBits();
+    if( ISR_adpcm_state.useRef ) {
+        ISR_adpcm_state.useRef = false;
+        ISR_adpcm_state.ref = *adpcm;
+        ISR_adpcm_state.step = 0;
+        start = 1;
+    }
+
+    /* bits may be 2,3,4 -> outbytes = bytes * 4,3,2 */
+    int outbytes = bytes * ( 9 / bits );
+    uint8_t* pcm = (uint8_t*)malloc( outbytes );
+    dbgprintf("DecodeADPCM( %X, %u ): malloc(%u)=%X, bits=%u\n", adpcm, bytes, outbytes, pcm, bits );
+    int outcount = 0;
+
+    switch ( bits ) {
+    case 2:
+        for(int i = start; i < bytes; ++i) {
+            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 0) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        }
+        break;
+    case 3:
+        for(int i = start; i < bytes; ++i) {
+            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        }
+        break;
+    default:
+        for(int i = start; i < bytes; ++i) {
+            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] >> 4,  &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] & 0xf, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        }
+        break;
+    }
+    //assert(outcount <= outbytes);
+    dbgprintf("DecodeADPCM: outcount=%u\n", outcount );
+    memcpy( adpcm, pcm, outcount );
+    free(pcm);
+    return outcount;
+}
+#endif
+
+/* rate conversion.
+ * src & dst are 16-bit
+ */
+
+static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int samplerate, unsigned int newrate)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	const unsigned int instep = ((samplerate / newrate) << 12) | (((4096 * (samplerate % newrate) + newrate - 1 ) / newrate) & 0xFFF);
+	const unsigned int inend = (samplenum / channels) << 12;
+	PCM_CV_TYPE_S *pcmdst;
+	unsigned long ipi;
+	unsigned int inpos = 0;//(samplerate < newrate) ? instep/2 : 0;
+#if MALLOCSTATIC
+	static int maxsample = 0;
+	static PCM_CV_TYPE_S* buff = NULL;
+#endif
+	if(!samplenum)
+		return 0;
+
+#if MALLOCSTATIC
+	if ( samplenum > maxsample ) {
+		if ( buff )
+			free( buff );
+		buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
+		maxsample = samplenum;
+	}
+#else
+	PCM_CV_TYPE_S* buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
+#endif
+	memcpy( buff, pcmsrc, samplenum * sizeof(PCM_CV_TYPE_S) );
+
+	dbgprintf("mixer_speed_lq: srcrate=%u dstrate=%u chn=%u smpl=%u step=%x end=%x\n", samplerate, newrate, channels, samplenum, instep, inend );
+
+	pcmdst = pcmsrc;
+	int total = samplenum/channels;
+
+	do{
+		int m1,m2;
+		unsigned int ipi,ch;
+		PCM_CV_TYPE_S *intmp1,*intmp2;
+		ipi = inpos >> 12;
+		m2 = inpos & 0xFFF;
+		m1 = 4096 - m2;
+		ch = channels;
+		ipi *= ch;
+		intmp1 = buff + ipi;
+		intmp2 = ipi < total - ch ? intmp1 + ch : intmp1;
+		do{
+			*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) / 4096;// >> 12; //don't use shift, signed right shift impl defined, maybe logical shift
+		}while (--ch);
+		inpos += instep;
+	}while( inpos < inend );
+
+#if !MALLOCSTATIC
+	free(buff);
+#endif
+	return pcmdst - pcmsrc;
+}
+
+/* convert 8 to 16 bits. It's assumed that 8 bit is unsigned, 16-bit is signed */
+
+static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum )
+/////////////////////////////////////////////////////////////////////////
+{
+	dbgprintf("cv_bits_8_to_16( pcm=%X, smpls=%u\n", pcm, samplenum );
+
+	PCM_CV_TYPE_C *inptr = (PCM_CV_TYPE_C *)pcm;
+	PCM_CV_TYPE_C *outptr = (PCM_CV_TYPE_C *)pcm;
+
+	inptr += samplenum;
+	outptr += samplenum * 2;
+
+	for ( ; samplenum; samplenum-- ) {
+		/* copy upper bits (bytes) to the right/correct place */
+		inptr--;
+		outptr--;
+		*outptr = *inptr ^ 0x80; /* convert unsigned to signed */
+		/* fill lower bits (bytes) with zeroes */
+		outptr--;
+		*outptr = 0;
+	}
+}
+
+/* convert mono to stereo. */
+
+static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int samplenum )
+///////////////////////////////////////////////////////////////////////////////////
+{
+    PCM_CV_TYPE_S *src = pcm_sample + samplenum - 1;
+    PCM_CV_TYPE_S *dst = pcm_sample + samplenum * 2 - 1;
+
+    for( ; samplenum; samplenum-- ) {
+        *dst-- = *src; *dst-- = *src--;
+    }
+    return;
+}
 
 int SNDISR_InterruptPM( void )
 //////////////////////////////
@@ -170,10 +321,10 @@ static void SNDISR_Interrupt( void )
             /* format conversion needed? */
 #if ADPCM
             if( VSB_GetBits() < 8) //ADPCM  8bit
-                count = VSB_DecodeADPCM((uint8_t*)(ISR_PCM + pos * 2), bytes);
+                count = DecodeADPCM((uint8_t*)(ISR_PCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_n_to_m( ISR_PCM + pos * 2, count * channels, samplesize, 2 ); /* converts first to signed 8-bit, then to signed 16-bit */
+                cv_bits_8_to_16( ISR_PCM + pos * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
                 for ( int i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
@@ -181,7 +332,7 @@ static void SNDISR_Interrupt( void )
             if( resample ) /* SB_Rate != aui.freq_card*/
                 count = mixer_speed_lq( ISR_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
             if( channels == 1) //should be the last step
-                cv_channels_1_to_n( ISR_PCM + pos * 2, count, 2, 2);
+                cv_channels_1_to_2( ISR_PCM + pos * 2, count);
             pos += count;
             //dbgprintf("samples:%d %d %d\n", count, pos, samples);
             DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index+bytes, DMA_Count-bytes);
@@ -190,7 +341,7 @@ static void SNDISR_Interrupt( void )
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status! (register 0x82) */
             if(SB_Pos >= SB_Bytes)
             {
-                dbgprintf("SNDISR_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) );
+                //dbgprintf("SNDISR_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) );
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0);
@@ -205,7 +356,7 @@ static void SNDISR_Interrupt( void )
             }
         } while(VDMA_GetAuto(dma) && (pos < samples) && VSB_Running());
 
-        dbgprintf("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() );
+        //dbgprintf("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() );
         //for(int i = pos; i < samples; ++i)
         //    ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
         samples = min(samples, pos);
@@ -220,7 +371,7 @@ static void SNDISR_Interrupt( void )
         //always use 2 channels
         int channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
-            cv_channels_1_to_n(pcm, samples, 2, HW_BITS/8);
+            cv_channels_1_to_2( pcm, samples );
 
         if( digital ) {
 #if 1

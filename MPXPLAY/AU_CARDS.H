@@ -6,17 +6,14 @@ extern "C" {
 #endif
 
 //au_infos->card_controlbits
-#define AUINFOS_CARDCNTRLBIT_TESTCARD         1
-#define AUINFOS_CARDCNTRLBIT_DOUBLEDMA        2
-#define AUINFOS_CARDCNTRLBIT_MIDASMANUALCFG   4
-#define AUINFOS_CARDCNTRLBIT_DMACLEAR         8 // run AU_clearbuffs
-#define AUINFOS_CARDCNTRLBIT_DMADONTWAIT     16 // don't wait for card-buffer space (at seeking)
-#define AUINFOS_CARDCNTRLBIT_BITSTREAMOUT    32 // enable bitstream out
-#define AUINFOS_CARDCNTRLBIT_BITSTREAMNOFRH  64 // no-frame-header output is supported by decoder
-#define AUINFOS_CARDCNTRLBIT_BITSTREAMHEAD  128 // write main header (at wav out only)
-#define AUINFOS_CARDCNTRLBIT_AUTOTAGGING    256 // copy tags (id3infos) from infile to outfile (if possible)
-//#define AUINFOS_CARDCNTRLBIT_AUTOTAGLFN     512 // create filename from id3infos (usually "NN. Artist - Title.ext"
-#define AUINFOS_CARDCNTRLBIT_UPDATEFREQ    1024 // change/update soundcard freq
+#define AUINFOS_CARDCTRLBIT_TESTCARD         1
+#define AUINFOS_CARDCTRLBIT_DOUBLEDMA        2
+#define AUINFOS_CARDCTRLBIT_MIDASMANUALCFG   4
+#define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
+#define AUINFOS_CARDCTRLBIT_DMADONTWAIT     16 // don't wait for card-buffer space (at seeking)
+//#define AUINFOS_CARDCTRLBIT_AUTOTAGGING    256 // copy tags (id3infos) from infile to outfile (if possible)
+//#define AUINFOS_CARDCTRLBIT_AUTOTAGLFN     512 // create filename from id3infos (usually "NN. Artist - Title.ext"
+#define AUINFOS_CARDCTRLBIT_UPDATEFREQ    1024 // change/update soundcard freq
 
 //au_infos->card_infobits
 #define AUINFOS_CARDINFOBIT_PLAYING          1
@@ -25,8 +22,6 @@ extern "C" {
 #define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 // dma buffer is empty (set by dma-monitor)
 #define AUINFOS_CARDINFOBIT_DMAFULL         16 // dma buffer is full (set by AU_writedata)
 #define AUINFOS_CARDINFOBIT_HWTONE          32
-#define AUINFOS_CARDINFOBIT_BITSTREAMOUT    64 // bitstream out enabled/supported
-#define AUINFOS_CARDINFOBIT_BITSTREAMNOFRH 128 // no frame headers (cut)
 
 //one_sndcard_info->infobits
 #define SNDCARD_SELECT_ONLY     1 // program doesn't try to use automatically (ie: wav output)
@@ -38,9 +33,9 @@ extern "C" {
 //#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
 //#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
 
-//au_cards mixer channels
 #define AU_AUTO_UNMUTE 1 // automatically unmute (switch off mute flags) at -scv
 
+//au_cards mixer channels
 #define AU_MIXCHAN_MASTER       0  // master out
 #define AU_MIXCHAN_PCM          1  // pcm out
 #define AU_MIXCHAN_HEADPHONE    2  // headphone out
@@ -78,6 +73,18 @@ extern "C" {
 #define SUBMIXCH_INFOBIT_REVERSEDVALUE  1 // reversed value
 #define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
 
+typedef int32_t  PCM_CV_TYPE_I;  // max. 32 bit input/output pcm format (integer)
+typedef uint32_t PCM_CV_TYPE_UI; //
+typedef float    PCM_CV_TYPE_F;  // 32-bit float part of mixer
+typedef int16_t  PCM_CV_TYPE_S;  // 16-bit integer part of mixer
+typedef int8_t   PCM_CV_TYPE_C;  // 8-bit signed
+typedef uint8_t  PCM_CV_TYPE_UC; // 8-bit unsigned
+typedef PCM_CV_TYPE_F PCM_CV_TYPE_MAX;// largest datatype (currently)
+
+#define MIXER_SETMODE_RELATIVE 0
+#define MIXER_SETMODE_ABSOLUTE 1
+#define MIXER_SETMODE_RESET    2
+
 //soundcard mixer structures
 typedef struct aucards_submixerchan_s{
  unsigned long submixch_register; // register-address of channel
@@ -94,20 +101,18 @@ typedef struct aucards_onemixerchan_s{
 
 typedef struct aucards_onemixerchan_s* aucards_allmixerchan_s;
 
-#include "newfunc.h"
-
 typedef struct mpxplay_audioout_info_s{
  short *pcm_sample;
  unsigned int  samplenum;
  unsigned char bytespersample_card;
  unsigned int  freq_set;
  unsigned int  freq_song;
- unsigned int  freq_card;
+ unsigned int  freq_card; /* */
  unsigned int  chan_set;
- unsigned char chan_song;
+ //unsigned char chan_song;
  unsigned char chan_card;
  unsigned int  bits_set;
- unsigned char bits_song;
+ //unsigned char bits_song;
  unsigned char bits_card;
 
  unsigned int   card_wave_id;    // 0x0001,0x0003,0x0055,0x2000,etc.
@@ -125,18 +130,18 @@ typedef struct mpxplay_audioout_info_s{
  unsigned long  card_dmafilled;
  unsigned long  card_dma_lastgoodpos;
  unsigned int   card_bytespersign; // bytespersample_card*chan_card
- unsigned int   card_dmaout_under_int08;
- unsigned short int08_decoder_cycles;
+ //unsigned int   card_dmaout_under_int08;
+ //unsigned short int08_decoder_cycles;
  char *card_DMABUFF;
 
  char *card_selectname;          // select card by name
  struct one_sndcard_info *card_handler; // function structure of the card
  void *card_private_data;        // extra private datas can be pointed here (with malloc)
- unsigned short card_type;
- unsigned short card_port;
+ //unsigned short card_type;
+ //unsigned short card_port;
  unsigned char  card_irq;
- unsigned char  card_isa_dma;
- unsigned char  card_isa_hidma;
+ //unsigned char  card_isa_dma;
+ //unsigned char  card_isa_hidma;
 
  //struct playlist_entry_info *pei; // for encoders
  int card_master_volume;
@@ -160,7 +165,7 @@ typedef struct one_sndcard_info{
  void (*cardbuf_writedata)(struct mpxplay_audioout_info_s *,char *buffer,unsigned long bytes); // write output data into the card's buffer
  long (*cardbuf_pos)(struct mpxplay_audioout_info_s *);  // get the buffer (playing) position (usually the DMA buffer get-position)(returns negative number on error)
  void (*cardbuf_clear)(struct mpxplay_audioout_info_s *);// clear the soundcard buffer (usually the DMA buffer)
- void (*cardbuf_int_monitor)(struct mpxplay_audioout_info_s *); // interrupt (DMA) monitor function
+ //void (*cardbuf_int_monitor)(struct mpxplay_audioout_info_s *); // interrupt (DMA) monitor function
  int (*irq_routine)(struct mpxplay_audioout_info_s *);  // as is
 
  void (*card_writemixer)(struct mpxplay_audioout_info_s *,unsigned long mixreg,unsigned long value);
@@ -168,16 +173,29 @@ typedef struct one_sndcard_info{
  aucards_allmixerchan_s *card_mixerchans;
 }one_sndcard_info;
 
+/* audio_decoder_info is used as input for AU_setrate() */
+typedef struct mpxplay_audio_decoder_info_s{
+ void *private_data;         // decoder
+ //info
+ unsigned int infobits;      // flags
+ unsigned int wave_id;       // audio type (wav:0x0001,mp3:0x0055,ac3:0x2000)
+ unsigned int freq;          // frequency (44100,48000,...)
+ unsigned int filechannels;  // number of channels in file ( not used by SBEMU )
+ unsigned int outchannels;   // decoded (used) channels, comes out from the decoder
+ uint8_t *chanmatrix;        // output channel matrix (ie: 5.1)
+ unsigned int bits;          // 8,16 ... (scalebits at float,filebits at integer output)
+ unsigned int bytespersample;// used in au_mixer
+ unsigned int bitrate;       // in kbit/s (lossy formats)(ie: mp3,ogg,ac3,dts)
+ unsigned int pcm_framelen;  // comes out from the decoder (samplenum without channels!)(=bytes/bytespersample)
+ char *shortname;            // set by decoder (3 chars), can static ("MP3","OGG","AC3","WMA")
+}mpxplay_audio_decoder_info_s;
+
+
 //main soundcard routines
 extern int  AU_init(struct mpxplay_audioout_info_s *aui);
-extern void AU_ini_interrupts(struct mpxplay_audioout_info_s *);
-extern void AU_del_interrupts(struct mpxplay_audioout_info_s *aui);
 extern void AU_prestart(struct mpxplay_audioout_info_s *);
 extern void AU_start(struct mpxplay_audioout_info_s *);
-//extern void AU_wait_and_stop(struct mpxplay_audioout_info_s *);
 extern void AU_stop(struct mpxplay_audioout_info_s *);
-//extern void AU_suspend_decoding(struct mpxplay_audioout_info_s *aui);
-//extern void AU_resume_decoding(struct mpxplay_audioout_info_s *aui);
 extern void AU_close(struct mpxplay_audioout_info_s *);
 extern void AU_setrate(struct mpxplay_audioout_info_s *aui,struct mpxplay_audio_decoder_info_s *adi);
 extern void AU_setmixer_init(struct mpxplay_audioout_info_s *aui);
@@ -185,7 +203,6 @@ extern void AU_setmixer_one(struct mpxplay_audioout_info_s *,unsigned int mixch,
 extern void AU_setmixer_outs(struct mpxplay_audioout_info_s *aui,unsigned int setmode,int newvalue);
 extern void AU_setmixer_all(struct mpxplay_audioout_info_s *);
 extern void AU_clearbuffs(struct mpxplay_audioout_info_s *);
-extern void AU_pause_process(struct mpxplay_audioout_info_s *);
 #ifdef SBEMU
 extern unsigned int AU_cardbuf_space(struct mpxplay_audioout_info_s *aui);
 #endif

@@ -22,11 +22,7 @@
 #include "VSB.H"
 
 #include <MPXPLAY.H>
-#include <MIX_FUNC.H>
 
-#define SUPPSAFE 0 /* 1=support /SAFE cmdline option ( hardly needed ) */
-
-#define MAIN_PCM_SAMPLESIZE 16384 /* sample buffer size */
 #define BASE_DEFAULT 0x220
 #define IRQ_DEFAULT 7
 #define DMA_DEFAULT 1
@@ -44,19 +40,16 @@ mpxplay_audioout_info_s aui = {0};
 
 /* for AU_setrate() - use fixed rate */
 static mpxplay_audio_decoder_info_s adi = {
-	NULL, /* private data */
-	0, /* infobits */
-	MPXPLAY_WAVEID_PCM_SLE, /* 16-bit samples */
-	HW_SAMPLERATE, /* 22050 or 44100 */
-	HW_CHANNELS, /* channels in file (not used) */
-	HW_CHANNELS, /* decoded channels */
-	NULL, /* output channel matrix */
-	HW_BITS, /* 16 */
-	HW_BITS/8, /* bytes per sample */
-	0}; /* bitrate */
-
-static int16_t MAIN_OPLPCM[MAIN_PCM_SAMPLESIZE+256];
-static int16_t MAIN_PCM[MAIN_PCM_SAMPLESIZE+256];
+    NULL, /* private data */
+    0, /* infobits */
+    MPXPLAY_WAVEID_PCM_SLE, /* 16-bit samples */
+    22050, /* freq: 22050 or 44100 */
+    HW_CHANNELS, /* channels in file (not used) */
+    HW_CHANNELS, /* decoded channels */
+    NULL, /* output channel matrix */
+    HW_BITS, /* 16 */
+    HW_BITS/8, /* bytes per sample */
+    0}; /* bitrate */
 
 uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 
@@ -64,14 +57,15 @@ uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
 #if PREMAPDMA
 uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
 #endif
+#if SETABSVOL
 uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
-
+#endif
 bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
 bool _hdpmi_UninstallISR( void );
 bool _hdpmi_InstallInt31( uint8_t );
 bool _hdpmi_UninstallInt31( void );
 
-static bool PM_ISR; /* 1=pm ISR installed */
+static bool bISR; /* 1=ISR installed */
 static bool bQemm = false;
 static bool bHdpmi = false;
 static int bHelp = false;
@@ -83,30 +77,27 @@ HDMA_DEFAULT,
 TYPE_DEFAULT, true, true, true, VOL_DEFAULT };
 
 static struct {
-    const char* option;
-    const char* desc;
+    const char *option;
+    const char *desc;
     int *pValue;
-} MAIN_Options[] =
-{
+} MAIN_Options[] = {
     "/?", "Show help", &bHelp,
-    "/A", "Set IO base address, values: 220,240 [def 220]", &gvars.base,
-    "/I", "Set IRQ number, values: 5,7 [def 7]", &gvars.irq,
-	"/D", "Set DMA channel, values: 0,1,3 [def 1]", &gvars.dma,
+    "/A", "Set IO base address [220|240, def 220]", &gvars.base,
+    "/I", "Set IRQ number [5|7, def 7]", &gvars.irq,
+    "/D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
 #if SB16
-    "/H", "Set High DMA channel, values: 5,6,7 [no def]", &gvars.hdma,
-    "/T", "Set SB Type, values: 0-6 [def 5]", &gvars.type,
+    "/H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
+    "/T", "Set SB Type [0-6, def 5]", &gvars.type,
 #else
-    "/T", "Set SB Type, values: 0-5 [def 5]", &gvars.type,
+    "/T", "Set SB Type [0-5, def 5]", &gvars.type,
 #endif
-	"/OPL","Set OPL3 emulation, values: 0|1 [def 1]", &gvars.opl3,
-	"/PM", "Set protected mode games support, values: 0|1 [def 1]", &gvars.pm,
-	"/RM", "Set real mode games support, values: 0|1 [def 1]", &gvars.rm,
-#if SUPPSAFE
-	"/SAFE", "Safe mode - may be needed by some protected-mode programs", &gvars.safe,
-#endif
-	"/VOL", "Set master volume, values: 0-9 [def 7]", &gvars.vol,
-	"/O", "Set output (HDA only), values: 0=lineout, 1=speaker, 2=hp [def 0]", &gvars.pin,
-    "/DEV", "Set device index (HDA only) if multiple devices exist [def 0]", &gvars.device,
+    "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
+    "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
+    "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
+    "/F", "Set frequency [22050|44100, def 22050]", &adi.freq,
+    "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
+    "/O", "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
+    "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
     NULL, NULL, 0,
 };
 enum EOption
@@ -122,10 +113,7 @@ enum EOption
     OPT_OPL,
     OPT_PM,
     OPT_RM,
-#if SUPPSAFE
-	OPT_SAFE,
-#endif
-	OPT_VOL,
+    OPT_VOL,
     OPT_OUTPUT,
     OPT_DEVIDX,
     OPT_COUNT,
@@ -194,6 +182,17 @@ static bool InstallISR( uint8_t interrupt, int(*ISR)(void) )
     return false;
 }
 
+#if 1 //def _DEBUG
+void fatal_error( int nError )
+//////////////////////////////
+{
+	asm("mov $3, %ax\n\t" "int $0x10");
+	printf("VSBHDA: fatal error %u\n", nError );
+	for (;;);
+
+}
+#endif
+
 static bool UninstallISR( void )
 ////////////////////////////////
 {
@@ -206,7 +205,7 @@ static bool UninstallISR( void )
 static void ReleaseRes( void )
 //////////////////////////////
 {
-	if (PM_ISR) UninstallISR();
+	if (bISR) UninstallISR();
 
 	if( gvars.rm )
 		PTRAP_Uninstall_RM_PortTraps();
@@ -283,14 +282,15 @@ int main(int argc, char* argv[])
     char* blaster = getenv("BLASTER");
     if(blaster != NULL) {
         char c;
-        while((c=toupper(*(blaster++)))) {
+        while(( c = toupper(*(blaster++)))) {
             if(c == 'I')
                 gvars.irq = *(blaster++) - '0';
             else if(c == 'D')
                 gvars.dma = *(blaster++) - '0';
-            else if(c == 'A')
+            else if(c == 'A') {
                 gvars.base = strtol(blaster, &blaster, 16);
-            else if(c =='T')
+                while(*blaster >= '0') blaster++;
+            } else if(c =='T')
                 gvars.type = *(blaster++) - '0';
 #if SB16
             else if(c =='H')
@@ -300,9 +300,9 @@ int main(int argc, char* argv[])
     }
 
     /* check cmdline arguments */
-    for(int i = 1; i < argc; ++i) {
+    for(int i = 1; i < argc; ++i ) {
         int j;
-        for( j = 0; j < OPT_COUNT; ++j) {
+        for( j = 0; j < OPT_COUNT; ++j ) {
             int len = strlen(MAIN_Options[j].option);
             if( memicmp(argv[i], MAIN_Options[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
@@ -332,7 +332,7 @@ int main(int argc, char* argv[])
     }
 
     if( gvars.base != 0x220 && gvars.base != 0x240 ) {
-        printf("Error: invalid IO port address: %x.\n", gvars.base );
+        printf("Error: invalid IO base address: %x.\n", gvars.base );
         return 1;
     }
     if( gvars.irq != 0x5 && gvars.irq != 0x7 ) {
@@ -354,14 +354,17 @@ int main(int argc, char* argv[])
         return 1;
     }
     if( gvars.pin < 0 || gvars.pin > 2) {
-        printf("Error: Invalid Output: %d\n", gvars.pin );
+        printf("Error: Invalid output: %d\n", gvars.pin );
         return 1;
     }
      if( gvars.vol < 0 || gvars.vol > 9) {
-        printf("Error: Invalid Volume.\n");
+        printf("Error: Invalid volume.\n");
         return 1;
     }
-    //TODO: alter BLASTER env?
+     if( adi.freq != 22050 && adi.freq != 44100 ) {
+        printf("Error: Invalid frequency.\n");
+        return 1;
+    }
 
     DPMI_Init();
 
@@ -374,7 +377,7 @@ int main(int argc, char* argv[])
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
         if(bcd < 0x703) {
-            printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd>>8, bcd&0xFF);
+            printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
         }
     }
@@ -388,12 +391,7 @@ int main(int argc, char* argv[])
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
-#if SUPPSAFE
-    if(MAIN_Options[OPT_SAFE].value)
-        VIRQ_SafeCall();
-#else
     VIRQ_Init();
-#endif
     aui.card_select_config = gvars.pin;
     aui.card_select_devicenum = gvars.device;
     if ( !AU_init( &aui ) ) {
@@ -405,10 +403,11 @@ int main(int argc, char* argv[])
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
-    AU_ini_interrupts(&aui);
     AU_setmixer_init(&aui);
     //MAIN_GLB_VOL = gvars.vol;
+#if SETABSVOL
     MAIN_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
+#endif
     AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     //AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     AU_setrate(&aui, &adi);
@@ -434,7 +433,7 @@ int main(int argc, char* argv[])
         gvars.hdma = 0;
 #endif
 
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
+    PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
 
 
 #if SB16
@@ -474,7 +473,7 @@ int main(int argc, char* argv[])
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 
-    PM_ISR = InstallISR(PIC_IRQ2VEC( aui.card_irq), &SNDISR_InterruptPM );
+    bISR = InstallISR(PIC_IRQ2VEC( aui.card_irq), &SNDISR_InterruptPM );
 
     PIC_UnmaskIRQ(aui.card_irq);
 
@@ -495,14 +494,16 @@ int main(int argc, char* argv[])
     if (p = malloc( 0x10000 ) )
         free( p );
 
-    if( PM_ISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
+    if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
         DPMI_REG r = {0};
+        __dpmi_set_coprocessor_emulation( 0 );
         uint32_t psp = _go32_info_block.linear_address_of_original_psp;
         __dpmi_free_dos_memory( DPMI_LoadW( psp+0x2C ) );
         DPMI_StoreW( psp+0x2C, 0 );
         for ( int i = 0; i < 5; i++ )
             _dos_close( i );
         __djgpp_exception_toggle();
+        _go32_info_block.size_of_transfer_buffer = 0; /* ensure it's not used anymore */
         asm("push $0\n\t" "pop %gs\n\t" "push $0\n\t" "pop %fs"); /* clear fs/gs */
         r.w.dx= 0x10; /* only psp */
         r.w.ax = 0x3100;

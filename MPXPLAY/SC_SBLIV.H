@@ -36,9 +36,7 @@ typedef struct emu_driver_func_s{
  void (*clear_cache)(struct emu10k1_card *card);
  unsigned int (*mixer_read)(struct emu10k1_card *card,unsigned int reg);
  void (*mixer_write)(struct emu10k1_card *card,unsigned int reg,unsigned int value);
-#ifdef SBEMU
- int (*interrupt_isr)(struct emu10k1_card *card);
-#endif
+ int (*interrupt_isr)(struct emu10k1_card *card); /* vsbhda */
  aucards_allmixerchan_s *mixerset;
 }emu_driver_func_s;
 

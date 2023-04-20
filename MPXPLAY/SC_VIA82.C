@@ -129,11 +129,11 @@ static void via82xx_channel_reset(struct via82xx_card *card)
 {
 	unsigned int baseport = card->iobase;
 
-	outb(baseport+VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE|VIA_REG_CTRL_TERMINATE|VIA_REG_CTRL_RESET);
+	outb(baseport+VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE | VIA_REG_CTRL_TERMINATE | VIA_REG_CTRL_RESET);
 	pds_delay_10us(5);
 	outb(baseport + VIA_REG_OFFSET_CONTROL, 0x00);
 	outb(baseport + VIA_REG_OFFSET_STATUS, 0xFF);
-	if(card->pci_dev->device_id==PCI_DEVICE_ID_VT82C686)
+	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686)
 		outb(baseport + VIA_REG_OFFSET_TYPE, 0x00);
 	outl(baseport + VIA_REG_OFFSET_CURR_PTR, 0);
 }
@@ -165,7 +165,7 @@ static void via82xx_chip_init(struct via82xx_card *card)
 
 	// Make sure VRA is enabled, in case we didn't do a complete codec reset, above
 	data=pcibios_ReadConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL);
-	if((data&VIA_ACLINK_CTRL_INIT)!=VIA_ACLINK_CTRL_INIT){
+	if((data&VIA_ACLINK_CTRL_INIT) != VIA_ACLINK_CTRL_INIT){
 		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);
 		pds_delay_10us(10);
 	}
@@ -213,7 +213,7 @@ static void via82xx_set_table_ptr(struct via82xx_card *card)
 ////////////////////////////////////////////////////////////
 {
 	via82xx_AC97Codec_ready(card->iobase);
-	outl(card->iobase + VIA_REG_OFFSET_TABLE_PTR,(unsigned long)pds_cardmem_physicalptr(card->dm,card->virtualpagetable));
+	outl(card->iobase + VIA_REG_OFFSET_TABLE_PTR, pds_cardmem_physicalptr(card->dm,card->virtualpagetable));
 	pds_delay_10us(2);
 	via82xx_AC97Codec_ready(card->iobase);
 }
@@ -230,7 +230,7 @@ static void VIA82XX_close(struct mpxplay_audioout_info_s *aui);
 static void VIA82XX_card_info(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
 		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model);
 }
@@ -243,7 +243,7 @@ static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
 	card=(struct via82xx_card *)pds_calloc(1,sizeof(struct via82xx_card));
 	if(!card)
 		return 0;
-	aui->card_private_data=card;
+	aui->card_private_data = card;
 
 	card->pci_dev=(struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
@@ -284,7 +284,7 @@ static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
 
-	aui->card_DMABUFF=card->pcmout_buffer;
+	aui->card_DMABUFF = card->pcmout_buffer;
 
 	// init chip
 	via82xx_chip_init(card);
@@ -299,7 +299,7 @@ err_adetect:
 static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 	if(card){
 		if(card->iobase)
 			via82xx_chip_close(card);
@@ -307,45 +307,45 @@ static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
 		if(card->pci_dev)
 			pds_free(card->pci_dev);
 		pds_free(card);
-		aui->card_private_data=NULL;
+		aui->card_private_data = NULL;
 	}
 }
 
 static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 	unsigned int dmabufsize,pagecount,spdif_rate;
 	unsigned long pcmbufp;
 
-	if(aui->freq_card<4000)
-		aui->freq_card=4000;
+	if(aui->freq_card < 4000)
+		aui->freq_card = 4000;
 	else{
-		if(aui->freq_card>48000)
-			aui->freq_card=48000;
+		if(aui->freq_card > 48000)
+			aui->freq_card = 48000;
 	}
 
-	aui->chan_card=2;
-	aui->bits_card=16;
-	aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
+	aui->chan_card = 2;
+	aui->bits_card = 16;
+	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
 
-	dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
+	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
 
 	// page tables
-	card->pcmout_pages=dmabufsize/PCMBUFFERPAGESIZE;
-	pcmbufp=(unsigned long)card->pcmout_buffer;
+	card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;
+	pcmbufp = (unsigned long)card->pcmout_buffer;
 	dbgprintf("VIA PCM pages: %d\n", card->pcmout_pages);
  
 	for( pagecount = 0; pagecount < card->pcmout_pages; pagecount++) {
-		card->virtualpagetable[pagecount*2]=(unsigned long)pds_cardmem_physicalptr(card->dm,pcmbufp);
-		if( pagecount < (card->pcmout_pages-1)) {
+		card->virtualpagetable[pagecount * 2] = pds_cardmem_physicalptr(card->dm,pcmbufp);
+		if( pagecount < (card->pcmout_pages - 1)) {
 #ifdef SBEMU
 			card->virtualpagetable[pagecount * 2 + 1]=((pagecount % VIA_INT_INTERVAL) == VIA_INT_INTERVAL - 1) ? VIA_TBL_BIT_FLAG | PCMBUFFERPAGESIZE : PCMBUFFERPAGESIZE;
 #else
 			card->virtualpagetable[pagecount * 2 + 1]= PCMBUFFERPAGESIZE; // 0x00001000; // period continues to the next
 #endif
 		} else
-			card->virtualpagetable[pagecount*2+1] = VIA_TBL_BIT_EOL | PCMBUFFERPAGESIZE; // 0x80001000; // buffer boundary
+			card->virtualpagetable[pagecount * 2 + 1] = VIA_TBL_BIT_EOL | PCMBUFFERPAGESIZE; // 0x80001000; // buffer boundary
 
 		pcmbufp += PCMBUFFERPAGESIZE;
 	}
@@ -355,9 +355,9 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 	via82xx_ac97_write(card->iobase, AC97_PCM_FRONT_DAC_RATE, aui->freq_card);
 
 	switch(aui->freq_card){
-	case 32000:spdif_rate=AC97_SC_SPSR_32K;break;
-	case 44100:spdif_rate=AC97_SC_SPSR_44K;break;
-	default:spdif_rate=AC97_SC_SPSR_48K;break;
+	case 32000: spdif_rate = AC97_SC_SPSR_32K;break;
+	case 44100: spdif_rate = AC97_SC_SPSR_44K;break;
+	default: spdif_rate = AC97_SC_SPSR_48K;break;
 	}
 	via82xx_ac97_write(card->iobase, AC97_SPDIF_CONTROL, spdif_rate); // ???
 	pds_delay_10us(10);
@@ -379,7 +379,7 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 		via82xx_dxs_write(card->iobase,VIA_REG_OFS_PLAYBACK_VOLUME_L, via8233_dxs_volume);
 		via82xx_dxs_write(card->iobase,VIA_REG_OFS_PLAYBACK_VOLUME_R, via8233_dxs_volume);
 		// freq
-		if(aui->freq_card==48000)
+		if(aui->freq_card == 48000)
 			rbits = 0xfffff;
 		else
 			rbits = (0x100000 / 48000) * aui->freq_card + ((0x100000 % 48000) * aui->freq_card) / 48000;
@@ -392,8 +392,8 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
-	if(card->pci_dev->device_id==PCI_DEVICE_ID_VT82C686)
+	struct via82xx_card *card = aui->card_private_data;
+	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686)
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START);
 	else
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START | VIA_REG_CTRL_AUTOSTART);
@@ -402,21 +402,21 @@ static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
 static void VIA82XX_stop(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 	outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE);
 }
 
 static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
-	unsigned int baseport=card->iobase;
+	struct via82xx_card *card = aui->card_private_data;
+	unsigned int baseport = card->iobase;
 	unsigned long idx,count,bufpos;
 
 	if( card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686 ){
 		count = inl(baseport + VIA_REG_PLAYBACK_CURR_COUNT);
 		idx   = inl(baseport + VIA_REG_OFFSET_CURR_PTR);
-		if(idx<=(unsigned long)card->virtualpagetable)
+		if(idx <= (unsigned long)card->virtualpagetable)
 			idx = 0;
 		else{
 			idx = idx - (unsigned long)card->virtualpagetable;
@@ -430,7 +430,7 @@ static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
 	}
 	count &= 0xffffff;
 
-	if(count && (count<=PCMBUFFERPAGESIZE)){
+	if(count && (count <= PCMBUFFERPAGESIZE)){
 
 		bufpos = (idx * PCMBUFFERPAGESIZE) + PCMBUFFERPAGESIZE - count;
 
@@ -520,7 +520,7 @@ static void via82xx_dxs_write(unsigned int baseport,unsigned int reg, unsigned i
 	//outb(baseport+reg+0x10,val);
 	//outb(baseport+reg+0x20,val);
 	//outb(baseport+reg+0x30,val);
-	via8233_dxs_volume=val;
+	via8233_dxs_volume = val;
 }
 
 static unsigned int via82xx_dxs_read(unsigned int baseport,unsigned int reg)
@@ -532,12 +532,12 @@ static unsigned int via82xx_dxs_read(unsigned int baseport,unsigned int reg)
 static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 
-	//if((reg==VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg==VIA_REG_OFS_PLAYBACK_VOLUME_R)){
-	if(reg>=256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
-		if(card->pci_dev->device_id!=PCI_DEVICE_ID_VT82C686)
-			via82xx_dxs_write(card->iobase,(reg>>8),val);
+	//if((reg == VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg == VIA_REG_OFS_PLAYBACK_VOLUME_R)){
+	if( reg >= 256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
+		if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686)
+			via82xx_dxs_write(card->iobase,(reg >> 8),val);
 	}else
 		via82xx_ac97_write(card->iobase,reg,val);
 }
@@ -545,29 +545,29 @@ static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long
 static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
-	unsigned int retval=0;
+	struct via82xx_card *card = aui->card_private_data;
+	unsigned int retval = 0;
 
-	//if((reg==VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg==VIA_REG_OFS_PLAYBACK_VOLUME_R)){
-	if(reg>=256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
-		if(card->pci_dev->device_id!=PCI_DEVICE_ID_VT82C686)
-			retval=via82xx_dxs_read(card->iobase,(reg>>8));
+	//if((reg == VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg == VIA_REG_OFS_PLAYBACK_VOLUME_R)){
+	if(reg >= 256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
+		if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686)
+			retval = via82xx_dxs_read(card->iobase,(reg>>8));
 	}else
-		retval=via82xx_ac97_read(card->iobase,reg);
+		retval = via82xx_ac97_read(card->iobase,reg);
 
 	return retval;
 }
 
-#ifdef SBEMU
+#if 1 /* vsbhda */
 
 static int VIA82XX_IRQRoutine(mpxplay_audioout_info_s* aui)
 ///////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card=aui->card_private_data;
+	struct via82xx_card *card = aui->card_private_data;
 
-	int status = inb(card->iobase + VIA_REG_OFFSET_STATUS)&(VIA_REG_STATUS_FLAG|VIA_REG_STATUS_EOL);
+	int status = inb(card->iobase + VIA_REG_OFFSET_STATUS) & (VIA_REG_STATUS_FLAG | VIA_REG_STATUS_EOL);
 	if(status)
-		outb(card->iobase+VIA_REG_OFFSET_STATUS, status);
+		outb(card->iobase + VIA_REG_OFFSET_STATUS, status);
 	return status != 0;
 }
 #endif
@@ -624,13 +624,8 @@ one_sndcard_info VIA82XX_sndcard_info={
  &MDma_writedata,
  &VIA82XX_getbufpos,
  &VIA82XX_clearbuf,
-#ifdef SBEMU
- NULL,
- &VIA82XX_IRQRoutine,
-#else
- &MDma_interrupt_monitor,
- NULL,
-#endif
+ //&MDma_interrupt_monitor,
+ &VIA82XX_IRQRoutine, /* vsbhda */
 
  &VIA82XX_writeMIXER,
  &VIA82XX_readMIXER,

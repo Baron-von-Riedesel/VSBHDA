@@ -17,7 +17,6 @@
 #include <stdint.h>
 
 #include "MPXPLAY.H"
-#include "AU_CARDS.H"
 #include "AC97_DEF.H"
 
 static aucards_onemixerchan_s mpxplay_aucards_ac97chan_master_vol = {

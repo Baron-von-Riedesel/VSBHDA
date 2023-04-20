@@ -604,7 +604,7 @@ static void ES1371_start(struct mpxplay_audioout_info_s *aui)
 	card->ctrl |= ES_DAC1_EN;
 	outl(card->port + ES_REG_CONTROL, card->ctrl);
 	card->sctrl &= ~ES_P1_PAUSE;
-#ifdef SBEMU
+#if 1 /* vsbhda */
 	card->sctrl |= ES_DAC1_INT_EN;
 #endif
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
@@ -650,7 +650,7 @@ static unsigned long ES1371_readMIXER(struct mpxplay_audioout_info_s *aui,unsign
 	return snd_es1371_codec_read(card,reg);
 }
 
-#ifdef SBEMU
+#if 1 /* vsbhda */
 static int ES1371_IRQRoutine(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////
 {
@@ -681,13 +681,8 @@ one_sndcard_info ES1371_sndcard_info={
  &MDma_writedata,
  &ES1371_getbufpos,
  &MDma_clearbuf,
-#ifdef SBEMU
- NULL,
- &ES1371_IRQRoutine,
-#else
- &MDma_interrupt_monitor,
- NULL,
-#endif
+ //&MDma_interrupt_monitor,
+ &ES1371_IRQRoutine, /* vsbhda */
 
  &ES1371_writeMIXER,
  &ES1371_readMIXER,

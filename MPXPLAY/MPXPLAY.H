@@ -22,34 +22,27 @@ extern "C" {
 #endif
 
 // out pcm defs
-#define PCM_OUTSAMPLES    1152     // at 44100Hz
-#define PCM_MIN_CHANNELS     1
-#define PCM_MAX_CHANNELS     2     // au_mixer output (au_card input) limit
+#define PCM_OUTSAMPLES    1152     // at 44100Hz ( see INT08_DIVISOR_NEW )
+//#define PCM_MIN_CHANNELS     1
+//#define PCM_MAX_CHANNELS     2     // au_mixer output (au_card input) limit
 #define PCM_CHANNELS_DEFAULT 2
-#define PCM_CHANNELS_CFG ((aui->chan_card)? aui->chan_card:((aui->chan_set)? aui->chan_set:PCM_CHANNELS_DEFAULT))
-#define PCM_MIN_BITS      1
-#define PCM_MAX_BITS      32
-#define PCM_MIN_FREQ      512
-#define PCM_MAX_FREQ      192000   // program can play higher freq too
-#define PCM_MAX_SAMPLES   (((PCM_OUTSAMPLES*PCM_MAX_FREQ)+22050)/44100*PCM_CHANNELS_CFG) // only the pcm buffer is limited (in one frame)
-#define PCM_MAX_BYTES     (PCM_MAX_SAMPLES*(PCM_MAX_BITS/8))  // in one frame
-#define PCM_BUFFER_SIZE   (2*PCM_MAX_BYTES) // *2 : speed control expansion
+//#define PCM_CHANNELS_CFG ((aui->chan_card) ? aui->chan_card : ((aui->chan_set) ? aui->chan_set: PCM_CHANNELS_DEFAULT))
+//#define PCM_MIN_BITS      1
+//#define PCM_MAX_BITS      32
+//#define PCM_MIN_FREQ      512
+//#define PCM_MAX_FREQ      192000   // program can play higher freq too
+//#define PCM_MAX_SAMPLES   (((PCM_OUTSAMPLES * PCM_MAX_FREQ)+22050)/44100 * PCM_CHANNELS_CFG) // only the pcm buffer is limited (in one frame)
+//#define PCM_MAX_BYTES     (PCM_MAX_SAMPLES * (PCM_MAX_BITS/8))  // in one frame
+//#define PCM_BUFFER_SIZE   (2 * PCM_MAX_BYTES) // *2 : speed control expansion
 
 //intsoundconfig function bits
 #define INTSOUND_NOBUSYWAIT 32
 
 //timer settings
 #define INT08_DIVISOR_DEFAULT  65536
-#define INT08_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
-
-#if 1//def __DOS__
- #define INT08_DIVISOR_NEW     10375  // = 18.181818*65536 / (3 * 44100/1152)
- //#define INT08_DIVISOR_NEW      1194  // for 1ms (1/1000 sec) refresh (not recommended)
-#else
- #define INT08_DIVISOR_NEW      8400  // for 7ms refresh (~130fps) (9600-> 8ms doesn't work at me)
- //#define INT08_DIVISOR_NEW      20750  // 60fps (for default Win program refresh)
-#endif
-#define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
+//#define INT08_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
+//#define INT08_DIVISOR_NEW     10375  // = 18.181818*65536 / (3 * 44100/1152)
+//#define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
 
 #define MPXPLAY_INTSOUNDDECODER_DISALLOW
 #define MPXPLAY_INTSOUNDDECODER_ALLOW
@@ -60,9 +53,8 @@ extern "C" {
 
 //------------------------------------------------------------------------
 
-#include "IN_FILE.H"
+#include "NEWFUNC.H"
 #include "AU_CARDS.H"
-#include "AU_MIXER.H"
 
 #ifdef __cplusplus
 }

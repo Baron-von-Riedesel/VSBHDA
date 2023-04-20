@@ -51,8 +51,8 @@ int64_t pds_gettimeu(void)
 void pds_delay_10us(unsigned int ticks) //each tick is 10us
 ///////////////////////////////////////
 {
-	//unsigned int divisor=(oldint08_handler)? INT08_DIVISOR_NEW:INT08_DIVISOR_DEFAULT; // ???
-	unsigned int divisor=INT08_DIVISOR_DEFAULT; // ???
+	//unsigned int divisor = (oldint08_handler) ? INT08_DIVISOR_NEW : INT08_DIVISOR_DEFAULT; // ???
+	unsigned int divisor = INT08_DIVISOR_DEFAULT; // INT08_DIVISOR_DEFAULT = 65536
 	unsigned int i,oldtsc, tsctemp, tscdif;
 	unsigned short oldstate;
 
@@ -66,14 +66,14 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 		do{
 			_disableint();
 			outp(0x43,0x04);
-			tsctemp=inp(0x40);
-			tsctemp+=inp(0x40)<<8;
+			tsctemp = inp(0x40);
+			tsctemp += inp(0x40)<<8;
 			_restoreint();
-			if(tsctemp<=oldtsc)
-				tscdif=oldtsc-tsctemp; // handle overflow
+			if(tsctemp <= oldtsc)
+				tscdif = oldtsc - tsctemp; // handle overflow
 			else
-				tscdif=divisor+oldtsc-tsctemp;
-		}while(tscdif<12); //wait for 10us  (12/(65536*18) sec)
+				tscdif = divisor + oldtsc - tsctemp;
+		}while( tscdif < 12); //wait for 10us  (12/(65536*18) sec)
 	}
 }
 

@@ -1,8 +1,6 @@
 #ifndef dmairq_h
 #define dmairq_h
 
-#include "MPXPLAY.H"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,7 +19,7 @@ extern unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui,unsi
 
 extern void MDma_clearbuf(struct mpxplay_audioout_info_s *aui);
 extern void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left);
-extern void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui);
+//extern void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui);
 
 #ifdef __cplusplus
 }

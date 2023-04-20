@@ -40,6 +40,28 @@
 #define USE_IMMEDIATECMDS 0
 #define RIRB_START 0x2
 
+
+// note LE: lowest byte first, highest byte last
+#define PDS_GETB_8S(p)   *((int8_t *)(p))               // signed 8 bit (1 byte)
+#define PDS_GETB_8U(p)   *((uint8_t *)(p))              // unsigned 8 bit (1 byte)
+#define PDS_GETB_LE16(p) *((int16_t *)(p))              // 2bytes LE to short
+#define PDS_GETB_LEU16(p)*((uint16_t *)(p))             // 2bytes LE to unsigned short
+#define PDS_GETB_LE32(p) *((int32_t *)(p))              // 4bytes LE to long
+#define PDS_GETB_LEU32(p) *((uint32_t *)(p))            // 4bytes LE to unsigned long
+#define PDS_GETB_LE24(p) ((PDS_GETB_LEU32(p))&0x00ffffff)
+#define PDS_GETB_LE64(p) *((int64_t *)(p))              // 8bytes LE to int64
+#define PDS_GETB_LEU64(p) *((uint64_t *)(p))            // 8bytes LE to uint64
+#define PDS_GET4C_LE32(a,b,c,d) ((uint32_t)(a) | ((uint32_t)(b) << 8) | ((uint32_t)(c) << 16) | ((uint32_t)(d) << 24))
+#define PDS_GETS_LE32(p) ((char *)&(p))                 // unsigned long to 4 bytes string
+
+#define PDS_PUTB_8S(p,v)   *((int8_t *)(p))=(v)         //
+#define PDS_PUTB_8U(p,v)   *((uint8_t *)(p))=(v)        //
+#define PDS_PUTB_LE16(p,v) *((int16_t *)(p))=(v)        //
+#define PDS_PUTB_LEU16(p,v) *((uint16_t *)(p))=(v)      //
+#define PDS_PUTB_LE24(p,v) *((uint8_t *)(p))=((v)&0xff); PDS_PUTB_LE16(((uint8_t*)p+1),((v)>>8))
+#define PDS_PUTB_LE32(p,v) *((int32_t *)(p))=(v)        // long to 4bytes LE
+#define PDS_PUTB_LE64(p,v) *((int64_t *)(p))=(v)        // int64 to 8bytes LE
+
 struct intelhd_card_s
 {
  unsigned long  iobase;
@@ -74,11 +96,6 @@ struct intelhd_card_s
  unsigned long supported_max_freq;
  unsigned int  supported_max_bits;
  unsigned int  config_select;
-};
-
-struct codec_vendor_list_s{
- unsigned short vendor_id;
- char *vendor_name;
 };
 
 struct hda_rate_tbl {
@@ -723,7 +740,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~ICH6_GCTL_UREN)));
 
 	// set CORB command DMA buffer
-	azx_writel(chip, CORBLBASE, (unsigned long)pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
+	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
 	azx_writel(chip, CORBUBASE, 0 );
 	azx_writew(chip, CORBWP, 0 );
     /* to reset CORB RP, set/reset bit 15 */
@@ -731,7 +748,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	pds_delay_10us(100);
 	azx_writew(chip, CORBRP, 0 );
 	//azx_writel(chip, CORBSIZE, 0);
-	azx_writel(chip, RIRBLBASE, (unsigned long)pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
+	azx_writel(chip, RIRBLBASE, pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
 	azx_writel(chip, RIRBUBASE, 0 );
 	azx_writew(chip, RIRBWP, 0x8000 );
 	//azx_writel(chip, RIRBSIZE, 0); maybe only 1 supported
@@ -774,21 +791,23 @@ static unsigned int snd_hda_get_max_bits(struct intelhd_card_s *card)
 static unsigned int snd_hda_buffer_init(struct mpxplay_audioout_info_s *aui,struct intelhd_card_s *card)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample=(aui->bits_set>16)? 4:2;
-	unsigned long allbufsize=BDL_SIZE+1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
+	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
+	unsigned long allbufsize = BDL_SIZE + 1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
 	unsigned int beginmem_aligned;
 
-	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,AZX_PERIOD_SIZE,bytes_per_sample*aui->chan_card/2,aui->freq_set);
+	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, AZX_PERIOD_SIZE, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
 	card->dm = MDma_alloc_cardmem( allbufsize );
 	if(!card->dm)
 		return 0;
 	beginmem_aligned = (((unsigned long)card->dm->linearptr + 1023) & (~1023));
 	card->table_buffer = (uint32_t *)beginmem_aligned;
 	card->pcmout_buffer = (char *)(beginmem_aligned + BDL_SIZE);
-	card->corb_buffer = (long*)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN-1) & (~(HDA_CORB_ALIGN-1)));
-	card->rirb_buffer = (long long*)(((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE + HDA_RIRB_ALIGN-1) & (~(HDA_RIRB_ALIGN-1)));
- 
-	gcap = (unsigned long)azx_readw(card,GCAP);
+	card->corb_buffer = (long*)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN - 1) & (~(HDA_CORB_ALIGN - 1)));
+	card->rirb_buffer = (long long*)(((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE + HDA_RIRB_ALIGN - 1) & (~(HDA_RIRB_ALIGN - 1)));
+
+    /* set offset for access to output stream descriptor; the first output stream descriptor is used */
+
+	gcap = (unsigned long)azx_readw( card, GCAP);
 	if(!(card->config_select & AUCARDSCONFIG_IHD_USE_FIXED_SDO) && (gcap & 0xF000)) // number of playback streams
 		sdo_offset = ((gcap >> 8) & 0x0F) * 0x20 + 0x80; // number of capture streams
 	else{
@@ -926,15 +945,17 @@ err_out_mixinit:
 	return 0;
 }
 
-static void snd_ihd_hw_close(struct intelhd_card_s *card)
+static void snd_hda_hw_close(struct intelhd_card_s *card)
 /////////////////////////////////////////////////////////
 {
 	azx_writel(card, DPLBASE, 0);
 	azx_writel(card, DPUBASE, 0);
 
-	azx_sd_writel(card, SD_BDLPL, 0);
-	azx_sd_writel(card, SD_BDLPU, 0);
-	azx_sd_writew(card, SD_CTL, 0); /* stop DMA engine for this stream */
+	if ( card->sd_addr ) {
+		azx_sd_writel(card, SD_BDLPL, 0);
+		azx_sd_writel(card, SD_BDLPU, 0);
+		azx_sd_writew(card, SD_CTL, 0); /* stop DMA engine for this stream */
+	}
 #if RESETCODECONCLOSE
 	/* reset codec */
 	//snd_hda_codec_write(card, card->afg_root_nodenum, 0, AC_VERB_SET_CODEC_RESET, 0);
@@ -965,7 +986,7 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 
 	for(i=0; i<card->pcmout_num_periods; i++){
 		unsigned int off  = i << 2;
-		unsigned int addr = ((unsigned int)pds_cardmem_physicalptr(card->dm,card->pcmout_buffer)) + i*card->pcmout_period_size;
+		unsigned int addr = ( pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
 		PDS_PUTB_LE32(&bdl[off  ],(uint32_t)addr);
 		PDS_PUTB_LE32(&bdl[off+1],0);
 		PDS_PUTB_LE32(&bdl[off+2],card->pcmout_period_size);
@@ -1010,7 +1031,7 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 	azx_sd_writel(card, SD_CBL, card->pcmout_dmasize);
 	azx_sd_writew(card, SD_LVI, card->pcmout_num_periods - 1);
 	azx_sd_writew(card, SD_FORMAT, card->format_val);
-	azx_sd_writel(card, SD_BDLPL, (uint32_t)pds_cardmem_physicalptr(card->dm, card->table_buffer));
+	azx_sd_writel(card, SD_BDLPL, pds_cardmem_physicalptr(card->dm, card->table_buffer));
 	azx_sd_writel(card, SD_BDLPU, 0); // upper 32 bit
 	//azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_MASK);
 #ifdef SBEMU
@@ -1024,39 +1045,41 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 		snd_hda_codec_setup_stream(card, card->dac_node[1]->nid, stream_tag, 0, card->format_val);
 }
 
+/* called by HDA_setrate() */
+
 static unsigned int snd_hda_calc_stream_format(struct mpxplay_audioout_info_s *aui,struct intelhd_card_s *card)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i,val = 0;
 #if !defined(SBEMU)
-	if((aui->freq_card<44100) && !aui->freq_set) // under 44100 it sounds terrible on my ALC888, rather we use the freq converter of Mpxplay
-		aui->freq_card=44100;
+	if((aui->freq_card < 44100) && !aui->freq_set) // under 44100 it sounds terrible on my ALC888, rather we use the freq converter of Mpxplay
+		aui->freq_card = 44100;
 	else
 #endif
 		if(card->supported_max_freq && (aui->freq_card>card->supported_max_freq))
-			aui->freq_card=card->supported_max_freq;
+			aui->freq_card = card->supported_max_freq;
 
-	for(i=0; rate_bits[i].hz; i++)
-		if((aui->freq_card<=rate_bits[i].hz) && (card->supported_formats&(1<<i))){
-			aui->freq_card=rate_bits[i].hz;
+	for(i = 0; rate_bits[i].hz; i++)
+		if((aui->freq_card <= rate_bits[i].hz) && (card->supported_formats&( 1 << i))){
+			aui->freq_card = rate_bits[i].hz;
 			val = rate_bits[i].hda_fmt;
 			break;
 		}
-	//printf("freq: %d\n", aui->freq_card);
+	dbgprintf("hda_calc_stream_format: freq=%u\n", aui->freq_card);
 
 	val |= aui->chan_card - 1;
 
-	if(card->dacout_num_bits>card->supported_max_bits)
-		card->dacout_num_bits=card->supported_max_bits;
+	if(card->dacout_num_bits > card->supported_max_bits)
+		card->dacout_num_bits = card->supported_max_bits;
 
-	if((card->dacout_num_bits<=16) && (card->supported_formats&AC_SUPPCM_BITS_16)){
-		val |= 0x10; card->dacout_num_bits=16; aui->bits_card=16;
-	}else if((card->dacout_num_bits<=20) && (card->supported_formats&AC_SUPPCM_BITS_20)){
-		val |= 0x20; card->dacout_num_bits=20; aui->bits_card=32;
-	}else if((card->dacout_num_bits<=24) && (card->supported_formats&AC_SUPPCM_BITS_24)){
-		val |= 0x30; card->dacout_num_bits=24; aui->bits_card=32;
-	}else if((card->dacout_num_bits<=32) && (card->supported_formats&AC_SUPPCM_BITS_32)){
-		val |= 0x40; card->dacout_num_bits=32; aui->bits_card=32;
+	if((card->dacout_num_bits <= 16) && (card->supported_formats & AC_SUPPCM_BITS_16)){
+		val |= 0x10; card->dacout_num_bits = 16; aui->bits_card = 16;
+	}else if((card->dacout_num_bits <= 20) && (card->supported_formats & AC_SUPPCM_BITS_20)){
+		val |= 0x20; card->dacout_num_bits = 20; aui->bits_card = 32;
+	}else if((card->dacout_num_bits <= 24) && (card->supported_formats & AC_SUPPCM_BITS_24)){
+		val |= 0x30; card->dacout_num_bits = 24; aui->bits_card = 32;
+	}else if((card->dacout_num_bits <= 32) && (card->supported_formats & AC_SUPPCM_BITS_32)){
+		val |= 0x40; card->dacout_num_bits = 32; aui->bits_card = 32;
 	}
 
 	return val;
@@ -1217,6 +1240,13 @@ static pci_device_s intelhda_devices[]={
  {NULL,0,0,0}
 };
 
+#if 0
+
+struct codec_vendor_list_s{
+ unsigned short vendor_id;
+ char *vendor_name;
+};
+
 static struct codec_vendor_list_s codecvendorlist[]={
  {0x1002,"ATI"},
  {0x1013,"Cirrus Logic"},
@@ -1242,39 +1272,31 @@ static struct codec_vendor_list_s codecvendorlist[]={
  {0x0000,"Unknown"}
 };
 
-static void HDA_close(struct mpxplay_audioout_info_s *aui);
+/* search codec vendor */
 
 static char *ihd_search_vendorname(unsigned int vendorid)
 /////////////////////////////////////////////////////////
 {
-	struct codec_vendor_list_s *cl=&codecvendorlist[0];
+	struct codec_vendor_list_s *cl = &codecvendorlist[0];
 	do{
-		if(cl->vendor_id==vendorid)
+		if(cl->vendor_id == vendorid)
 			break;
 		cl++;
 	}while(cl->vendor_id);
 	return cl->vendor_name;
 }
+#endif
 
 static void HDA_card_info(struct mpxplay_audioout_info_s *aui)
 //////////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card = aui->card_private_data;
-	printf("IHD : %s (%4.4X%4.4X) -> %s (%8.8X) (max %dkHz/%dbit%s/%dch)\n",
-			card->pci_dev->device_name,
-			(long)card->pci_dev->vendor_id,(long)card->pci_dev->device_id,
-			ihd_search_vendorname(card->codec_vendor_id>>16),card->codec_vendor_id,
-			(card->supported_max_freq/1000),card->supported_max_bits,
-			((card->supported_formats == 0xffffffff) ? "?" : ""),
-			min(INTHD_MAX_CHANNELS,PCM_MAX_CHANNELS)
-		   );
 }
 
 static void HDA_cardclose( struct intelhd_card_s *card )
 ////////////////////////////////////////////////////////
 {
 	if( card->iobase ){
-		snd_ihd_hw_close( card );
+		snd_hda_hw_close( card );
 		pds_dpmi_unmap_physical_memory( card->iobase );
 		card->iobase = 0;
 	}
@@ -1288,6 +1310,7 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 	}
 }
 
+static void HDA_close(struct mpxplay_audioout_info_s *aui);
 
 static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
 ///////////////////////////////////////////////////////////
@@ -1376,7 +1399,7 @@ static void HDA_close(struct mpxplay_audioout_info_s *aui)
 	dbgprintf("HDA_close\n" );
 	if( card ){
 		if( card->iobase ){
-			snd_ihd_hw_close( card );
+			snd_hda_hw_close( card );
 			pds_dpmi_unmap_physical_memory( card->iobase );
 			card->iobase = 0;
 		}
@@ -1467,8 +1490,11 @@ static long HDA_getbufpos(struct mpxplay_audioout_info_s *aui)
 
 	bufpos = azx_sd_readl(card, SD_LPIB);
 
-	//dbgprintf("bufpos1:%d sts:%8X ctl:%8X cbl:%d ds:%d ps:%d pn:%d\n",bufpos,azx_sd_readb(card, SD_STS),azx_sd_readl(card, SD_CTL),azx_sd_readl(card, SD_CBL),aui->card_dmasize,
-	// card->pcmout_period_size,card->pcmout_num_periods);
+	/*
+	dbgprintf("HDA_getbufpos: bufpos1=%u sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
+	    bufpos, azx_sd_readb(card, SD_STS), azx_sd_readl(card, SD_CTL), azx_sd_readl(card, SD_CBL), aui->card_dmasize,
+	    card->pcmout_period_size, card->pcmout_num_periods );
+	 */
 
 	if( bufpos < aui->card_dmasize )
 		aui->card_dma_lastgoodpos = bufpos;
@@ -1481,7 +1507,7 @@ static long HDA_getbufpos(struct mpxplay_audioout_info_s *aui)
 static void HDA_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card=aui->card_private_data;
+	struct intelhd_card_s *card = aui->card_private_data;
 	snd_hda_put_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val); /* left channel */
 	snd_hda_put_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val); /* right channel */
 }
@@ -1489,11 +1515,11 @@ static void HDA_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg
 static unsigned long HDA_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
 /////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card=aui->card_private_data;
+	struct intelhd_card_s *card = aui->card_private_data;
 	return snd_hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0);
 }
 
-#ifdef SBEMU
+#if 1 /* vsbhda */
 
 /* check if the interrupt comes from the sound card's DMA engines */
 
@@ -1536,13 +1562,8 @@ one_sndcard_info IHD_sndcard_info={
  &MDma_writedata,
  &HDA_getbufpos,
  &MDma_clearbuf,
-#if SBEMU
- NULL,
- &HDA_IRQRoutine,
-#else
- &MDma_interrupt_monitor,
- NULL,
-#endif
+ //&MDma_interrupt_monitor,
+ &HDA_IRQRoutine, /* vsbhda */
  &HDA_writeMIXER,
  &HDA_readMIXER,
  &ihd_mixerset[0]

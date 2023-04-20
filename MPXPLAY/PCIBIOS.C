@@ -19,10 +19,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <go32.h>
+#include <dpmi.h>
 
-#include "DPMIHLP.H"
 #include "NEWFUNC.H"
 #include "PCIBIOS.H"
+
+/* PCIBIOSACCESS 1 requires the go32 transfer buffer to be present; that's
+ * not true after the program has become a TSR. Seems to work, at least for
+ * HDA...
+ */
+#define PCIBIOSACCESS 0 /* 0=access PCI config space with I/O instructions */
+
+#ifdef _DEBUG
+extern void fatal_error( int );
+#endif
 
 #define PCIDEVNUM(bParam)      (bParam >> 3)
 #define PCIFUNCNUM(bParam)     (bParam & 0x07)
@@ -30,31 +40,31 @@
 
 #define pcibios_clear_regs(reg) pds_memset(&reg,0,sizeof(reg))
 
-/* SBEMU: DPMI function 0x300 is used instead of int386(); this allows to set
+/* VSBHDA: DPMI function 0x300 is used instead of int386(); this allows to set
  * a real-mode stack that is >= 1kB, as required by PCI BIOS specs.
  * The djgpp "transfer buffer" is used as this stack - be aware that this buffer,
  * which is located just behind the PSP and is usually 16 kB,
- * isn't available anymore once sbemu is installed as TSR!
+ * isn't available anymore once vsbhda is installed as TSR!
  */
 
 static uint8_t pcibios_GetBus(void)
 ///////////////////////////////////
 {
 	//union REGS reg;
-	DPMI_REG reg = {0}; /* use the "simulate int" function */
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
 	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_BIOS_PRESENT;
-	reg.w.flags = 0x203;
-	reg.w.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.w.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.flags = 0x203;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
 	//int386(PCI_SERVICE, &reg, &reg);
-	DPMI_CallRealModeINT( PCI_SERVICE, &reg );
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
-	if(reg.w.flags & 1)
+	if(reg.x.flags & 1)
 		return 0;
 
 	return 1;
@@ -64,35 +74,35 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *
 //////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
-	DPMI_REG reg = {0}; /* use the "simulate int" function */
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
 	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_DEVICE;
-	reg.w.cx = wDevice;
-	reg.w.dx = wVendor;
-	reg.w.si = 0;  //bIndex;
-	reg.w.flags = 0x202;
-	reg.w.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.w.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.cx = wDevice;
+	reg.x.dx = wVendor;
+	reg.x.si = 0;  //bIndex;
+	reg.x.flags = 0x202;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
 	//int386(PCI_SERVICE, &reg, &reg);
-	DPMI_CallRealModeINT( PCI_SERVICE, &reg );
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
 		ppkey->bBus  = reg.h.bh;
 		ppkey->bDev  = PCIDEVNUM(reg.h.bl);
 		ppkey->bFunc = PCIFUNCNUM(reg.h.bl);
-		ppkey->vendor_id=wVendor;
-		ppkey->device_id=wDevice;
+		ppkey->vendor_id = wVendor;
+		ppkey->device_id = wDevice;
 	}
 
 	return reg.h.ah;
 }
 
 /* search for a specific device class ( used by SC_HDA ), including index.
- * added for sbemu.
+ * added for vsbhda.
  * if a device is found, scan the table ( vendor/device ) to see if a special
  * "device_type" is to be set.
  */
@@ -101,20 +111,20 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
-	DPMI_REG reg = {0}; /* use the "simulate int" function */
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
 	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_CLASS;
 	reg.d.ecx = bClass << 16 | bSubClass << 8 | bInterface;
-	reg.w.si = wIndex;
-	reg.w.flags = 0x202;
-	reg.w.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.w.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.si = wIndex;
+	reg.x.flags = 0x202;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
 	//int386(PCI_SERVICE, &reg, &reg);
-	DPMI_CallRealModeINT( PCI_SERVICE, &reg );
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
 		ppkey->bBus  = reg.h.bh;
@@ -134,13 +144,15 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 	return PCI_DEVICE_NOTFOUND;
 }
 
+/* search a device by scanning a table of vendor-ids & device-ids */
+
 uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 //////////////////////////////////////////////////////////////////////////
 {
 	if(pcibios_GetBus()){
-		unsigned int i=0;
+		unsigned int i = 0;
 		while(devices[i].vendor_id){
-			if(pcibios_FindDevice(devices[i].vendor_id,devices[i].device_id,ppkey)==PCI_SUCCESSFUL){
+			if(pcibios_FindDevice( devices[i].vendor_id,devices[i].device_id,ppkey) == PCI_SUCCESSFUL ){
 				if(ppkey){
 					ppkey->device_name=devices[i].device_name;
 					ppkey->device_type=devices[i].device_type;
@@ -153,21 +165,26 @@ uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 	return PCI_DEVICE_NOTFOUND;
 }
 
-#ifndef SBEMU //BIOS INT service may freeze on some PC (tested a 845M laptop), use pure IOs.
+#if PCIBIOSACCESS
 
 uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
 ///////////////////////////////////////////////////////////////////////
 {
-	union REGS reg;
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
-	pcibios_clear_regs(reg);
-
+#ifdef _DEBUG
+	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+        fatal_error( 1 );
+#endif
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_READ_BYTE;
 	reg.h.bh = ppkey->bBus;
 	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.w.di = wAdr;
-	int386(PCI_SERVICE, &reg, &reg);
+	reg.x.di = wAdr;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	//int386(PCI_SERVICE, &reg, &reg);
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	return reg.h.cl;
 }
@@ -175,19 +192,23 @@ uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
 uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
 /////////////////////////////////////////////////////////////////////
 {
-	union REGS reg;
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
-	pcibios_clear_regs(reg);
-
+#ifdef _DEBUG
+	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+        fatal_error( 1 );
+#endif
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_READ_WORD;
 	reg.h.bh = ppkey->bBus;
 	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.w.di = wAdr;
+	reg.x.di = wAdr;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	//int386(PCI_SERVICE, &reg, &reg);
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
-	int386(PCI_SERVICE, &reg, &reg);
-
-	return reg.w.cx;
+	return reg.x.cx;
 }
 
 uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
@@ -204,35 +225,46 @@ uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
 void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
 /////////////////////////////////////////////////////////////////////////////////
 {
-	union REGS reg;
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
-	pcibios_clear_regs(reg);
+#ifdef _DEBUG
+	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+        fatal_error( 1 );
+#endif
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_WRITE_BYTE;
 	reg.h.bh = ppkey->bBus;
 	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
 	reg.h.cl = bData;
-	reg.w.di = wAdr;
+	reg.x.di = wAdr;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
-	int386(PCI_SERVICE, &reg, &reg);
+	//int386(PCI_SERVICE, &reg, &reg);
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 }
 
 void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
 //////////////////////////////////////////////////////////////////////////////////
 {
-	union REGS reg;
+	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
-	pcibios_clear_regs(reg);
-
+#ifdef _DEBUG
+	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+        fatal_error( 1 );
+#endif
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_WRITE_WORD;
 	reg.h.bh = ppkey->bBus;
 	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.w.cx = wData;
-	reg.w.di = wAdr;
+	reg.x.cx = wData;
+	reg.x.di = wAdr;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
-	int386(PCI_SERVICE, &reg, &reg);
+	//int386(PCI_SERVICE, &reg, &reg);
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 }
 
 void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
@@ -241,7 +273,9 @@ void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwD
 	pcibios_WriteConfig_Word(ppkey, wAdr, LoW(dwData ));
 	pcibios_WriteConfig_Word(ppkey, wAdr + 2, HiW(dwData));
 }
+
 #else
+
 #define PCI_ADDR  0x0CF8
 #define PCI_DATA  0x0CFC
 #define ENABLE_BIT 0x80000000

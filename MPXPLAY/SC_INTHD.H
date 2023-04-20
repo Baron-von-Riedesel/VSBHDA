@@ -430,19 +430,20 @@ enum {
 };
 
 // registers
-#define ICH6_REG_GCAP           0x00
-#define ICH6_REG_VMIN           0x02
+#define ICH6_REG_GCAP           0x00 /* global capabilities */
+#define ICH6_REG_VMIN           0x02 /* version */
 #define ICH6_REG_VMAJ           0x03
-#define ICH6_REG_OUTPAY         0x04
+#define ICH6_REG_OUTPAY         0x04 /* out payload */
 #define ICH6_REG_INPAY          0x06
-#define ICH6_REG_GCTL           0x08
+#define ICH6_REG_GCTL           0x08 /* global control */
 #define ICH6_REG_WAKEEN         0x0c
 #define ICH6_REG_STATESTS       0x0e
-#define ICH6_REG_GSTS           0x10
-#define ICH6_REG_INTCTL         0x20
-#define ICH6_REG_INTSTS         0x24
+#define ICH6_REG_GSTS           0x10 /* global status */
+#define ICH6_REG_INTCTL         0x20 /* interrupt control */
+#define ICH6_REG_INTSTS         0x24 /* interrupt status */
 #define ICH6_REG_WALCLK         0x30
 #define ICH6_REG_SYNC           0x34
+
 #define ICH6_REG_CORBLBASE      0x40
 #define ICH6_REG_CORBUBASE      0x44
 #define ICH6_REG_CORBWP         0x48
@@ -518,6 +519,7 @@ enum {
 #define RIRB_INT_MASK        0x05
 
 /* INTCTL and INTSTS */
+/* bits 0-29 are for streams, starting with input, output, bidirect */
 #define ICH6_INT_ALL_STREAM   0xff       /* all stream interrupts */
 #define ICH6_INT_CTRL_EN      0x40000000 /* controller interrupt enable bit */
 #define ICH6_INT_GLOBAL_EN    0x80000000 /* global interrupt enable bit */

@@ -14,6 +14,15 @@ extern "C"
 extern int VSB_TriggerIRQ;
 #endif
 
+#if ADPCM
+typedef struct 
+{
+    int step;
+    uint8_t ref;
+    uint8_t useRef;
+} ADPCM_STATE;
+#endif
+
 //generic IO functions
 uint32_t VSB_MixerAddr(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VSB_MixerData(uint32_t port, uint32_t val, uint32_t out);
@@ -23,31 +32,27 @@ uint32_t VSB_DSP_Write(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VSB_DSP_ReadStatus(uint32_t port, uint32_t val, uint32_t out);
 uint32_t VSB_DSP_ReadINT16BitACK(uint32_t port, uint32_t val, uint32_t out);
 
-//used by emulations
 void VSB_Init(int irq, int dma, int hdma, int DSPVer );
-uint8_t VSB_GetIRQ();
-uint8_t VSB_GetDMA();
-uint8_t VSB_GetHDMA();
-int VSB_Running();
-void VSB_Stop();
+uint8_t VSB_GetIRQ( void );
+uint8_t VSB_GetDMA( void );
+uint8_t VSB_GetHDMA( void );
+int VSB_Running( void );
+void VSB_Stop( void );
 
-int VSB_GetDACSpeaker();
-unsigned int VSB_GetBits();
-int VSB_IsSigned();
-int VSB_IsSilent();
-int VSB_GetChannels();
-int VSB_GetSampleRate();
-int VSB_GetSampleBytes();
-int VSB_GetAuto();
-int VSB_GetPos(); //get pos in bytes
+int VSB_GetDACSpeaker( void );
+unsigned int VSB_GetBits( void );
+int VSB_IsSigned( void );
+int VSB_IsSilent( void );
+int VSB_GetChannels( void );
+int VSB_GetSampleRate( void );
+int VSB_GetSampleBytes( void );
+int VSB_GetAuto( void );
+int VSB_GetPos( void ); //get pos in bytes
 int VSB_SetPos(int pos); //set pos in bytes
 void VSB_SetIRQStatus( void );
-//int VSB_IRQTriggered();
-//void VSB_ResetTriggeredIRQ();
+//int VSB_IRQTriggered( void );
+//void VSB_ResetTriggeredIRQ( void );
 uint8_t VSB_GetMixerReg(uint8_t index);
-#if ADPCM
-int VSB_DecodeADPCM(uint8_t* adpcm, int bytes); //decode in place
-#endif
 
 #ifdef __cplusplus
 }

@@ -65,7 +65,7 @@
 #define ICH_MAX_CHANNELS     2
 #define ICH_MAX_BYTES        4
 #define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS*ICH_MAX_CHANNELS*ICH_MAX_BYTES) // 256
-#ifdef SBEMU
+#if 1 //def SBEMU
 #define ICH_INT_INTERVAL     1 //interrupt interval in periods //long interval won't work for doom/doom2
 #endif
 
@@ -310,16 +310,16 @@ static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_
 
 	//set period table
 	table_base = card->virtualpagetable;
-	period_size_samples = card->period_size_bytes/(aui->bits_card >> 3);
+	period_size_samples = card->period_size_bytes / (aui->bits_card >> 3);
 	for( i = 0; i < ICH_DMABUF_PERIODS; i++ ) {
-		table_base[i*2] = (uint32_t)pds_cardmem_physicalptr(card->dm,(char *)card->pcmout_buffer+(i*card->period_size_bytes));
+		table_base[i*2] = pds_cardmem_physicalptr(card->dm, (char *)card->pcmout_buffer + ( i * card->period_size_bytes ));
 #ifdef SBEMU
 		table_base[i*2+1] = period_size_samples |  (ICH_INT_INTERVAL && ((i % ICH_INT_INTERVAL == ICH_INT_INTERVAL-1)) ? (ICH_BD_IOC<<16) : 0);
 #else
 		table_base[i*2+1] = period_size_samples;
 #endif
 	}
-	snd_intel_write_32(card,ICH_PO_BDBAR_REG,(uint32_t)pds_cardmem_physicalptr(card->dm,table_base));
+	snd_intel_write_32(card,ICH_PO_BDBAR_REG, pds_cardmem_physicalptr(card->dm,table_base));
 
 	snd_intel_write_8(card,ICH_PO_LVI_REG,(ICH_DMABUF_PERIODS-1)); // set last index
 	snd_intel_write_8(card,ICH_PO_CIV_REG,0); // reset current index
@@ -421,8 +421,8 @@ static int INTELICH_adetect(struct mpxplay_audioout_info_s *aui)
 		goto err_adetect;
 	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 #ifdef SBEMU
-	if(aui->card_irq == 0xFF)
-	{
+	/* if no interrupt assigned, assign #11 */
+	if(aui->card_irq == 0xFF) {
 		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_INTR_LN, 11);
 		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	}
@@ -657,7 +657,7 @@ static unsigned long INTELICH_readMIXER(struct mpxplay_audioout_info_s *aui,unsi
 	return snd_intel_codec_read(card,reg);
 }
 
-#ifdef SBEMU
+#if 1 /* vsbhda */
 static int INTELICH_IRQRoutine(mpxplay_audioout_info_s* aui)
 ////////////////////////////////////////////////////////////
 {
@@ -686,12 +686,8 @@ one_sndcard_info ICH_sndcard_info={
  &INTELICH_writedata,
  &INTELICH_getbufpos,
  &MDma_clearbuf,
- NULL, // ICH doesn't need dma-monitor (LVI handles it)
-#ifdef SBEMU
- &INTELICH_IRQRoutine,
-#else
- NULL,
-#endif
+ //NULL, // ICH doesn't need dma-monitor (LVI handles it)
+ &INTELICH_IRQRoutine, /* vsbhda */
  &INTELICH_writeMIXER,
  &INTELICH_readMIXER,
  &mpxplay_aucards_ac97chan_mixerset[0]
