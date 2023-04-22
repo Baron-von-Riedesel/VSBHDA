@@ -21,7 +21,7 @@
 #include "VOPL3.H"
 #include "VSB.H"
 
-#include <MPXPLAY.H>
+#include "MPXPLAY.H"
 
 #define BASE_DEFAULT 0x220
 #define IRQ_DEFAULT 7

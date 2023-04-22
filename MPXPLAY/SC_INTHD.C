@@ -103,23 +103,39 @@ struct hda_rate_tbl {
  unsigned int hda_fmt;
 };
 
-static struct hda_rate_tbl rate_bits[] = {
- {  8000, 0x0500 }, // 1/6 x 48
- { 11025, 0x4300 }, // 1/4 x 44
- { 16000, 0x0200 }, // 1/3 x 48
- { 22050, 0x4100 }, // 1/2 x 44
- { 32000, 0x0a00 }, // 2/3 x 48
- { 44100, 0x4000 }, // 44
- { 48000, 0x0000 }, // 48
- { 88200, 0x4800 }, // 2 x 44
- { 96000, 0x0800 }, // 2 x 48
- {176400, 0x5800 }, // 4 x 44
- {192000, 0x1800 }, // 4 x 48
+/* supported rates:
+ * dividend in bits 8-10: 1,2,3,4,5,6,8 (000,001,010,011,100,101,111)
+ * multip. in bits 11-13: 1,2,3,4 (000,001,010,011)
+ * bit 14 is base: 1=44100, 0=48000;
+ * index is fix, defined by HDA [ R12 missing ( 384 kHz ) ]
+ */
+
+#define BASE48K 0x0000
+#define BASE44K 0x4000
+#define DIV2 (1 << 8)
+#define DIV3 (2 << 8)
+#define DIV4 (3 << 8)
+#define DIV6 (5 << 8)
+#define MUL2 (1 << 11)
+#define MUL4 (3 << 11)
+
+static const struct hda_rate_tbl rate_bits[] = {
+ { 48000 / 6,      BASE48K | DIV6 },          //  8000 0
+ { 44100 / 4,      BASE44K | DIV4 },          // 11025 1
+ { 48000 / 3,      BASE48K | DIV3 },          // 16000 2  
+ { 44100 / 2,      BASE44K | DIV2 },          // 22050 3  
+ { 48000 * 2 / 3,  BASE48K | MUL2 | DIV2 },   // 32000 4  
+ { 44100,          BASE44K },                 // 44100 5  
+ { 48000,          BASE48K },                 // 48000 6  
+ { 44100 * 2,      BASE44K | MUL2 },          // 88200 7  
+ { 48000 * 2,      BASE48K | MUL2 },          // 96000 8  
+ { 44100 * 4,      BASE44K | MUL4 },          //176400 9  
+ { 48000 * 4,      BASE48K | MUL4 },          //192000 10 
  {0xffffffff,0x1800}, // 192000
  {0,0}
 };
 
-static aucards_onemixerchan_s ihd_master_vol={
+static aucards_onemixerchan_s ihd_master_vol = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),MAX_PCM_VOLS,{
   {0,0x00,0,0}, // card->pcm_vols[0]
   {0,0x00,0,0}, // card->pcm_vols[1]
@@ -144,8 +160,8 @@ static aucards_onemixerchan_s ihd_master_vol={
 
 #define snd_codec_param_read(codec,nid,param) snd_hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
 
-static void update_pci_byte(pci_config_s *pci, unsigned int reg, unsigned char mask, unsigned char val)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static void update_pci_byte( struct pci_config_s *pci, unsigned int reg, unsigned char mask, unsigned char val)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned char data;
 
@@ -337,7 +353,7 @@ static void snd_hda_search_audio_node(struct intelhd_card_s *card)
 	card->afg_root_nodenum = 0;
 	total_nodes = snd_hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
 	dbgprintf( "search_audio_node: nodes=%d\n",total_nodes );
-	for( i = 0;i < total_nodes; i++,nid++ ){
+	for( i = 0; i < total_nodes; i++, nid++ ){
 		if((snd_codec_param_read(card,nid,AC_PAR_FUNCTION_TYPE) & 0xff) == AC_GRP_AUDIO_FUNCTION){
 			card->afg_root_nodenum = nid;
 			break;
@@ -444,7 +460,7 @@ static int snd_hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node,
 		}
 
 		if(node->wid_caps & AC_WCAP_FORMAT_OVRD)
-			node->supported_formats=snd_codec_param_read(card, node->nid, AC_PAR_PCM);
+			node->supported_formats = snd_codec_param_read(card, node->nid, AC_PAR_PCM);
 	}
 
 	/*
@@ -459,7 +475,7 @@ static int snd_hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node,
 static struct hda_gnode *hda_get_node(struct intelhd_card_s *card, hda_nid_t nid)
 /////////////////////////////////////////////////////////////////////////////////
 {
-	struct hda_gnode *node=card->afg_nodes;
+	struct hda_gnode *node = card->afg_nodes;
 	unsigned int i;
 
 	for( i = 0; i < card->afg_num_nodes; i++,node++ )
@@ -537,7 +553,7 @@ static void select_input_connection(struct intelhd_card_s *card, struct hda_gnod
 static void clear_check_flags(struct intelhd_card_s *card)
 //////////////////////////////////////////////////////////
 {
-	struct hda_gnode *node=card->afg_nodes;
+	struct hda_gnode *node = card->afg_nodes;
 	unsigned int i;
 
 	for( i = 0; i < card->afg_num_nodes; i++,node++ )
@@ -567,7 +583,7 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 			return (node == card->dac_node[dac_idx]);
 
 		card->dac_node[dac_idx] = node;
-		if((node->wid_caps&AC_WCAP_OUT_AMP) && (card->pcm_num_vols<MAX_PCM_VOLS)){
+		if((node->wid_caps & AC_WCAP_OUT_AMP) && (card->pcm_num_vols < MAX_PCM_VOLS)){
 			card->pcm_vols[card->pcm_num_vols].node = node;
 			card->pcm_vols[card->pcm_num_vols].index = 0;
 			card->pcm_num_vols++;
@@ -589,7 +605,7 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 			snd_hda_unmute_output(card, node);
 			if(card->dac_node[dac_idx] &&
 			   (card->pcm_num_vols < MAX_PCM_VOLS) &&
-			   !(card->dac_node[dac_idx]->wid_caps&AC_WCAP_OUT_AMP))
+			   !(card->dac_node[dac_idx]->wid_caps & AC_WCAP_OUT_AMP))
 			{
 				if((node->wid_caps & AC_WCAP_IN_AMP) || (node->wid_caps & AC_WCAP_OUT_AMP)){
 					int n = card->pcm_num_vols;
@@ -610,7 +626,7 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack_type )
 ///////////////////////////////////////////////////////////////////////////////////////
 {
-	struct hda_gnode *node=card->afg_nodes;
+	struct hda_gnode *node = card->afg_nodes;
 	int err,i;
 
 	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
@@ -766,23 +782,23 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 static unsigned long snd_hda_get_max_freq(struct intelhd_card_s *card)
 //////////////////////////////////////////////////////////////////////
 {
-	unsigned long i,freq=0;
-	for(i=0; rate_bits[i].hz; i++)
-		if((card->supported_formats&(1<<i)) && (rate_bits[i].hz<0xffffffff))
-			freq=rate_bits[i].hz;
+	unsigned long i,freq = 0;
+	for( i = 0; rate_bits[i].hz; i++)
+		if((card->supported_formats & ( 1 << i)) && (rate_bits[i].hz < 0xffffffff))
+			freq = rate_bits[i].hz;
 	return freq;
 }
 
 static unsigned int snd_hda_get_max_bits(struct intelhd_card_s *card)
 /////////////////////////////////////////////////////////////////////
 {
-	unsigned int bits=16;
-	if(card->supported_formats&AC_SUPPCM_BITS_32)
-		bits=32;
-	else if(card->supported_formats&AC_SUPPCM_BITS_24)
-		bits=24;
-	else if(card->supported_formats&AC_SUPPCM_BITS_20)
-		bits=20;
+	unsigned int bits = 16;
+	if(card->supported_formats & AC_SUPPCM_BITS_32)
+		bits = 32;
+	else if(card->supported_formats & AC_SUPPCM_BITS_24)
+		bits = 24;
+	else if(card->supported_formats & AC_SUPPCM_BITS_20)
+		bits = 20;
 	return bits;
 }
 
@@ -869,7 +885,7 @@ static unsigned int snd_hda_mixer_init(struct intelhd_card_s *card)
 
 	dbgprintf("hda_mixer_init: reading codec vendor id...\n");
 	card->codec_vendor_id = snd_codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
-	if(card->codec_vendor_id <=0)
+	if(card->codec_vendor_id <= 0)
 		card->codec_vendor_id = snd_codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
 
 	dbgprintf("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id);
@@ -886,51 +902,52 @@ static unsigned int snd_hda_mixer_init(struct intelhd_card_s *card)
 	card->def_amp_out_caps = snd_codec_param_read(card, card->afg_root_nodenum, AC_PAR_AMP_OUT_CAP);
 	card->def_amp_in_caps = snd_codec_param_read(card, card->afg_root_nodenum, AC_PAR_AMP_IN_CAP);
 	card->afg_num_nodes = snd_hda_get_sub_nodes(card, card->afg_root_nodenum, &nid);
-	if((card->afg_num_nodes<=0) || !nid) {
+	if((card->afg_num_nodes <= 0) || !nid) {
 		dbgprintf("hda_mixer_init: no afg sub nodes\n");
 		goto err_out_mixinit;
 	}
 
 	dbgprintf("hda_mixer_init: outcaps=%X incaps=%X afgsubnodes=%d anid=%d\n",card->def_amp_out_caps,card->def_amp_in_caps,card->afg_num_nodes,(int)nid);
 
-	card->afg_nodes=(struct hda_gnode *)pds_calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
+	card->afg_nodes = (struct hda_gnode *)pds_calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
 	if(!card->afg_nodes) {
 		dbgprintf("hda_mixer_init: malloc failed\n");
 		goto err_out_mixinit;
 	}
 
-	for(i=0;i<card->afg_num_nodes;i++,nid++)
-		snd_hda_add_node(card,&card->afg_nodes[i],nid);
+	for( i = 0; i < card->afg_num_nodes; i++, nid++ )
+		snd_hda_add_node(card, &card->afg_nodes[i], nid);
 
+	/* get the widgets we need for the selected ouput pin ( lineout/speaker/hp ) */
 	if(!snd_hda_parse_output(card)) {
 		dbgprintf("hda_mixer_init: hda_parse_output failed\n");
 		goto err_out_mixinit;
 	}
 
-	if(card->dac_node[0]){
-		card->supported_formats=card->dac_node[0]->supported_formats;
-		if(!card->supported_formats)
-			card->supported_formats=snd_codec_param_read(card, card->afg_root_nodenum, AC_PAR_PCM);
-		//card->supported_formats=0xffffffff; // !!! then manual try
-   
-		card->supported_max_freq=snd_hda_get_max_freq(card);
-		card->supported_max_bits=snd_hda_get_max_bits(card);
-	}
-	//printf("FORMATS: %x\n", card->supported_formats);
+	/* check if DAC/AFG support the format we need */
+	if( card->dac_node[0] ) {
+		card->supported_formats = card->dac_node[0]->supported_formats;
+		if( !card->supported_formats )
+			card->supported_formats = snd_codec_param_read(card, card->afg_root_nodenum, AC_PAR_PCM);
 
-	for(i=0;i<MAX_PCM_VOLS;i++)
-		if(card->pcm_vols[i].node){
-			ihd_master_vol.submixerchans[i].submixch_register=card->pcm_vols[i].node->nid;
-			ihd_master_vol.submixerchans[i].submixch_max=(card->pcm_vols[i].node->amp_out_caps&AC_AMPCAP_NUM_STEPS)>>AC_AMPCAP_NUM_STEPS_SHIFT;
+		card->supported_max_freq = snd_hda_get_max_freq(card);
+		card->supported_max_bits = snd_hda_get_max_bits(card);
+		dbgprintf("hda_mixer_init: supp formats=%X, max freq=%u, max bits=%u\n", card->supported_formats, card->supported_max_freq, card->supported_max_bits );
+	}
+
+	for( i = 0; i < MAX_PCM_VOLS; i++)
+		if( card->pcm_vols[i].node ) {
+			ihd_master_vol.submixerchans[i].submixch_register = card->pcm_vols[i].node->nid;
+			ihd_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
 		}
 
 	dbgprintf("hda_mixer_init: dac0=%d dac1=%d out0=%d out1=%d vol0=%d vol1=%d\n",
-				   (int)((card->dac_node[0])? card->dac_node[0]->nid:0),
-				   (int)((card->dac_node[1])? card->dac_node[1]->nid:0),
-				   (int)((card->out_pin_node[0])? card->out_pin_node[0]->nid:0),
-				   (int)((card->out_pin_node[1])? card->out_pin_node[1]->nid:0),
-				   (int)((card->pcm_vols[0].node)? card->pcm_vols[0].node->nid:0),
-				   (int)((card->pcm_vols[1].node)? card->pcm_vols[1].node->nid:0));
+				   (int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
+				   (int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
+				   (int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
+				   (int)((card->out_pin_node[1]) ? card->out_pin_node[1]->nid: 0),
+				   (int)((card->pcm_vols[0].node) ? card->pcm_vols[0].node->nid: 0),
+				   (int)((card->pcm_vols[1].node) ? card->pcm_vols[1].node->nid: 0));
 
 	dbgprintf("hda_mixer_init: done\n");
 
@@ -974,17 +991,17 @@ static void snd_hda_hw_close(struct intelhd_card_s *card)
 static void azx_setup_periods(struct intelhd_card_s *card)
 //////////////////////////////////////////////////////////
 {
-	uint32_t *bdl=card->table_buffer;
+	uint32_t *bdl = card->table_buffer;
 	unsigned int i;
 
-	card->pcmout_num_periods=card->pcmout_dmasize/card->pcmout_period_size;
+	card->pcmout_num_periods = card->pcmout_dmasize / card->pcmout_period_size;
 
 	dbgprintf("azx_setup_periods: dmasize=%d periods=%d prsize=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size);
 
 	azx_sd_writel(card, SD_BDLPL, 0);
 	azx_sd_writel(card, SD_BDLPU, 0);
 
-	for(i=0; i<card->pcmout_num_periods; i++){
+	for( i = 0; i < card->pcmout_num_periods; i++ ) {
 		unsigned int off  = i << 2;
 		unsigned int addr = ( pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
 		PDS_PUTB_LE32(&bdl[off  ],(uint32_t)addr);
@@ -1004,7 +1021,7 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 /////////////////////////////////////////////////////////////
 {
 	unsigned char val;
-	unsigned int stream_tag=1;
+	unsigned int stream_tag = 1;
 	int timeout;
 
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~SD_CTL_DMA_START);
@@ -1051,21 +1068,22 @@ static unsigned int snd_hda_calc_stream_format(struct mpxplay_audioout_info_s *a
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i,val = 0;
-#if !defined(SBEMU)
+#ifndef SBEMU
 	if((aui->freq_card < 44100) && !aui->freq_set) // under 44100 it sounds terrible on my ALC888, rather we use the freq converter of Mpxplay
 		aui->freq_card = 44100;
 	else
 #endif
-		if(card->supported_max_freq && (aui->freq_card>card->supported_max_freq))
+		if(card->supported_max_freq && (aui->freq_card > card->supported_max_freq))
 			aui->freq_card = card->supported_max_freq;
 
 	for(i = 0; rate_bits[i].hz; i++)
-		if((aui->freq_card <= rate_bits[i].hz) && (card->supported_formats&( 1 << i))){
+		/* update freq_card with the first supported value thats >= current freq_card */
+		if( (aui->freq_card <= rate_bits[i].hz) && (card->supported_formats & ( 1 << i ))) {
 			aui->freq_card = rate_bits[i].hz;
 			val = rate_bits[i].hda_fmt;
 			break;
 		}
-	dbgprintf("hda_calc_stream_format: freq=%u\n", aui->freq_card);
+	dbgprintf("hda_calc_stream_format: freq_card=%u, supp formats=%X\n", aui->freq_card, card->supported_formats );
 
 	val |= aui->chan_card - 1;
 
@@ -1087,7 +1105,7 @@ static unsigned int snd_hda_calc_stream_format(struct mpxplay_audioout_info_s *a
 
 //-------------------------------------------------------------------------
 
-static pci_device_s intelhda_devices[]={
+static const pci_device_s intelhda_devices[]={
  {"Intel CPT6",                  0x8086, 0x1c20, AZX_DRIVER_PCH },
  {"Intel CPT7 (PBG)",            0x8086, 0x1d20, AZX_DRIVER_PCH },
  {"Intel PCH (Panther Point)",   0x8086, 0x1e20, AZX_DRIVER_PCH },
@@ -1364,11 +1382,9 @@ static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
 		}
 
 		aui->card_DMABUFF = card->pcmout_buffer;
-#ifdef SBEMU
-		aui->card_irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-#endif
+		aui->card_irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN); /* vsbhda */
 
-		dbgprintf("HDA_adetect, board type: %s (vendor/ID=%4X/%4X)\n",
+		dbgprintf("HDA_adetect, board type: %s (vendor/ID=%X/%X)\n",
 			  card->pci_dev->device_name ? card->pci_dev->device_name : "NULL",
 			  (long)card->pci_dev->vendor_id,(long)card->pci_dev->device_id);
 		snd_hda_hw_init( card );
@@ -1423,9 +1439,9 @@ static void HDA_close(struct mpxplay_audioout_info_s *aui)
 static void HDA_setrate(struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card=aui->card_private_data;
+	struct intelhd_card_s *card = aui->card_private_data;
 
-	dbgprintf("HDA_setrate\n");
+	dbgprintf("HDA_setrate: freq_card=%u\n", aui->freq_card );
 	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
 	aui->chan_card = (aui->chan_set) ? aui->chan_set : PCM_CHANNELS_DEFAULT;
 	if( aui->chan_card > INTHD_MAX_CHANNELS )
@@ -1433,8 +1449,9 @@ static void HDA_setrate(struct mpxplay_audioout_info_s *aui)
 	if(!card->dacout_num_bits) // first initialization
 		card->dacout_num_bits = (aui->bits_set) ? aui->bits_set : 16;
 
-	card->format_val = snd_hda_calc_stream_format(aui,card);
+	card->format_val = snd_hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
 	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
+	dbgprintf("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card );
 
 	azx_setup_periods( card );
 	azx_setup_controller( card );
@@ -1526,7 +1543,7 @@ static unsigned long HDA_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned 
 static int HDA_IRQRoutine(mpxplay_audioout_info_s* aui)
 ///////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card=aui->card_private_data;
+	struct intelhd_card_s *card = aui->card_private_data;
 	int status = azx_sd_readb(card, SD_STS) & SD_INT_MASK;
 	if(status)
 		azx_sd_writeb(card, SD_STS, status); //ack all
@@ -1547,7 +1564,7 @@ static aucards_allmixerchan_s ihd_mixerset[]={
 	NULL
 };
 
-one_sndcard_info IHD_sndcard_info={
+one_sndcard_info IHD_sndcard_info = {
  "Intel HDA",
  SNDCARD_LOWLEVELHAND,
  NULL,                  // card_config

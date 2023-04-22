@@ -4,8 +4,8 @@ Sound blaster emulation for HDA (and AC97/SBLive); a fork of crazii's SBEMU: htt
 Works with unmodified HDPMI32i, making it compatible with HX.
 
 Supported Sound cards:
+ * HDA ( Intel High Definition Audio )
  * Intel ICH / nForce
- * Intel HDA
  * VIA VT82C686, VT8233
  * SB Live/SB Audigy
 
@@ -18,5 +18,5 @@ Requirements:
  * JEMMEX 5.84 - V86 monitor with port trapping; v86-mode
  
 VSBHDA uses some source codes from:
- * MPXPlay: https://mpxplay.sourceforge.net/, for sound card drivers
+ * MPXPlay: https://mpxplay.sourceforge.net/, for sound card access
  * DOSBox: https://www.dosbox.com/, for OPL3 FM emulation

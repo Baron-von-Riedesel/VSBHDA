@@ -70,7 +70,7 @@
 #define PCIR_INTR_LN    0x3C // irq number
 #define PCIR_INTR_PIN   0x3D
 
-typedef struct pci_config_s{
+struct pci_config_s {
  uint8_t bBus;
  uint8_t bDev;
  uint8_t bFunc;
@@ -78,7 +78,7 @@ typedef struct pci_config_s{
  uint16_t device_id;
  char *device_name;     // from pci_device_s
  uint16_t device_type;  // from pci_device_s
-}pci_config_s;
+};
 
 typedef struct pci_device_s{
  char *device_name;     // a short id string
@@ -88,16 +88,16 @@ typedef struct pci_device_s{
 }pci_device_s;
 
 //uint8_t  pcibios_GetBus(void);
-uint8_t  pcibios_FindDevice(uint16_t, uint16_t, pci_config_s *);
-uint8_t  pcibios_FindDeviceClass( uint8_t, uint8_t, uint8_t, uint16_t, pci_device_s devices[], pci_config_s *);
-uint8_t  pcibios_search_devices(pci_device_s devices[],pci_config_s *);
-uint8_t  pcibios_ReadConfig_Byte (pci_config_s *, uint16_t);
-uint16_t pcibios_ReadConfig_Word (pci_config_s *, uint16_t);
-uint32_t pcibios_ReadConfig_Dword(pci_config_s *, uint16_t);
-void     pcibios_WriteConfig_Byte(pci_config_s *, uint16_t, uint8_t);
-void     pcibios_WriteConfig_Word(pci_config_s *, uint16_t, uint16_t);
-void     pcibios_WriteConfig_Dword(pci_config_s *, uint16_t, uint32_t);
-void     pcibios_set_master(pci_config_s *);
-void     pcibios_enable_memmap_set_master(pci_config_s *);
+uint8_t  pcibios_FindDevice(uint16_t, uint16_t, struct pci_config_s *);
+uint8_t  pcibios_FindDeviceClass( uint8_t, uint8_t, uint8_t, uint16_t, const pci_device_s devices[], struct pci_config_s *);
+uint8_t  pcibios_search_devices(const pci_device_s devices[], struct pci_config_s *);
+uint8_t  pcibios_ReadConfig_Byte ( struct pci_config_s *, uint16_t);
+uint16_t pcibios_ReadConfig_Word ( struct pci_config_s *, uint16_t);
+uint32_t pcibios_ReadConfig_Dword( struct pci_config_s *, uint16_t);
+void     pcibios_WriteConfig_Byte( struct pci_config_s *, uint16_t, uint8_t);
+void     pcibios_WriteConfig_Word( struct pci_config_s *, uint16_t, uint16_t);
+void     pcibios_WriteConfig_Dword( struct pci_config_s *, uint16_t, uint32_t);
+void     pcibios_set_master( struct pci_config_s *);
+void     pcibios_enable_memmap_set_master( struct pci_config_s *);
 
 #endif

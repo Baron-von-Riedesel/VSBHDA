@@ -328,7 +328,7 @@ static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_
 }
 
 //-------------------------------------------------------------------------
-static pci_device_s ich_devices[]={
+static const pci_device_s ich_devices[]={
  {"82801AA",0x8086,0x2415, DEVICE_INTEL},
  {"82901AB",0x8086,0x2425, DEVICE_INTEL},
  {"82801BA",0x8086,0x2445, DEVICE_INTEL},

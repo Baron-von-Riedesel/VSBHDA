@@ -219,7 +219,7 @@ static void via82xx_set_table_ptr(struct via82xx_card *card)
 }
 
 //-------------------------------------------------------------------------
-static pci_device_s via_devices[]={
+static const pci_device_s via_devices[]={
  {"VT82C686",PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT82C686},
  {"VT8233"  ,PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT8233},
  {NULL,0,0}

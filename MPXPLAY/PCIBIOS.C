@@ -70,8 +70,8 @@ static uint8_t pcibios_GetBus(void)
 	return 1;
 }
 
-uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *ppkey)
-//////////////////////////////////////////////////////////////////////////////////////
+uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
+/////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
@@ -107,8 +107,8 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, pci_config_s *
  * "device_type" is to be set.
  */
 
-uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, pci_device_s devices[], pci_config_s *ppkey)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const pci_device_s devices[], struct pci_config_s *ppkey)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
@@ -146,8 +146,8 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 
 /* search a device by scanning a table of vendor-ids & device-ids */
 
-uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
-//////////////////////////////////////////////////////////////////////////
+uint8_t pcibios_search_devices(const pci_device_s devices[], struct pci_config_s *ppkey)
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	if(pcibios_GetBus()){
 		unsigned int i = 0;
@@ -167,8 +167,8 @@ uint8_t pcibios_search_devices(pci_device_s devices[],pci_config_s *ppkey)
 
 #if PCIBIOSACCESS
 
-uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
-///////////////////////////////////////////////////////////////////////
+uint8_t    pcibios_ReadConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr)
+///////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
@@ -189,8 +189,8 @@ uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
 	return reg.h.cl;
 }
 
-uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
-/////////////////////////////////////////////////////////////////////
+uint16_t pcibios_ReadConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr)
+/////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
@@ -211,8 +211,8 @@ uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
 	return reg.x.cx;
 }
 
-uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
-//////////////////////////////////////////////////////////////////////
+uint32_t pcibios_ReadConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr)
+//////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t dwData;
 
@@ -222,8 +222,8 @@ uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
 	return dwData;
 }
 
-void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
-/////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
+/////////////////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
@@ -245,8 +245,8 @@ void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 }
 
-void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
-//////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
+//////////////////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
 
@@ -267,8 +267,8 @@ void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wDat
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 }
 
-void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
-////////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	pcibios_WriteConfig_Word(ppkey, wAdr, LoW(dwData ));
 	pcibios_WriteConfig_Word(ppkey, wAdr + 2, HiW(dwData));
@@ -386,45 +386,45 @@ static void PCI_WriteDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, 
 	}
 }
 
-uint8_t    pcibios_ReadConfig_Byte(pci_config_s * ppkey, uint16_t wAdr)
-///////////////////////////////////////////////////////////////////////
+uint8_t    pcibios_ReadConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr)
+///////////////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadByte(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
-uint16_t pcibios_ReadConfig_Word(pci_config_s * ppkey, uint16_t wAdr)
-/////////////////////////////////////////////////////////////////////
+uint16_t pcibios_ReadConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr)
+/////////////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
-uint32_t pcibios_ReadConfig_Dword(pci_config_s * ppkey, uint16_t wAdr)
-//////////////////////////////////////////////////////////////////////
+uint32_t pcibios_ReadConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr)
+//////////////////////////////////////////////////////////////////////////////
 {
 	return PCI_ReadDWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr);
 }
 
-void pcibios_WriteConfig_Byte(pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
-/////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
+/////////////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteByte(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, bData);
 }
 
-void pcibios_WriteConfig_Word(pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
-//////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
+//////////////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, wData);
 }
 
-void pcibios_WriteConfig_Dword(pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
-////////////////////////////////////////////////////////////////////////////////////
+void pcibios_WriteConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	PCI_WriteDWord(ppkey->bBus, ppkey->bDev, ppkey->bFunc, wAdr, dwData);
 }
 #endif
 
-void pcibios_set_master(pci_config_s *ppkey)
-////////////////////////////////////////////
+void pcibios_set_master( struct pci_config_s *ppkey)
+////////////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD); /* read cmd register ( offset 4 ) */
@@ -432,8 +432,8 @@ void pcibios_set_master(pci_config_s *ppkey)
 	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
 }
 
-void pcibios_enable_memmap_set_master(pci_config_s *ppkey)
-//////////////////////////////////////////////////////////
+void pcibios_enable_memmap_set_master( struct pci_config_s *ppkey)
+//////////////////////////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);

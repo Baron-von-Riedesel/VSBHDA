@@ -39,10 +39,10 @@
 
 #define A_PTR_ADDRESS_MASK 0x0fff0000
 
-static void snd_emu10kx_fx_init(struct emu10k1_card *card);
+static void snd_emu10kx_fx_init( struct emu10k1_card *card);
 
-static void emu10k1_writeptr(struct emu10k1_card *card, uint32_t reg, uint32_t channel, uint32_t data)
-//////////////////////////////////////////////////////////////////////////////////////////////////////
+static void emu10k1_writeptr( struct emu10k1_card *card, uint32_t reg, uint32_t channel, uint32_t data)
+///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t regptr;
 
@@ -66,8 +66,8 @@ static void emu10k1_writeptr(struct emu10k1_card *card, uint32_t reg, uint32_t c
 	}
 }
 
-static uint32_t emu10k1_readptr(struct emu10k1_card *card, uint32_t reg, uint32_t channel)
-//////////////////////////////////////////////////////////////////////////////////////////
+static uint32_t emu10k1_readptr( struct emu10k1_card *card, uint32_t reg, uint32_t channel)
+///////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t regptr, val;
 
@@ -93,16 +93,16 @@ static uint32_t emu10k1_readptr(struct emu10k1_card *card, uint32_t reg, uint32_
 	}
 }
 
-static void emu10k1_ptr20_write(struct emu10k1_card *card,uint32_t reg,uint32_t chn,uint32_t data)
-//////////////////////////////////////////////////////////////////////////////////////////////////
+static void emu10k1_ptr20_write( struct emu10k1_card *card,uint32_t reg,uint32_t chn,uint32_t data)
+///////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t regptr = (reg << 16) | chn;
 	outl(card->iobase + PTR2 , regptr);
 	outl(card->iobase + DATA2, data);
 }
 
-static uint32_t emu10k1_ptr20_read(struct emu10k1_card *card,uint32_t reg,uint32_t chn)
-///////////////////////////////////////////////////////////////////////////////////////
+static uint32_t emu10k1_ptr20_read( struct emu10k1_card *card,uint32_t reg,uint32_t chn)
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t regptr, val;
 	regptr = (reg << 16) | chn;
@@ -113,8 +113,8 @@ static uint32_t emu10k1_ptr20_read(struct emu10k1_card *card,uint32_t reg,uint32
 
 // init & close
 
-static void snd_emu10k1_hw_init(struct emu10k1_card *card)
-//////////////////////////////////////////////////////////
+static void snd_emu10k1_hw_init( struct emu10k1_card *card)
+///////////////////////////////////////////////////////////
 {
 	int ch;
 	uint32_t silent_page;
@@ -335,8 +335,8 @@ static void snd_emu10k1_hw_init(struct emu10k1_card *card)
 	dbgprintf("snd_emu10k1_hw_init exit\n");
 }
 
-static void snd_emu10k1_hw_close(struct emu10k1_card *card)
-///////////////////////////////////////////////////////////
+static void snd_emu10k1_hw_close( struct emu10k1_card *card)
+////////////////////////////////////////////////////////////
 {
 	int ch;
 
@@ -383,8 +383,8 @@ static void snd_emu10k1_hw_close(struct emu10k1_card *card)
 
 // mixer (FX)
 
-static void snd_emu_set_spdif_freq(struct emu10k1_card *card,unsigned long freq)
-////////////////////////////////////////////////////////////////////////////////
+static void snd_emu_set_spdif_freq( struct emu10k1_card *card,unsigned long freq)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t tmp=emu10k1_readptr(card,A_SPDIF_SAMPLERATE,0) & (~A_SPDIF_RATE_MASK);
 	switch(freq){
@@ -396,38 +396,38 @@ static void snd_emu_set_spdif_freq(struct emu10k1_card *card,unsigned long freq)
 	emu10k1_writeptr(card, A_SPDIF_SAMPLERATE, 0, tmp);
 }
 
-static unsigned int snd_emu_ac97_read(struct emu10k1_card *card, unsigned int reg)
-//////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu_ac97_read( struct emu10k1_card *card, unsigned int reg)
+///////////////////////////////////////////////////////////////////////////////////
 {
  outb(card->iobase + AC97ADDRESS, reg);
  return inw(card->iobase + AC97DATA);
 }
 
-static void snd_emu_ac97_write(struct emu10k1_card *card,unsigned int reg, unsigned int value)
-//////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_emu_ac97_write( struct emu10k1_card *card,unsigned int reg, unsigned int value)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
  outb(card->iobase + AC97ADDRESS, reg);
  outw(card->iobase + AC97DATA, value);
  //outb(iobase + AC97ADDRESS, AC97_EXTENDED_ID); // ???
 }
 
-static void snd_emu_ac97_mute(struct emu10k1_card *card,unsigned int reg)
-/////////////////////////////////////////////////////////////////////////
+static void snd_emu_ac97_mute( struct emu10k1_card *card,unsigned int reg)
+//////////////////////////////////////////////////////////////////////////
 {
  uint32_t tmp = snd_emu_ac97_read(card,reg);
  tmp|=AC97_MUTE;
  snd_emu_ac97_write(card,reg,tmp);
 }
 
-/*static void snd_emu_ac97_unmute(struct emu10k1_card *card,unsigned int reg)
+/*static void snd_emu_ac97_unmute( struct emu10k1_card *card,unsigned int reg)
  {
  uint32_t tmp = snd_emu_ac97_read(card,reg);
  tmp& = ~AC97_MUTE;
  snd_emu_ac97_write(card,reg,tmp);
  }*/
 
-static void snd_emu_ac97_init(struct emu10k1_card *card)
-////////////////////////////////////////////////////////
+static void snd_emu_ac97_init( struct emu10k1_card *card)
+/////////////////////////////////////////////////////////
 {
 	snd_emu_ac97_write(card, AC97_RESET, 0); // resets the volumes too
 	snd_emu_ac97_read(card, AC97_RESET);
@@ -447,8 +447,8 @@ static void snd_emu_ac97_init(struct emu10k1_card *card)
 }
 
 #ifndef AUDIGY1_USE_AC97
-static unsigned int snd_emu10kx_read_control_gpr(struct emu10k1_card *card, unsigned int addr)
-//////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu10kx_read_control_gpr( struct emu10k1_card *card, unsigned int addr)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t retval;
 	if(card->chips & EMU_CHIPS_10K2)
@@ -459,8 +459,8 @@ static unsigned int snd_emu10kx_read_control_gpr(struct emu10k1_card *card, unsi
 }
 #endif
 
-static void snd_emu10kx_set_control_gpr(struct emu10k1_card *card, unsigned int addr, unsigned int val)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_emu10kx_set_control_gpr( struct emu10k1_card *card, unsigned int addr, unsigned int val)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if(card->chips & EMU_CHIPS_10K2)
 		emu10k1_writeptr(card, A_FXGPREGBASE + addr, 0, val);
@@ -468,8 +468,8 @@ static void snd_emu10kx_set_control_gpr(struct emu10k1_card *card, unsigned int 
 		emu10k1_writeptr(card, FXGPREGBASE + addr, 0, val);
 }
 
-static void snd_emu10kx_fx_init(struct emu10k1_card *card)
-//////////////////////////////////////////////////////////
+static void snd_emu10kx_fx_init( struct emu10k1_card *card)
+///////////////////////////////////////////////////////////
 {
 	unsigned int i, pc = 0;
 
@@ -562,8 +562,8 @@ static void snd_emu10kx_fx_init(struct emu10k1_card *card)
 
 //--------------------------------------------------------------------------
 // emu10kx (k1,k2) routines
-static void emu10k1_clear_stop_on_loop(struct emu10k1_card *card, uint32_t voicenum)
-////////////////////////////////////////////////////////////////////////////////////
+static void emu10k1_clear_stop_on_loop( struct emu10k1_card *card, uint32_t voicenum)
+/////////////////////////////////////////////////////////////////////////////////////
 {
  if (voicenum >= 32)
   emu10k1_writeptr(card, SOLEH | ((0x0100 | (voicenum - 32)) << 16), 0, 0);
@@ -645,8 +645,8 @@ static uint32_t emu10k1_samplerate_to_linearpitch(uint32_t samplingrate)
 #define PITCH_67882 0x00005a82
 #define PITCH_57081 0x00004c1c
 
-static uint32_t emu10k1_select_interprom(struct emu10k1_card *card, unsigned int pitch_target)
-//////////////////////////////////////////////////////////////////////////////////////////////
+static uint32_t emu10k1_select_interprom( struct emu10k1_card *card, unsigned int pitch_target)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if(pitch_target == PITCH_48000)
 		return CCCA_INTERPROM_0;
@@ -665,8 +665,8 @@ static uint32_t emu10k1_select_interprom(struct emu10k1_card *card, unsigned int
 	return CCCA_INTERPROM_2;
 }
 
-static void emu10k1_pcm_init_voice(struct emu10k1_card *card, unsigned int voice, unsigned int flags, unsigned int start_addr, unsigned int end_addr)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void emu10k1_pcm_init_voice( struct emu10k1_card *card, unsigned int voice, unsigned int flags, unsigned int start_addr, unsigned int end_addr)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int ccca_start = 0;
 	uint32_t silent_page;
@@ -745,8 +745,8 @@ static void emu10k1_pcm_init_voice(struct emu10k1_card *card, unsigned int voice
 	dbgprintf("emu10k1_pcm_init_voice exit\n");
 }
 
-static void snd_emu10k1_playback_start_voice(struct emu10k1_card *card, int voice, int flags)
-/////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_emu10k1_playback_start_voice( struct emu10k1_card *card, int voice, int flags)
+//////////////////////////////////////////////////////////////////////////////////////////////
 {
 	emu10k1_writeptr(card, IFATN, voice, IFATN_FILTERCUTOFF_MASK);
 	emu10k1_writeptr(card, VTFT, voice,  0xffff); // ???
@@ -760,14 +760,15 @@ static void snd_emu10k1_playback_start_voice(struct emu10k1_card *card, int voic
 
 }
 
-static void snd_emu10k1_playback_stop_voice(struct emu10k1_card *card, int voice)
+static void snd_emu10k1_playback_stop_voice( struct emu10k1_card *card, int voice)
+//////////////////////////////////////////////////////////////////////////////////
 {
 	emu10k1_writeptr(card,IP, voice, 0);
 	emu10k1_writeptr(card,CPF_CURRENTPITCH, voice, 0);
 }
 
-static void snd_emu10k1_playback_invalidate_cache(struct emu10k1_card *card, int voice, int flags)
-//////////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_emu10k1_playback_invalidate_cache( struct emu10k1_card *card, int voice, int flags)
+///////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i, ccis, cra = 64, cs, sample;
 
@@ -805,16 +806,16 @@ static void snd_emu10k1_playback_invalidate_cache(struct emu10k1_card *card, int
 
 //------------------------------------------------------------------------
 //emu10kx api (SB Live 5.1, SB Audigy 1,2,4)
-static unsigned int snd_emu10k1_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu10k1_selector( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if(card->chips & EMU_CHIPS_10K1)
 		return 1;
 	return 0;
 }
 
-static unsigned int snd_emu10k2_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu10k2_selector( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips & EMU_CHIPS_10K2) && ((aui->bits_set <= 16) || !(card->chips & EMU_CHIPS_0151))){
 		card->chip_select &= ~EMU_CHIPS_0151;
@@ -823,8 +824,8 @@ static unsigned int snd_emu10k2_selector(struct emu10k1_card *card,struct mpxpla
 	return 0;
 }
 
-static unsigned int snd_emu10kx_buffer_init(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t pagecount,pcmbufp;
 
@@ -894,35 +895,35 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct mpxplay_audio
 	dbgprintf("snd_emu10kx_setrate exit, freq=%u\n", aui->freq_card );
 }
 
-static void snd_emu10kx_pcm_start_playback(struct emu10k1_card *card)
-/////////////////////////////////////////////////////////////////////
+static void snd_emu10kx_pcm_start_playback( struct emu10k1_card *card)
+//////////////////////////////////////////////////////////////////////
 {
 	snd_emu10k1_playback_start_voice(card,0,VOICE_FLAGS_MASTER);
 	snd_emu10k1_playback_start_voice(card,1,0);
 }
 
-static void snd_emu10kx_pcm_stop_playback(struct emu10k1_card *card)
-////////////////////////////////////////////////////////////////////
+static void snd_emu10kx_pcm_stop_playback( struct emu10k1_card *card)
+/////////////////////////////////////////////////////////////////////
 {
 	snd_emu10k1_playback_stop_voice(card,0);
 	snd_emu10k1_playback_stop_voice(card,1);
 }
 
-static unsigned int snd_emu10kx_pcm_pointer_playback(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_emu10kx_pcm_pointer_playback( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	return emu10k1_readptr(card,CCCA_CURRADDR,0);
 }
 
-static void snd_emu10kx_clear_cache(struct emu10k1_card *card)
-//////////////////////////////////////////////////////////////
+static void snd_emu10kx_clear_cache( struct emu10k1_card *card)
+///////////////////////////////////////////////////////////////
 {
 	snd_emu10k1_playback_invalidate_cache(card,0,VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT);
 }
 
 #ifdef SBEMU
-static int snd_emu_10kx_isr(struct emu10k1_card *card)
-//////////////////////////////////////////////////////
+static int snd_emu_10kx_isr( struct emu10k1_card *card)
+///////////////////////////////////////////////////////
 {
 	//int interrupts = inl(card->iobase + IPR) & IPR_INTERVALTIMER;
 	int interrupts = inl(card->iobase + IPR);
@@ -932,7 +933,7 @@ static int snd_emu_10kx_isr(struct emu10k1_card *card)
 }
 #endif
 
-static struct emu_driver_func_s emu_driver_10k1_funcs={
+static struct emu_driver_func_s emu_driver_10k1_funcs = {
  &snd_emu10k1_selector,
  &snd_emu10k1_hw_init,
  &snd_emu10k1_hw_close,
@@ -963,7 +964,7 @@ aucards_allmixerchan_s emu_10k2_mixerset[]={
 
 #endif
 
-static struct emu_driver_func_s emu_driver_10k2_funcs={
+static struct emu_driver_func_s emu_driver_10k2_funcs = {
  &snd_emu10k2_selector,
  &snd_emu10k1_hw_init,
  &snd_emu10k1_hw_close,
@@ -993,8 +994,8 @@ static struct emu_driver_func_s emu_driver_10k2_funcs={
 #define AUDIGY2_P16V_BYTES_PER_SAMPLE 4 // constant
 #define AUDIGY2_P16V_DMABUF_ALIGN (AUDIGY2_P16V_PERIODS*AUDIGY2_P16V_MAX_CHANS*AUDIGY2_P16V_BYTES_PER_SAMPLE) // 256
 
-static unsigned int snd_p16v_selector(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_p16v_selector( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips & EMU_CHIPS_0151) && ((aui->bits_set > 16) || !(card->chips & EMU_CHIPS_10KX))){
 		card->chip_select &= ~EMU_CHIPS_10KX;
@@ -1003,8 +1004,8 @@ static unsigned int snd_p16v_selector(struct emu10k1_card *card,struct mpxplay_a
 	return 0;
 }
 
-static unsigned int snd_p16v_buffer_init(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,AUDIGY2_P16V_DMABUF_ALIGN,AUDIGY2_P16V_BYTES_PER_SAMPLE,0);
 	card->dm = MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize);
@@ -1014,8 +1015,8 @@ static unsigned int snd_p16v_buffer_init(struct emu10k1_card *card,struct mpxpla
 	return 1;
 }
 
-static void snd_p16v_pcm_prepare_playback(struct emu10k1_card *card,unsigned int freq)
-//////////////////////////////////////////////////////////////////////////////////////
+static void snd_p16v_pcm_prepare_playback( struct emu10k1_card *card,unsigned int freq)
+///////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t *table_base = card->virtualpagetable;
 	uint32_t period_size_bytes = card->period_size;
@@ -1048,8 +1049,8 @@ static void snd_p16v_pcm_prepare_playback(struct emu10k1_card *card,unsigned int
 	dbgprintf("snd_p16v_pcm_prepare_playback exit\n");
 }
 
-static void snd_p16v_setrate(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////
+static void snd_p16v_setrate( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int dmabufsize;
 
@@ -1076,22 +1077,22 @@ static void snd_p16v_setrate(struct emu10k1_card *card,struct mpxplay_audioout_i
 	snd_p16v_pcm_prepare_playback(card,aui->freq_card);
 }
 
-static void snd_p16v_pcm_start_playback(struct emu10k1_card *card)
-//////////////////////////////////////////////////////////////////
+static void snd_p16v_pcm_start_playback( struct emu10k1_card *card)
+///////////////////////////////////////////////////////////////////
 {
 	const uint32_t channel = 0;
 	emu10k1_ptr20_write(card, BASIC_INTERRUPT, 0, emu10k1_ptr20_read(card, BASIC_INTERRUPT, 0) | (0x1<<channel));
 }
 
-static void snd_p16v_pcm_stop_playback(struct emu10k1_card *card)
-/////////////////////////////////////////////////////////////////
+static void snd_p16v_pcm_stop_playback( struct emu10k1_card *card)
+//////////////////////////////////////////////////////////////////
 {
 	const uint32_t channel = 0;
 	emu10k1_ptr20_write(card, BASIC_INTERRUPT, 0, emu10k1_ptr20_read(card, BASIC_INTERRUPT, 0) & (~(0x1<<channel)));
 }
 
-static unsigned int snd_p16v_pcm_pointer_playback(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_p16v_pcm_pointer_playback( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int ptr,ptr1,ptr3,ptr4;
 	const uint32_t channel = 0;
@@ -1112,21 +1113,21 @@ static unsigned int snd_p16v_pcm_pointer_playback(struct emu10k1_card *card,stru
 	return ptr;
 }
 
-static unsigned int snd_p16v_mixer_read(struct emu10k1_card *card,unsigned int reg)
-///////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_p16v_mixer_read( struct emu10k1_card *card,unsigned int reg)
+////////////////////////////////////////////////////////////////////////////////////
 {
 	return emu10k1_ptr20_read(card,reg,0);
 }
 
-static void snd_p16v_mixer_write(struct emu10k1_card *card,unsigned int reg,unsigned int value)
-///////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_p16v_mixer_write( struct emu10k1_card *card,unsigned int reg,unsigned int value)
+////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	emu10k1_ptr20_write(card,reg,0,value);
 }
 
 #ifdef SBEMU
-static int snd_p16v_isr(struct emu10k1_card *card)
-//////////////////////////////////////////////////
+static int snd_p16v_isr( struct emu10k1_card *card)
+///////////////////////////////////////////////////
 {
 	int interrupts = inl(card->iobase + IPR);
 	if ( interrupts )
@@ -1165,7 +1166,7 @@ static aucards_allmixerchan_s emu_p16v_mixerset[]={
 	NULL
 };
 
-static struct emu_driver_func_s emu_driver_p16v_funcs={
+static struct emu_driver_func_s emu_driver_p16v_funcs = {
 	&snd_p16v_selector,
 	&snd_emu10k1_hw_init,
 	&snd_emu10k1_hw_close,
@@ -1182,7 +1183,7 @@ static struct emu_driver_func_s emu_driver_p16v_funcs={
 };
 
 //-------------------------------------------------------------------------
-static pci_device_s creative_devices[]={
+static const pci_device_s creative_devices[]={
  {"Live!"         ,PCI_VENDOR_ID_CREATIVE,PCI_DEVICE_ID_CREATIVE_EMU10K1},
  {"Audigy"        ,PCI_VENDOR_ID_CREATIVE,PCI_DEVICE_ID_CREATIVE_AUDIGY},
  {"Audigy 2 value",PCI_VENDOR_ID_CREATIVE,0x0008}, // SB0400
@@ -1190,7 +1191,7 @@ static pci_device_s creative_devices[]={
  {NULL,0,0}
 };
 
-static emu_card_version_s emucard_versions[]={
+static const struct emu_card_version_s emucard_versions[]={
  {"Audigy 4 [SB0610]"          ,0x0008,0,0x10211102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
  {"Audigy 2 Value [SB0400]"    ,0x0008,0,0x10011102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
  //{"Audigy 2 ZS Notebook [SB0530]",0x0008,0,0x20011102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
@@ -1248,7 +1249,7 @@ static emu_card_version_s emucard_versions[]={
 extern struct emu_driver_func_s emu_driver_audigyls_funcs;
 extern struct emu_driver_func_s emu_driver_live24_funcs;
 
-static struct emu_driver_func_s *emu_driver_all_funcs[]={
+static struct emu_driver_func_s *emu_driver_all_funcs[] = {
  &emu_driver_10k1_funcs,
  &emu_driver_10k2_funcs,
  &emu_driver_p16v_funcs,
@@ -1258,10 +1259,10 @@ static struct emu_driver_func_s *emu_driver_all_funcs[]={
 };
 
 static void SBLIVE_close(struct mpxplay_audioout_info_s *aui);
-static void sblive_select_mixer(struct emu10k1_card *card);
+static void sblive_select_mixer( struct emu10k1_card *card);
 
-static void SBLIVE_card_info(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////
+static void SBLIVE_card_info( struct mpxplay_audioout_info_s *aui)
+//////////////////////////////////////////////////////////////////
 {
 	struct emu10k1_card *card = aui->card_private_data;
 	printf("SBA : SB %s (%8.8X)(bits:16%s) on port:%4.4X irq:%d\n",
@@ -1303,14 +1304,14 @@ static int SBLIVE_adetect(struct mpxplay_audioout_info_s *aui)
 	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
 	card->serial = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
 
-	emucv=&emucard_versions[0];
+	emucv = (struct emu_card_version_s *)emucard_versions;
 	do{
 		if(emucv->device == card->pci_dev->device_id)
 			if( (emucv->subsystem == card->serial)
-			   || (emucv->revision && (emucv->revision==card->chiprev))
+			   || (emucv->revision && (emucv->revision == card->chiprev))
 			   || (!emucv->revision && !emucv->subsystem) // unknown but supported card
 			  ){
-				card->card_capabilities=emucv;
+				card->card_capabilities = emucv;
 				break;
 			}
 		emucv++;
@@ -1327,7 +1328,7 @@ static int SBLIVE_adetect(struct mpxplay_audioout_info_s *aui)
 		if(card->driver_funcs->selector(card,aui))
 			break;
 		edaf++;
-		card->driver_funcs=*edaf;
+		card->driver_funcs = *edaf;
 	}while(card->driver_funcs);
 
 	if(!card->driver_funcs)
@@ -1482,8 +1483,8 @@ one_sndcard_info SBLIVE_sndcard_info={
  NULL
 };
 
-static void sblive_select_mixer(struct emu10k1_card *card)
-//////////////////////////////////////////////////////////
+static void sblive_select_mixer( struct emu10k1_card *card)
+///////////////////////////////////////////////////////////
 {
 	SBLIVE_sndcard_info.card_mixerchans=card->driver_funcs->mixerset;
 }

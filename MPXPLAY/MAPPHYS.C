@@ -164,8 +164,8 @@ static int xms_free(unsigned short handle)
 
 /* alloc XMS memory and map it so the memory can be accessed with near pointers. */
 
-int pds_dpmi_alloc_physical_memory( xmsmem_t * mem, unsigned int size)
-//////////////////////////////////////////////////////////////////////
+int pds_dpmi_alloc_physical_memory( struct xmsmem_s * mem, unsigned int size)
+/////////////////////////////////////////////////////////////////////////////
 {
 	unsigned long addr;
 	size = ( size + 4095) / 1024 * 1024;
@@ -182,8 +182,8 @@ int pds_dpmi_alloc_physical_memory( xmsmem_t * mem, unsigned int size)
 	return 0;
 }
 
-void pds_dpmi_free_physical_memory(xmsmem_t * mem)
-//////////////////////////////////////////////////
+void pds_dpmi_free_physical_memory( struct xmsmem_s * mem)
+//////////////////////////////////////////////////////////
 {
 	pds_dpmi_unmap_physical_memory( (long unsigned int)(mem->linearptr) );
 	xms_free( mem->handle );

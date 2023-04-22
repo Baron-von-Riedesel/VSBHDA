@@ -343,9 +343,7 @@ static void snd_es1371_dac1_rate(struct ensoniq_card_s *card, unsigned int rate)
 	r = (snd_es1371_wait_src_ready(card) & (ES_1371_SRC_DISABLE |ES_1371_DIS_P2 | ES_1371_DIS_R1)) | ES_1371_DIS_P1;
 	outl((card->port + ES_REG_1371_SMPRATE), r);
 	snd_es1371_src_write(card, ES_SMPREG_DAC1 + ES_SMPREG_INT_REGS,
-						 (snd_es1371_src_read(card, ES_SMPREG_DAC1 +
-											  ES_SMPREG_INT_REGS) & 0x00ff) |
-						 ((freq >> 5) & 0xfc00));
+						 (snd_es1371_src_read(card, ES_SMPREG_DAC1 + ES_SMPREG_INT_REGS) & 0x00ff) | ((freq >> 5) & 0xfc00));
 	snd_es1371_src_write(card, ES_SMPREG_DAC1 + ES_SMPREG_VFREQ_FRAC, freq & 0x7fff);
 	r = (snd_es1371_wait_src_ready(card) & (ES_1371_SRC_DISABLE | ES_1371_DIS_P2 | ES_1371_DIS_R1));
 	outl((card->port + ES_REG_1371_SMPRATE), r);
@@ -370,7 +368,7 @@ static void snd_es1371_dac2_rate(struct ensoniq_card_s *card, unsigned int rate)
 static unsigned int snd_es1371_buffer_init(struct ensoniq_card_s *card,struct mpxplay_audioout_info_s *aui)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample=2; // 16 bit
+	unsigned int bytes_per_sample = 2; // 16 bit
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
 	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize );
 	if (!card->dm)
@@ -482,7 +480,7 @@ static void snd_es1371_prepare_playback(struct ensoniq_card_s *card,struct mpxpl
 }
 
 //-------------------------------------------------------------------------
-static pci_device_s ensoniq_devices[]={
+static const pci_device_s ensoniq_devices[]={
  //{"ES1370",0x1274,0x5000, 0}, // not supported/implemented
  {"ES1371",0x1274,0x1371, 0},
  {"ES1373",0x1274,0x5880, 0}, // CT5880
@@ -490,7 +488,7 @@ static pci_device_s ensoniq_devices[]={
  {NULL,0,0,0}
 };
 
-static pci_device_s amplifier_hack_devices[]={
+static const pci_device_s amplifier_hack_devices[]={
  {" ",0x107b,0x2150, 0}, // Gateway Solo 2150
  {" ",0x13bd,0x100c, 0}, // EV1938 on Mebius PC-MJ100V
  {" ",0x1102,0x5938, 0}, // Targa Xtender300
@@ -503,7 +501,7 @@ static void ES1371_close(struct mpxplay_audioout_info_s *aui);
 static void ES1371_card_info(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	printf("ENS : Ensoniq %s found on port:%X irq:%d rev:%X\n",
 		   card->pci_dev->device_name, card->port, card->irq, card->chiprev);
 }
@@ -516,7 +514,7 @@ static int ES1371_adetect(struct mpxplay_audioout_info_s *aui)
 	card=(struct ensoniq_card_s *)pds_calloc(1,sizeof(struct ensoniq_card_s));
 	if(!card)
 		return 0;
-	aui->card_private_data=card;
+	aui->card_private_data = card;
 
 	card->pci_dev=(struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
@@ -534,10 +532,10 @@ static int ES1371_adetect(struct mpxplay_audioout_info_s *aui)
 	card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	card->chiprev= pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
 
-	if((card->pci_dev->vendor_id==0x1274) &&
-	   ( ((card->pci_dev->device_id==0x1371) && ((card->chiprev==ES1371REV_CT5880_A) || (card->chiprev==ES1371REV_ES1373_8)))
+	if((card->pci_dev->vendor_id == 0x1274) &&
+	   ( ((card->pci_dev->device_id == 0x1371) && ((card->chiprev == ES1371REV_CT5880_A) || (card->chiprev == ES1371REV_ES1373_8)))
 		||
-		((card->pci_dev->device_id==0x5880) && ((card->chiprev==CT5880REV_CT5880_C) || (card->chiprev==CT5880REV_CT5880_D) || (card->chiprev==CT5880REV_CT5880_E)))
+		((card->pci_dev->device_id == 0x5880) && ((card->chiprev == CT5880REV_CT5880_C) || (card->chiprev == CT5880REV_CT5880_D) || (card->chiprev == CT5880REV_CT5880_E)))
 	   )
 	  ){
 		card->infobits |= ENSONIQ_CARD_INFOBIT_AC97RESETHACK;
@@ -567,7 +565,7 @@ err_adetect:
 static void ES1371_close(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	if(card){
 		snd_es1371_chip_close(card);
 		MDma_free_cardmem(card->dm);
@@ -581,16 +579,16 @@ static void ES1371_close(struct mpxplay_audioout_info_s *aui)
 static void ES1371_setrate(struct mpxplay_audioout_info_s *aui)
 ///////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 
-	aui->card_wave_id=MPXPLAY_WAVEID_PCM_SLE;
-	aui->chan_card=2;
-	aui->bits_card=16;
+	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
+	aui->chan_card = 2;
+	aui->bits_card = 16;
 
-	if(aui->freq_card<3000)
-		aui->freq_card=3000;
-	else if(aui->freq_card>48000)
-		aui->freq_card=48000;
+	if(aui->freq_card < 3000)
+		aui->freq_card = 3000;
+	else if(aui->freq_card > 48000)
+		aui->freq_card = 48000;
 
 	MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,ES1371_DMABUF_ALIGN,0);
 
@@ -600,7 +598,7 @@ static void ES1371_setrate(struct mpxplay_audioout_info_s *aui)
 static void ES1371_start(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	card->ctrl |= ES_DAC1_EN;
 	outl(card->port + ES_REG_CONTROL, card->ctrl);
 	card->sctrl &= ~ES_P1_PAUSE;
@@ -613,7 +611,7 @@ static void ES1371_start(struct mpxplay_audioout_info_s *aui)
 static void ES1371_stop(struct mpxplay_audioout_info_s *aui)
 ////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	card->sctrl |= ES_P1_PAUSE;
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
@@ -621,13 +619,13 @@ static void ES1371_stop(struct mpxplay_audioout_info_s *aui)
 static long ES1371_getbufpos(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
-	unsigned long bufpos=0;
+	struct ensoniq_card_s *card = aui->card_private_data;
+	unsigned long bufpos = 0;
 	if(inl(card->port + ES_REG_CONTROL) & ES_DAC1_EN) {
 		outl((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 		bufpos = ES_REG_FCURR_COUNTI(inl(card->port + ES_REG_DAC1_SIZE));
-		if(bufpos<aui->card_dmasize)
-			aui->card_dma_lastgoodpos=bufpos;
+		if(bufpos < aui->card_dmasize)
+			aui->card_dma_lastgoodpos = bufpos;
 	}
 	dbgprintf("bufpos:%d gpos:%d dmasize:%d\n",bufpos,aui->card_dma_lastgoodpos,aui->card_dmasize);
 
@@ -639,14 +637,14 @@ static long ES1371_getbufpos(struct mpxplay_audioout_info_s *aui)
 static void ES1371_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	snd_es1371_codec_write(card,reg,val);
 }
 
 static unsigned long ES1371_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
 ////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	return snd_es1371_codec_read(card,reg);
 }
 
@@ -654,7 +652,7 @@ static unsigned long ES1371_readMIXER(struct mpxplay_audioout_info_s *aui,unsign
 static int ES1371_IRQRoutine(struct mpxplay_audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card=aui->card_private_data;
+	struct ensoniq_card_s *card = aui->card_private_data;
 	//dbgprintf("ES1371_IRQRoutine\n");
 	int intmask = inl(card->port + ES_REG_STATUS );
 	if ( intmask & ES_1371_ST_INTR ) {
@@ -665,7 +663,7 @@ static int ES1371_IRQRoutine(struct mpxplay_audioout_info_s *aui)
 }
 #endif
 
-one_sndcard_info ES1371_sndcard_info={
+one_sndcard_info ES1371_sndcard_info = {
  "ENS",
  SNDCARD_LOWLEVELHAND,
 

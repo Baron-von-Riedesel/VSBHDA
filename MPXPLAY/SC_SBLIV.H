@@ -12,36 +12,34 @@
 
 #define EMU_CHIPS_24BIT (EMU_CHIPS_0106|EMU_CHIPS_0151)
 
-typedef struct emu_card_version_s{
+struct emu_card_version_s {
  char *longname;
  uint16_t device;
  uint8_t  revision;
  uint32_t subsystem;     // serial
  uint8_t  chips;         // chips on the card
  uint8_t  max_channels;
-}emu_card_version_s;
+};
 
-typedef struct emu10k1_card emu10k1_card;
-//struct emu10k1_card;
+struct emu10k1_card;
 
-typedef struct emu_driver_func_s{
- unsigned int (*selector)(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui);
- void (*hw_init)(struct emu10k1_card *card);
- void (*hw_close)(struct emu10k1_card *card);
- unsigned int (*buffer_init)(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui);
- void (*setrate)(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui);
- void (*start_playback)(struct emu10k1_card *card);
- void (*stop_playback)(struct emu10k1_card *card);
- unsigned int (*pcm_pointer_playback)(struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui);
- void (*clear_cache)(struct emu10k1_card *card);
- unsigned int (*mixer_read)(struct emu10k1_card *card,unsigned int reg);
- void (*mixer_write)(struct emu10k1_card *card,unsigned int reg,unsigned int value);
- int (*interrupt_isr)(struct emu10k1_card *card); /* vsbhda */
+struct emu_driver_func_s{
+ unsigned int (*selector)   ( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ void         (*hw_init)    ( struct emu10k1_card *card);
+ void         (*hw_close)   ( struct emu10k1_card *card);
+ unsigned int (*buffer_init)( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ void         (*setrate)    ( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ void         (*start_playback)( struct emu10k1_card *card);
+ void         (*stop_playback) ( struct emu10k1_card *card);
+ unsigned int (*pcm_pointer_playback)( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ void         (*clear_cache)( struct emu10k1_card *card);
+ unsigned int (*mixer_read) ( struct emu10k1_card *card, unsigned int reg);
+ void         (*mixer_write)( struct emu10k1_card *card, unsigned int reg, unsigned int value);
+ int          (*interrupt_isr)( struct emu10k1_card *card); /* vsbhda */
  aucards_allmixerchan_s *mixerset;
-}emu_driver_func_s;
+};
 
-typedef struct emu10k1_card
-{
+struct emu10k1_card {
  unsigned long   iobase;
  unsigned int    irq;
  unsigned short     model;
@@ -65,6 +63,6 @@ typedef struct emu10k1_card
 
  unsigned int voice_initial_pitch;
  unsigned int voice_pitch_target;
-}emu10k1_card;
+};
 
 #endif // SC_SBLIV_H

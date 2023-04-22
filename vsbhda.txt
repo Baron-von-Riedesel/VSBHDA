@@ -23,6 +23,23 @@
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
 
+    VSBHDA will understand a few commandline options. Some, like /A, /I, /D, /H
+   or /T, are similar to the settings of the BLASTER environment variable ( this
+   variable is NOT altered by VSBHDA ). The others are:
+
+     /OPL    : Set OPL3 emulation
+     /PM     : Set protected-mode support
+     /RM     : Set real-mode support
+     /F      : Set frequency
+     /VOL    : Set master volume
+     /O      : Set output (HDA only)
+     /DEV    : Set start index for device scan (HDA only)
+
+   Note that if the frequency set by /F isn't supported by the codec, is cannot
+   be used - that's also true for the default value ( 22050 Hz ). In this case
+   VSBHDA will use a frequency that is supported AND is at least the value set
+   by /F ( or the default ).
+
 
    3. SETPVI/RESPVI
 

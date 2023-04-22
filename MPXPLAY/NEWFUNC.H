@@ -37,18 +37,18 @@ extern "C" {
 #define outpd outportl
 #endif
 
-typedef struct xmsmem_t{
+struct xmsmem_s{
  char *linearptr;
  uint32_t physicalptr;
  unsigned short handle;
-}xmsmem_t;
+};
 
-typedef xmsmem_t cardmem_t;
+typedef struct xmsmem_s cardmem_t;
 #define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->linearptr))
 
 //mapphys.c
-extern int  pds_dpmi_alloc_physical_memory(xmsmem_t *,unsigned int size);
-extern void pds_dpmi_free_physical_memory(xmsmem_t *);
+extern int  pds_dpmi_alloc_physical_memory( struct xmsmem_s *, unsigned int size);
+extern void pds_dpmi_free_physical_memory( struct xmsmem_s *);
 extern unsigned long pds_dpmi_map_physical_memory(unsigned long phys_addr,unsigned long memsize);
 extern void pds_dpmi_unmap_physical_memory(unsigned long linear_address);
 
