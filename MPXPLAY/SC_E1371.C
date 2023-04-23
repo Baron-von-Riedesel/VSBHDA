@@ -684,5 +684,5 @@ one_sndcard_info ES1371_sndcard_info = {
 
  &ES1371_writeMIXER,
  &ES1371_readMIXER,
- &mpxplay_aucards_ac97chan_mixerset[0]
+ mpxplay_aucards_ac97chan_mixerset
 };

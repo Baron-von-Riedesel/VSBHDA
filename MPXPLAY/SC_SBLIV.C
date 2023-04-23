@@ -1486,5 +1486,5 @@ one_sndcard_info SBLIVE_sndcard_info={
 static void sblive_select_mixer( struct emu10k1_card *card)
 ///////////////////////////////////////////////////////////
 {
-	SBLIVE_sndcard_info.card_mixerchans=card->driver_funcs->mixerset;
+	SBLIVE_sndcard_info.card_mixerchans = card->driver_funcs->mixerset;
 }

@@ -250,7 +250,7 @@ void AU_setmixer_init(struct mpxplay_audioout_info_s *aui)
 static aucards_onemixerchan_s *AU_search_mixerchan(aucards_allmixerchan_s *mixeri,unsigned int mixchannum)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int i=0;
+	unsigned int i = 0;
 	while(*mixeri){
 		if((*mixeri)->mixchan == mixchannum)
 			return (*mixeri);
@@ -261,8 +261,9 @@ static aucards_onemixerchan_s *AU_search_mixerchan(aucards_allmixerchan_s *mixer
 	return NULL;
 }
 
-/* set mixer volume for "mixchannum":
- * MASTER, PCM, HEADPHONE, SPDIF...
+/* set mixer volume for "mixchannum" (0-10):
+ * MASTER, PCM, HEADPHONE, SPDIF, SYNTH, MICIN, ...
+ * defined by SC_xxx mixerset...
  */
 
 void AU_setmixer_one( struct mpxplay_audioout_info_s *aui, unsigned int mixchannum, unsigned int setmode, int newvalue)

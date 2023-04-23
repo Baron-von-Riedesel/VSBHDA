@@ -62,6 +62,10 @@ static aucards_onemixerchan_s mpxplay_aucards_ac97chan_auxin_vol = {
 	{AC97_AUX_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}}
 };
 
+/* vsbhda: todo: check if this definition is correct; the order in AU_CARDS.H is:
+ * MASTER, PCM, HP, SPDIF!!!, SYNTH!!!, MICIN, LINEIN, CDIN, AUXIN, ...
+ */
+
 aucards_allmixerchan_s mpxplay_aucards_ac97chan_mixerset[]={
  &mpxplay_aucards_ac97chan_master_vol,
  &mpxplay_aucards_ac97chan_pcm_vol,

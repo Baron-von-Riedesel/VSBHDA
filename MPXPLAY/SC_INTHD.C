@@ -1559,7 +1559,7 @@ static int HDA_IRQRoutine(mpxplay_audioout_info_s* aui)
 }
 #endif
 
-static aucards_allmixerchan_s ihd_mixerset[]={
+static aucards_allmixerchan_s ihd_mixerset[] = {
 	&ihd_master_vol,
 	NULL
 };
@@ -1583,5 +1583,5 @@ one_sndcard_info IHD_sndcard_info = {
  &HDA_IRQRoutine, /* vsbhda */
  &HDA_writeMIXER,
  &HDA_readMIXER,
- &ihd_mixerset[0]
+ ihd_mixerset
 };
