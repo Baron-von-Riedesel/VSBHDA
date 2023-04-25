@@ -12,7 +12,7 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: VIA VT82C686, VT8233 (VT8235?) low level routines (onboard chips on AMD Athlon mainboards)
+//function: VIA VT82C686, VT8233/VT8235?/VT8237(R)? low level routines (onboard chips on AMD Athlon mainboards)
 //some routines are based on the ALSA (http://www.alsa-project.org)
 
 #include <stdint.h>
@@ -25,10 +25,19 @@
 #include "PCIBIOS.H"
 #include "AC97_DEF.H"
 
-// ac97
+#define SETPCMVOL 0 /* 1=PCM/HP vol depending on /VOL, 0=PCM/HP vol max */
+#if SETPCMVOL
+#define PCMVOL 0x02
+#else
+#define PCMVOL 0x00
+#endif
+#define DXS_VOLUME 0 /* vsbhda: originally was 0x02 */
+
+
+// ac97: is a dword (RW) at port offset 0x80
 #define VIA_REG_AC97_CTRL               0x80
-#define VIA_REG_AC97_CODEC_ID_PRIMARY   0x00000000
-#define VIA_REG_AC97_PRIMARY_VALID      (1<<25)
+#define VIA_REG_AC97_CODEC_ID_PRIMARY   0x00000000 /* codec mask bits 30-31 */
+#define VIA_REG_AC97_PRIMARY_VALID      (1<<25) /* 25=codec 0, 27-29=codec 1-3 */
 #define VIA_REG_AC97_BUSY               (1<<24)
 #define VIA_REG_AC97_READ               (1<<23)
 #define VIA_REG_AC97_WRITE              0
@@ -36,34 +45,38 @@
 #define VIA_REG_AC97_CMD_MASK           0x7F
 #define VIA_REG_AC97_DATA_MASK          0xffff
 
-/* 82C686 + 8233??? */
+/* 82C686 + 8233/35/37
+ * 4 DMA channels at ports 0x, 1x, 2x, 3x
+ */
+
 
 #define VIA_REG_OFFSET_STATUS           0x00    /* byte - channel status */
-#define VIA_REG_STATUS_FLAG 0x01
-#define VIA_REG_STATUS_EOL  0x02
+#define VIA_REG_STATUS_FLAG 0x01 /* 1=block complete */
+#define VIA_REG_STATUS_EOL  0x02 /* 1=block is last of the link (EndOfLink) */
 
 #define VIA_REG_OFFSET_CONTROL        0x01  /* byte - channel control */
 #define VIA_REG_CTRL_START            0x80  /* WO */
 #define VIA_REG_CTRL_TERMINATE        0x40  /* WO */
 #define VIA_REG_CTRL_PAUSE            0x08  /* RW */
-#define VIA_REG_CTRL_RESET            0x01  /* RW - probably reset? undocumented */
+#define VIA_REG_CTRL_RESET            0x01  /* 82C686: RW - probably reset? undocumented */
 
-#define VIA_REG_OFFSET_TYPE           0x02  /* byte - channel type */
-#define VIA_REG_TYPE_INT_LSAMPLE      0x04  /* interrupt on last sample sent */
-#define VIA_REG_TYPE_INT_EOL          0x02  /* interrupt on end of link */
-#define VIA_REG_TYPE_INT_FLAG         0x01  /* interrupt on flag */
+/* offset 2 for 82c686 only ( is volume-L for 8233/35/37 ) */
+#define VIA686_REG_OFFSET_TYPE           0x02  /* byte - channel type */
+#define VIA686_REG_TYPE_INT_LSAMPLE      0x04  /* interrupt on last sample sent */
+#define VIA686_REG_TYPE_INT_EOL          0x02  /* interrupt on end of link */
+#define VIA686_REG_TYPE_INT_FLAG         0x01  /* interrupt on flag */
 
 #define VIA_REG_OFFSET_TABLE_PTR     0x04    /* dword - channel table pointer (W) */
 #define VIA_REG_OFFSET_CURR_PTR      0x04    /* dword - channel current pointer (R) */
 #define VIA_REG_PLAYBACK_CURR_COUNT  0x0C    /* dword - channel current count */
 
-// VT8233
-#define VIA_REG_CTRL_AUTOSTART       0x20
-#define VIA_REG_CTRL_INT_STOP_IDX    0x04
-#define VIA_REG_CTRL_INT_EOL         0x02
-#define VIA_REG_CTRL_INT_FLAG        0x01
+// VT8233/35/37
+#define VIA_REG_CTRL_AUTOSTART       0x20 /* 1=autostart */
+#define VIA_REG_CTRL_INT_STOP_IDX    0x04 /* 1=interrupt on stop index */
+#define VIA_REG_CTRL_INT_EOL         0x02 /* 1=interrupt on EOL */
+#define VIA_REG_CTRL_INT_FLAG        0x01 /* 1=interrupt on FLAG */
 
-#define VIA_REG_OFFSET_STOP_IDX      0x08    /* dword - stop index, channel type, sample rate */
+#define VIA_REG_OFFSET_STOP_IDX      0x08    /* dword - stop index (24-31), channel type, sample rate (0-19) */
 
 #define VIA_REG_TYPE_AUTOSTART       0x80    /* RW - autostart at EOL */
 #define VIA_REG_TYPE_16BIT           0x20    /* RW */
@@ -78,6 +91,7 @@
 #define VIA_TBL_BIT_FLAG       0x40000000
 #define VIA_TBL_BIT_STOP       0x20000000
 
+/* PCI config space registers */
 #define VIA_ACLINK_STAT          0x40
 #define  VIA_ACLINK_C11_READY    0x20
 #define  VIA_ACLINK_C10_READY    0x10
@@ -91,14 +105,14 @@
 #define  VIA_ACLINK_CTRL_SDO     0x10 /* 0: release SDO, 1: force SDO hi */
 #define  VIA_ACLINK_CTRL_VRA     0x08 /* 0: disable VRA, 1: enable VRA */
 #define  VIA_ACLINK_CTRL_PCM     0x04 /* 0: disable PCM, 1: enable PCM */
-#define  VIA_ACLINK_CTRL_FM      0x02 /* via686 only */
-#define  VIA_ACLINK_CTRL_SB      0x01 /* via686 only */
+#define  VIA_ACLINK_CTRL_FM      0x02 /* via686 only; not used */
+#define  VIA_ACLINK_CTRL_SB      0x01 /* via686 only; not used */
 
 #define  VIA_ACLINK_CTRL_INIT    (VIA_ACLINK_CTRL_ENABLE | VIA_ACLINK_CTRL_RESET | VIA_ACLINK_CTRL_PCM | VIA_ACLINK_CTRL_VRA)
 
 #define PCI_VENDOR_ID_VIA        0x1106
 #define PCI_DEVICE_ID_VT82C686   0x3058
-#define PCI_DEVICE_ID_VT8233     0x3059
+#define PCI_DEVICE_ID_VT8233     0x3059 /* also for 8235/8237(R) */
 
 #define VIRTUALPAGETABLESIZE   4096
 #define PCMBUFFERPAGESIZE      512//4096 //page size determines the interrupt interval
@@ -125,7 +139,7 @@ static void via82xx_ac97_write(unsigned int baseport,unsigned int reg, unsigned 
 static unsigned int via82xx_ac97_read(unsigned int baseport, unsigned int reg);
 static void via82xx_dxs_write(unsigned int baseport,unsigned int reg, unsigned int val);
 
-static unsigned int via8233_dxs_volume=0x02;
+static unsigned int via8233_dxs_volume = DXS_VOLUME;
 
 static void via82xx_channel_reset(struct via82xx_card *card)
 ////////////////////////////////////////////////////////////
@@ -137,7 +151,7 @@ static void via82xx_channel_reset(struct via82xx_card *card)
 	outb(baseport + VIA_REG_OFFSET_CONTROL, 0x00);
 	outb(baseport + VIA_REG_OFFSET_STATUS, 0xFF);
 	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686)
-		outb(baseport + VIA_REG_OFFSET_TYPE, 0x00);
+		outb(baseport + VIA686_REG_OFFSET_TYPE, 0x00);
 	outl(baseport + VIA_REG_OFFSET_CURR_PTR, 0);
 }
 
@@ -167,8 +181,8 @@ static void via82xx_chip_init(struct via82xx_card *card)
 	}
 
 	// Make sure VRA is enabled, in case we didn't do a complete codec reset, above
-	data=pcibios_ReadConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL);
-	if((data & VIA_ACLINK_CTRL_INIT) != VIA_ACLINK_CTRL_INIT){
+	data = pcibios_ReadConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL);
+	if((data & VIA_ACLINK_CTRL_INIT) != VIA_ACLINK_CTRL_INIT) {
 		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);
 		pds_delay_10us(10);
 	}
@@ -183,27 +197,27 @@ static void via82xx_chip_init(struct via82xx_card *card)
 	}while(--retry);
 
 	//reset ac97
-	via82xx_AC97Codec_ready(card->iobase);
-	via82xx_ac97_write(card->iobase,AC97_RESET,0);
-	via82xx_ac97_read(card->iobase,AC97_RESET);
+	via82xx_AC97Codec_ready( card->iobase );
+	via82xx_ac97_write( card->iobase, AC97_RESET, 0 );
+	via82xx_ac97_read( card->iobase, AC97_RESET );
 
-	via82xx_channel_reset(card);
+	via82xx_channel_reset( card );
 
 	if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686){
 		// Workaround for Award BIOS bug:
 		// DXS channels don't work properly with VRA if MC97 is disabled.
 		struct pci_config_s pci;
-		if(pcibios_FindDevice(0x1106, 0x3068, &pci) == PCI_SUCCESSFUL){ /* MC97 */
+		if( pcibios_FindDevice(0x1106, 0x3068, &pci) == PCI_SUCCESSFUL){ /* MC97 */
 			data = pcibios_ReadConfig_Byte(&pci, 0x44);
-			pcibios_WriteConfig_Byte(&pci, 0x44, data | 0x40);
+			pcibios_WriteConfig_Byte(&pci, 0x44, data | 0x40 );
 		}
 	}
 
 	// initial ac97 volumes (and clear mute flag)
 	via82xx_ac97_write(card->iobase, AC97_MASTER_VOL_STEREO, 0x0202);
-	via82xx_ac97_write(card->iobase, AC97_PCMOUT_VOL,        0x0202);
-	via82xx_ac97_write(card->iobase, AC97_HEADPHONE_VOL,     0x0202);
-	via82xx_ac97_write(card->iobase, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
+	via82xx_ac97_write(card->iobase, AC97_PCMOUT_VOL,        PCMVOL);
+	via82xx_ac97_write(card->iobase, AC97_HEADPHONE_VOL,     PCMVOL);
+	via82xx_ac97_write(card->iobase, AC97_EXTENDED_STATUS, AC97_EA_SPDIF);
 }
 
 static void via82xx_chip_close(struct via82xx_card *card)
@@ -375,7 +389,7 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 	via82xx_set_table_ptr(card);
 
 	if( card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686 ) {
-		outb(card->iobase + VIA_REG_OFFSET_TYPE,
+		outb(card->iobase + VIA686_REG_OFFSET_TYPE,
 			 VIA_REG_TYPE_AUTOSTART | VIA_REG_TYPE_16BIT | VIA_REG_TYPE_STEREO );
 	} else { // VT8233
 		unsigned int rbits;
@@ -404,10 +418,9 @@ static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
 	dbgprintf("VIA82XX_start\n");
 	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686) {
 #ifdef SBEMU
-		outb(card->iobase + VIA_REG_OFFSET_TYPE, inb( card->iobase + VIA_REG_OFFSET_TYPE ) | VIA_REG_TYPE_INT_LSAMPLE | VIA_REG_TYPE_INT_EOL | VIA_REG_TYPE_INT_FLAG);
-#else
-		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START);
+		outb(card->iobase + VIA686_REG_OFFSET_TYPE, inb( card->iobase + VIA686_REG_OFFSET_TYPE ) | VIA686_REG_TYPE_INT_LSAMPLE | VIA686_REG_TYPE_INT_EOL | VIA686_REG_TYPE_INT_FLAG);
 #endif
+		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START);
 	} else
 #ifdef SBEMU
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START | VIA_REG_CTRL_AUTOSTART | VIA_REG_CTRL_INT_FLAG | VIA_REG_CTRL_INT_EOL );
@@ -572,7 +585,7 @@ static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsig
 	//if((reg == VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg == VIA_REG_OFS_PLAYBACK_VOLUME_R)){
 	if(reg >= 256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
 		if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686)
-			retval = via82xx_dxs_read(card->iobase,(reg>>8));
+			retval = via82xx_dxs_read(card->iobase,(reg >> 8));
 	}else
 		retval = via82xx_ac97_read(card->iobase,reg);
 
@@ -595,22 +608,28 @@ static int VIA82XX_IRQRoutine(mpxplay_audioout_info_s* aui)
 
 /////////////////////////////////////////////////////////////////
 
-static aucards_onemixerchan_s via82xx_master_vol={
+/* VIA_REG_OFS_PLAYBACK_VOLUME_x:
+ * 8233: 5 bits
+ * 8235: 6 bits
+ * 8237: 6 bits
+ */
+
+static aucards_onemixerchan_s via82xx_master_vol = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{
-  {AC97_MASTER_VOL_STEREO,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // left
-  {AC97_MASTER_VOL_STEREO,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // right
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_L<<8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_R<<8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+  {AC97_MASTER_VOL_STEREO, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // left
+  {AC97_MASTER_VOL_STEREO, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE} // right
+  //{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
+  //{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
  }
 };
 
-#if 0 /* vsbhda ( see below ) */
+#if SETPCMVOL
 static aucards_onemixerchan_s via82xx_pcm_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME),4,{
-  {AC97_PCMOUT_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  {AC97_PCMOUT_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  {(VIA_REG_OFS_PLAYBACK_VOLUME_L<<8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
-  {(VIA_REG_OFS_PLAYBACK_VOLUME_R<<8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+ AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME),2,{
+  {AC97_PCMOUT_VOL, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE},
+  {AC97_PCMOUT_VOL, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE}
+  //{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
+  //{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
  }
 };
 
@@ -622,15 +641,12 @@ static aucards_onemixerchan_s via82xx_headphone_vol = {
 };
 #endif
 
-/* vsbhda: settings for pcm and headphone disabled;
- * until we know how exactly it's supposed to work.
- * currently, if activated, it suppresses volume too much...
- */
-
 static aucards_allmixerchan_s via82xx_mixerset[] = {
  &via82xx_master_vol,
- //&via82xx_pcm_vol,
- //&via82xx_headphone_vol,
+#if SETPCMVOL
+ &via82xx_pcm_vol,
+ &via82xx_headphone_vol,
+#endif
  NULL
 };
 

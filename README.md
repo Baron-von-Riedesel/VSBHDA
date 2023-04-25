@@ -6,7 +6,7 @@ Works with unmodified HDPMI32i, making it compatible with HX.
 Supported Sound cards:
  * HDA ( Intel High Definition Audio )
  * Intel ICH / nForce
- * VIA VT82C686, VT8233
+ * VIA VT82C686, VT8233/35/37
  * SB Live/SB Audigy
 
 Emulated modes/cards:
