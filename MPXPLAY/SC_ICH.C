@@ -23,7 +23,7 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"
-#include "AC97_DEF.H"
+#include "AC97MIX.H"
 
 #define PCIR_CFG 0x41 // ICH4
 
@@ -85,15 +85,14 @@
 
 #define ICH_DEFAULT_RETRY 1000
 
-typedef struct intel_card_s
-{
+struct intel_card_s {
  unsigned long   baseport_bm;       // busmaster baseport
  unsigned long   baseport_codec;    // mixer baseport
  unsigned int    irq;
  unsigned char   device_type;
  struct pci_config_s  *pci_dev;
 
- cardmem_t *dm;
+ struct cardmem_s *dm;
  uint32_t *virtualpagetable; // must be aligned to 8 bytes?
  char *pcmout_buffer;
  long pcmout_bufsize;
@@ -105,12 +104,12 @@ typedef struct intel_card_s
  //unsigned char dra;
  unsigned int ac97_clock_detected;
  float ac97_clock_corrector;
-}intel_card_s;
+};
 
 enum { DEVICE_INTEL, DEVICE_INTEL_ICH4, DEVICE_NFORCE };
 static char *ich_devnames[3]={"ICH","ICH4","NForce"};
 
-static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui);
+static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui );
 
 //-------------------------------------------------------------------------
 // low level write & read
@@ -168,8 +167,8 @@ static void snd_intel_codec_write(struct intel_card_s *card,unsigned int reg,uns
 	outw(card->baseport_codec + reg,data);
 }
 
-static unsigned int snd_intel_codec_read(struct intel_card_s *card,unsigned int reg)
-////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_intel_codec_read( struct intel_card_s *card, unsigned int reg )
+///////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int data = 0,retry;
 	snd_intel_codec_semaphore(card,ICH_GLOB_STAT_PCR);
@@ -184,8 +183,8 @@ static unsigned int snd_intel_codec_read(struct intel_card_s *card,unsigned int 
 	return data;
 }
 
-static unsigned int snd_intel_buffer_init(struct intel_card_s *card,struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
 
@@ -269,8 +268,8 @@ static void snd_intel_ac97_init(struct intel_card_s *card,unsigned int freq_set)
 	dbgprintf("intel_ac97_init: end (vra:%d)\n",card->vra);
 }
 
-static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t *table_base;
 	unsigned int i,cmd,retry,spdif_rate,period_size_samples;
@@ -342,7 +341,7 @@ static void snd_intel_prepare_playback(struct intel_card_s *card,struct mpxplay_
 }
 
 //-------------------------------------------------------------------------
-static const pci_device_s ich_devices[]={
+static const struct pci_device_s ich_devices[] = {
  {"82801AA",0x8086,0x2415, DEVICE_INTEL},
  {"82901AB",0x8086,0x2425, DEVICE_INTEL},
  {"82801BA",0x8086,0x2445, DEVICE_INTEL},
@@ -368,10 +367,10 @@ static const pci_device_s ich_devices[]={
  {NULL,0,0,0}
 };
 
-static void INTELICH_close(struct mpxplay_audioout_info_s *aui);
+static void INTELICH_close( struct audioout_info_s *aui );
 
-static void INTELICH_card_info(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////
+static void INTELICH_card_info( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	dbgprintf("ICH : Intel %s found on port:4X irq:%d (type:%s, bits:16%s)\n",
@@ -379,8 +378,8 @@ static void INTELICH_card_info(struct mpxplay_audioout_info_s *aui)
 			ich_devnames[card->device_type],((card->device_type==DEVICE_INTEL_ICH4)? ",20":""));
 }
 
-static int INTELICH_adetect(struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////
+static int INTELICH_adetect( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card;
 
@@ -474,8 +473,8 @@ err_adetect:
 	return 0;
 }
 
-static void INTELICH_close(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////
+static void INTELICH_close( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	if(card){
@@ -488,15 +487,15 @@ static void INTELICH_close(struct mpxplay_audioout_info_s *aui)
 	}
 }
 
-static void INTELICH_setrate(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////
+static void INTELICH_setrate( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int dmabufsize;
 	if((card->device_type == DEVICE_INTEL) && !card->ac97_clock_detected)
 		snd_intel_measure_ac97_clock(aui); // called from here because pds_gettimeu() needs int08
 
-	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
+	aui->card_wave_id = WAVEID_PCM_SLE;
 	aui->chan_card = 2;
 	aui->bits_card = 16;
 
@@ -516,8 +515,8 @@ static void INTELICH_setrate(struct mpxplay_audioout_info_s *aui)
 	snd_intel_prepare_playback(card,aui);
 }
 
-static void INTELICH_start(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////
+static void INTELICH_start( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
@@ -529,8 +528,8 @@ static void INTELICH_start(struct mpxplay_audioout_info_s *aui)
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
 }
 
-static void INTELICH_stop(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////
+static void INTELICH_stop( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
@@ -544,8 +543,8 @@ static void INTELICH_stop(struct mpxplay_audioout_info_s *aui)
  * uses floats!
  */
 
-static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////////////////
+static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	int64_t starttime,endtime,timelen; // in usecs
@@ -599,8 +598,8 @@ static void snd_intel_measure_ac97_clock(struct mpxplay_audioout_info_s *aui)
 
 //------------------------------------------------------------------------
 
-static void INTELICH_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left)
-////////////////////////////////////////////////////////////////////////////////////////////////
+static void INTELICH_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int index;
@@ -616,8 +615,8 @@ static void INTELICH_writedata(struct mpxplay_audioout_info_s *aui,char *src,uns
 	//dbgprintf("ICH_writedata: index=%d\n",index);
 }
 
-static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////
+static long INTELICH_getbufpos( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned long bufpos = 0;
@@ -677,25 +676,25 @@ static long INTELICH_getbufpos(struct mpxplay_audioout_info_s *aui)
 //--------------------------------------------------------------------------
 //mixer
 
-static void INTELICH_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void INTELICH_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
+////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	snd_intel_codec_write(card,reg,val);
 }
 
-static unsigned long INTELICH_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
-//////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned long INTELICH_readMIXER( struct audioout_info_s *aui, unsigned long reg )
+/////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card=aui->card_private_data;
 	return snd_intel_codec_read(card,reg);
 }
 
 #if 1 /* vsbhda */
-static int INTELICH_IRQRoutine(mpxplay_audioout_info_s* aui)
-////////////////////////////////////////////////////////////
+static int INTELICH_IRQRoutine( struct audioout_info_s* aui )
+/////////////////////////////////////////////////////////////
 {
-	intel_card_s *card = aui->card_private_data;
+	struct intel_card_s *card = aui->card_private_data;
 	int status = snd_intel_read_8(card,ICH_PO_SR_REG);
 	status &= ICH_PO_SR_LVBCI | ICH_PO_SR_BCIS | ICH_PO_SR_FIFO;
 	if(status)
@@ -704,7 +703,7 @@ static int INTELICH_IRQRoutine(mpxplay_audioout_info_s* aui)
 }
 #endif
 
-one_sndcard_info ICH_sndcard_info={
+const struct sndcard_info_s ICH_sndcard_info = {
  "ICH AC97",
  SNDCARD_LOWLEVELHAND,
 
@@ -724,5 +723,5 @@ one_sndcard_info ICH_sndcard_info={
  &INTELICH_IRQRoutine, /* vsbhda */
  &INTELICH_writeMIXER,
  &INTELICH_readMIXER,
- mpxplay_aucards_ac97chan_mixerset
+ aucards_ac97chan_mixerset
 };

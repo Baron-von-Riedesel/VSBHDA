@@ -23,7 +23,7 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"
-#include "AC97_DEF.H"
+#include "AC97.H"
 
 #define SETPCMVOL 0 /* 1=PCM/HP vol depending on /VOL, 0=PCM/HP vol max */
 #if SETPCMVOL
@@ -46,9 +46,8 @@
 #define VIA_REG_AC97_DATA_MASK          0xffff
 
 /* 82C686 + 8233/35/37
- * 4 DMA channels at ports 0x, 1x, 2x, 3x
+ * 4 DMA channels at port offsets 0x, 1x, 2x, 3x
  */
-
 
 #define VIA_REG_OFFSET_STATUS           0x00    /* byte - channel status */
 #define VIA_REG_STATUS_FLAG 0x01 /* 1=block complete */
@@ -127,7 +126,7 @@ struct via82xx_card
  unsigned char   chiprev;
  struct pci_config_s  *pci_dev;
 
- cardmem_t *dm;
+ struct cardmem_s *dm;
  unsigned long *virtualpagetable;
  char *pcmout_buffer;
  long pcmout_bufsize;
@@ -236,24 +235,24 @@ static void via82xx_set_table_ptr(struct via82xx_card *card)
 }
 
 //-------------------------------------------------------------------------
-static const pci_device_s via_devices[]={
+static const struct pci_device_s via_devices[] = {
  {"VT82C686",PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT82C686},
  {"VT8233"  ,PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT8233},
  {NULL,0,0}
 };
 
-static void VIA82XX_close(struct mpxplay_audioout_info_s *aui);
+static void VIA82XX_close(struct audioout_info_s *aui);
 
-static void VIA82XX_card_info(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////////
+static void VIA82XX_card_info(struct audioout_info_s *aui)
+//////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
 		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model);
 }
 
-static int VIA82XX_adetect(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////
+static int VIA82XX_adetect(struct audioout_info_s *aui)
+///////////////////////////////////////////////////////
 {
 	struct via82xx_card *card;
 
@@ -316,8 +315,8 @@ err_adetect:
 	return 0;
 }
 
-static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////
+static void VIA82XX_close(struct audioout_info_s *aui)
+//////////////////////////////////////////////////////
 {
 	dbgprintf("VIA82XX_close\n");
 	struct via82xx_card *card = aui->card_private_data;
@@ -332,8 +331,8 @@ static void VIA82XX_close(struct mpxplay_audioout_info_s *aui)
 	}
 }
 
-static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////
+static void VIA82XX_setrate(struct audioout_info_s *aui)
+////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	unsigned int dmabufsize,pagecount,spdif_rate;
@@ -349,7 +348,7 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 
 	aui->chan_card = 2;
 	aui->bits_card = 16;
-	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
+	aui->card_wave_id = WAVEID_PCM_SLE;
 
 	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
 
@@ -411,8 +410,8 @@ static void VIA82XX_setrate(struct mpxplay_audioout_info_s *aui)
 	via82xx_AC97Codec_ready(card->iobase);
 }
 
-static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////
+static void VIA82XX_start(struct audioout_info_s *aui)
+//////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf("VIA82XX_start\n");
@@ -429,16 +428,16 @@ static void VIA82XX_start(struct mpxplay_audioout_info_s *aui)
 #endif
 }
 
-static void VIA82XX_stop(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////
+static void VIA82XX_stop(struct audioout_info_s *aui)
+/////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf("VIA82XX_stop\n");
 	outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE);
 }
 
-static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////////
+static long VIA82XX_getbufpos(struct audioout_info_s *aui)
+//////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	unsigned int baseport = card->iobase;
@@ -475,8 +474,8 @@ static long VIA82XX_getbufpos(struct mpxplay_audioout_info_s *aui)
 	return aui->card_dma_lastgoodpos;
 }
 
-static void VIA82XX_clearbuf(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////
+static void VIA82XX_clearbuf(struct audioout_info_s *aui)
+/////////////////////////////////////////////////////////
 {
 	MDma_clearbuf(aui);
 }
@@ -563,8 +562,8 @@ static unsigned int via82xx_dxs_read(unsigned int baseport,unsigned int reg)
 	return via8233_dxs_volume; // is the dxs write-only?
 }
 
-static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void VIA82XX_writeMIXER(struct audioout_info_s *aui,unsigned long reg, unsigned long val)
+////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 
@@ -576,8 +575,8 @@ static void VIA82XX_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long
 		via82xx_ac97_write(card->iobase,reg,val);
 }
 
-static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
-/////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned long VIA82XX_readMIXER(struct audioout_info_s *aui,unsigned long reg)
+/////////////////////////////////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 	unsigned int retval = 0;
@@ -594,8 +593,8 @@ static unsigned long VIA82XX_readMIXER(struct mpxplay_audioout_info_s *aui,unsig
 
 #if 1 /* vsbhda */
 
-static int VIA82XX_IRQRoutine(mpxplay_audioout_info_s* aui)
-///////////////////////////////////////////////////////////
+static int VIA82XX_IRQRoutine(struct audioout_info_s* aui)
+//////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
 
@@ -614,34 +613,31 @@ static int VIA82XX_IRQRoutine(mpxplay_audioout_info_s* aui)
  * 8237: 6 bits
  */
 
-static aucards_onemixerchan_s via82xx_master_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{
-  {AC97_MASTER_VOL_STEREO, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // left
-  {AC97_MASTER_VOL_STEREO, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE} // right
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
- }
-};
+static const struct aucards_mixerchan_s via82xx_master_vol = {
+	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME), 2, {
+		{ AC97_MASTER_VOL_STEREO, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // left
+		{ AC97_MASTER_VOL_STEREO, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // right
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+	}};
 
 #if SETPCMVOL
-static aucards_onemixerchan_s via82xx_pcm_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME),2,{
-  {AC97_PCMOUT_VOL, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  {AC97_PCMOUT_VOL, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE}
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
-  //{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
- }
-};
+static const struct aucards_mixerchan_s via82xx_pcm_vol = {
+	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME), 2, {
+		{ AC97_PCMOUT_VOL, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_PCMOUT_VOL, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+	}};
 
-static aucards_onemixerchan_s via82xx_headphone_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_HEADPHONE,AU_MIXCHANFUNC_VOLUME),2,{
-  {AC97_HEADPHONE_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-  {AC97_HEADPHONE_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
- }
-};
+static const struct aucards_mixerchan_s via82xx_headphone_vol = {
+	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_HEADPHONE,AU_MIXCHANFUNC_VOLUME), 2, {
+		{ AC97_HEADPHONE_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_HEADPHONE_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
 #endif
 
-static aucards_allmixerchan_s via82xx_mixerset[] = {
+static const struct aucards_mixerchan_s *via82xx_mixerset[] = {
  &via82xx_master_vol,
 #if SETPCMVOL
  &via82xx_pcm_vol,
@@ -650,7 +646,7 @@ static aucards_allmixerchan_s via82xx_mixerset[] = {
  NULL
 };
 
-one_sndcard_info VIA82XX_sndcard_info={
+const struct sndcard_info_s VIA82XX_sndcard_info = {
  "VIA VT82XX AC97",
  SNDCARD_LOWLEVELHAND,
 

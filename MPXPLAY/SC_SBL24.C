@@ -22,7 +22,7 @@
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"
 #include "SC_SBLIV.H"
-#include "AC97_DEF.H"
+#include "AC97MIX.H"
 #include "SC_SBL24.H"
 
 #define CA0106_DMABUF_PERIODS    8 // max
@@ -95,8 +95,8 @@ static void snd_ca0106_ptr_write( struct emu10k1_card *card,unsigned int reg,uns
 	outl(card->iobase + DATA, data);
 }
 
-static unsigned int snd_audigyls_selector( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_audigyls_selector( struct emu10k1_card *card, struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10021102) || (card->serial==0x10051102))){
 		dbgprintf("selected : audigy ls\n");
@@ -106,8 +106,8 @@ static unsigned int snd_audigyls_selector( struct emu10k1_card *card,struct mpxp
 	return 0;
 }
 
-static unsigned int snd_live24_selector( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_live24_selector( struct emu10k1_card *card, struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10061102) || (card->serial==0x10071102) || (card->serial==0x10091462) || (card->serial==0x30381297) || (card->serial==0x10121102) || !card->card_capabilities->subsystem)){
 		dbgprintf("selected : live24\n");
@@ -217,8 +217,8 @@ static void snd_live24_hw_close( struct emu10k1_card *card)
 	outl(card->iobase + HCFG, 0);
 }
 
-static unsigned int snd_live24_buffer_init( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample=(aui->bits_set>=24)? 4:2;
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,CA0106_DMABUF_ALIGN,bytes_per_sample,0);
@@ -231,8 +231,8 @@ static unsigned int snd_live24_buffer_init( struct emu10k1_card *card,struct mpx
 	return 1;
 }
 
-static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	const uint32_t channel=0;
 	uint32_t *table_base =card->virtualpagetable;
@@ -295,8 +295,8 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card,struct mp
 	dbgprintf("snd_ca0106_pcm_prepare playback: exit\n");
 }
 
-static void snd_live24_setrate( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////////////////////////////////////
+static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int dmabufsize;
 
@@ -343,8 +343,8 @@ static void snd_live24_pcm_stop_playback( struct emu10k1_card *card)
 	dbgprintf("snd_live24_pcm_stop_playback\n");
 }
 
-static unsigned int snd_live24_pcm_pointer_playback( struct emu10k1_card *card,struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int snd_live24_pcm_pointer_playback( struct emu10k1_card *card, struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int ptr,ptr1,ptr3,ptr4;
 	const uint32_t channel=0;
@@ -397,7 +397,7 @@ static int snd_live24_isr( struct emu10k1_card *card)
 }
 #endif
 
-static aucards_onemixerchan_s emu_live24_analog_front={
+static const struct aucards_mixerchan_s emu_live24_analog_front = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,
  {
   {((CONTROL_FRONT_CHANNEL<<8)|PLAYBACK_VOLUME2),0xff,24,SUBMIXCH_INFOBIT_REVERSEDVALUE},
@@ -407,7 +407,7 @@ static aucards_onemixerchan_s emu_live24_analog_front={
  }
 };
 
-static aucards_onemixerchan_s emu_live24_spdif_front={
+static const struct aucards_mixerchan_s emu_live24_spdif_front = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_SPDIFOUT,AU_MIXCHANFUNC_VOLUME),2,
  {
   {((CONTROL_FRONT_CHANNEL<<8)|PLAYBACK_VOLUME1),0xff,24,SUBMIXCH_INFOBIT_REVERSEDVALUE},
@@ -417,13 +417,13 @@ static aucards_onemixerchan_s emu_live24_spdif_front={
  }
 };
 
-static aucards_allmixerchan_s emu_live24_mixerset[]={
+static const struct aucards_mixerchan_s *emu_live24_mixerset[] = {
  &emu_live24_analog_front,
  &emu_live24_spdif_front,
  NULL
 };
 
-struct emu_driver_func_s emu_driver_audigyls_funcs = {
+const struct emu_driver_func_s emu_driver_audigyls_funcs = {
  &snd_audigyls_selector,
  &snd_audigyls_hw_init,
  &snd_live24_hw_close,
@@ -437,16 +437,16 @@ struct emu_driver_func_s emu_driver_audigyls_funcs = {
  &snd_emu_ac97_read,
  &snd_emu_ac97_write,
  &snd_live24_isr, /* vsbhda */
- &mpxplay_aucards_ac97chan_mixerset[0]
+ aucards_ac97chan_mixerset
 #else
  &snd_live24_mixer_read,
  &snd_live24_mixer_write,
  &snd_live24_isr, /* vsbhda */
- &emu_live24_mixerset[0]
+ emu_live24_mixerset
 #endif
 };
 
-struct emu_driver_func_s emu_driver_live24_funcs = {
+const struct emu_driver_func_s emu_driver_live24_funcs = {
  &snd_live24_selector,
  &snd_live24_hw_init,
  &snd_live24_hw_close,
@@ -459,5 +459,5 @@ struct emu_driver_func_s emu_driver_live24_funcs = {
  &snd_live24_mixer_read,
  &snd_live24_mixer_write,
  &snd_live24_isr, /* vsbhda */
- &emu_live24_mixerset[0]
+ emu_live24_mixerset
 };

@@ -28,6 +28,8 @@
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 1
 
+/* config_select: bits 0-1: out device */
+#define AUCARDSCONFIG_IHD_OUT_DEV_MASK   0x3     /* 00=lineout, 01=speaker, 02=hp */
 #define AUCARDSCONFIG_IHD_USE_FIXED_SDO  (1<<2) // don't read stream offset (for sd_addr) from GCAP (use 0x100)
 
 #define INTHD_MAX_CHANNELS 8
@@ -66,7 +68,7 @@ struct intelhd_card_s
 {
  unsigned long  iobase;
  struct pci_config_s  *pci_dev;
- unsigned int  board_driver_type;
+ unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
  long          codec_vendor_id;
  unsigned long codec_mask;
  unsigned int  codec_index;
@@ -80,7 +82,7 @@ struct intelhd_card_s
  unsigned int pcm_num_vols;            // number of PCM volumes
  struct pcm_vol_s pcm_vols[MAX_PCM_VOLS]; // PCM volume nodes
 
- cardmem_t *dm;
+ struct cardmem_s *dm;
  uint32_t *table_buffer;
  char *pcmout_buffer;
  long pcmout_bufsize;
@@ -135,7 +137,7 @@ static const struct hda_rate_tbl rate_bits[] = {
  {0,0}
 };
 
-static aucards_onemixerchan_s ihd_master_vol = {
+static struct aucards_mixerchan_s ihd_master_vol = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),MAX_PCM_VOLS,{
   {0,0x00,0,0}, // card->pcm_vols[0]
   {0,0x00,0,0}, // card->pcm_vols[1]
@@ -696,7 +698,7 @@ static int hda_parse_output(struct intelhd_card_s *card)
 	int8_t *po,parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
 	int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
 
-	switch (card->config_select) {
+	switch ( card->config_select & AUCARDSCONFIG_IHD_OUT_DEV_MASK ) {
 	case 0: po = parseorder_line; break;
 	case 1: po = parseorder_speaker; break;
 	case 2: po = &parseorder_speaker[1]; break;
@@ -803,8 +805,8 @@ static unsigned int hda_get_max_bits(struct intelhd_card_s *card)
 
 // init & close
 
-static unsigned int hda_buffer_init(struct mpxplay_audioout_info_s *aui,struct intelhd_card_s *card)
-////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd_card_s *card )
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
 	unsigned long allbufsize = BDL_SIZE + 1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
@@ -883,7 +885,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 	hda_nid_t nid;
 
 	dbgprintf("hda_mixer_init: reading codec vendor id...\n");
-	card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
+	card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
 	if(card->codec_vendor_id <= 0)
 		card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
 
@@ -1063,8 +1065,8 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 
 /* called by HDA_setrate() */
 
-static unsigned int hda_calc_stream_format(struct mpxplay_audioout_info_s *aui,struct intelhd_card_s *card)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int hda_calc_stream_format( struct audioout_info_s *aui, struct intelhd_card_s *card )
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i,val = 0;
 #ifndef SBEMU
@@ -1104,7 +1106,7 @@ static unsigned int hda_calc_stream_format(struct mpxplay_audioout_info_s *aui,s
 
 //-------------------------------------------------------------------------
 
-static const pci_device_s intelhda_devices[]={
+static const struct pci_device_s intelhda_devices[] = {
  {"Intel CPT6",                  0x8086, 0x1c20, AZX_DRIVER_PCH },
  {"Intel CPT7 (PBG)",            0x8086, 0x1d20, AZX_DRIVER_PCH },
  {"Intel PCH (Panther Point)",   0x8086, 0x1e20, AZX_DRIVER_PCH },
@@ -1304,8 +1306,8 @@ static char *ihd_search_vendorname(unsigned int vendorid)
 }
 #endif
 
-static void HDA_card_info(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////
+static void HDA_card_info( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////
 {
 }
 
@@ -1327,10 +1329,10 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 	}
 }
 
-static void HDA_close(struct mpxplay_audioout_info_s *aui);
+static void HDA_close( struct audioout_info_s *aui );
 
-static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////////
+static int HDA_adetect( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card;
 	unsigned int i;
@@ -1407,8 +1409,8 @@ static int HDA_adetect(struct mpxplay_audioout_info_s *aui)
 	return 0;
 }
 
-static void HDA_close(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////
+static void HDA_close( struct audioout_info_s *aui )
+////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	dbgprintf("HDA_close\n" );
@@ -1435,13 +1437,13 @@ static void HDA_close(struct mpxplay_audioout_info_s *aui)
 	}
 }
 
-static void HDA_setrate(struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////
+static void HDA_setrate( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 
 	dbgprintf("HDA_setrate: freq_card=%u\n", aui->freq_card );
-	aui->card_wave_id = MPXPLAY_WAVEID_PCM_SLE;
+	aui->card_wave_id = WAVEID_PCM_SLE;
 	aui->chan_card = (aui->chan_set) ? aui->chan_set : PCM_CHANNELS_DEFAULT;
 	if( aui->chan_card > INTHD_MAX_CHANNELS )
 		aui->chan_card = INTHD_MAX_CHANNELS;
@@ -1456,8 +1458,8 @@ static void HDA_setrate(struct mpxplay_audioout_info_s *aui)
 	azx_setup_controller( card );
 }
 
-static void HDA_start(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////
+static void HDA_start( struct audioout_info_s *aui )
+////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
@@ -1476,8 +1478,8 @@ static void HDA_start(struct mpxplay_audioout_info_s *aui)
 	pds_delay_10us(100);
 }
 
-static void HDA_stop(struct mpxplay_audioout_info_s *aui)
-/////////////////////////////////////////////////////////
+static void HDA_stop( struct audioout_info_s *aui )
+///////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
@@ -1498,8 +1500,8 @@ static void HDA_stop(struct mpxplay_audioout_info_s *aui)
 	//azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index));
 }
 
-static long HDA_getbufpos(struct mpxplay_audioout_info_s *aui)
-//////////////////////////////////////////////////////////////
+static long HDA_getbufpos( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned long bufpos;
@@ -1520,16 +1522,16 @@ static long HDA_getbufpos(struct mpxplay_audioout_info_s *aui)
 
 //mixer
 
-static void HDA_writeMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg, unsigned long val)
-////////////////////////////////////////////////////////////////////////////////////////////////////
+static void HDA_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	hda_put_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val); /* left channel */
 	hda_put_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val); /* right channel */
 }
 
-static unsigned long HDA_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned long reg)
-/////////////////////////////////////////////////////////////////////////////////////////
+static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long reg )
+////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	return hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0);
@@ -1539,8 +1541,8 @@ static unsigned long HDA_readMIXER(struct mpxplay_audioout_info_s *aui,unsigned 
 
 /* check if the interrupt comes from the sound card's DMA engines */
 
-static int HDA_IRQRoutine(mpxplay_audioout_info_s* aui)
-///////////////////////////////////////////////////////////
+static int HDA_IRQRoutine( struct audioout_info_s* aui )
+////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	int status = azx_sd_readb(card, SD_STS) & SD_INT_MASK;
@@ -1558,12 +1560,12 @@ static int HDA_IRQRoutine(mpxplay_audioout_info_s* aui)
 }
 #endif
 
-static aucards_allmixerchan_s ihd_mixerset[] = {
+static const struct aucards_mixerchan_s *ihd_mixerset[] = {
 	&ihd_master_vol,
 	NULL
 };
 
-one_sndcard_info IHD_sndcard_info = {
+const struct sndcard_info_s IHD_sndcard_info = {
  "Intel HDA",
  SNDCARD_LOWLEVELHAND,
  NULL,                  // card_config

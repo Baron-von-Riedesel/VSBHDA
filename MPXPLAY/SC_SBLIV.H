@@ -24,36 +24,34 @@ struct emu_card_version_s {
 struct emu10k1_card;
 
 struct emu_driver_func_s{
- unsigned int (*selector)   ( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ unsigned int (*selector)   ( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*hw_init)    ( struct emu10k1_card *card);
  void         (*hw_close)   ( struct emu10k1_card *card);
- unsigned int (*buffer_init)( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
- void         (*setrate)    ( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ unsigned int (*buffer_init)( struct emu10k1_card *card, struct audioout_info_s *aui);
+ void         (*setrate)    ( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*start_playback)( struct emu10k1_card *card);
  void         (*stop_playback) ( struct emu10k1_card *card);
- unsigned int (*pcm_pointer_playback)( struct emu10k1_card *card, struct mpxplay_audioout_info_s *aui);
+ unsigned int (*pcm_pointer_playback)( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*clear_cache)( struct emu10k1_card *card);
  unsigned int (*mixer_read) ( struct emu10k1_card *card, unsigned int reg);
  void         (*mixer_write)( struct emu10k1_card *card, unsigned int reg, unsigned int value);
  int          (*interrupt_isr)( struct emu10k1_card *card); /* vsbhda */
- aucards_allmixerchan_s *mixerset;
+ const struct aucards_mixerchan_s **mixerset;
 };
 
 struct emu10k1_card {
  unsigned long   iobase;
  unsigned int    irq;
- unsigned short     model;
+ unsigned short  model;
  unsigned char   chiprev;
  unsigned long   serial;
  unsigned char   chips;
  unsigned char   chip_select;
  struct pci_config_s  *pci_dev;
- struct emu_card_version_s *card_capabilities;
- struct emu_driver_func_s *driver_funcs;
+ const struct emu_card_version_s *card_capabilities;
+ const struct emu_driver_func_s *driver_funcs;
 
- //dosmem_t *dm;                     // now it's ca. 72k only
- cardmem_t *dm;                     // now it's ca. 72k only
- //char *cardbuf_mem;              // but later we should use DPMI memory
+ struct cardmem_s *dm;     // now it's ca. 72k only
  uint32_t *virtualpagetable;
  void *silentpage;
  unsigned long period_size;

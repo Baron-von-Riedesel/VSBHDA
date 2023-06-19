@@ -48,7 +48,7 @@
    won't work with Qemm.
 
     SETPVI will set the PVI flag in cpu register CR4, RESPVI will reset it. When
-   this bit is set, it's not possible to disable interrupts in ring 3, since
+   this bit is set, VSBHDA is unable to change the interrupt flag (IF), since
    CLI/STI will modify the virtual interrupt flag (VIF) only.
 
 

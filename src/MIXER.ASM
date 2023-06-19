@@ -1,50 +1,52 @@
 
-;--- not used yet
+;--- software mixer
 
 	.386
 	.MODEL small
 	option casemap:none
 	option proc:private
 
-	.data
-
 	.code
 
-;--- doint just a "geometric" addition is surely not correct, since
-;--- if one factor is 0, the result will be 0.
-
-SNDISR_Mixer proc c public uses ebx esi edi pSrc1:ptr, pSrc2:ptr, dwSamples:dword, dwVol1:dword, dwVol2:dword
+SNDISR_Mixer proc c public uses ebx esi edi pSrc1:ptr, pSrc2:ptr, dwSamples:dword, dwVoiceVol:dword, dwMidiVol:dword
 
 	mov edi, pSrc1
 	mov esi, pSrc2
+	mov ebx, dwVoiceVol
 	mov ecx, dwSamples
-	mov ebx, dwVol1
-	mov ebp, dwVol2
+	mov ebp, dwMidiVol
 nextsample:
 	lodsw
 	movsx eax, ax
 	movsx edx, word ptr [edi]
+	add eax, 8000h
+	add edx, 8000h
+
+;--- 0 <= eax/edx <= ffff
+
 	imul eax, ebp
 	imul edx, ebx
-	sar eax, 8
-	sar edx, 8
-	imul eax, edx		; do a "geometric" addition
-	jz @F
+	shr eax, 8
+	shr edx, 8
+
+;--- a*b/32768 : kind of "geometric addition" - true geometric would be sqrt(a*b)
+	mul edx
 	shr eax, 15
-done:
+
+if 1
+	bt eax, 16
+	setnc dl
+	mov dh, 0   ; dx=0/1
+	sub dx, 1   ; dx=ffff/0
+	or eax, edx
+endif
+	sub ax, 8000h
 	stosw
 	dec ecx
-	loop nextsample
+	jnz nextsample
 	lea ebp, [esp+3*4]
 	ret
-@@:
-	mov ax, [esi-2]
-	imul eax, ebp
-	sar eax, 8
-	add eax, edx
-	jmp done
 
 SNDISR_Mixer endp
-
 
 	END

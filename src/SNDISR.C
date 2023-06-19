@@ -20,9 +20,11 @@
 
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
-//void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+#define MIXERROUTINE 0
 
-extern mpxplay_audioout_info_s aui;
+extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+
+extern struct audioout_info_s aui;
 extern struct globalvars gvars;
 #if SETABSVOL
 extern uint16_t MAIN_SB_VOL;
@@ -244,9 +246,11 @@ static void SNDISR_Interrupt( void )
         //dbgprintf("ISR: set master volume=%u\n", MAIN_SB_VOL );
     }
 #else
-    /* min: 0F*0F=E1 >> 8 = 0, max: FF*FF=FE00 >> 8 -> FE */
-    voicevol = ( (voicevol | 0xF) * (mastervol | 0xF) ) >> 8;
-    midivol  = ( (midivol  | 0xF) * (mastervol | 0xF) ) >> 8;
+    /* min: 10*10-1=ff ; ff >> 8 = 0, max: 100*100-1=ffff ; ffff >> 8 = ff */
+    voicevol = ( (voicevol | 0xF + 1) * (mastervol | 0xF + 1) - 1) >> 8;
+    if ( voicevol == 0xff ) voicevol = 0x100;
+    midivol  = ( (midivol  | 0xF + 1) * (mastervol | 0xF + 1) - 1) >> 8;
+    if ( midivol == 0xff ) midivol = 0x100;
 #endif
     aui.card_outbytes = aui.card_dmasize;
     int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
@@ -357,9 +361,12 @@ static void SNDISR_Interrupt( void )
         } while(VDMA_GetAuto(dma) && (pos < samples) && VSB_Running());
 
         //dbgprintf("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() );
-        //for(int i = pos; i < samples; ++i)
-        //    ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
+#if 1
+        for(int i = pos; i < samples; i++ )
+            ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
+#else
         samples = min(samples, pos);
+#endif
     }
 
     /* software mixer: very simple implemented - but should work quite well */
@@ -374,19 +381,18 @@ static void SNDISR_Interrupt( void )
             cv_channels_1_to_2( pcm, samples );
 
         if( digital ) {
-#if 1
+#if MIXERROUTINE==0
             for(int i = 0; i < samples * 2; i++ ) {
                 int a = (ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
-                int mixed = (a < 32768 || b < 32768) ? ( a * b / 32768) : ((a+b) * 2 - a * b / 32768 - 65536);
-                if ( mixed == 65536 ) mixed = 65535;
-                ISR_PCM[i] = mixed - 32768;
+                int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
+                ISR_PCM[i] = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
             }
-#elif 0
+#elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
             for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
 #else
-            /* in assembly it's probably easier to handle signed/unsigned shifts; doesn't work yet */
+            /* in assembly it's probably easier to handle signed/unsigned shifts */
             SNDISR_Mixer( ISR_PCM, ISR_OPLPCM, samples * 2, voicevol, midivol );
 #endif
         } else

@@ -135,7 +135,7 @@ static void VSB_Mixer_Write( uint8_t value )
 #if SB16
 	if( VSB_DSPVER >= 0x0400 ) { //SB16
 		if( VSB_MixerRegIndex >= SB16_MIXERREG_MASTERL && VSB_MixerRegIndex <= SB16_MIXERREG_MIDIR ) {
-			//5bits, drop 1 bit
+			//5bits, drop lowest bit
 			value = (value >> 4) & 0xF;
 			switch(VSB_MixerRegIndex) {
 			case SB16_MIXERREG_MASTERL:

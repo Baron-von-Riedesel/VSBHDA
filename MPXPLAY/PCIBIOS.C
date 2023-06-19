@@ -107,8 +107,8 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
  * "device_type" is to be set.
  */
 
-uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const pci_device_s devices[], struct pci_config_s *ppkey)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
@@ -146,8 +146,8 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 
 /* search a device by scanning a table of vendor-ids & device-ids */
 
-uint8_t pcibios_search_devices(const pci_device_s devices[], struct pci_config_s *ppkey)
-////////////////////////////////////////////////////////////////////////////////////////
+uint8_t pcibios_search_devices(const struct pci_device_s devices[], struct pci_config_s *ppkey)
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if(pcibios_GetBus()){
 		unsigned int i = 0;

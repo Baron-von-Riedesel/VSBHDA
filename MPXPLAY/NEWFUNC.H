@@ -14,8 +14,8 @@
 //**************************************************************************
 //function: routines in newfunc.lib
 
-#ifndef mpxplay_newfunc_h
-#define mpxplay_newfunc_h
+#ifndef newfunc_h
+#define newfunc_h
 
 #include <stddef.h> // for offsetof
 
@@ -43,7 +43,8 @@ struct xmsmem_s{
  unsigned short handle;
 };
 
-typedef struct xmsmem_s cardmem_t;
+#define cardmem_s xmsmem_s
+
 #define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->linearptr))
 
 //mapphys.c
@@ -70,4 +71,4 @@ extern void pds_mdelay(unsigned long msec);
 }
 #endif
 
-#endif // mpxplay_newfunc_h
+#endif // newfunc_h

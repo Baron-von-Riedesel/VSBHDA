@@ -48,6 +48,7 @@
 #define PCI_SET_INTERRUPT   0x0F
 #define PCI_SERVICE         0x1A
 
+/* PCI BIOS return codes */
 #define PCI_SUCCESSFUL      0x00
 #define PCI_NOT_SUPPORTED   0x81
 #define PCI_BAD_VEMDERID    0x83
@@ -80,17 +81,17 @@ struct pci_config_s {
  uint16_t device_type;  // from pci_device_s
 };
 
-typedef struct pci_device_s{
+struct pci_device_s {
  char *device_name;     // a short id string
  uint16_t vendor_id;    // pci vendor id
  uint16_t device_id;    // pci device id
  uint16_t device_type;  // internal device type
-}pci_device_s;
+};
 
 //uint8_t  pcibios_GetBus(void);
 uint8_t  pcibios_FindDevice(uint16_t, uint16_t, struct pci_config_s *);
-uint8_t  pcibios_FindDeviceClass( uint8_t, uint8_t, uint8_t, uint16_t, const pci_device_s devices[], struct pci_config_s *);
-uint8_t  pcibios_search_devices(const pci_device_s devices[], struct pci_config_s *);
+uint8_t  pcibios_FindDeviceClass( uint8_t, uint8_t, uint8_t, uint16_t, const struct pci_device_s devices[], struct pci_config_s *);
+uint8_t  pcibios_search_devices(const struct pci_device_s devices[], struct pci_config_s *);
 uint8_t  pcibios_ReadConfig_Byte ( struct pci_config_s *, uint16_t);
 uint16_t pcibios_ReadConfig_Word ( struct pci_config_s *, uint16_t);
 uint32_t pcibios_ReadConfig_Dword( struct pci_config_s *, uint16_t);

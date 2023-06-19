@@ -105,7 +105,7 @@ static uint32_t VOPL3_PrimaryWriteData(uint32_t val)
 static uint32_t VOPL3_SecondaryRead(uint32_t val)
 /////////////////////////////////////////////////
 {
-    if(VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLL_REG_INDEX || VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100+VOPL3_ADLG_VOLR_REG_INDEX)
+    if( ( VOPL3_IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX )) || ( VOPL3_IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLR_REG_INDEX) ) )
             return VOPL3_ADLG_Volume[VOPL3_IndexReg[VOPL3_SECONDARY] - VOPL3_ADLG_VOLL_REG_INDEX];
     return VOPL3_PrimaryRead(val);
 }
@@ -125,7 +125,8 @@ static uint32_t VOPL3_SecondaryWriteIndex(uint32_t val)
 static uint32_t VOPL3_SecondaryWriteData(uint32_t val)
 //////////////////////////////////////////////////////
 {
-    if(/*VOPL3_ADLG_CtrlEnable && */(VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100+VOPL3_ADLG_VOLL_REG_INDEX || VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100+VOPL3_ADLG_VOLR_REG_INDEX))
+    //if(/*VOPL3_ADLG_CtrlEnable && */(VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100+VOPL3_ADLG_VOLL_REG_INDEX || VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100+VOPL3_ADLG_VOLR_REG_INDEX))
+    if( (VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) || ( VOPL3_IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLR_REG_INDEX))
         VOPL3_ADLG_Volume[VOPL3_IndexReg[VOPL3_SECONDARY] - VOPL3_ADLG_VOLL_REG_INDEX] = val;
     VOPL3_Chip->WriteReg(VOPL3_IndexReg[VOPL3_SECONDARY], val);
 #if NOSILENTGEN

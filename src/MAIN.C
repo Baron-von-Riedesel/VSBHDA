@@ -36,13 +36,13 @@
 
 extern int SNDISR_InterruptPM();
 
-mpxplay_audioout_info_s aui = {0};
+struct audioout_info_s aui = {0};
 
 /* for AU_setrate() - use fixed rate */
-static mpxplay_audio_decoder_info_s adi = {
+static struct audio_decoder_info_s adi = {
     NULL, /* private data */
     0, /* infobits */
-    MPXPLAY_WAVEID_PCM_SLE, /* 16-bit samples */
+    WAVEID_PCM_SLE, /* 16-bit samples */
     22050, /* freq: 22050 or 44100 */
     HW_CHANNELS, /* channels in file (not used) */
     HW_CHANNELS, /* decoded channels */

@@ -1,5 +1,5 @@
-#ifndef AC97_DEF_H
-#define AC97_DEF_H
+#ifndef AC97_H
+#define AC97_H
 
 /* AC97 1.0 */
 #define  AC97_RESET               0x0000      //
@@ -150,6 +150,4 @@
 /* Total number of defined registers.  */
 #define AC97_REG_CNT 64
 
-extern aucards_allmixerchan_s mpxplay_aucards_ac97chan_mixerset[];
-
-#endif // AC97_DEF_H
+#endif // AC97_H

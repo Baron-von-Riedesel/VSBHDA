@@ -29,7 +29,7 @@ vpath %.o $(vpath_obj)
 OBJFILES=\
 	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/dpmihlp.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
-	$(OUTD)/ac97_def.o	$(OUTD)/au_cards.o\
+	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/mapphys.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
@@ -76,7 +76,7 @@ $(OUTD)/$(NAME).exe:: $(OUTD)/$(NAME).ar
 $(OUTD)/$(NAME).ar:: $(OBJFILES)
 	ar --target=coff-go32 r $(OUTD)/$(NAME).ar $(OBJFILES)
 
-$(OUTD)/ac97_def.o:: ac97_def.c  ac97_def.h mpxplay.h au_cards.h newfunc.h
+$(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h newfunc.h ac97mix.h
 $(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h newfunc.h dmairq.h
@@ -91,12 +91,12 @@ $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     ptrap.h dpmihlp.h platform.h config.h ports.h
 $(OUTD)/rmwrap.o::   rmwrap.asm
-$(OUTD)/sc_e1371.o:: sc_e1371.c  ac97_def.h mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h
-$(OUTD)/sc_ich.o::   sc_ich.c    ac97_def.h mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c             mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_inthd.h 
-$(OUTD)/sc_sbl24.o:: sc_sbl24.c  ac97_def.h mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_sbl24.h emu10k1.h 
-$(OUTD)/sc_sbliv.o:: sc_sbliv.c  ac97_def.h mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_sbliv.h emu10k1.h 
-$(OUTD)/sc_via82.o:: sc_via82.c  ac97_def.h mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h
+$(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
+$(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_inthd.h
+$(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbl24.h emu10k1.h
+$(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbliv.h emu10k1.h
+$(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97.h
 $(OUTD)/sndisr.o::   sndisr.c    dpmihlp.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h ctadpcm.h
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm

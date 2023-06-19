@@ -44,12 +44,12 @@ extern "C" {
 //#define INT08_DIVISOR_NEW     10375  // = 18.181818*65536 / (3 * 44100/1152)
 //#define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
 
-#define MPXPLAY_INTSOUNDDECODER_DISALLOW
-#define MPXPLAY_INTSOUNDDECODER_ALLOW
+#define INTSOUNDDECODER_DISALLOW
+#define INTSOUNDDECODER_ALLOW
 
-#define MPXPLAY_WAVEID_UNKNOWN   0x0000
-#define MPXPLAY_WAVEID_PCM_SLE   0x0001 // signed little endian
-#define MPXPLAY_WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
+#define WAVEID_UNKNOWN   0x0000
+#define WAVEID_PCM_SLE   0x0001 // signed little endian
+#define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
 
 //------------------------------------------------------------------------
 

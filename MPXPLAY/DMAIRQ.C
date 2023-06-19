@@ -23,12 +23,12 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 
-cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
-////////////////////////////////////////////////////
+struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
+///////////////////////////////////////////////////////////
 {
-	cardmem_t *dm;
+	struct cardmem_s *dm;
 	dbgprintf("MDma_alloc_cardmem(%u)\n", buffsize);
-	dm = calloc( 1, sizeof(cardmem_t) );
+	dm = calloc( 1, sizeof(struct cardmem_s) );
 	if(!dm)
 		return NULL;
 	if(!pds_dpmi_alloc_physical_memory( dm, buffsize )) {
@@ -40,8 +40,8 @@ cardmem_t *MDma_alloc_cardmem(unsigned int buffsize)
 	return dm;
 }
 
-void MDma_free_cardmem(cardmem_t *dm)
-/////////////////////////////////////
+void MDma_free_cardmem(struct cardmem_s *dm)
+////////////////////////////////////////////
 {
 	dbgprintf("MDma_free_cardmem(%x)\n", dm);
 	if( dm ){
@@ -50,8 +50,8 @@ void MDma_free_cardmem(cardmem_t *dm)
 	}
 }
 
-unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsigned int max_bufsize,unsigned int pagesize,unsigned int samplesize,unsigned long freq_config)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize, unsigned long freq_config)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bufsize;
 	dbgprintf("MDma_get_max_pcmoutbufsize(%x, %u, %u, %u, %u\n", aui, max_bufsize, pagesize, samplesize, freq_config);
@@ -64,7 +64,7 @@ unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsi
 	bufsize = AUCARDS_DMABUFSIZE_NORMAL/2; // samplesize/=2;
 
 	if(freq_config)
-		bufsize=(int)((float)bufsize*(float)freq_config/44100.0);
+		bufsize=(int)((float)bufsize * (float)freq_config / 44100.0);
 
 	if(aui->card_controlbits & AUINFOS_CARDCTRLBIT_DOUBLEDMA)
 		bufsize *= 2;             // 2x bufsize at -ddma
@@ -76,8 +76,8 @@ unsigned int MDma_get_max_pcmoutbufsize(struct mpxplay_audioout_info_s *aui,unsi
 	return bufsize;
 }
 
-unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned long freq_config)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned long freq_config )
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int dmabufsize,bit_width,tmp;
 	float freq;
@@ -85,11 +85,12 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 
 	asm("fsave %0"::"m"(buffer)); /* save/restore fpu state in case this function is called during interrupt time */
 
-	dbgprintf("MDma_init_pcmoutbuf: maxbuf=%u freqcfg=%u freq=%u bits=%u\n", maxbufsize, freq_config, aui->freq_card, aui->bits_card );
+	dbgprintf("MDma_init_pcmoutbuf(maxbufsize=%u pgsize=%u freqcfg=%u)\n", maxbufsize, pagesize, freq_config );
+	dbgprintf("MDma_init_pcmoutbuf, aui fields: freq=%u chan=%u bits=%u\n", aui->freq_card, aui->chan_card, aui->bits_card );
 	freq = (freq_config) ? freq_config : 44100;
 
 	switch( aui->card_wave_id ) {
-	case MPXPLAY_WAVEID_PCM_FLOAT:
+	case WAVEID_PCM_FLOAT:
 		bit_width = 32;
 		break;
 	default:
@@ -97,7 +98,7 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 		break;
 	}
 
-	dmabufsize= (unsigned int)((float)maxbufsize * (float)aui->freq_card / freq);
+	dmabufsize = (unsigned int)((float)maxbufsize * (float)aui->freq_card / freq);
 	// *(float)bit_width/16.0);
 	dmabufsize += (pagesize - 1);           // rounding up to pagesize
 	dmabufsize -= (dmabufsize % pagesize);  //
@@ -142,20 +143,20 @@ unsigned int MDma_init_pcmoutbuf(struct mpxplay_audioout_info_s *aui, unsigned i
 	return dmabufsize;
 }
 
-void MDma_clearbuf(struct mpxplay_audioout_info_s *aui)
-///////////////////////////////////////////////////////
+void MDma_clearbuf( struct audioout_info_s *aui )
+/////////////////////////////////////////////////
 {
 	if(aui->card_DMABUFF && aui->card_dmasize)
 		pds_memset(aui->card_DMABUFF,0,aui->card_dmasize);
 }
 
-void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long left)
-/////////////////////////////////////////////////////////////////////////////////////
+void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
+/////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int todo;
 
-    //dbgprintf("MDma_writedata( buffer=%X, src=%X)\n", aui->card_DMABUFF+aui->card_dmalastput, src);
-	todo = aui->card_dmasize-aui->card_dmalastput;
+	//dbgprintf("MDma_writedata( buffer=%X, src=%X)\n", aui->card_DMABUFF+aui->card_dmalastput, src);
+	todo = aui->card_dmasize - aui->card_dmalastput;
 
 	if(todo <= left){
 		pds_memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,todo);
@@ -173,8 +174,8 @@ void MDma_writedata(struct mpxplay_audioout_info_s *aui,char *src,unsigned long 
 // *************** called from int08 **********************************
 // checks the DMA buffer and if it's empty, fills with zeroes
 
-void MDma_interrupt_monitor(struct mpxplay_audioout_info_s *aui)
-////////////////////////////////////////////////////////////////
+void MDma_interrupt_monitor( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////////
 {
 	if(aui->card_dmafilled < (aui->card_dmaout_under_int08 * 2)) {
 		if(!(aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN)){
