@@ -41,7 +41,10 @@
    by /F ( or the default ).
 
 
-   3. SETPVI/RESPVI
+   3. Hints
+
+
+   3.1 SETPVI/RESPVI
 
     A few protected-mode games may "freeze" with the default settings of VSBHDA.
    Then there's a chance that running SETPVI may fix that. Note that SETPVI
@@ -52,7 +55,7 @@
    CLI/STI will modify the virtual interrupt flag (VIF) only.
 
 
-   4. Extended Memory
+   3.2 Extended Memory
 
     Some DOS games refuse to run if too much extended memory is available. There
    are some simple software workarounds for such issues:
@@ -68,3 +71,14 @@
 
    - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount of
      extended memory.
+
+
+   3.3 JemmEx's NOVCPI Option
+   
+    If VSBHDA is to work for DOS protected-mode games, those games must use the
+   HDPMI32i DPMI host. This is usually no problem, because there's an API to
+   detect the presence of such a host. However, games may ignore an installed
+   DPMI host and use the so-called VCPI API instead to run their very own low-
+   level code. This will actually deactivate HDPMI32i ( and VSBHDA ) for the
+   game. For such cases, JemmEx offers the NOVCPI option. This option must be
+   set *after* VSBHDA has been loaded and *before* the game is launched.
