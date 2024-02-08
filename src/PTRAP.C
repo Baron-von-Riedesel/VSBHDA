@@ -231,6 +231,7 @@ bool PTRAP_Prepare_RM_PortTrap()
 #if !RMPICTRAPDYN
     DPMI_CopyLinear( dosmem + 8, DPMI_PTR2L(&QPI_Entry), 4 );
 #endif
+    /* 4+4+4 are sizes of variables in RMWRAP.ASM */
     DPMI_CopyLinear( dosmem + 4 + 4 + 4, DPMI_PTR2L( &PTRAP_RM_Wrapper ), &PTRAP_RM_WrapperEnd - &PTRAP_RM_Wrapper );
 
     /* set new trap handler ES:DI */
@@ -292,6 +293,10 @@ bool PTRAP_Install_RM_PortTraps( void )
     return true;
 }
 
+/* set PIC port trap when a SB IRQ is emulated.
+ * Since the SB IRQ is emulated, no EOI must be sent to the PIC.
+ */
+
 void PTRAP_SetPICPortTrap( int bSet )
 /////////////////////////////////////
 {
@@ -312,7 +317,8 @@ void PTRAP_SetPICPortTrap( int bSet )
         DPMI_CallRealModeRETF(&r); /* trap port */
 #else
         /* patch the 16-bit real-mode code stored in the PSP.
-         * see rmwrap.asm, proc PTRAP_RM_Wrapper
+         * see rmwrap.asm, proc PTRAP_RM_Wrapper.
+         * the +12 is the size of variables in RMWRAP.ASM!
          */
         uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
         if ( bSet ) {
