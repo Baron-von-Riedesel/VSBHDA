@@ -5,7 +5,7 @@
 
 #include "CONFIG.H"
 #include "PIC.H"
-#include "DPMIHLP.H"
+#include "LINEAR.H"
 #include "PTRAP.H"
 #include "VIRQ.H"
 #include "VSB.H"
@@ -77,11 +77,11 @@ static uint8_t VIRQ_Read(uint16_t port)
 static void SafeCall( uint8_t irq )
 ///////////////////////////////////
 {
-    static DPMI_REG r = {0};
+    static __dpmi_regs r = {0};
     int n = PIC_IRQ2VEC(irq);
-    r.w.ip = DPMI_LoadW(n*4);
-    r.w.cs = DPMI_LoadW(n*4+2);
-    DPMI_CallRealModeIRET(&r);
+    r.x.ip = ReadLinearW(n*4);
+    r.x.cs = ReadLinearW(n*4+2);
+    __dpmi_simulate_real_mode_procedure_iret(&r);
 }
 
 /*
@@ -143,14 +143,14 @@ void VIRQ_SetCallType( void )
 {
     /* if IVT 5/7 has been modified, use SafeCall, else use FastCall */
     int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-    CallIRQ = ( DPMI_LoadW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
+    CallIRQ = ( ReadLinearW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
 }
 
 void VIRQ_Init( void )
 //////////////////////
 {
     int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-    OrgCS = DPMI_LoadW(n*4+2);
+    OrgCS = ReadLinearW(n*4+2);
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)

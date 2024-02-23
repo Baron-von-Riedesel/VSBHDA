@@ -836,7 +836,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 								+card->pcmout_bufsize            // pcm output
 								+0x1000 );                       // to round
 
-	card->silentpage = (void *)(((uint32_t)card->dm->linearptr + 0x0fff) & 0xfffff000); // buffer begins on page boundary
+	card->silentpage = (void *)(((uint32_t)card->dm->pMem + 0x0fff) & 0xfffff000); // buffer begins on page boundary
 	card->virtualpagetable = (uint32_t *)((uint32_t)card->silentpage + EMUPAGESIZE);
 	card->pcmout_buffer = (char *)(card->virtualpagetable + MAXPAGES);
 	//dbgprintf("snd_emu10kx_buffer_init: silentpage=%X, vpt=%X, pcmout=%X\n", card->silentpage, card->virtualpagetable, card->pcmout_buffer );
@@ -1009,7 +1009,7 @@ static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audi
 {
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,AUDIGY2_P16V_DMABUF_ALIGN,AUDIGY2_P16V_BYTES_PER_SAMPLE,0);
 	card->dm = MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize);
-	card->virtualpagetable = (uint32_t *)card->dm->linearptr;
+	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t);
 	dbgprintf("snd_p16v_selector: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
 	return 1;

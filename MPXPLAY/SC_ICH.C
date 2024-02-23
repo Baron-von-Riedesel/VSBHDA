@@ -192,7 +192,7 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
 	if (!card->dm)
         return 0;
-	card->virtualpagetable = (uint32_t *)card->dm->linearptr; // pagetable requires 8 byte align, but dos-allocmem gives 16 byte align (so we don't need alignment correction)
+	card->virtualpagetable = (uint32_t *)card->dm->pMem; // pagetable requires 8 byte align, but dos-allocmem gives 16 byte align (so we don't need alignment correction)
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t);
 	aui->card_DMABUFF = card->pcmout_buffer;
 #ifdef SBEMU

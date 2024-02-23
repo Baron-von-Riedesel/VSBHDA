@@ -38,20 +38,23 @@ extern "C" {
 #endif
 
 struct xmsmem_s{
- char *linearptr;
- uint32_t physicalptr;
- unsigned short handle;
+	union {
+		uint32_t dwLinear;  /* the linear address is usually converted to a near ptr! */
+		char *pMem;
+	};
+	uint32_t physicalptr;
+	unsigned short handle;
 };
 
 #define cardmem_s xmsmem_s
 
-#define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->linearptr))
+#define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->pMem))
 
 //mapphys.c
-extern int  pds_dpmi_alloc_physical_memory( struct xmsmem_s *, unsigned int size);
-extern void pds_dpmi_free_physical_memory( struct xmsmem_s *);
-extern unsigned long pds_dpmi_map_physical_memory(unsigned long phys_addr,unsigned long memsize);
-extern void pds_dpmi_unmap_physical_memory(unsigned long linear_address);
+extern int  _alloc_physical_memory( struct xmsmem_s *, unsigned int size);
+extern void _free_physical_memory( struct xmsmem_s *);
+extern unsigned long _dpmi_map_physical_memory(unsigned long phys_addr, unsigned long memsize);
+extern void _dpmi_unmap_physical_memory(unsigned long linear_address);
 
 //memory.c
 #include <string.h>

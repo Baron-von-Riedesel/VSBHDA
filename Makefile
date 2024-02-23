@@ -27,7 +27,7 @@ vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
 
 OBJFILES=\
-	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/dpmihlp.o	$(OUTD)/pic.o\
+	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/mapphys.o	$(OUTD)/time.o\
@@ -80,16 +80,16 @@ $(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h newfunc.h ac97mix.h
 $(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h newfunc.h dmairq.h
-$(OUTD)/dpmihlp.o::  dpmihlp.c   dpmihlp.h platform.h
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/int31.o::    int31.asm
-$(OUTD)/main.o::     main.c      ptrap.h dpmihlp.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h
+$(OUTD)/linear.o::   linear.c    linear.h platform.h
+$(OUTD)/main.o::     main.c      ptrap.h  linear.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h
 $(OUTD)/mapphys.o::  mapphys.c   newfunc.h
 $(OUTD)/memory.o::   memory.c
 $(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
-$(OUTD)/ptrap.o::    ptrap.c     ptrap.h dpmihlp.h platform.h config.h ports.h
+$(OUTD)/ptrap.o::    ptrap.c     ptrap.h linear.h platform.h config.h ports.h
 $(OUTD)/rmwrap.o::   rmwrap.asm
 $(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
 $(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
@@ -97,15 +97,15 @@ $(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc
 $(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbl24.h emu10k1.h
 $(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbliv.h emu10k1.h
 $(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97.h
-$(OUTD)/sndisr.o::   sndisr.c    dpmihlp.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h ctadpcm.h
+$(OUTD)/sndisr.o::   sndisr.c    linear.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h ctadpcm.h
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
 $(OUTD)/time.o::     time.c      mpxplay.h au_cards.h newfunc.h
-$(OUTD)/vdma.o::     vdma.c      dpmihlp.h platform.h ptrap.h vdma.h config.h
+$(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
 $(OUTD)/vioout.o::   vioout.asm
-$(OUTD)/virq.o::     virq.c      dpmihlp.h pic.h platform.h ptrap.h virq.h config.h
+$(OUTD)/virq.o::     virq.c      linear.h pic.h platform.h ptrap.h virq.h config.h
 $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h
-$(OUTD)/vsb.o::      vsb.c       dpmihlp.h platform.h vsb.h config.h
+$(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
 
 clean::
 	del $(OUTD)\$(NAME).exe

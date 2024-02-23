@@ -2,11 +2,26 @@
 
    1. About
 
-   VSBHDA is a fork of SBEMU - it's compatible with the standard HDPMI32i
+    VSBHDA is a fork of SBEMU - it's compatible with the standard HDPMI32i
    included in the HX runtime package. 
 
 
-   2. Usage
+   2. Requirements
+
+    Besides VSBHDA the following binaries are needed:
+
+   - HDPMI32i : included in the HX DOS extender runtime package HXRT.
+                Download from https://github.com/Baron-von-Riedesel/HX.
+                Version of HDPMI32i must be v3.21 or better.
+
+   - Jemm     : To be found at https://github.com/Baron-von-Riedesel/Jemm.
+                This package will also contain JLOAD.EXE and QPIEMU.DLL.
+                Version must be at least v5.84. Jemm - or rather QPIEMU.DLL
+                - is necessary for VSBHDA's support for "real-mode" games.
+                Alternately, Qemm may be used.
+
+
+   3. Usage
 
    The steps to load VSBHDA are
    
@@ -41,10 +56,10 @@
    by /F ( or the default ).
 
 
-   3. Hints
+   4. Hints
 
 
-   3.1 SETPVI/RESPVI
+   4.1 SETPVI/RESPVI
 
     A few protected-mode games may "freeze" with the default settings of VSBHDA.
    Then there's a chance that running SETPVI may fix that. Note that SETPVI
@@ -55,7 +70,7 @@
    CLI/STI will modify the virtual interrupt flag (VIF) only.
 
 
-   3.2 Extended Memory
+   4.2 Extended Memory
 
     Some DOS games refuse to run if too much extended memory is available. There
    are some simple software workarounds for such issues:
@@ -73,7 +88,7 @@
      extended memory.
 
 
-   3.3 JemmEx's NOVCPI Option
+   4.3 JemmEx's NOVCPI Option
    
     If VSBHDA is to work for DOS protected-mode games, those games must use the
    HDPMI32i DPMI host. This is usually no problem, because there's an API to

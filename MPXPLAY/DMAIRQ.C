@@ -22,21 +22,25 @@
 #include "CONFIG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
+#include "LINEAR.H"
 
 struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
 ///////////////////////////////////////////////////////////
 {
 	struct cardmem_s *dm;
 	dbgprintf("MDma_alloc_cardmem(%u)\n", buffsize);
-	dm = calloc( 1, sizeof(struct cardmem_s) );
+	dm = pds_calloc( 1, sizeof(struct cardmem_s) );
 	if(!dm)
 		return NULL;
-	if(!pds_dpmi_alloc_physical_memory( dm, buffsize )) {
+	/* alloc & map physical memory */
+	if(!_alloc_physical_memory( dm, buffsize )) {
 		free(dm);
 		return NULL;
 	}
-	memset( dm->linearptr, 0, buffsize);
-	dbgprintf("MDma_alloc_cardmem: %X\n", dm->linearptr);
+	/* convert linear address to near ptr */
+	dm->pMem = NearPtr( dm->dwLinear );
+	memset( dm->pMem, 0, buffsize);
+	dbgprintf("MDma_alloc_cardmem: %X\n", dm->pMem);
 	return dm;
 }
 
@@ -45,7 +49,10 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 {
 	dbgprintf("MDma_free_cardmem(%x)\n", dm);
 	if( dm ){
-		pds_dpmi_free_physical_memory(dm);
+		/* convert the near ptr back to a linear address */
+		dm->dwLinear = LinearAddr( dm->pMem );
+		/* unmap & free physical memory */
+		_free_physical_memory(dm);
 		free(dm);
 	}
 }

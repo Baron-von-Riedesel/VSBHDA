@@ -295,7 +295,8 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	if (!card->dm)
 		return 0;
 
-	card->virtualpagetable = (void *)(((uint32_t)card->dm->linearptr + 4095) & (~4095));
+    asm("int3");
+	card->virtualpagetable = (void *)(((uint32_t)card->dm->pMem + 4095) & (~4095));
 	card->pcmout_buffer = (char *)card->virtualpagetable + VIRTUALPAGETABLESIZE;
 
 #ifdef SBEMU

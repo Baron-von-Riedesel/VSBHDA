@@ -63,13 +63,13 @@
 #define PCIR_STATUS     0x06 // read status (16 bits)
 #define PCIR_RID        0x08 // chiprev
 #define PCIR_CCODE      0x0A
-#define PCIR_HEADT      0x0E // head type
+#define PCIR_HEADT      0x0E // header type
 #define PCIR_NAMBAR     0x10 // Native Audio Mixer Base Address
 #define PCIR_NABMBAR    0x14 // Native Audio Bus Mastering Base Address
 #define PCIR_SSVID      0x2C // subsystem id + vendor id (serial)
 #define PCIR_SSID       0x2E // subsystem id (model)
-#define PCIR_INTR_LN    0x3C // irq number
-#define PCIR_INTR_PIN   0x3D
+#define PCIR_INTR_LN    0x3C // interrupt line (1..15)
+#define PCIR_INTR_PIN   0x3D // interrupt pin (1..4)
 
 struct pci_config_s {
  uint8_t bBus;

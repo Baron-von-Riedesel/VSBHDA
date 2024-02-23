@@ -14,7 +14,7 @@
 #include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
-#include "DPMIHLP.H"
+#include "LINEAR.H"
 #include "PTRAP.H"
 #include "VDMA.H"
 #include "VIRQ.H"
@@ -224,7 +224,7 @@ static void ReleaseRes( void )
 void MAIN_Uninstall( void )
 ///////////////////////////
 {
-	DPMI_REG r = {0};
+	__dpmi_regs r = {0};
 	ReleaseRes();
 	AU_close( &aui );
 	/* set TSR's parent PSP to current PSP;
@@ -233,18 +233,18 @@ void MAIN_Uninstall( void )
 	 * run an int 21h, ah=4Ch in pm
 	 * todo: adjust value at psp:2Eh
 	 */
-	r.w.ax = 0x5100; /* get current PSP in BX (segment) */
-	DPMI_CallRealModeINT(0x21, &r);
+	r.x.ax = 0x5100; /* get current PSP in BX (segment) */
+	__dpmi_simulate_real_mode_interrupt(0x21, &r);
 #if 0
-	uint32_t dwSSSP = DPMI_LoadD( (r.w.bx << 4) + 0x2E );
-	DPMI_StoreD( _go32_info_block.linear_address_of_original_psp+0x2E, dwSSSP );
+	uint32_t dwSSSP = ReadLinearD( (r.x.bx << 4) + 0x2E );
+	WriteLinearD( _go32_info_block.linear_address_of_original_psp+0x2E, dwSSSP );
 #endif
-	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0xA, 0 );
-	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0xC, r.w.bx );
-	DPMI_StoreW( _go32_info_block.linear_address_of_original_psp+0x16, r.w.bx );
-	r.w.bx = _go32_info_block.linear_address_of_original_psp >> 4;
-	r.w.ax = 0x5000;
-	DPMI_CallRealModeINT(0x21, &r);
+	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0xA, 0 );
+	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0xC, r.x.bx );
+	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0x16, r.x.bx );
+	r.x.bx = _go32_info_block.linear_address_of_original_psp >> 4;
+	r.x.ax = 0x5000;
+	__dpmi_simulate_real_mode_interrupt(0x21, &r);
 	dbgprintf("MAIN_Uninstall: all cleanup done, terminating\n");
 	asm(
 		"mov $0x4C00, %ax \n\t"
@@ -366,7 +366,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    DPMI_Init();
+    __dpmi_get_segment_base_address(_my_ds(), &DSBase);
+    __dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
 
     if ( IsInstalled() ) {
         printf("SB found - probably VSBHDA already installed.\n" );
@@ -488,26 +489,30 @@ int main(int argc, char* argv[])
 #endif
     /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
      * while another client is active will result in problems, since that memory is released when
-     * the client exits.
+     * the client exits. Also, if malloc() needs a new block of dpmi memory, it will adjust
+     * limit of DS - something that has to be avoided.
      */
     void * p;
     if (p = malloc( 0x10000 ) )
         free( p );
+    /* djgpp may have reset our DS limit in the malloc() call - change it back to 4G! */
+    __dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
+
 
     if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
-        DPMI_REG r = {0};
+        __dpmi_regs r = {0};
         __dpmi_set_coprocessor_emulation( 0 );
         uint32_t psp = _go32_info_block.linear_address_of_original_psp;
-        __dpmi_free_dos_memory( DPMI_LoadW( psp+0x2C ) );
-        DPMI_StoreW( psp+0x2C, 0 );
+        __dpmi_free_dos_memory( ReadLinearW( psp+0x2C ) );
+        WriteLinearW( psp+0x2C, 0 );
         for ( int i = 0; i < 5; i++ )
             _dos_close( i );
         __djgpp_exception_toggle();
         _go32_info_block.size_of_transfer_buffer = 0; /* ensure it's not used anymore */
         asm("push $0\n\t" "pop %gs\n\t" "push $0\n\t" "pop %fs"); /* clear fs/gs */
-        r.w.dx= 0x10; /* only psp */
-        r.w.ax = 0x3100;
-        DPMI_CallRealModeINT(0x21, &r); //won't return on success
+        r.x.dx= 0x10; /* only psp */
+        r.x.ax = 0x3100;
+        __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }
     ReleaseRes();
     printf("Error: Failed installing TSR.\n");

@@ -225,7 +225,7 @@ static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct au
 	card->dm = MDma_alloc_cardmem(CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize);
 	if (!card->dm)
         return 0;
-	card->virtualpagetable = (uint32_t *)card->dm->linearptr;
+	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable)+CA0106_DMABUF_PERIODS*2*sizeof(uint32_t);
 	dbgprintf("buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
 	return 1;

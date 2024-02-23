@@ -404,7 +404,7 @@ static unsigned int snd_es1371_buffer_init( struct ensoniq_card_s *card, struct 
 	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize );
 	if (!card->dm)
 		return 0;
-	card->pcmout_buffer = card->dm->linearptr;
+	card->pcmout_buffer = card->dm->pMem;
 	aui->card_DMABUFF = card->pcmout_buffer;
 	dbgprintf("buffer init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
 	return 1;

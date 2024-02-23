@@ -625,6 +625,5 @@ static void aucards_dma_monitor( void )
 
 //---------------- Timer Interrupt ------------------------------------------
 unsigned long intdec_timer_counter;
-
 #endif
 

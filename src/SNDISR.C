@@ -9,7 +9,7 @@
 #include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
-#include "DPMIHLP.H"
+#include "LINEAR.H"
 #include "VDMA.H"
 #include "VIRQ.H"
 #include "VOPL3.H"
@@ -282,16 +282,30 @@ static void SNDISR_Interrupt( void )
             if( ISR_DMA_MappedAddr != 0
              && !(DMA_Addr >= ISR_DMA_Addr && DMA_Addr + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size ))
             {
-                if(ISR_DMA_MappedAddr > 1024*1024)
-                    DPMI_UnmapMemory( ISR_DMA_MappedAddr );
+                if(ISR_DMA_MappedAddr > 1024*1024) {
+                    __dpmi_meminfo info;
+                    info.address = ISR_DMA_MappedAddr;
+                    __dpmi_free_physical_address_mapping(&info);
+                }
                 ISR_DMA_MappedAddr = 0;
             }
             /* if there's no mapped region, create one that covers current DMA op
              */
             if( ISR_DMA_MappedAddr == 0) {
-                ISR_DMA_Addr = DMA_Addr & ~0xFFF;
-                ISR_DMA_Size = align( max( DMA_Addr - ISR_DMA_Addr + DMA_Index + DMA_Count, 64*1024*2 ), 4096);
-                ISR_DMA_MappedAddr = (DMA_Addr + DMA_Index + DMA_Count <= 1024*1024) ? ( DMA_Addr & ~0xFFF) : DPMI_MapMemory( ISR_DMA_Addr, ISR_DMA_Size );
+                ISR_DMA_Addr = DMA_Addr;
+                ISR_DMA_Size = max( min(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
+                if (DMA_Addr <= 0x100000 )
+                    ISR_DMA_MappedAddr =  DMA_Addr;
+                else {
+                    __dpmi_meminfo info;
+                    info.address = ISR_DMA_Addr;
+                    info.size = ISR_DMA_Size;
+                    if( __dpmi_physical_address_mapping(&info) != -1)
+                        ISR_DMA_MappedAddr = info.address;
+                    else {
+                        return;
+                    }
+                }
                 // dbgprintf("ISR: chn=%d DMA_Addr/Index/Count=%x/%x/%x ISR_DMA_Addr/Size/MappedAddr=%x/%x/%x\n", dma, DMA_Addr, DMA_Index, DMA_Count, ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr );
             }
 #endif
@@ -314,12 +328,12 @@ static void SNDISR_Interrupt( void )
             /* copy samples to our PCM buffer
              */
 #if PREMAPDMA
-            DPMI_CopyLinear(DPMI_PTR2L(ISR_PCM + pos * 2), MAIN_MappedBase + DMA_Addr + DMA_Index, bytes);
+            memcpy( ISR_PCM + pos * 2, NearPtr(MAIN_MappedBase + DMA_Addr + DMA_Index, bytes));
 #else
             if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
                 memset(ISR_PCM + pos * 2, 0, bytes);
             } else
-                DPMI_CopyLinear(DPMI_PTR2L(ISR_PCM + pos * 2), ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr)+DMA_Index, bytes);
+                memcpy( ISR_PCM + pos * 2, NearPtr(ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr) + DMA_Index ), bytes);
 #endif
 
             /* format conversion needed? */

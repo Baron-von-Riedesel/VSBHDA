@@ -24,6 +24,7 @@
 #include "DMAIRQ.H"
 #include "PCIBIOS.H"
 #include "SC_INTHD.H"
+#include "LINEAR.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 1
@@ -816,7 +817,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	card->dm = MDma_alloc_cardmem( allbufsize );
 	if(!card->dm)
 		return 0;
-	beginmem_aligned = (((unsigned long)card->dm->linearptr + 1023) & (~1023));
+	beginmem_aligned = (((unsigned long)card->dm->pMem + 1023) & (~1023));
 	card->table_buffer = (uint32_t *)beginmem_aligned;
 	card->pcmout_buffer = (char *)(beginmem_aligned + BDL_SIZE);
 	card->corb_buffer = (long*)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN - 1) & (~(HDA_CORB_ALIGN - 1)));
@@ -1316,7 +1317,8 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 {
 	if( card->iobase ){
 		hda_hw_close( card );
-		pds_dpmi_unmap_physical_memory( card->iobase );
+		/* iobase has to be converted back to a linear address */
+		_dpmi_unmap_physical_memory( LinearAddr( (void *)(card->iobase) ) );
 		card->iobase = 0;
 	}
 	if( card->afg_nodes ) {
@@ -1361,14 +1363,22 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			break;
 
 		card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
-		if( card->iobase & 0x1 ) // we handle memory mapping only
+		if( card->iobase & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
 			card->iobase = 0;
 		if( !card->iobase ) {
 			dbgprintf("HDA_adetect: card index %u skipped (no PCI base addr)\n", aui->card_select_devicenum );
 			continue;
 		}
-		card->iobase &= 0xfffffff8;
-		card->iobase = pds_dpmi_map_physical_memory( card->iobase, 8192 );
+		if( card->iobase & 4 ) {// 64-bit address? then check if it's beyond 4G...
+			uint32_t tmp = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR+4);
+			if ( tmp ) {
+				dbgprintf("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", aui->card_select_devicenum );
+				continue;
+			}
+		}
+		card->iobase &= 0xfffffff0;
+		/* the physical addr is converted to linear addr, then to a near ptr */
+		card->iobase = (unsigned long)NearPtr( _dpmi_map_physical_memory( card->iobase, 8192 ) );
 		if( !card->iobase ) {
 			printf("HDA: mapping MMIO for card %u failed\n", aui->card_select_devicenum );
 			break;
@@ -1417,7 +1427,8 @@ static void HDA_close( struct audioout_info_s *aui )
 	if( card ){
 		if( card->iobase ){
 			hda_hw_close( card );
-			pds_dpmi_unmap_physical_memory( card->iobase );
+			/* iobase has to be converted back to a linear address */
+			_dpmi_unmap_physical_memory( LinearAddr( (void *)(card->iobase ) ) );
 			card->iobase = 0;
 		}
 		if( card->afg_nodes ) {
