@@ -24,13 +24,14 @@
 #include "VDMA.H"
 #include "VIRQ.H"
 #include "VSB.H"
+#include "HAPI.H"
 
 // next 2 defines must match EQUs in rmwrap.asm!
 #define HANDLE_IN_388H_DIRECTLY 1
 #define RMPICTRAPDYN 0 /* trap PIC for v86-mode dynamically when needed */
 
 uint32_t _hdpmi_rmcbIO( void(*Fn)( __dpmi_regs *), __dpmi_regs *reg, __dpmi_raddr * );
-bool _hdpmi_CliHandler( void );
+void _hdpmi_CliHandler( void );
 void SwitchStackIOIn(  void );
 void SwitchStackIOOut( void );
 
@@ -50,22 +51,8 @@ extern void PTRAP_RM_WrapperEnd( void );
 
 static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
 
-struct HDPMIPT_ENTRY {
-    uint32_t edi;
-    uint16_t es;
-};
-
-/* struct expected by HDPMI port trapping API ax=0006 in DS:ESI */
-
-static struct __attribute__((packed)) _traphandler {
-    uint32_t ofsIn;
-    uint16_t segIn;
-    uint32_t ofsOut;
-    uint16_t segOut;
-} traphandler;
-
-static const char* VENDOR_HDPMI = "HDPMI"; /* vendor string */
-static struct HDPMIPT_ENTRY HDPMIPT_Entry; /* vendor API entry */
+static struct _hdpmi_traphandler traphandler;
+struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
 
 void (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = &outp;
 uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = &inp;
@@ -380,39 +367,11 @@ uint32_t PTRAP_PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
     return value;
 }
 
-static int GetHDPMIVendorEntry( void )
-//////////////////////////////////////
-{
-    int result = 0;
-    asm(
-    "push %%es \n\t"
-    "push %%esi \n\t"
-    "push %%edi \n\t"
-    "xor %%edi, %%edi \n\t"
-    "mov %%edi, %%es \n\t"
-    "mov $0x168A, %%ax \n\t"
-    "mov %3, %%esi \n\t"
-    "int $0x2F \n\t"
-    "mov %%es, %%ecx \n\t"  //entry->es & entry->edi may use register esi & edi
-    "mov %%edi, %%edx \n\t" //save edi to edx and pop first
-    "pop %%edi \n\t"
-    "pop %%esi \n\t"
-    "pop %%es \n\t"
-    "mov %%eax, %0 \n\t"
-    "mov %%cx, %1 \n\t"
-    "mov %%edx, %2 \n\t"
-    : "=r"(result),"=m"(HDPMIPT_Entry.es), "=m"(HDPMIPT_Entry.edi)
-    : "m"(VENDOR_HDPMI)
-    : "eax", "ecx", "edx","memory"
-    );
-    return (result & 0xFF) == 0; //al=0 to succeed
-}
-
 bool PTRAP_DetectHDPMI()
 ////////////////////////
 {
-    bool result = GetHDPMIVendorEntry();
-    return( result && HDPMIPT_Entry.es );
+    uint8_t result = _get_hdpmi_vendor_api(&HDPMIAPI_Entry);
+    return (result == 0 && HDPMIAPI_Entry.seg);
 }
 
 static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(void), void(*handlerOut)(void) )
@@ -421,28 +380,8 @@ static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(
     uint32_t handle = 0;
     int count = end - start + 1;
     traphandler.ofsIn  = (uint32_t)handlerIn;
-    traphandler.ofsOut = (uint32_t)handlerOut;
-    asm(
-        "push %%ebx \n\t"
-        "push %%esi \n\t"
-        "push %%edi \n\t"
-        "mov %1, %%edx \n\t"  //DX: starting port
-        "mov %2, %%ecx \n\t"  //CX: port count
-        "lea %3, %%esi \n\t"  //ESI: handler addr, IN, OUT
-        "movw %%cs, %5 \n\t"
-        "movw %%cs, %6 \n\t"
-        "mov $6, %%ax \n\t"   //AX: 6=install port trap
-        "lcall *%4\n\t"
-        "movl $0, %0 \n\t"
-        "jb 1f \n\t"
-        "mov %%eax, %0 \n\t"
-        "1: pop %%edi \n\t"
-        "pop %%esi \n\t"
-        "pop %%ebx \n\t"
-    :"=m"(handle)
-    :"m"(start),"m"(count),"m"(traphandler),"m"(HDPMIPT_Entry),"m"(traphandler.segIn),"m"(traphandler.segOut)
-    :"eax","ebx","ecx","edx","memory"
-    );
+	traphandler.ofsOut = (uint32_t)handlerOut;
+    handle = _hdpmi_install_trap( start, count, &traphandler );
     return handle;
 }
 
@@ -453,33 +392,17 @@ bool PTRAP_Install_PM_PortTraps( void )
     maxports = portranges[max];
     int start, end;
 
-    /* ensure that hdpmi=32 isn't set */
-    asm(
-        "push %%ebx \n\t"
-        "mov $0, %%bl \n\t"
-        "mov $5, %%ax \n\t"
-        "lcall *%0\n\t"
-        "pop %%ebx"
-        ::"m"(HDPMIPT_Entry)
-    );
+    /* reset hdpmi=32 option in case it is set */
+    _hdpmi_set_context_mode( 0 );
 
-    /* install CLI trap handler */
-    asm(
-        "push %%ebx \n\t"
-        "mov $0, %%bl \n\t"
-        "mov $9, %%ax \n\t"
-        "mov %%cs, %%ecx \n\t"
-        "lea %1, %%edx \n\t"
-        "lcall *%0\n\t"
-        "pop %%ebx"
-        ::"m"(HDPMIPT_Entry), "m"(_hdpmi_CliHandler)
-    );
+	/* install CLI handler */
+    _hdpmi_set_cli_handler( _hdpmi_CliHandler );
 
     for ( int i = 0; i < max; i++ ) {
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
             start = PDispTab[portranges[i]].port;
             end = PDispTab[portranges[i+1]-1].port;
-            dbgprintf("HDPMIPT_Install_PM_PortTraps: %X-%X\n", start, end );
+            dbgprintf("PTRAP_Install_PM_PortTraps: %X-%X\n", start, end );
             if (!(traphdl[i] = PTRAP_Int_Install_PM_Trap( start, end, &SwitchStackIOIn, &SwitchStackIOOut)))
                 return false;
         }
@@ -536,42 +459,14 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
     }
 }
 
-static bool PTRAP_Int_Uninstall_PM_Trap( uint32_t handle )
-//////////////////////////////////////////////////////////
-{
-    bool result = false;
-    asm(
-    "mov %2, %%edx \n\t"  //EDX=handle
-    "mov $7, %%ax \n\t"   //ax=7, unistall port trap
-    "lcall *%1\n\t"
-    "jc 1f \n\t"
-    "mov $1, %%eax \n\t"
-    "mov %%eax, %0 \n\t"
-    "1: nop \n\t"
-    :"=m"(result)
-    :"m"(HDPMIPT_Entry),"m"(handle)
-    :"eax","ecx","edx","memory"
-    );
-    return result;
-}
-
 bool PTRAP_Uninstall_PM_PortTraps( void )
 /////////////////////////////////////////
 {
     for ( int i = 0; traphdl[i]; i++ )
-        PTRAP_Int_Uninstall_PM_Trap( traphdl[i] );
+        _hdpmi_uninstall_trap( traphdl[i] );
 
     /* uninstall CLI trap handler */
-    asm(
-        "push %%ebx \n\t"
-        "mov $0, %%bl \n\t"
-        "mov $9, %%ax \n\t"
-        "xor %%ecx, %%ecx \n\t"
-        "xor %%edx, %%edx \n\t"
-        "lcall *%0\n\t"
-        "pop %%ebx"
-        ::"m"(HDPMIPT_Entry)
-    );
+    _hdpmi_set_cli_handler( NULL );
 
     return true;
 }
@@ -579,38 +474,14 @@ bool PTRAP_Uninstall_PM_PortTraps( void )
 void PTRAP_UntrappedIO_OUT(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////////
 {
-    asm(
-        "push %%ebx \n\t"
-        "mov %1, %%dx \n\t"     //dx=port
-        "mov %2, %%cl \n\t"     //cl=value to write
-        "mov $1, %%bl \n\t"     //bl=mode; 1="out dx, al"
-        "mov $0x08, %%ax \n\t"  //ax=8; simulate IO
-        "lcall *%0\n\t"
-        "pop %%ebx \n\t"
-        :
-        :"m"(HDPMIPT_Entry),"m"(port),"m"(value)
-        :"eax","ecx","edx"
-    );
+    _hdpmi_simulate_byte_out( port, value );
+    return;
 }
 
 uint8_t PTRAP_UntrappedIO_IN(uint16_t port)
 ///////////////////////////////////////////
 {
-    uint8_t result = 0;
-
-    asm(
-        "push %%ebx \n\t"
-        "mov %2, %%dx \n\t"     //dx=port
-        "mov $0, %%bl \n\t"     //bl=mode; 0="in al, dx"
-        "mov $0x08, %%ax \n\t"  //function no.
-        "lcall *%1\n\t"
-        "pop %%ebx \n\t"
-        "mov %%al, %0 \n\t"
-        :"=m"(result)
-        :"m"(HDPMIPT_Entry),"m"(port)
-        :"eax","ecx","edx"
-    );
-    return result;
+    return _hdpmi_simulate_byte_in( port );
 }
 
 #ifdef _DEBUG

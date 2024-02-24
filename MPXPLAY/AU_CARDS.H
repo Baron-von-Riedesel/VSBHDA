@@ -115,9 +115,7 @@ struct audioout_info_s {
  unsigned long  card_dmaspace;
  unsigned long  card_dmafilled;
  unsigned long  card_dma_lastgoodpos;
- unsigned int   card_bytespersign; // bytespersample_card*chan_card
- //unsigned int   card_dmaout_under_int08;
- //unsigned short int08_decoder_cycles;
+ unsigned int   card_bytespersign; // bytespersample_card * chan_card
  char *card_DMABUFF;
 
  //char *card_selectname;          // select card by name

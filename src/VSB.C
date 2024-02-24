@@ -136,7 +136,7 @@ static void VSB_Mixer_Write( uint8_t value )
 	if( VSB_DSPVER >= 0x0400 ) { //SB16
 		if( VSB_MixerRegIndex >= SB16_MIXERREG_MASTERL && VSB_MixerRegIndex <= SB16_MIXERREG_MIDIR ) {
 			//5bits, drop lowest bit
-			value = (value >> 4) & 0xF;
+			value = value >> 4;
 			switch(VSB_MixerRegIndex) {
 			case SB16_MIXERREG_MASTERL:
 				VSB_MixerRegs[SB_MIXERREG_MASTERSTEREO] &= 0x0F;
@@ -669,9 +669,7 @@ int VSB_GetSampleBytes()
 	//   return VSB_Samples + 1;
 	//   return(( VSB_Samples + 1 ) * VSB_Bits / 8 );
 	//   return((VSB_Samples + 1) * max(1, VSB_Bits >> 3));
-#if 0
-    if ( !VSB_Samples ) asm("int3"); /* 1 sample, used by card detection software */
-#endif
+    //if ( !VSB_Samples ) asm("int3"); /* 1 sample, used by card detection software */
     return((VSB_Samples + 1) * ((VSB_Bits+7) >> 3));
 }
 

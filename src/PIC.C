@@ -46,18 +46,18 @@ void PIC_UnmaskIRQ(uint8_t irq)
     if(irq >= 8)
     {
         uint8_t master = inp(port);
-        if(master&0x4)
-            outp(port, (uint8_t)(master&~0x4)); //unmask slave
+        if(master & 0x4)
+            outp(port, (uint8_t)(master & ~0x4)); //unmask slave
         port = PIC_DATA2;
         irq = (uint8_t)(irq - 8);
     }
-    outp(port, (uint8_t)(inp(port)&~(1<<irq)));
+    outp(port, (uint8_t)(inp(port)&~( 1 << irq )));
 }
 
 uint16_t PIC_GetIRQMask(void)
 /////////////////////////////
 {
-    uint16_t mask = (uint16_t)((inp(PIC_DATA2)<<8) | inp(PIC_DATA1));
+    uint16_t mask = (uint16_t)((inp(PIC_DATA2) << 8) | inp(PIC_DATA1));
     return mask;
 }
 
@@ -65,5 +65,5 @@ void PIC_SetIRQMask(uint16_t mask)
 //////////////////////////////////
 {
     outp(PIC_DATA1, (uint8_t)mask);
-    outp(PIC_DATA2, (uint8_t)(mask>>8));
+    outp(PIC_DATA2, (uint8_t)(mask >> 8));
 }

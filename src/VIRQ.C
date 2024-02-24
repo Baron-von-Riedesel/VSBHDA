@@ -150,7 +150,8 @@ void VIRQ_Init( void )
 //////////////////////
 {
     int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-    OrgCS = ReadLinearW(n*4+2);
+    if ( n < 0x100 )
+        OrgCS = ReadLinearW(n*4+2);
 }
 
 uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)

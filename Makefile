@@ -33,7 +33,7 @@ OBJFILES=\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/mapphys.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/dprintf.o	$(OUTD)/vioout.o
+	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o
 
 INCLUDE_DIRS=src mpxplay
 SRC_DIRS=src mpxplay
@@ -81,6 +81,7 @@ $(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h newfunc.h dmairq.h
 $(OUTD)/dprintf.o::  dprintf.asm
+$(OUTD)/hapi.o::     hapi.asm
 $(OUTD)/int31.o::    int31.asm
 $(OUTD)/linear.o::   linear.c    linear.h platform.h
 $(OUTD)/main.o::     main.c      ptrap.h  linear.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h

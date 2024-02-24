@@ -5,7 +5,6 @@
 #define HW_BITS 16
 
 #define SB16 1        /* 1=support SB16 */
-#define SBLIVE 1      /* 1=support SBLIVE/AUDIGY */
 #define ADPCM 1       /* 1=support ADPCM */
 #define SETIF 1       /* 1=enable interrupts when ISR is entered */
 #define TRIGGERATONCE 1  /* 1=trigger IRQ from inside trap handler */

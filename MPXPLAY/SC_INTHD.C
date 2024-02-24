@@ -138,7 +138,7 @@ static const struct hda_rate_tbl rate_bits[] = {
  {0,0}
 };
 
-static struct aucards_mixerchan_s ihd_master_vol = {
+static struct aucards_mixerchan_s hda_master_vol = {
  AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),MAX_PCM_VOLS,{
   {0,0x00,0,0}, // card->pcm_vols[0]
   {0,0x00,0,0}, // card->pcm_vols[1]
@@ -939,8 +939,8 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 	for( i = 0; i < MAX_PCM_VOLS; i++)
 		if( card->pcm_vols[i].node ) {
-			ihd_master_vol.submixerchans[i].submixch_register = card->pcm_vols[i].node->nid;
-			ihd_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
+			hda_master_vol.submixerchans[i].submixch_register = card->pcm_vols[i].node->nid;
+			hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
 		}
 
 	dbgprintf("hda_mixer_init: dac0=%d dac1=%d out0=%d out1=%d vol0=%d vol1=%d\n",
@@ -1294,7 +1294,7 @@ static struct codec_vendor_list_s codecvendorlist[]={
 
 /* search codec vendor */
 
-static char *ihd_search_vendorname(unsigned int vendorid)
+static char *hda_search_vendorname(unsigned int vendorid)
 /////////////////////////////////////////////////////////
 {
 	struct codec_vendor_list_s *cl = &codecvendorlist[0];
@@ -1571,12 +1571,12 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 }
 #endif
 
-static const struct aucards_mixerchan_s *ihd_mixerset[] = {
-	&ihd_master_vol,
+static const struct aucards_mixerchan_s *hda_mixerset[] = {
+	&hda_master_vol,
 	NULL
 };
 
-const struct sndcard_info_s IHD_sndcard_info = {
+const struct sndcard_info_s HDA_sndcard_info = {
  "Intel HDA",
  SNDCARD_LOWLEVELHAND,
  NULL,                  // card_config
@@ -1595,5 +1595,5 @@ const struct sndcard_info_s IHD_sndcard_info = {
  &HDA_IRQRoutine, /* vsbhda */
  &HDA_writeMIXER,
  &HDA_readMIXER,
- ihd_mixerset
+ hda_mixerset
 };

@@ -22,25 +22,39 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 
-static int aucards_writedata_intsound(struct audioout_info_s *aui,unsigned long outbytes_left);
-
+#ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
+#endif
+#ifndef NOICH
 extern struct sndcard_info_s ICH_sndcard_info;
-extern struct sndcard_info_s IHD_sndcard_info;
+#endif
+#ifndef NOHDA
+extern struct sndcard_info_s HDA_sndcard_info;
+#endif
+#ifndef NOVIA82
 extern struct sndcard_info_s VIA82XX_sndcard_info;
-#if SBLIVE
+#endif
+#ifndef NOSBLIVE
 extern struct sndcard_info_s SBLIVE_sndcard_info;
 #endif
 
 static const struct sndcard_info_s *all_sndcard_info[] = {
- &ES1371_sndcard_info,
- &ICH_sndcard_info,
- &IHD_sndcard_info,
-#if SBLIVE
- &SBLIVE_sndcard_info,
+#ifndef NOES1371
+	&ES1371_sndcard_info,
 #endif
- &VIA82XX_sndcard_info,
- NULL
+#ifndef NOICH
+	&ICH_sndcard_info,
+#endif
+#ifndef NOHDA
+	&HDA_sndcard_info,
+#endif
+#ifndef NOSBLIVE
+	&SBLIVE_sndcard_info,
+#endif
+#ifndef NOVIA82
+	&VIA82XX_sndcard_info,
+#endif
+	NULL
 };
 
 static unsigned int cardinit( struct audioout_info_s *aui )
@@ -114,14 +128,12 @@ void AU_prestart( struct audioout_info_s *aui )
 void AU_start( struct audioout_info_s *aui )
 ////////////////////////////////////////////
 {
-	if(!(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING)) {
-		INTSOUNDDECODER_DISALLOW;
+	if( !(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) ) {
 		if( aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR )
 			AU_clearbuffs(aui);
 		if( aui->card_handler->card_start )
 			aui->card_handler->card_start( aui );
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_PLAYING;
-		INTSOUNDDECODER_ALLOW;
 	}
 	aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 }
@@ -133,13 +145,11 @@ void AU_stop( struct audioout_info_s *aui )
 
 		aui->card_infobits &= ~AUINFOS_CARDINFOBIT_PLAYING;
 
-		INTSOUNDDECODER_DISALLOW;
 		if(aui->card_handler && aui->card_handler->card_stop)
 			aui->card_handler->card_stop( aui );
 		aui->card_dmafilled = aui->card_dmalastput;
 		aui->card_dmaspace = aui->card_dmasize - aui->card_dmafilled;
 		aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
-		INTSOUNDDECODER_ALLOW;
 	}
 }
 
@@ -160,6 +170,8 @@ void AU_clearbuffs( struct audioout_info_s *aui )
 		aui->card_handler->cardbuf_clear(aui);
 	aui->card_controlbits &= ~AUINFOS_CARDCTRLBIT_DMACLEAR;
 }
+
+/* AU_setrate() is called by main(), not during interrupt time! */
 
 void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 ////////////////////////////////////////////////////////////////////////////////
@@ -192,10 +204,8 @@ void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 		aui->bytespersample_card = 0;
 		aui->card_controlbits = new_cardcontrolbits;
 
-		INTSOUNDDECODER_DISALLOW;    // ???
 		if( aui->card_handler->card_setrate )
 			aui->card_handler->card_setrate(aui);
-		INTSOUNDDECODER_ALLOW;       // ???
 
 		if(aui->card_wave_id == WAVEID_PCM_FLOAT)
 			aui->bytespersample_card = 4;
@@ -307,8 +317,6 @@ void AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsi
 	if(newpercentval > maxpercentval)
 		newpercentval = maxpercentval;
 
-	INTSOUNDDECODER_DISALLOW;
-
 	//read current register value, mix it with the new one, write it back
 	for( sch = 0; sch < subchannelnum; sch++ ){
 		const struct aucards_submixerchan_s *subchi = &(onechi->submixerchans[sch]); // one subchannel infos (left,right,etc.)
@@ -333,8 +341,6 @@ void AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsi
 
 		cardi->card_writemixer(aui,subchi->submixch_register,newchval);  // write it back
 	}
-
-	INTSOUNDDECODER_ALLOW;
 
 	if( function == AU_MIXCHANFUNC_VOLUME )
 		aui->card_mixer_values[channel] = newpercentval;
@@ -445,39 +451,41 @@ unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
 {
 	unsigned long buffer_protection;
 
+    /* this function is called from sound ISR! */
+
 	buffer_protection = SOUNDCARD_BUFFER_PROTECTION;     // rounding to bytespersign
 	buffer_protection += aui->card_bytespersign - 1;
 	buffer_protection -= (buffer_protection % aui->card_bytespersign);
 
-	if(aui->card_dmalastput >= aui->card_dmasize) // checking
+	if( aui->card_dmalastput >= aui->card_dmasize ) // checking
 		aui->card_dmalastput = 0;
 
-	if(aui->card_handler->cardbuf_pos){
-		if(aui->card_handler->infobits & SNDCARD_CARDBUF_SPACE){
-			if(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING){
+	if( aui->card_handler->cardbuf_pos ) {
+		if( aui->card_handler->infobits & SNDCARD_CARDBUF_SPACE ) {
+			if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 				aui->card_dmaspace = aui->card_handler->cardbuf_pos(aui);
 				aui->card_dmaspace -= (aui->card_dmaspace % aui->card_bytespersign); // round
-			}else
+			} else
 				aui->card_dmaspace = (aui->card_dmaspace>aui->card_outbytes)? (aui->card_dmaspace-aui->card_outbytes):0;
-		}else{
+		} else {
 			unsigned long bufpos;
 
-			if(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING){
+			if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 				bufpos = aui->card_handler->cardbuf_pos(aui);
-				if(bufpos >= aui->card_dmasize)  // checking
+				if( bufpos >= aui->card_dmasize )  // checking
 					bufpos = 0;
 				else
 					bufpos -= (bufpos % aui->card_bytespersign); // round
 
-				if(aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN){   // sets a new put-pointer in this case
-					if(bufpos >= aui->card_outbytes)
+				if( aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN ){   // sets a new put-pointer in this case
+					if( bufpos >= aui->card_outbytes )
 						aui->card_dmalastput = bufpos-aui->card_outbytes;
 					else
 						aui->card_dmalastput = aui->card_dmasize + bufpos - aui->card_outbytes;
 					aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 				}
 			} else {
-				bufpos=0;
+				bufpos = 0;
 			}
 
 			//if(aui->card_dmalastput>=aui->card_dmasize) // checking
@@ -501,10 +509,56 @@ unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
 	return (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace-buffer_protection) : 0;
 }
 
+/* function called by AU_writedata() - during interrupt time! */
+
+static int aucards_writedata_intsound( struct audioout_info_s *aui, unsigned long outbytes_left )
+/////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	char *pcm_outdata = (char *)aui->pcm_sample;
+	unsigned long buffer_protection,space;
+
+	/* example for bytes/sign = 4: 32 + 3 - 3 */
+	buffer_protection = SOUNDCARD_BUFFER_PROTECTION;
+	buffer_protection += aui->card_bytespersign - 1;
+	buffer_protection -= (buffer_protection % aui->card_bytespersign);
+
+	space = (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace - buffer_protection) : 0;
+
+	do{
+		if( space >= aui->card_bytespersign ) {
+			unsigned int outbytes_putblock = min( space, outbytes_left);
+			aui->card_handler->cardbuf_writedata( aui, pcm_outdata, outbytes_putblock );
+			pcm_outdata += outbytes_putblock;
+			outbytes_left -= outbytes_putblock;
+#ifdef SBEMU
+			space -= outbytes_putblock;
+#endif
+			aui->card_dmafilled += outbytes_putblock;
+			if(aui->card_dmafilled > aui->card_dmasize)
+				aui->card_dmafilled = aui->card_dmasize;
+			if(aui->card_dmaspace > outbytes_putblock)
+				aui->card_dmaspace -= outbytes_putblock;
+			else
+				aui->card_dmaspace = 0;
+		}
+		if(!outbytes_left)
+			break;
+#ifndef SBEMU
+		space = AU_cardbuf_space(aui); // post-checking (because aucards_interrupt_decoder also calls it)
+	} while ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING );
+	return 0;
+#else
+	} while ( space >= aui->card_bytespersign );
+	return outbytes_left;
+#endif
+}
+
 int AU_writedata( struct audioout_info_s *aui )
 ///////////////////////////////////////////////
 {
 	unsigned int outbytes_left;
+
+	/* this function is called during interrupt time! */
 
 	if(!aui->samplenum)
 		return 0;
@@ -520,16 +574,11 @@ int AU_writedata( struct audioout_info_s *aui )
 
 	aui->card_outbytes -= (aui->card_outbytes % aui->card_bytespersign);
 
-	int left = aucards_writedata_intsound(aui,outbytes_left);
+	int left = aucards_writedata_intsound( aui, outbytes_left );
 
 	aui->samplenum = 0;
 
-	//slow processor test :)
-	//{
-	// unsigned int i;
-	// for(i=0;i<0x0080ffff;i++);
-	//}
-	return left / aui->bytespersample_card;
+	return left / aui->bytespersample_card; /* return value is ignored! */
 }
 
 #if 0
@@ -571,47 +620,6 @@ static int aucards_writedata_normal( struct audioout_info_s *aui, unsigned long 
 	return 0;
 }
 #endif
-
-static int aucards_writedata_intsound( struct audioout_info_s *aui, unsigned long outbytes_left )
-/////////////////////////////////////////////////////////////////////////////////////////////////
-{
-	char *pcm_outdata = (char *)aui->pcm_sample;
-	unsigned long buffer_protection,space;
-
-	buffer_protection = SOUNDCARD_BUFFER_PROTECTION;
-	buffer_protection += aui->card_bytespersign - 1;
-	buffer_protection -= (buffer_protection % aui->card_bytespersign);
-
-	space= (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace-buffer_protection) : 0;
-
-	do{
-		if( space >= aui->card_bytespersign ) {
-			unsigned int outbytes_putblock = min( space, outbytes_left);
-			aui->card_handler->cardbuf_writedata( aui, pcm_outdata, outbytes_putblock );
-			pcm_outdata += outbytes_putblock;
-			outbytes_left -= outbytes_putblock;
-#ifdef SBEMU
-			space -= outbytes_putblock;
-#endif
-			aui->card_dmafilled += outbytes_putblock;
-			if(aui->card_dmafilled > aui->card_dmasize)
-				aui->card_dmafilled = aui->card_dmasize;
-			if(aui->card_dmaspace > outbytes_putblock)
-				aui->card_dmaspace -= outbytes_putblock;
-			else
-				aui->card_dmaspace = 0;
-		}
-		if(!outbytes_left)
-			break;
-#ifndef SBEMU
-		space = AU_cardbuf_space(aui); // post-checking (because aucards_interrupt_decoder also calls it)
-	} while ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING );
-	return 0;
-#else
-	} while ( space >= aui->card_bytespersign );
-	return outbytes_left;
-#endif
-}
 
 #if 0 /* not used by SBEMU */
 static void aucards_dma_monitor( void )

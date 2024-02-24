@@ -158,7 +158,8 @@ static int IsInstalled( void )
 //////////////////////////////
 {
     uint8_t bSB;
-	asm("mov $0x226, %%dx \n\t"
+	asm( /* check if a (virtual) SB does respond */
+		"mov $0x226, %%dx \n\t"
 		"mov $1, %%al \n\t"
 		"out %%al, %%dx \n\t"
 		"in %%dx, %%al \n\t"
@@ -186,7 +187,10 @@ static bool InstallISR( uint8_t interrupt, int(*ISR)(void) )
 void fatal_error( int nError )
 //////////////////////////////
 {
-	asm("mov $3, %ax\n\t" "int $0x10");
+	asm( /* set text mode 3 */
+		"mov $3, %ax\n\t"
+		"int $0x10"
+	   );
 	printf("VSBHDA: fatal error %u\n", nError );
 	for (;;);
 
@@ -246,7 +250,7 @@ void MAIN_Uninstall( void )
 	r.x.ax = 0x5000;
 	__dpmi_simulate_real_mode_interrupt(0x21, &r);
 	dbgprintf("MAIN_Uninstall: all cleanup done, terminating\n");
-	asm(
+	asm( /* DOS exit, will terminate the installed VSBHDA TSR */
 		"mov $0x4C00, %ax \n\t"
 		"int $0x21" /* not supposed to return! */
 	);
@@ -279,6 +283,7 @@ int main(int argc, char* argv[])
 {
 
     //parse BLASTER env first.
+    void * p;
     char* blaster = getenv("BLASTER");
     if(blaster != NULL) {
         char c;
@@ -367,18 +372,26 @@ int main(int argc, char* argv[])
     }
 
     __dpmi_get_segment_base_address(_my_ds(), &DSBase);
+
+    /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
+     * while another client is active will result in problems, since that memory is released when
+     * the client exits. Also, if malloc() needs a new block of dpmi memory, it will adjust
+     * limit of DS - something that has to be avoided.
+     */
+    if (p = malloc( 0x10000 ) )
+        free( p );
+
     __dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
 
     if ( IsInstalled() ) {
         printf("SB found - probably VSBHDA already installed.\n" );
         return(0);
     }
-
     if( gvars.rm ) {
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
         if(bcd < 0x703) {
-            printf("QEMM not installed, or version below 7.03: %x.%02x, disable real mode support.\n", bcd >> 8, bcd & 0xFF);
+            printf("Jemm/Qemm not installed, or version below 7.03: %x.%02x - disable real mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
         }
     }
@@ -487,17 +500,6 @@ int main(int argc, char* argv[])
     MAIN_MappedBase = MapFirst16M();
     dbgprintf("MappedBase=%x\n", MAIN_MappedBase );
 #endif
-    /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
-     * while another client is active will result in problems, since that memory is released when
-     * the client exits. Also, if malloc() needs a new block of dpmi memory, it will adjust
-     * limit of DS - something that has to be avoided.
-     */
-    void * p;
-    if (p = malloc( 0x10000 ) )
-        free( p );
-    /* djgpp may have reset our DS limit in the malloc() call - change it back to 4G! */
-    __dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
-
 
     if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
         __dpmi_regs r = {0};
@@ -509,8 +511,13 @@ int main(int argc, char* argv[])
             _dos_close( i );
         __djgpp_exception_toggle();
         _go32_info_block.size_of_transfer_buffer = 0; /* ensure it's not used anymore */
-        asm("push $0\n\t" "pop %gs\n\t" "push $0\n\t" "pop %fs"); /* clear fs/gs */
-        r.x.dx= 0x10; /* only psp */
+        asm( /* clear fs/gs before calling DOS "terminate and stay resident" */
+            "push $0\n\t"
+            "pop %gs\n\t"
+            "push $0\n\t"
+            "pop %fs"
+           );
+        r.x.dx= 0x10; /* only psp remains in conv. memory */
         r.x.ax = 0x3100;
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }

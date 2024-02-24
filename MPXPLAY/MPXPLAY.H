@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 // out pcm defs
-#define PCM_OUTSAMPLES    1152     // at 44100Hz ( see INT08_DIVISOR_NEW )
+#define PCM_OUTSAMPLES    1152     // at 44100Hz ( see PIT_DIVISOR_NEW )
 //#define PCM_MIN_CHANNELS     1
 //#define PCM_MAX_CHANNELS     2     // au_mixer output (au_card input) limit
 #define PCM_CHANNELS_DEFAULT 2
@@ -39,10 +39,8 @@ extern "C" {
 #define INTSOUND_NOBUSYWAIT 32
 
 //timer settings
-#define INT08_DIVISOR_DEFAULT  65536
-//#define INT08_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
-//#define INT08_DIVISOR_NEW     10375  // = 18.181818*65536 / (3 * 44100/1152)
-//#define INT08_CYCLES_NEW  (INT08_CYCLES_DEFAULT*INT08_DIVISOR_DEFAULT/INT08_DIVISOR_NEW) // 114.8 or 130
+#define PIT_DIVISOR_DEFAULT  65536
+//#define PIT_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
 
 #define INTSOUNDDECODER_DISALLOW
 #define INTSOUNDDECODER_ALLOW
