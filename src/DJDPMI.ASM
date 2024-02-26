@@ -1,5 +1,6 @@
 
 ;--- reimplement the djgpp __dpmi_xxx() functions that are used.
+;--- all functions return -1 on error, 0 on success
 
 	.386
 	.MODEL small, c
@@ -8,7 +9,7 @@
 
 PREMAPDMA equ 0
 
-if 1	; optionally, activate if another compiler (watcom?) is to be used
+if 1	; it's optional
 
 MEMINFO struct
 dwHdl     dd ?
@@ -17,36 +18,6 @@ dwAddress dd ?
 MEMINFO ends
 
 	.code
-
-__dpmi_simulate_real_mode_interrupt proc c public uses ebx edi intno:byte, pRegs:ptr
-	mov edi, pRegs
-	movzx ebx, intno
-	xor ecx, ecx
-	mov ax, 300h
-	int 31h
-	sbb eax, eax
-	ret
-__dpmi_simulate_real_mode_interrupt endp
-
-__dpmi_simulate_real_mode_procedure_retf proc c public uses ebx edi pRegs:ptr
-	mov edi, pRegs
-	xor ebx, ebx
-	xor ecx, ecx
-	mov ax, 301h
-	int 31h
-	sbb eax, eax
-	ret
-__dpmi_simulate_real_mode_procedure_retf endp
-
-__dpmi_simulate_real_mode_procedure_iret proc c public uses ebx edi pRegs:ptr
-	mov edi, pRegs
-	xor ebx, ebx
-	xor ecx, ecx
-	mov ax, 302h
-	int 31h
-	sbb eax, eax
-	ret
-__dpmi_simulate_real_mode_procedure_iret endp
 
 __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dword
 	mov ebx, dwSeg
@@ -59,6 +30,7 @@ __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dw
 	mov word ptr [ebx+2], cx
 @@:
 	ret
+	align 4
 __dpmi_get_segment_base_address endp
 
 __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword
@@ -69,9 +41,73 @@ __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword
 	int 31h
 	sbb eax, eax
 	ret
+	align 4
 __dpmi_set_segment_limit endp
 
+__dpmi_free_dos_memory proc c public dwSelector:dword
+	mov edx, dwSelector
+	mov ax,101h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_free_dos_memory endp
+
+__dpmi_simulate_real_mode_interrupt proc c public uses ebx edi intno:byte, pRegs:ptr
+	mov edi, pRegs
+	movzx ebx, intno
+	xor ecx, ecx
+	mov ax, 300h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_simulate_real_mode_interrupt endp
+
+__dpmi_simulate_real_mode_procedure_retf proc c public uses ebx edi pRegs:ptr
+	mov edi, pRegs
+	xor ebx, ebx
+	xor ecx, ecx
+	mov ax, 301h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_simulate_real_mode_procedure_retf endp
+
+__dpmi_simulate_real_mode_procedure_iret proc c public uses ebx edi pRegs:ptr
+	mov edi, pRegs
+	xor ebx, ebx
+	xor ecx, ecx
+	mov ax, 302h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_simulate_real_mode_procedure_iret endp
+
+__dpmi_free_real_mode_callback proc c public pRMCB:ptr
+	mov eax, pRMCB
+	mov dx, [eax+0]
+	mov cx, [eax+2]
+	mov ax, 304h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_free_real_mode_callback endp
+
 if PREMAPDMA
+
+__dpmi_free_memory proc c public uses esi edi dwHandle:dword
+	mov di, word ptr dwHandle+0
+	mov si, word ptr dwHandle+2
+	mov ax, 502h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_free_memory endp
 
 __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:dword
 	mov edi, pInfo
@@ -86,20 +122,10 @@ __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:d
 	mov [edi].MEMINFO.dwAddress, ebx
 @@:
 	ret
+	align 4
 __dpmi_allocate_linear_memory endp
 
-__dpmi_free_memory proc c public uses esi edi dwHandle:dword
-	mov di, word ptr dwHandle+0
-	mov si, word ptr dwHandle+2
-	mov ax, 502h
-	int 31h
-	sbb eax, eax
-	ret
-__dpmi_free_memory endp
-
 endif
-
-;--- return -1 on error, 0 on success
 
 __dpmi_physical_address_mapping proc c public uses ebx esi edi pInfo:ptr
 	mov eax, pInfo
@@ -116,6 +142,7 @@ __dpmi_physical_address_mapping proc c public uses ebx esi edi pInfo:ptr
 	mov word ptr [edx].MEMINFO.dwAddress+2, bx
 @@:
 	ret
+	align 4
 __dpmi_physical_address_mapping endp
 
 __dpmi_free_physical_address_mapping proc c public uses ebx pInfo:ptr
@@ -126,15 +153,8 @@ __dpmi_free_physical_address_mapping proc c public uses ebx pInfo:ptr
 	int 31h
 	sbb eax, eax	; C=-1, NC=0
 	ret
+	align 4
 __dpmi_free_physical_address_mapping endp
-
-__dpmi_free_dos_memory proc c public dwSelector:dword
-	mov edx, dwSelector
-	mov ax,101h
-	int 31h
-	sbb eax, eax
-	ret
-__dpmi_free_dos_memory endp
 
 __dpmi_set_coprocessor_emulation proc c public uses ebx bMode:byte
 	mov bl, bMode
@@ -142,6 +162,7 @@ __dpmi_set_coprocessor_emulation proc c public uses ebx bMode:byte
 	int 31h
 	sbb eax, eax
 	ret
+	align 4
 __dpmi_set_coprocessor_emulation endp
 
 endif

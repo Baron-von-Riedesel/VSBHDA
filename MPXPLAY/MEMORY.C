@@ -16,15 +16,11 @@
 
 #include <stdint.h>
 #include <malloc.h>
-#include <dpmi.h>
-#include <sys/segments.h>  /* for _my_ds() */
 
 void *pds_calloc( unsigned int nitems, unsigned int itemsize)
 /////////////////////////////////////////////////////////////
 {
 	void *p = calloc( nitems, itemsize + 8 );
-	/* ensure that DS limit remains 4G */
-	__dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
 	return p;
 }
 

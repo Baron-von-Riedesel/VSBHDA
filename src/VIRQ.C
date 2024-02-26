@@ -31,13 +31,11 @@ static void VIRQ_Write(uint16_t port, uint8_t value)
     if(VIRQ_IS_VIRTUALIZING())
     {
         dbgprintf("VIRQ_Write:%x,%x\n",port,value);
-        if((port & 0x0F) == 0x00)
-        {
+        if((port & 0x0F) == 0x00) {
             int index = ((port==0x20) ? 0 : 1);
             VIRQ_OCW[index] = value;
 
-            if(value == 0x20) //EOI: clear ISR
-            {
+            if(value == 0x20) { //EOI: clear ISR
                 VIRQ_ISR[index] = 0;
                 return; //don't send to real PIC. it's virtualized
             }

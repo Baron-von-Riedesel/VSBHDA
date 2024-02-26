@@ -33,7 +33,7 @@ OBJFILES=\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o
+	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o	$(OUTD)/uninst.o
 
 INCLUDE_DIRS=src mpxplay
 SRC_DIRS=src mpxplay
@@ -103,6 +103,7 @@ $(OUTD)/sndisr.o::   sndisr.c    linear.h vopl3.h pic.h platform.h config.h vsb.
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
 $(OUTD)/time.o::     time.c      mpxplay.h au_cards.h newfunc.h
+$(OUTD)/uninst.o::   uninst.asm
 $(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
 $(OUTD)/vioout.o::   vioout.asm
 $(OUTD)/virq.o::     virq.c      linear.h pic.h platform.h ptrap.h virq.h config.h

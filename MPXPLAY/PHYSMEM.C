@@ -16,9 +16,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <dpmi.h>
-#include <sys/exceptn.h>
+//#include <dpmi.h>
 
+#include "DJDPMI.H"
 #include "CONFIG.H"
 #include "NEWFUNC.H"
 

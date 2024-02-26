@@ -19,8 +19,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <go32.h>
-#include <dpmi.h>
+//#include <dpmi.h>
 
+#include "DJDPMI.H"
 #include "NEWFUNC.H"
 #include "PCIBIOS.H"
 
@@ -374,8 +375,9 @@ void pcibios_enable_BM_MM( struct pci_config_s *ppkey)
 //////////////////////////////////////////////////////
 {
 	unsigned int cmd;
-	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
-	cmd &= ~0x01;     /* disable io-port mapping */
+	cmd = pcibios_ReadConfig_Word(ppkey, PCIR_PCICMD);
+	cmd &= ~0x01;       /* disable io-port mapping */
 	cmd |= 0x02 | 0x04; /* enable memory mapping and busmaster */
-	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
+	cmd &= ~0x400;      /* reset "interrupt disable */
+	pcibios_WriteConfig_Word(ppkey, PCIR_PCICMD, cmd);
 }

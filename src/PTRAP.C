@@ -10,7 +10,6 @@
 #include <dos.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <dpmi.h>
 #include <go32.h>
 #ifdef DJGPP
 #include <sys/ioctl.h>
@@ -108,8 +107,9 @@ static void RM_TrapHandler( __dpmi_regs * regs)
     uint16_t port = regs->x.dx;
     uint8_t val = regs->h.al;
     uint8_t out = regs->h.cl;
+    int i;
 
-    for ( int i = 0; i < maxports; i++ ) {
+    for ( i = 0; i < maxports; i++ ) {
         if( PDispTab[i].port == port) {
             regs->x.flags &= ~CPU_CFLAG;
             //uint8_t val2 = PDispTab[i].handler( port, val, out );
@@ -238,10 +238,11 @@ static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
 ///////////////////////////////////////////////////////////////
 {
     __dpmi_regs r = {0};
+    int i;
 
     r.x.ip = QPI_Entry.offset16;
     r.x.cs = QPI_Entry.segment;
-    for( int i = start; i < end; i++ ) {
+    for( i = start; i < end; i++ ) {
         if ( QPI_OldCallbackCS ) {
             /* this is unreliable, since if the port was already trapped, there's no
              * guarantee that the previous handler can actually handle it.
@@ -265,9 +266,10 @@ bool PTRAP_Install_RM_PortTraps( void )
 ///////////////////////////////////////
 {
     int max = countof(portranges) - 1;
+    int i;
     maxports = portranges[max];
 
-    for ( int i = 0; i < max; i++ ) {
+    for ( i = 0; i < max; i++ ) {
 #if RMPICTRAPDYN
         if ( PDispTab[portranges[i]].port == 0x20 ) {
             PICIndex = portranges[i];
@@ -321,11 +323,12 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 /////////////////////////////////////////
 {
     int max = portranges[END_PDT];
+    int i;
     __dpmi_regs r = {0};
 
     r.x.ip = QPI_Entry.offset16;
     r.x.cs = QPI_Entry.segment;
-    for(int i = 0; i < max; ++i) {
+    for( i = 0; i < max; ++i ) {
         if ( !( PDispTab[i].flags & 0xff00 )) {
             if( PDispTab[i].flags & PDT_FLGS_RMINST ) {
                 r.x.ax = 0x1A0A; //clear trap
@@ -352,7 +355,8 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 uint32_t PTRAP_PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
 //////////////////////////////////////////////////////////////////////////////
 {
-    for(int i = 0; i < maxports; i++ )
+    int i;
+    for( i = 0; i < maxports; i++ )
         if( PDispTab[i].port == port)
             return PDispTab[i].handler(port, value, flags & 1);
 
@@ -386,16 +390,17 @@ bool PTRAP_Install_PM_PortTraps( void )
 ///////////////////////////////////////
 {
     int max = countof(portranges) - 1;
-    maxports = portranges[max];
+    int i;
     int start, end;
+    maxports = portranges[max];
 
     /* reset hdpmi=32 option in case it is set */
     _hdpmi_set_context_mode( 0 );
 
-	/* install CLI handler */
+    /* install CLI handler */
     _hdpmi_set_cli_handler( _hdpmi_CliHandler );
 
-    for ( int i = 0; i < max; i++ ) {
+    for ( i = 0; i < max; i++ ) {
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
             start = PDispTab[portranges[i]].port;
             end = PDispTab[portranges[i+1]-1].port;
@@ -426,6 +431,7 @@ static void PDT_DelEntries( int start, int end, int entries )
 void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
 ////////////////////////////////////////////////////////////
 {
+    int i;
     /* low dma: adjust the entry for DMA channel addr/count */
     PDispTab[portranges[DMA_PDT]].port   = dma * 2;
     PDispTab[portranges[DMA_PDT]+1].port = dma * 2 + 1;
@@ -446,7 +452,7 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
 #endif
     /* adjust the SB ports to the selected base */
     if ( sbaddr != 0x220 )
-        for( int i = portranges[SB_PDT]; i < portranges[SB_PDT+1]; i++ )
+        for( i = portranges[SB_PDT]; i < portranges[SB_PDT+1]; i++ )
             PDispTab[i].port += sbaddr - 0x220;
 
     /* if no OPL3 emulation, skip ports 0x388-0x38b and 0x220-0x223 */
@@ -459,7 +465,8 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
 bool PTRAP_Uninstall_PM_PortTraps( void )
 /////////////////////////////////////////
 {
-    for ( int i = 0; traphdl[i]; i++ )
+    int i;
+    for ( i = 0; traphdl[i]; i++ )
         _hdpmi_uninstall_trap( traphdl[i] );
 
     /* uninstall CLI trap handler */
@@ -486,8 +493,9 @@ void PTRAP_PrintPorts( void )
 /////////////////////////////
 {
     int start = 0;
+    int i;
     dbgprintf( "ports:\n" );
-    for ( int i = 0; i < maxports; i++ ) {
+    for ( i = 0; i < maxports; i++ ) {
         if ( i < (maxports -1) && ( PDispTab[i+1].port != PDispTab[i].port+1 || PDispTab[i+1].flags != PDispTab[i].flags )) {
             if ( i == start )
                 dbgprintf( "%X (%X)\n", PDispTab[start].port, PDispTab[start].flags );

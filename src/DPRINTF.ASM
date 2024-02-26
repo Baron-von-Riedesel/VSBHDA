@@ -229,23 +229,9 @@ dbgprintf ENDP
 
 if 0
 
-_GO32_INFO_BLOCK struct
-dwSize            dd ?
-dwPrimaryScreen   dd ?
-dwSecondaryScreen dd ?
-dwTransferBuffer  dd ?	; linear_address_of_transfer_buffer;
-dwSizeTransferBuf dd ?	; size_of_transfer_buffer; /* >= 4k */
-dwPid             dd ?
-bMasterPICBase    db ?	; master_interrupt_controller_base;
-bSlavePICBase     db ?	; slave_interrupt_controller_base;
-wFlat             dw ?	; selector_for_linear_memory (0-10FFFF only);
-dwStubInfo        dd ?	; linear_address_of_stub_info_structure;
-dwPSP             dd ?	; linear_address_of_original_psp;
-wRunMode          dw ?	; run_mode;
-wRunModeInfo      dw ?	; run_mode_info;
-_GO32_INFO_BLOCK ends
-
-comm c _go32_info_block:_GO32_INFO_BLOCK
+	.data
+externdef c DSBase:dword
+	.code
 
 ;--- display 32-bit number on screen
 ;--- low-level.
@@ -253,11 +239,10 @@ comm c _go32_info_block:_GO32_INFO_BLOCK
 dbgprintcnt proc c public number:dword, pos:dword
 
 	pushad
-	push ds
-	mov ds, cs:[_go32_info_block.wFlat]
 	mov ebx, pos
 	shl ebx, 1
 	add ebx, 0B8000h
+	sub ebx, cs:[DSBase]
 	mov eax, number
 	mov edi, 10
 @@nextdigit:
@@ -272,7 +257,6 @@ dbgprintcnt proc c public number:dword, pos:dword
 	sub ebx, 2
 	and eax, eax
 	jne @@nextdigit
-	pop ds
 exit:
 	popad
 	ret

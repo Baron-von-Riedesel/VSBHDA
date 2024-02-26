@@ -1,43 +1,26 @@
 
 ;--- low-level output for dbgprintf()
+;--- may be used in ISR; however, it's
+;--- assumed selector of ds/es is data alias of cs.
 
 	.386
 	.model small
 	option casemap:none
 
-;--- low-level screen output, may be used in ISR.
+	.data
 
-_GO32_INFO_BLOCK struct
-dwSize            dd ?
-dwPrimaryScreen   dd ?
-dwSecondaryScreen dd ?
-dwTransferBuffer  dd ?	; linear_address_of_transfer_buffer;
-dwSizeTransferBuf dd ?	; size_of_transfer_buffer; /* >= 4k */
-dwPid             dd ?
-bMasterPICBase    db ?	; master_interrupt_controller_base;
-bSlavePICBase     db ?	; slave_interrupt_controller_base;
-wFlat             dw ?	; selector_for_linear_memory ( 0-10FFFF only );
-dwStubInfo        dd ?	; linear_address_of_stub_info_structure;
-dwPSP             dd ?	; linear_address_of_original_psp;
-wRunMode          dw ?	; run_mode;
-wRunModeInfo      dw ?	; run_mode_info;
-_GO32_INFO_BLOCK ends
-
-;--- _go32_info_block is a comm var, but defining it as such
-;--- would actually include this module even if it's not used at all.
-
-externdef c _go32_info_block:_GO32_INFO_BLOCK
+externdef c DSBase:dword
 
 	.code
 
 @getcursorpos macro reg
-	movzx e&reg, byte ptr ds:[462h];page
-	mov reg, ds:[e&reg*2+450h]
+	movzx e&reg, byte ptr [edi+62h];page
+	mov reg, [edi+e&reg*2+50h]
 endm
 
 @setcursorpos macro reg
-	movzx e&reg, byte ptr ds:[462h];page
-	mov ds:[e&reg*2+450h], ax
+	movzx e&reg, byte ptr [edi+62h];page
+	mov [edi+e&reg*2+50h], ax
 endm
 
 ;--- print a char
@@ -49,13 +32,13 @@ local	wCols:word
 local	bChar:byte
 local	bRows:byte
 
-	push ds
 	pushad
 
-	mov ds, cs:[_go32_info_block.wFlat]
+	mov edi, 400h
+	sub edi, cs:[DSBase]
 	mov bChar, al
-	mov ch, ds:[0484h]		; rows-1
-	mov cl, ds:[044Ah]		; cols
+	mov ch, [edi+84h]		; rows-1
+	mov cl, [edi+4Ah]		; cols
 	mov bRows, ch
 	@getcursorpos bx		; bh=row, bl=col
 	movzx eax, bh			; eax=row
@@ -66,13 +49,14 @@ local	bRows:byte
 	movzx ebx, bl			; ebx=col
 	add ebx, ebx
 	add ebx, eax
-	mov si, ds:[044Eh]			; page offset
-	cmp word ptr ds:[0463H],3B4h
+	mov si, [edi+04Eh]		; page offset
+	cmp word ptr [edi+63H], 3B4h
 	jz @F
 	add si, 8000h
 @@:
 	movzx esi, si
 	add esi, 0B0000h
+	sub esi, cs:[DSBase]
 
 	mov al, bChar
 
@@ -98,7 +82,7 @@ local	bRows:byte
 	sub ebx, 2
 	jmp char_done
 @@:
-	mov ds:[ebx+esi], al
+	mov [ebx+esi], al
 	inc ebx
 	inc ebx
 char_done:
@@ -121,12 +105,11 @@ char_done:
 	pop eax
 	call cursorset
 	popad
-	pop ds
 	ret
 
 cursorset:
-	add ax, ds:[044EH]	;offset page
-	mov dx, ds:[0463H]
+	add ax, [edi+4EH]	;offset page
+	mov dx, [edi+63H]
 	shr ax, 1			;the CRT offset is one plane only, no attribute bytes 
 	mov cl, al			;first high byte
 	mov al, 0eh
@@ -137,9 +120,6 @@ cursorset:
 	retn
 
 scrollup:			;scroll up one line
-	push es
-	push ds
-	pop es
 	mov edi, esi
 	push edi
 	movzx esi, wCols
@@ -149,22 +129,26 @@ scrollup:			;scroll up one line
 	mul cl
 	movzx ecx, ax
 	shr cx,1
-	rep movsd es:[edi], ds:[esi]
+	rep movsd [edi], [esi]
 	push edi
 	mov cx, wCols
 	mov eax,07200720h
 	shr cx, 1
-	rep stosd es:[edi]
+	rep stosd [edi]
 	pop eax
 	pop edi
 	sub eax, edi
-	pop es
 	retn
 
 VioPutChar endp
 
+if 0
 VioGetCsrPos proc
+	push edi
+	mov edi, 400h
+	sub edi, cs:[DSBase]
 	@getcursorpos ax
+	pop edi
 	ret
 VioGetCsrPos endp
 
@@ -175,8 +159,13 @@ VioGetCsrPos endp
 
 VioSetCsrPos proc
 	mov eax, [esp+4]
+	push edi
+	mov edi, 400h
+	sub edi, cs:[DSBase]
 	@setcursorpos dx
+	pop edi
 	ret 4
 VioSetCsrPos endp
+endif
 
 	end

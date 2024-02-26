@@ -8,8 +8,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <dos.h>
+#ifdef DJGPP
 #include <go32.h>
 #include <sys/exceptn.h>
+#endif
 
 #include "CONFIG.H"
 #include "PLATFORM.H"
@@ -154,31 +156,19 @@ static uint32_t MapFirst16M( void )
 }
 #endif
 
+int _is_installed( void );
+
 static int IsInstalled( void )
 //////////////////////////////
 {
-    uint8_t bSB;
-	asm( /* check if a (virtual) SB does respond */
-		"mov $0x226, %%dx \n\t"
-		"mov $1, %%al \n\t"
-		"out %%al, %%dx \n\t"
-		"in %%dx, %%al \n\t"
-		"xor %%al, %%al \n\t"
-		"out %%al, %%dx \n\t"
-		"mov $0x22A, %%dx \n\t"
-		"in %%dx, %%al \n\t"
-		"mov %%al, %0 \n\t"
-		: "=m"(bSB)
-		:: "edx", "eax"
-	   );
-    return( bSB == 0xAA );
+    return _is_installed();
 }
 
-static bool InstallISR( uint8_t interrupt, int(*ISR)(void) )
+static bool InstallISR( uint8_t intno, int(*ISR)(void) )
 ////////////////////////////////////////////////////////////
 {
-    if ( _hdpmi_InstallISR( interrupt, ISR ) ) {
-        return ( _hdpmi_InstallInt31( interrupt ) );
+    if ( _hdpmi_InstallISR( intno, ISR ) ) {
+        return ( _hdpmi_InstallInt31( intno ) );
     }
     return false;
 }
@@ -187,10 +177,15 @@ static bool InstallISR( uint8_t interrupt, int(*ISR)(void) )
 void fatal_error( int nError )
 //////////////////////////////
 {
+#ifdef DJGPP
 	asm( /* set text mode 3 */
 		"mov $3, %ax\n\t"
 		"int $0x10"
 	   );
+#else
+	_asm mov ax,3
+    _asm int 10h
+#endif
 	printf("VSBHDA: fatal error %u\n", nError );
 	for (;;);
 }
@@ -222,37 +217,15 @@ static void ReleaseRes( void )
 /* uninstall.
  * uninstall a protected-mode TSR is best done from real-mode.
  * for VSBHDA, it's triggered by an OUT 226h, 55h ( see vsb.c ).
- * note: no printf() possible here, since stdio files are closed.
  */
+void _uninstall_tsr( uint32_t linpsp );
+
 void MAIN_Uninstall( void )
 ///////////////////////////
 {
-	__dpmi_regs r = {0};
 	ReleaseRes();
 	AU_close( &aui );
-	/* set TSR's parent PSP to current PSP;
-	 * set TSR's int 22h to current PSP:0000;
-	 * switch to TSR PSP
-	 * run an int 21h, ah=4Ch in pm
-	 * todo: adjust value at psp:2Eh
-	 */
-	r.x.ax = 0x5100; /* get current PSP in BX (segment) */
-	__dpmi_simulate_real_mode_interrupt(0x21, &r);
-#if 0
-	uint32_t dwSSSP = ReadLinearD( (r.x.bx << 4) + 0x2E );
-	WriteLinearD( _go32_info_block.linear_address_of_original_psp+0x2E, dwSSSP );
-#endif
-	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0xA, 0 );
-	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0xC, r.x.bx );
-	WriteLinearW( _go32_info_block.linear_address_of_original_psp+0x16, r.x.bx );
-	r.x.bx = _go32_info_block.linear_address_of_original_psp >> 4;
-	r.x.ax = 0x5000;
-	__dpmi_simulate_real_mode_interrupt(0x21, &r);
-	dbgprintf("MAIN_Uninstall: all cleanup done, terminating\n");
-	asm( /* DOS exit, will terminate the installed VSBHDA TSR */
-		"mov $0x4C00, %ax \n\t"
-		"int $0x21" /* not supposed to return! */
-	);
+	_uninstall_tsr( my_psp() );
 	return;
 }
 
@@ -262,9 +235,17 @@ void MAIN_ReinitOPL( void )
 {
 	if( gvars.opl3 ) {
 		uint8_t buffer[200];
+#ifdef DJGPP
 		asm("fsave %0"::"m"(buffer));
+#else
+		_asm fsave [buffer]
+#endif
 		VOPL3_Reinit(aui.freq_card);
+#ifdef DJGPP
 		asm("frstor %0"::"m"(buffer));
+#else
+        _asm frstor [buffer]
+#endif
 	}
 }
 #endif
@@ -282,8 +263,10 @@ int main(int argc, char* argv[])
 {
 
     //parse BLASTER env first.
+    int i;
     void * p;
     char* blaster = getenv("BLASTER");
+
     if(blaster != NULL) {
         char c;
         while(( c = toupper(*(blaster++)))) {
@@ -304,7 +287,7 @@ int main(int argc, char* argv[])
     }
 
     /* check cmdline arguments */
-    for(int i = 1; i < argc; ++i ) {
+    for( i = 1; i < argc; ++i ) {
         int j;
         for( j = 0; j < OPT_COUNT; ++j ) {
             int len = strlen(MAIN_Options[j].option);
@@ -327,7 +310,7 @@ int main(int argc, char* argv[])
         bHelp = false;
         printf("VSBHDA: Sound Blaster emulation on AC97. Usage:\n");
 
-        for( int i = 0; MAIN_Options[i].option; i++ )
+        for( i = 0; MAIN_Options[i].option; i++ )
             printf( " %-8s: %s\n", MAIN_Options[i].option, MAIN_Options[i].desc );
 
         printf("\nNote: the BLASTER environment variable may change the default settings; " HELPNOTE );
@@ -374,13 +357,10 @@ int main(int argc, char* argv[])
 
     /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
      * while another client is active will result in problems, since that memory is released when
-     * the client exits. Also, if malloc() needs a new block of dpmi memory, it will adjust
-     * limit of DS - something that has to be avoided.
+     * the client exits.
      */
     if (p = malloc( 0x10000 ) )
         free( p );
-
-    __dpmi_set_segment_limit(_my_ds(), 0xFFFFFFFF);
 
     if ( IsInstalled() ) {
         printf("SB found - probably VSBHDA already installed.\n" );
@@ -501,13 +481,15 @@ int main(int argc, char* argv[])
 #endif
 
     if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
+        uint32_t psp;
         __dpmi_regs r = {0};
         __dpmi_set_coprocessor_emulation( 0 );
-        uint32_t psp = _go32_info_block.linear_address_of_original_psp;
+        psp = my_psp();
         __dpmi_free_dos_memory( ReadLinearW( psp+0x2C ) );
         WriteLinearW( psp+0x2C, 0 );
-        for ( int i = 0; i < 5; i++ )
+        for ( i = 0; i < 5; i++ )
             _dos_close( i );
+#ifdef DJGPP
         __djgpp_exception_toggle();
         _go32_info_block.size_of_transfer_buffer = 0; /* ensure it's not used anymore */
         asm( /* clear fs/gs before calling DOS "terminate and stay resident" */
@@ -516,6 +498,12 @@ int main(int argc, char* argv[])
             "push $0\n\t"
             "pop %fs"
            );
+#else
+        _asm push 0
+        _asm pop gs
+        _asm push 0
+        _asm pop fs
+#endif
         r.x.dx= 0x10; /* only psp remains in conv. memory */
         r.x.ax = 0x3100;
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success

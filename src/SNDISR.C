@@ -61,7 +61,8 @@ ADPCM_STATE ISR_adpcm_state;
 static int DecodeADPCM(uint8_t *adpcm, int bytes)
 /////////////////////////////////////////////////
 {
-    int start = 0;
+	int start = 0;
+    int i;
     int bits = VSB_GetBits();
     if( ISR_adpcm_state.useRef ) {
         ISR_adpcm_state.useRef = false;
@@ -78,7 +79,7 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
 
     switch ( bits ) {
     case 2:
-        for(int i = start; i < bytes; ++i) {
+        for( i = start; i < bytes; ++i) {
             pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
             pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
             pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
@@ -86,14 +87,14 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
         }
         break;
     case 3:
-        for(int i = start; i < bytes; ++i) {
+        for( i = start; i < bytes; ++i) {
             pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
             pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
             pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
         }
         break;
     default:
-        for(int i = start; i < bytes; ++i) {
+        for( i = start; i < bytes; ++i) {
             pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] >> 4,  &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
             pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] & 0xf, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
         }
@@ -270,8 +271,10 @@ static void SNDISR_Interrupt( void )
     bool digital = VSB_Running();
     int dma = VSB_GetDMA();
     int32_t DMA_Count = VDMA_GetCounter(dma);
+    int i;
 
     if( digital ) {
+        int i,j;
         uint32_t DMA_Addr = VDMA_GetAddress(dma);
         int32_t DMA_Index = VDMA_GetIndex(dma);
         uint32_t SB_Bytes = VSB_GetSampleBytes();
@@ -349,7 +352,7 @@ static void SNDISR_Interrupt( void )
                 cv_bits_8_to_16( ISR_PCM + pos * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
-                for ( int i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
+                for ( i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
 #endif
             if( resample ) /* SB_Rate != aui.freq_card*/
                 count = mixer_speed_lq( ISR_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
@@ -380,7 +383,7 @@ static void SNDISR_Interrupt( void )
 
         //dbgprintf("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() );
 #if 1
-        for(int i = pos; i < samples; i++ )
+        for( i = pos; i < samples; i++ )
             ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
 #else
         samples = min(samples, pos);
@@ -400,7 +403,7 @@ static void SNDISR_Interrupt( void )
 
         if( digital ) {
 #if MIXERROUTINE==0
-            for(int i = 0; i < samples * 2; i++ ) {
+            for( i = 0; i < samples * 2; i++ ) {
                 int a = (ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
@@ -408,16 +411,16 @@ static void SNDISR_Interrupt( void )
             }
 #elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
-            for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
+            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
 #else
             /* in assembly it's probably easier to handle signed/unsigned shifts */
             SNDISR_Mixer( ISR_PCM, ISR_OPLPCM, samples * 2, voicevol, midivol );
 #endif
         } else
-            for(int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
+            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
     } else {
         if( digital )
-            for( int i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
+            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
         else
             memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 );
     }
