@@ -1,5 +1,5 @@
 
-;--- software mixer
+;--- software mixer - not used
 
 	.386
 	.MODEL small

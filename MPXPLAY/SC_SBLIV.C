@@ -1291,7 +1291,7 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	if(pcibios_search_devices( creative_devices, card->pci_dev) != PCI_SUCCESSFUL )
 		goto err_adetect;
 
-	pcibios_set_master(card->pci_dev);
+	pcibios_enable_BM_IO(card->pci_dev);
 
 	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
 	if(!card->iobase)

@@ -193,7 +193,6 @@ void fatal_error( int nError )
 	   );
 	printf("VSBHDA: fatal error %u\n", nError );
 	for (;;);
-
 }
 #endif
 

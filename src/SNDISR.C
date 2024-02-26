@@ -23,6 +23,7 @@
 #define MIXERROUTINE 0
 
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+extern void fatal_error( int );
 
 extern struct audioout_info_s aui;
 extern struct globalvars gvars;
@@ -35,7 +36,14 @@ extern uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x0000
 
 static uint32_t ISR_DMA_Addr = 0;
 static uint32_t ISR_DMA_Size = 0;
-static uint32_t ISR_DMA_MappedAddr = 0;
+
+/* ISR_DMA_MappedAddr is dynamically set and contains the current SB DMA address;
+ * it's usually in conventional memory, but might be anywhere in first 16M address space.
+ * In the latter case, the address mapping will be released by HDPMI when a protected-mode
+ * program exits.That's why this variable should be cleared by the int 21h handler when
+ * a DOS exit occurs.
+ */
+uint32_t ISR_DMA_MappedAddr = 0;
 
 static void SNDISR_Interrupt( void );
 
@@ -279,10 +287,8 @@ static void SNDISR_Interrupt( void )
             /* check if the current DMA address is within the mapped region.
              * if no, release current mapping region.
              */
-            if( ISR_DMA_MappedAddr != 0
-             && !(DMA_Addr >= ISR_DMA_Addr && DMA_Addr + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size ))
-            {
-                if(ISR_DMA_MappedAddr > 1024*1024) {
+            if( ISR_DMA_MappedAddr && !(DMA_Addr >= ISR_DMA_Addr && DMA_Addr + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size )) {
+                if( ISR_DMA_MappedAddr >= 0x100000 ) {
                     __dpmi_meminfo info;
                     info.address = ISR_DMA_MappedAddr;
                     __dpmi_free_physical_address_mapping(&info);
@@ -294,17 +300,15 @@ static void SNDISR_Interrupt( void )
             if( ISR_DMA_MappedAddr == 0) {
                 ISR_DMA_Addr = DMA_Addr;
                 ISR_DMA_Size = max( min(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
-                if (DMA_Addr <= 0x100000 )
-                    ISR_DMA_MappedAddr =  DMA_Addr;
+                if ( DMA_Addr < 0x100000 )
+                    ISR_DMA_MappedAddr = DMA_Addr;
                 else {
                     __dpmi_meminfo info;
                     info.address = ISR_DMA_Addr;
                     info.size = ISR_DMA_Size;
-                    if( __dpmi_physical_address_mapping(&info) != -1)
-                        ISR_DMA_MappedAddr = info.address;
-                    else {
-                        return;
-                    }
+                    if( __dpmi_physical_address_mapping(&info) == -1 )
+                        fatal_error( 2 );
+                    ISR_DMA_MappedAddr = info.address;
                 }
                 // dbgprintf("ISR: chn=%d DMA_Addr/Index/Count=%x/%x/%x ISR_DMA_Addr/Size/MappedAddr=%x/%x/%x\n", dma, DMA_Addr, DMA_Index, DMA_Count, ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr );
             }

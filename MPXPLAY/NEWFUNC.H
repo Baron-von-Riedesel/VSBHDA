@@ -50,11 +50,9 @@ struct xmsmem_s{
 
 #define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->pMem))
 
-//mapphys.c
-extern int  _alloc_physical_memory( struct xmsmem_s *, unsigned int size);
+//physmem.c
+extern int  _alloc_physical_memory( struct xmsmem_s *, uint32_t size);
 extern void _free_physical_memory( struct xmsmem_s *);
-extern unsigned long _dpmi_map_physical_memory(unsigned long phys_addr, unsigned long memsize);
-extern void _dpmi_unmap_physical_memory(unsigned long linear_address);
 
 //memory.c
 #include <string.h>

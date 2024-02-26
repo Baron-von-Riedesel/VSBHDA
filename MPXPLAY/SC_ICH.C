@@ -406,7 +406,7 @@ static int INTELICH_adetect( struct audioout_info_s *aui )
 #endif
 
 	dbgprintf("ICH_adetect: enable PCI io and busmaster\n");
-	pcibios_set_master(card->pci_dev);
+	pcibios_enable_BM_IO(card->pci_dev);
 
 	card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR);
 	if (!(card->baseport_bm & 1 )) {/* must be an IO address */

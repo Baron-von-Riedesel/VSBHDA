@@ -430,57 +430,57 @@ enum {
 };
 
 // registers
-#define ICH6_REG_GCAP           0x00 /* global capabilities */
-#define ICH6_REG_VMIN           0x02 /* version */
-#define ICH6_REG_VMAJ           0x03
-#define ICH6_REG_OUTPAY         0x04 /* out payload */
-#define ICH6_REG_INPAY          0x06
-#define ICH6_REG_GCTL           0x08 /* global control */
-#define ICH6_REG_WAKEEN         0x0c
-#define ICH6_REG_STATESTS       0x0e
-#define ICH6_REG_GSTS           0x10 /* global status */
-#define ICH6_REG_INTCTL         0x20 /* interrupt control */
-#define ICH6_REG_INTSTS         0x24 /* interrupt status */
-#define ICH6_REG_WALCLK         0x30
-#define ICH6_REG_SYNC           0x34
+#define HDA_REG_GCAP           0x00 /* global capabilities */
+#define HDA_REG_VMIN           0x02 /* version */
+#define HDA_REG_VMAJ           0x03
+#define HDA_REG_OUTPAY         0x04 /* out payload */
+#define HDA_REG_INPAY          0x06
+#define HDA_REG_GCTL           0x08 /* global control */
+#define HDA_REG_WAKEEN         0x0c
+#define HDA_REG_STATESTS       0x0e
+#define HDA_REG_GSTS           0x10 /* global status */
+#define HDA_REG_INTCTL         0x20 /* interrupt control */
+#define HDA_REG_INTSTS         0x24 /* interrupt status */
+#define HDA_REG_WALCLK         0x30
+#define HDA_REG_SYNC           0x34
 
-#define ICH6_REG_CORBLBASE      0x40
-#define ICH6_REG_CORBUBASE      0x44
-#define ICH6_REG_CORBWP         0x48
-#define ICH6_REG_CORBRP         0x4A
-#define ICH6_REG_CORBCTL        0x4c
-#define ICH6_REG_CORBSTS        0x4d
-#define ICH6_REG_CORBSIZE       0x4e
+#define HDA_REG_CORBLBASE      0x40
+#define HDA_REG_CORBUBASE      0x44
+#define HDA_REG_CORBWP         0x48
+#define HDA_REG_CORBRP         0x4A
+#define HDA_REG_CORBCTL        0x4c
+#define HDA_REG_CORBSTS        0x4d
+#define HDA_REG_CORBSIZE       0x4e
 
-#define ICH6_REG_RIRBLBASE      0x50
-#define ICH6_REG_RIRBUBASE      0x54
-#define ICH6_REG_RIRBWP         0x58
-#define ICH6_REG_RINTCNT        0x5a
-#define ICH6_REG_RIRBCTL        0x5c
-#define ICH6_REG_RIRBSTS        0x5d
-#define ICH6_REG_RIRBSIZE       0x5e
+#define HDA_REG_RIRBLBASE      0x50
+#define HDA_REG_RIRBUBASE      0x54
+#define HDA_REG_RIRBWP         0x58
+#define HDA_REG_RINTCNT        0x5a
+#define HDA_REG_RIRBCTL        0x5c
+#define HDA_REG_RIRBSTS        0x5d
+#define HDA_REG_RIRBSIZE       0x5e
 
-#define ICH6_REG_IC            0x60
-#define ICH6_REG_IR            0x64
-#define ICH6_REG_IRS           0x68
-#define ICH6_IRS_VALID       (1<<1)
-#define ICH6_IRS_BUSY        (1<<0)
+#define HDA_REG_IC            0x60
+#define HDA_REG_IR            0x64
+#define HDA_REG_IRS           0x68
+#define HDA_IRS_VALID       (1<<1)
+#define HDA_IRS_BUSY        (1<<0)
 
-#define ICH6_REG_DPLBASE        0x70
-#define ICH6_REG_DPUBASE        0x74
-#define ICH6_DPLBASE_ENABLE     0x1    /* Enable position buffer */
+#define HDA_REG_DPLBASE        0x70
+#define HDA_REG_DPUBASE        0x74
+#define HDA_DPLBASE_ENABLE     0x1    /* Enable position buffer */
 
 /* stream register offsets from stream base */
-#define ICH6_REG_SD_CTL            0x00
-#define ICH6_REG_SD_STS            0x03
-#define ICH6_REG_SD_LPIB           0x04
-#define ICH6_REG_SD_CBL            0x08
-#define ICH6_REG_SD_LVI            0x0c
-#define ICH6_REG_SD_FIFOW          0x0e
-#define ICH6_REG_SD_FIFOSIZE       0x10
-#define ICH6_REG_SD_FORMAT         0x12
-#define ICH6_REG_SD_BDLPL          0x18
-#define ICH6_REG_SD_BDLPU          0x1c
+#define HDA_REG_SD_CTL            0x00
+#define HDA_REG_SD_STS            0x03
+#define HDA_REG_SD_LPIB           0x04
+#define HDA_REG_SD_CBL            0x08
+#define HDA_REG_SD_LVI            0x0c
+#define HDA_REG_SD_FIFOW          0x0e
+#define HDA_REG_SD_FIFOSIZE       0x10
+#define HDA_REG_SD_FORMAT         0x12
+#define HDA_REG_SD_BDLPL          0x18
+#define HDA_REG_SD_BDLPU          0x1c
 
 /*CORB & RIRB */
 #define HDA_CORB_MAXSIZE 1024
@@ -489,7 +489,7 @@ enum {
 #define HDA_RIRB_ALIGN    128
 
 /* PCI space */
-#define ICH6_PCIREG_TCSEL    0x44
+#define HDA_PCIREG_TCSEL    0x44
 
 #define MAX_AZX_DEV        16
 #define BDL_SIZE           8192
@@ -499,10 +499,10 @@ enum {
 #define AZX_MAX_CODECS        4
 
 /* GCTL unsolicited response enable bit */
-#define ICH6_GCTL_UREN        (1<<8)
+#define HDA_GCTL_UREN        (1<<8)
 
 /* GCTL reset bit */
-#define ICH6_GCTL_RESET        (1<<0)
+#define HDA_GCTL_RESET        (1<<0)
 
 /* SD_CTL bits */
 #define SD_CTL_STREAM_RESET    0x01    /* stream reset bit */
@@ -520,9 +520,9 @@ enum {
 
 /* INTCTL and INTSTS */
 /* bits 0-29 are for streams, starting with input, output, bidirect */
-#define ICH6_INT_ALL_STREAM   0xff       /* all stream interrupts */
-#define ICH6_INT_CTRL_EN      0x40000000 /* controller interrupt enable bit */
-#define ICH6_INT_GLOBAL_EN    0x80000000 /* global interrupt enable bit */
+#define HDA_INT_ALL_STREAM   0xff       /* all stream interrupts */
+#define HDA_INT_CTRL_EN      0x40000000 /* controller interrupt enable bit */
+#define HDA_INT_GLOBAL_EN    0x80000000 /* global interrupt enable bit */
 
 /* Defines for ATI HD Audio support in SB450 south bridge */
 #define ATI_SB450_HDAUDIO_MISC_CNTR2_ADDR   0x42

@@ -12,7 +12,7 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: alloc/free/map/unmap physical memory (XMS)
+//function: alloc & free physical memory (XMS)
 
 #include <stdint.h>
 #include <stdio.h>
@@ -22,26 +22,6 @@
 #include "CONFIG.H"
 #include "NEWFUNC.H"
 
-unsigned long _dpmi_map_physical_memory( unsigned long phys_addr, unsigned long memsize)
-////////////////////////////////////////////////////////////////////////////////////////
-{
-	__dpmi_meminfo info = {0, memsize, phys_addr};
-	if( __dpmi_physical_address_mapping(&info) == 0) {
-		return info.address;
-	}
-	return 0;
-}
-
-void _dpmi_unmap_physical_memory(unsigned long linear_addr)
-///////////////////////////////////////////////////////////
-{
-	__dpmi_meminfo info;
-	info.address = linear_addr;
-	__dpmi_free_physical_address_mapping( &info );
-	return;
-}
-
-//copied from USBDDOS
 static __dpmi_regs _xms_regs = {0};
 
 #define pds_xms_inited() (_xms_regs.x.cs != 0 || _xms_regs.x.ip != 0)
@@ -67,57 +47,57 @@ static int pds_xms_init(void)
 /* alloc xms memory.
  * returns xms handle and physical address in addr.
  */
-static unsigned short xms_alloc(unsigned short sizeKB, unsigned long* addr)
-///////////////////////////////////////////////////////////////////////////
+static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
+////////////////////////////////////////////////////////////
 {
-	unsigned short handle;
 	*addr = 0;
    
 	if(sizeKB == 0 || !pds_xms_init())
 		return 0;
-	//r = _xms_regs;
-	_xms_regs.h.ah = 0x09;      //alloc XMS
-	_xms_regs.x.dx = sizeKB;    //size in kb
+	_xms_regs.h.ah = 0x09;    //alloc memory block
+	_xms_regs.x.dx = sizeKB;
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	if (_xms_regs.x.ax != 0x1)
+	if ( _xms_regs.x.ax != 1 )
 		return 0;
-	handle = _xms_regs.x.dx;
-
-	_xms_regs.x.dx = handle;
-	_xms_regs.h.ah = 0x0C;    //lock XMS
+	uint16_t handle = _xms_regs.x.dx;
+	_xms_regs.h.ah = 0x0C;    //lock memory block
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	if(_xms_regs.x.ax != 0x1) {
-		_xms_regs.h.ah = 0x0A; //free XMS
+	if( _xms_regs.x.ax != 1 ) {
+		_xms_regs.h.ah = 0x0A; //free memory block
 		__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
 		return 0;
 	}
-	*addr = ((unsigned long)_xms_regs.x.dx << 16L) | (unsigned long)_xms_regs.x.bx;
+	*addr = ((uint32_t)_xms_regs.x.dx << 16) | _xms_regs.x.bx;
 	return handle;
 }
 
-static int xms_free(unsigned short handle)
-//////////////////////////////////////////
+static int xms_free( uint16_t handle )
+//////////////////////////////////////
 {
 	if(!pds_xms_inited())
 		return 0;
-	_xms_regs.h.ah = 0x0D;
+	_xms_regs.h.ah = 0x0D; /* unlock memory block */
 	_xms_regs.x.dx = handle;
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	if(_xms_regs.x.ax != 1)
-		return 0;
-	_xms_regs.h.ah = 0x0A;
-	_xms_regs.x.dx = handle;
+	//if(_xms_regs.x.ax != 1)
+	//	return 0;
+	_xms_regs.h.ah = 0x0A; /* free memory block */
+	//_xms_regs.x.dx = handle;
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
 	return _xms_regs.x.ax == 1;
 }
 
 /* alloc XMS memory and map it into linear address space */
 
-int _alloc_physical_memory( struct xmsmem_s * mem, unsigned int size)
-/////////////////////////////////////////////////////////////////////
+int _alloc_physical_memory( struct xmsmem_s * mem, uint32_t size)
+/////////////////////////////////////////////////////////////////
 {
-	if( ( mem->handle = xms_alloc( (size+1023)/1024, &mem->physicalptr) ) ) {
-		if ( mem->dwLinear = _dpmi_map_physical_memory( mem->physicalptr, size ) ) {
+	if( ( mem->handle = xms_alloc( (size+1023)/1024, &mem->physicalptr ) ) ) {
+		__dpmi_meminfo info;
+		info.address = mem->physicalptr;
+		info.size = size;
+		if ( __dpmi_physical_address_mapping( &info ) == 0 ) {
+			mem->dwLinear = info.address;
 			return 1;
 		}
 		xms_free( mem->handle );
@@ -129,6 +109,8 @@ int _alloc_physical_memory( struct xmsmem_s * mem, unsigned int size)
 void _free_physical_memory( struct xmsmem_s * mem)
 //////////////////////////////////////////////////
 {
-	_dpmi_unmap_physical_memory( mem->dwLinear );
+	__dpmi_meminfo info;
+	info.address = mem->dwLinear;
+	__dpmi_free_physical_address_mapping( &info );
 	xms_free( mem->handle );
 }

@@ -25,14 +25,11 @@
 #include "PCIBIOS.H"
 
 /* PCIBIOSACCESS 1 requires the go32 transfer buffer to be present; that's
- * not true after the program has become a TSR. Seems to work, at least for
- * HDA...
+ * not true after the program has become a TSR. Currently no problem, though.
  */
-#define PCIBIOSACCESS 0 /* 0=access PCI config space with I/O instructions */
+#define PCIBIOSACCESS 1 /* 0=access PCI config space with I/O instructions */
 
-#ifdef _DEBUG
 extern void fatal_error( int );
-#endif
 
 #define PCIDEVNUM(bParam)      (bParam >> 3)
 #define PCIFUNCNUM(bParam)     (bParam & 0x07)
@@ -40,20 +37,14 @@ extern void fatal_error( int );
 
 #define pcibios_clear_regs(reg) pds_memset(&reg,0,sizeof(reg))
 
-/* VSBHDA: DPMI function 0x300 is used instead of int386(); this allows to set
- * a real-mode stack that is >= 1kB, as required by PCI BIOS specs.
- * The djgpp "transfer buffer" is used as this stack - be aware that this buffer,
- * which is located just behind the PSP and is usually 16 kB,
- * isn't available anymore once vsbhda is installed as TSR!
+/* DPMI function 0x300 is used, with a custom
+ * real-mode stack that is >= 1kB, as required by PCI BIOS specs.
  */
 
 static uint8_t pcibios_GetBus(void)
 ///////////////////////////////////
 {
-	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_BIOS_PRESENT;
@@ -61,7 +52,6 @@ static uint8_t pcibios_GetBus(void)
 	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
 	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
-	//int386(PCI_SERVICE, &reg, &reg);
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	if(reg.x.flags & 1)
@@ -73,10 +63,7 @@ static uint8_t pcibios_GetBus(void)
 uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
-	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_DEVICE;
@@ -87,7 +74,6 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
 	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
 	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
 
-	//int386(PCI_SERVICE, &reg, &reg);
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
@@ -110,10 +96,7 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
 uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	//union REGS reg;
 	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-	//pcibios_clear_regs(reg);
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_CLASS;
@@ -167,111 +150,62 @@ uint8_t pcibios_search_devices(const struct pci_device_s devices[], struct pci_c
 
 #if PCIBIOSACCESS
 
+static uint32_t access_config( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bFunc, uint32_t data )
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	__dpmi_regs reg = {0};
+
+	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+        fatal_error( 1 );
+
+	reg.h.ah = PCI_FUNCTION_ID;
+	reg.h.al = bFunc;
+	reg.h.bh = ppkey->bBus;
+	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
+	reg.d.ecx = data;
+	reg.x.di = wAdr;
+	reg.x.flags = 0x202;
+	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
+	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
+
+	return reg.d.ecx;
+}
+
 uint8_t    pcibios_ReadConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr)
 ///////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-#ifdef _DEBUG
-	if ( _go32_info_block.size_of_transfer_buffer == 0 )
-        fatal_error( 1 );
-#endif
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_READ_BYTE;
-	reg.h.bh = ppkey->bBus;
-	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.x.di = wAdr;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
-	//int386(PCI_SERVICE, &reg, &reg);
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
-
-	return reg.h.cl;
+    return access_config( ppkey, wAdr, PCI_READ_BYTE, 0 );
 }
 
 uint16_t pcibios_ReadConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr)
 /////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-#ifdef _DEBUG
-	if ( _go32_info_block.size_of_transfer_buffer == 0 )
-        fatal_error( 1 );
-#endif
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_READ_WORD;
-	reg.h.bh = ppkey->bBus;
-	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.x.di = wAdr;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
-	//int386(PCI_SERVICE, &reg, &reg);
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
-
-	return reg.x.cx;
+    return access_config( ppkey, wAdr, PCI_READ_WORD, 0 );
 }
 
 uint32_t pcibios_ReadConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr)
 //////////////////////////////////////////////////////////////////////////////
 {
-	uint32_t dwData;
-
-	dwData  = (uint32_t)pcibios_ReadConfig_Word(ppkey, wAdr + 2) << 16;
-	dwData |= (uint32_t)pcibios_ReadConfig_Word(ppkey, wAdr);
-
-	return dwData;
+    return access_config( ppkey, wAdr, PCI_READ_DWORD, 0 );
 }
 
 void pcibios_WriteConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bData)
 /////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-#ifdef _DEBUG
-	if ( _go32_info_block.size_of_transfer_buffer == 0 )
-        fatal_error( 1 );
-#endif
-
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_WRITE_BYTE;
-	reg.h.bh = ppkey->bBus;
-	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.h.cl = bData;
-	reg.x.di = wAdr;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
-
-	//int386(PCI_SERVICE, &reg, &reg);
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
+    access_config( ppkey, wAdr, PCI_WRITE_BYTE, bData );
 }
 
 void pcibios_WriteConfig_Word( struct pci_config_s * ppkey, uint16_t wAdr, uint16_t wData)
 //////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
-
-#ifdef _DEBUG
-	if ( _go32_info_block.size_of_transfer_buffer == 0 )
-        fatal_error( 1 );
-#endif
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_WRITE_WORD;
-	reg.h.bh = ppkey->bBus;
-	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.x.cx = wData;
-	reg.x.di = wAdr;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
-
-	//int386(PCI_SERVICE, &reg, &reg);
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
+    access_config( ppkey, wAdr, PCI_WRITE_WORD, wData );
 }
 
 void pcibios_WriteConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr, uint32_t dwData)
 ////////////////////////////////////////////////////////////////////////////////////////////
 {
-	pcibios_WriteConfig_Word(ppkey, wAdr, LoW(dwData ));
-	pcibios_WriteConfig_Word(ppkey, wAdr + 2, HiW(dwData));
+    access_config( ppkey, wAdr, PCI_WRITE_DWORD, dwData );
 }
 
 #else
@@ -423,8 +357,10 @@ void pcibios_WriteConfig_Dword( struct pci_config_s * ppkey, uint16_t wAdr, uint
 }
 #endif
 
-void pcibios_set_master( struct pci_config_s *ppkey)
-////////////////////////////////////////////////////
+/* enable Busmuster and I/O space */
+
+void pcibios_enable_BM_IO( struct pci_config_s *ppkey)
+//////////////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD); /* read cmd register ( offset 4 ) */
@@ -432,12 +368,14 @@ void pcibios_set_master( struct pci_config_s *ppkey)
 	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
 }
 
-void pcibios_enable_memmap_set_master( struct pci_config_s *ppkey)
-//////////////////////////////////////////////////////////////////
+/* enable Busmuster and memory mapping, disable I/O */
+
+void pcibios_enable_BM_MM( struct pci_config_s *ppkey)
+//////////////////////////////////////////////////////
 {
 	unsigned int cmd;
 	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD);
 	cmd &= ~0x01;     /* disable io-port mapping */
-	cmd |= 0x02 | 0x04; /* enable memory mapping and set master */
+	cmd |= 0x02 | 0x04; /* enable memory mapping and busmaster */
 	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
 }

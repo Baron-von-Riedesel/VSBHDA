@@ -31,9 +31,10 @@
    - run "HDPMI32i -x"
    - run "VSBHDA"
 
-    QPIEMU.DLL is needed for real-mode port trapping. Without this helper dll
-   support for real-mode cannot be activated by VSBHDA - and, btw, it is also
-   needed by UNINST.COM, a program to unload VSBHDA.
+    As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
+   also, if it's not installed, UNINST.COM, a program to unload VSBHDA, won't
+   work.
+
     With the BLASTER variable one can select what card VSBHDA is to emulate:
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
@@ -50,8 +51,8 @@
      /O      : Set output (HDA only)
      /DEV    : Set start index for device scan (HDA only)
 
-   Note that if the frequency set by /F isn't supported by the codec, is cannot
-   be used - that's also true for the default value ( 22050 Hz ). In this case
+    Note that if the frequency set by /F isn't supported by the codec, it can't
+   be used - that's also true for the default value ( 22050 Hz ). In such cases
    VSBHDA will use a frequency that is supported AND is at least the value set
    by /F ( or the default ).
 
@@ -88,12 +89,13 @@
      extended memory.
 
 
-   4.3 JemmEx's NOVCPI Option
+   4.3 Jemm's NOVCPI Option
    
     If VSBHDA is to work for DOS protected-mode games, those games must use the
    HDPMI32i DPMI host. This is usually no problem, because there's an API to
    detect the presence of such a host. However, games may ignore an installed
    DPMI host and use the so-called VCPI API instead to run their very own low-
    level code. This will actually deactivate HDPMI32i ( and VSBHDA ) for the
-   game. For such cases, JemmEx offers the NOVCPI option. This option must be
-   set *after* VSBHDA has been loaded and *before* the game is launched.
+   game. For such cases, Jemm386/JemmEx offers the NOVCPI option. This option
+   must be set *after* VSBHDA has been loaded and *before* the game is launched.
+

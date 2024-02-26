@@ -23,16 +23,6 @@
 #define inl(reg) inpd(reg)
 #endif
 
-/*#define mpxp_outb(reg,val) outp(reg,val)
-#define mpxp_outw(reg,val) outpw(reg,val)
-#define mpxp_outl(reg,val) outpd(reg,val)
-#define mpxp_inb(reg) inp(reg)
-#define mpxp_inw(reg) inpw(reg)
-#define mpxp_inl(reg) inpd(reg)*/
-
-#define    HiW(dw)    (uint16_t)((uint32_t)dw >> 16)
-#define    LoW(dw)    (uint16_t)((uint32_t)dw & 0xFFFF)
-
 /* PCI BIOS function numbers */
 #define PCI_FUNCTION_ID     0xB1
 #define PCI_BIOS_PRESENT    0x01
@@ -98,7 +88,7 @@ uint32_t pcibios_ReadConfig_Dword( struct pci_config_s *, uint16_t);
 void     pcibios_WriteConfig_Byte( struct pci_config_s *, uint16_t, uint8_t);
 void     pcibios_WriteConfig_Word( struct pci_config_s *, uint16_t, uint16_t);
 void     pcibios_WriteConfig_Dword( struct pci_config_s *, uint16_t, uint32_t);
-void     pcibios_set_master( struct pci_config_s *);
-void     pcibios_enable_memmap_set_master( struct pci_config_s *);
+void     pcibios_enable_BM_IO( struct pci_config_s *); /* enables BM and IO! */
+void     pcibios_enable_BM_MM( struct pci_config_s *); /* enables BM and MM, disables IO */
 
 #endif

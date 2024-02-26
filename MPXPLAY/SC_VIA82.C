@@ -267,7 +267,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 
 	if(pcibios_search_devices(via_devices,card->pci_dev)!=PCI_SUCCESSFUL)
 		goto err_adetect;
-	pcibios_set_master(card->pci_dev);
+	pcibios_enable_BM_IO(card->pci_dev);
 
 	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
 	if( !( card->iobase & 1) || !(card->iobase & 0xfff0 ) ) {

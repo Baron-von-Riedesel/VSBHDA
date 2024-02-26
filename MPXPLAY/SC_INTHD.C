@@ -147,19 +147,19 @@ static struct aucards_mixerchan_s hda_master_vol = {
 
 //Intel HDA codec has memory mapping only (by specification)
 
-#define azx_writel(chip,reg,value) PDS_PUTB_LE32((char *)((chip)->iobase + ICH6_REG_##reg),value)
-#define azx_readl(chip,reg) PDS_GETB_LE32((char *)((chip)->iobase + ICH6_REG_##reg))
-#define azx_writew(chip,reg,value) PDS_PUTB_LE16((char *)((chip)->iobase + ICH6_REG_##reg), value)
-#define azx_readw(chip,reg) PDS_GETB_LE16((char *)((chip)->iobase + ICH6_REG_##reg))
-#define azx_writeb(chip,reg,value) *((unsigned char *)((chip)->iobase + ICH6_REG_##reg))=value
-#define azx_readb(chip,reg) PDS_GETB_8U((char *)((chip)->iobase + ICH6_REG_##reg))
+#define azx_writel(chip,reg,value) PDS_PUTB_LE32((char *)((chip)->iobase + HDA_REG_##reg),value)
+#define azx_readl(chip,reg) PDS_GETB_LE32((char *)((chip)->iobase + HDA_REG_##reg))
+#define azx_writew(chip,reg,value) PDS_PUTB_LE16((char *)((chip)->iobase + HDA_REG_##reg), value)
+#define azx_readw(chip,reg) PDS_GETB_LE16((char *)((chip)->iobase + HDA_REG_##reg))
+#define azx_writeb(chip,reg,value) *((unsigned char *)((chip)->iobase + HDA_REG_##reg))=value
+#define azx_readb(chip,reg) PDS_GETB_8U((char *)((chip)->iobase + HDA_REG_##reg))
 
-#define azx_sd_writel(dev,reg,value) PDS_PUTB_LE32((char *)((dev)->sd_addr + ICH6_REG_##reg),value)
-#define azx_sd_readl(dev,reg) PDS_GETB_LE32((char *)((dev)->sd_addr + ICH6_REG_##reg))
-#define azx_sd_writew(dev,reg,value) PDS_PUTB_LE16((char*)((dev)->sd_addr + ICH6_REG_##reg),value)
-#define azx_sd_readw(dev,reg) PDS_GETB_LE16((char *)((dev)->sd_addr + ICH6_REG_##reg))
-#define azx_sd_writeb(dev,reg,value) *((unsigned char *)((dev)->sd_addr + ICH6_REG_##reg))=value
-#define azx_sd_readb(dev,reg) PDS_GETB_8U((char *)((dev)->sd_addr + ICH6_REG_##reg))
+#define azx_sd_writel(dev,reg,value) PDS_PUTB_LE32((char *)((dev)->sd_addr + HDA_REG_##reg),value)
+#define azx_sd_readl(dev,reg) PDS_GETB_LE32((char *)((dev)->sd_addr + HDA_REG_##reg))
+#define azx_sd_writew(dev,reg,value) PDS_PUTB_LE16((char*)((dev)->sd_addr + HDA_REG_##reg),value)
+#define azx_sd_readw(dev,reg) PDS_GETB_LE16((char *)((dev)->sd_addr + HDA_REG_##reg))
+#define azx_sd_writeb(dev,reg,value) *((unsigned char *)((dev)->sd_addr + HDA_REG_##reg))=value
+#define azx_sd_readb(dev,reg) PDS_GETB_8U((char *)((dev)->sd_addr + HDA_REG_##reg))
 
 #define codec_param_read(codec,nid,param) hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
 
@@ -181,20 +181,20 @@ static void azx_init_pci(struct intelhd_card_s *card)
 
 	switch(card->board_driver_type) {
 	case AZX_DRIVER_ATI:
-		update_pci_byte(card->pci_dev,ATI_SB450_HDAUDIO_MISC_CNTR2_ADDR,
-			0x07, ATI_SB450_HDAUDIO_ENABLE_SNOOP); // enable snoop
+		update_pci_byte( card->pci_dev, ATI_SB450_HDAUDIO_MISC_CNTR2_ADDR,
+			0x07, ATI_SB450_HDAUDIO_ENABLE_SNOOP ); // enable snoop
 		break;
 	case AZX_DRIVER_ATIHDMI_NS:
-		update_pci_byte(card->pci_dev,ATI_SB450_HDAUDIO_MISC_CNTR2_ADDR,
-			ATI_SB450_HDAUDIO_ENABLE_SNOOP, 0); // disable snoop
+		update_pci_byte( card->pci_dev, ATI_SB450_HDAUDIO_MISC_CNTR2_ADDR,
+			ATI_SB450_HDAUDIO_ENABLE_SNOOP, 0 ); // disable snoop
 		break;
 	case AZX_DRIVER_NVIDIA:
-		update_pci_byte(card->pci_dev,NVIDIA_HDA_TRANSREG_ADDR,
-			0x0f, NVIDIA_HDA_ENABLE_COHBITS);
-		update_pci_byte(card->pci_dev,NVIDIA_HDA_ISTRM_COH,
-			0x01, NVIDIA_HDA_ENABLE_COHBIT);
-		update_pci_byte(card->pci_dev,NVIDIA_HDA_OSTRM_COH,
-			0x01, NVIDIA_HDA_ENABLE_COHBIT);
+		update_pci_byte( card->pci_dev, NVIDIA_HDA_TRANSREG_ADDR,
+			0x0f, NVIDIA_HDA_ENABLE_COHBITS );
+		update_pci_byte( card->pci_dev, NVIDIA_HDA_ISTRM_COH,
+			0x01, NVIDIA_HDA_ENABLE_COHBIT );
+		update_pci_byte( card->pci_dev, NVIDIA_HDA_OSTRM_COH,
+			0x01, NVIDIA_HDA_ENABLE_COHBIT );
 		break;
 	case AZX_DRIVER_SCH:
 	case AZX_DRIVER_PCH:
@@ -211,10 +211,12 @@ static void azx_init_pci(struct intelhd_card_s *card)
 		break;
 	}
 
-	pcibios_enable_memmap_set_master(card->pci_dev); // Intel HDA chips uses memory mapping only
+	/* HDA chips uses memory mapping only */
+	pcibios_enable_BM_MM(card->pci_dev);
 
-	if(card->pci_dev->vendor_id != 0x1002) // != ATI
-		update_pci_byte(card->pci_dev, ICH6_PCIREG_TCSEL, 0x07, 0);
+	/* TCSEL, bits 0-2: select traffic class */
+	if( card->pci_dev->vendor_id != 0x1002 ) // != ATI
+		update_pci_byte(card->pci_dev, HDA_PCIREG_TCSEL, 0x07, 0); /* set TC0 */
 }
 
 static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
@@ -224,7 +226,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 
 #if USEIMMEDIATECMDS //Immediate Commands are optional, some devices don't have it, use CORB
 
-	while((azx_readw(chip, IRS) & ICH6_IRS_BUSY) && (--timeout))
+	while((azx_readw(chip, IRS) & HDA_IRS_BUSY) && (--timeout))
 		pds_delay_10us(10);
 
 	if(!timeout) {dbgprintf("azx_single_send_cmd: timeout\n");}
@@ -232,7 +234,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 	pds_delay_10us(INTHD_CODEC_EXTRA_DELAY_US/10); // 0.1 ms
 
 	azx_writel(chip, IC, val);
-	azx_writew(chip, IRS, azx_readw(chip, IRS) | (ICH6_IRS_VALID|ICH6_IRS_BUSY));
+	azx_writew(chip, IRS, azx_readw(chip, IRS) | (HDA_IRS_VALID | HDA_IRS_BUSY));
 
 #else
 
@@ -279,7 +281,7 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 
 	do{
 		uint16_t irs = azx_readw(chip, IRS);
-		if(( irs & ICH6_IRS_VALID ) && !( irs & ICH6_IRS_BUSY ))
+		if(( irs & HDA_IRS_VALID ) && !( irs & HDA_IRS_BUSY ))
 			break;
 		pds_delay_10us(10);
 	}while(--timeout);
@@ -734,18 +736,18 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	dbgprintf("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL));
 
 	azx_writeb(chip, STATESTS, STATESTS_INT_MASK);
-	azx_writel(chip, GCTL, azx_readl(chip, GCTL) & ~ICH6_GCTL_RESET);
+	azx_writel(chip, GCTL, azx_readl(chip, GCTL) & ~HDA_GCTL_RESET);
 
 	dbgprintf("azx_reset: GCTL=%X(b) GCTL=%X(l)\n",(unsigned long)azx_readb(chip, GCTL),azx_readl(chip, GCTL));
 	timeout = 500;
-	while((( azx_readb(chip, GCTL) & ICH6_GCTL_RESET) != 0 ) && (--timeout))
+	while((( azx_readb(chip, GCTL) & HDA_GCTL_RESET) != 0 ) && (--timeout))
 		pds_delay_10us(100);
 	dbgprintf("azx_reset: GCTL=%X timeout=%d\n",azx_readl(chip, GCTL),timeout);
 
 	pds_delay_10us(100);
-	azx_writeb(chip, GCTL, azx_readb(chip, GCTL) | ICH6_GCTL_RESET);
+	azx_writeb(chip, GCTL, azx_readb(chip, GCTL) | HDA_GCTL_RESET);
 	timeout = 500;
-	while(((azx_readb(chip, GCTL)&ICH6_GCTL_RESET)==0) && (--timeout))
+	while(((azx_readb(chip, GCTL)&HDA_GCTL_RESET)==0) && (--timeout))
 		pds_delay_10us(100);
 	pds_delay_10us(100);
 	dbgprintf("azx_reset: after reset, GCTL=%X timeout=%d\n",(unsigned long)azx_readb(chip, GCTL),timeout);
@@ -755,7 +757,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	}
 
 	// disable unsolicited responses (single cmd mode)
-	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~ICH6_GCTL_UREN)));
+	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~HDA_GCTL_UREN)));
 
 	// set CORB command DMA buffer
 	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
@@ -861,11 +863,11 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_sd_writeb(card, SD_STS, SD_INT_MASK);
 	azx_writeb(card, STATESTS, STATESTS_INT_MASK);
 	azx_writeb(card, RIRBSTS, RIRB_INT_MASK);
-	azx_writel(card, INTSTS, ICH6_INT_CTRL_EN | ICH6_INT_ALL_STREAM);
+	azx_writel(card, INTSTS, HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM);
 #ifdef SBEMU
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | ICH6_INT_CTRL_EN | ICH6_INT_GLOBAL_EN | ICH6_INT_ALL_STREAM);
+	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM);
 #else
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | ICH6_INT_CTRL_EN | ICH6_INT_GLOBAL_EN);
+	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN);
 #endif
 
 	azx_writel(card, DPLBASE, 0);
@@ -1316,9 +1318,11 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 ////////////////////////////////////////////////////////
 {
 	if( card->iobase ){
+		__dpmi_meminfo info;
 		hda_hw_close( card );
 		/* iobase has to be converted back to a linear address */
-		_dpmi_unmap_physical_memory( LinearAddr( (void *)(card->iobase) ) );
+		info.address = LinearAddr( (void *)(card->iobase) );
+		__dpmi_free_physical_address_mapping( &info );
 		card->iobase = 0;
 	}
 	if( card->afg_nodes ) {
@@ -1377,12 +1381,15 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			}
 		}
 		card->iobase &= 0xfffffff0;
-		/* the physical addr is converted to linear addr, then to a near ptr */
-		card->iobase = (unsigned long)NearPtr( _dpmi_map_physical_memory( card->iobase, 8192 ) );
-		if( !card->iobase ) {
+		__dpmi_meminfo info;
+		info.address = card->iobase;
+		info.size = 0x2000;
+		if (__dpmi_physical_address_mapping(&info) != 0) {
 			printf("HDA: mapping MMIO for card %u failed\n", aui->card_select_devicenum );
 			break;
 		}
+		/* the physical addr, after mapped to a linear addr, is finally converted to a ptr */
+		card->iobase = (uint32_t)NearPtr( info.address );
 		if( aui->card_select_config >= 0 )
 			card->config_select = aui->card_select_config;
 
@@ -1426,9 +1433,11 @@ static void HDA_close( struct audioout_info_s *aui )
 	dbgprintf("HDA_close\n" );
 	if( card ){
 		if( card->iobase ){
+			__dpmi_meminfo info;
 			hda_hw_close( card );
 			/* iobase has to be converted back to a linear address */
-			_dpmi_unmap_physical_memory( LinearAddr( (void *)(card->iobase ) ) );
+			info.address = LinearAddr( (void *)(card->iobase) );
+			__dpmi_free_physical_address_mapping( &info );
 			card->iobase = 0;
 		}
 		if( card->afg_nodes ) {

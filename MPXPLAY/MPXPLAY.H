@@ -42,9 +42,6 @@ extern "C" {
 #define PIT_DIVISOR_DEFAULT  65536
 //#define PIT_CYCLES_DEFAULT   (1000.0/55.0)  // 18.181818
 
-#define INTSOUNDDECODER_DISALLOW
-#define INTSOUNDDECODER_ALLOW
-
 #define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
 #define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le

@@ -1,6 +1,7 @@
 
-;--- Int 31h/21h hook
-;--- purpose is to hide the sound hw IRQ from client
+;--- Int 31h/21h hook; purposes:
+;--- 1. to hide the sound hw IRQ from client
+;--- 2. clear ISR_DMA_MappedAddr at DOS exit, since it will be released by hdpmi
 
 	.386
 	.MODEL small, c
@@ -10,6 +11,7 @@
 	.data
 
 externdef dfOldISR:fword
+externdef c ISR_DMA_MappedAddr:dword
 
 oldint31 df ?
 	dw ?
@@ -52,7 +54,7 @@ is05:
 	pop eax
 	and byte ptr [esp+2*4], 0feh
 	iretd
-
+	align 4
 myint31 endp
 
 myint21 proc
@@ -61,8 +63,16 @@ myint21 proc
 	jz is25
 	cmp ah, 35h
 	jz is35
+	cmp ah, 4Ch
+	jz is4C
 prevint:
 	jmp cs:[oldint21]
+is4C:
+	push ds
+	mov ds, cs:[dsseg]
+	mov [ISR_DMA_MappedAddr], 0
+	pop ds
+	jmp prevint
 is25:
 is35:
 	cmp al, cs:[intno]
@@ -83,7 +93,7 @@ isset:
 	pop eax
 	and byte ptr [esp+2*4], 0feh
 	iretd
-
+	align 4
 myint21 endp
 
 ;--- install int 31h handler

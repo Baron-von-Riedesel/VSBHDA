@@ -30,10 +30,10 @@ OBJFILES=\
 	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
-	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/mapphys.o	$(OUTD)/time.o\
+	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/time.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o
+	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o
 
 INCLUDE_DIRS=src mpxplay
 SRC_DIRS=src mpxplay
@@ -79,13 +79,14 @@ $(OUTD)/$(NAME).ar:: $(OBJFILES)
 $(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h newfunc.h ac97mix.h
 $(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
+$(OUTD)/djdpmi.o::   djdpmi.asm
 $(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h newfunc.h dmairq.h
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/hapi.o::     hapi.asm
 $(OUTD)/int31.o::    int31.asm
 $(OUTD)/linear.o::   linear.c    linear.h platform.h
 $(OUTD)/main.o::     main.c      ptrap.h  linear.h vopl3.h pic.h platform.h config.h vsb.h vdma.h virq.h mpxplay.h au_cards.h newfunc.h
-$(OUTD)/mapphys.o::  mapphys.c   newfunc.h
+$(OUTD)/physmem.o::  physmem.c   newfunc.h
 $(OUTD)/memory.o::   memory.c
 $(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h

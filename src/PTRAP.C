@@ -51,7 +51,6 @@ extern void PTRAP_RM_WrapperEnd( void );
 
 static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
 
-static struct _hdpmi_traphandler traphandler;
 struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
 
 void (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = &outp;
@@ -170,7 +169,7 @@ uint16_t PTRAP_GetQEMMVersion(void)
         r.x.bx = 0x4354;
         r.x.cs = _go32_info_block.linear_address_of_original_psp >> 4;
         r.x.ip = 0x5C;
-        if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || (r.x.ax & 0xff))
+        if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || r.h.al )
             return 0;
         r.x.ip = r.x.di;
         r.x.cs = r.x.es;
@@ -377,12 +376,10 @@ bool PTRAP_DetectHDPMI()
 static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(void), void(*handlerOut)(void) )
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-    uint32_t handle = 0;
-    int count = end - start + 1;
+    struct _hdpmi_traphandler traphandler;
     traphandler.ofsIn  = (uint32_t)handlerIn;
-	traphandler.ofsOut = (uint32_t)handlerOut;
-    handle = _hdpmi_install_trap( start, count, &traphandler );
-    return handle;
+    traphandler.ofsOut = (uint32_t)handlerOut;
+    return _hdpmi_install_trap( start, end - start + 1, &traphandler );
 }
 
 bool PTRAP_Install_PM_PortTraps( void )
