@@ -1,5 +1,5 @@
 
-# create vsbhda.exe
+# create vsbhda.exe with DJGPP.
 # to create a debug version, enter: make DEBUG=1
 # note that for assembly jwasm v2.17+ is needed ( understands -djgpp option )
 
@@ -76,6 +76,13 @@ $(OUTD)/$(NAME).exe:: $(OUTD)/$(NAME).ar
 $(OUTD)/$(NAME).ar:: $(OBJFILES)
 	ar --target=coff-go32 r $(OUTD)/$(NAME).ar $(OBJFILES)
 
+# to avoid problems with 16-bit relocations, the 16-bit code
+# is included in binary format into rmwrap.asm.
+
+$(OUTD)/rmwrap.o:: rmwrap.asm rmcode.asm
+	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode.bin src/rmcode.asm
+	jwasm.exe -q -djgpp -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
+
 $(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h newfunc.h ac97mix.h
 $(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
@@ -92,7 +99,6 @@ $(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     ptrap.h linear.h platform.h config.h ports.h
-$(OUTD)/rmwrap.o::   rmwrap.asm
 $(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
 $(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
 $(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_inthd.h

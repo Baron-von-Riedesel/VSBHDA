@@ -61,9 +61,13 @@ ADPCM_STATE ISR_adpcm_state;
 static int DecodeADPCM(uint8_t *adpcm, int bytes)
 /////////////////////////////////////////////////
 {
-	int start = 0;
+    int start = 0;
     int i;
     int bits = VSB_GetBits();
+    int outbytes;
+    int outcount = 0;
+    uint8_t* pcm;
+
     if( ISR_adpcm_state.useRef ) {
         ISR_adpcm_state.useRef = false;
         ISR_adpcm_state.ref = *adpcm;
@@ -72,10 +76,9 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
     }
 
     /* bits may be 2,3,4 -> outbytes = bytes * 4,3,2 */
-    int outbytes = bytes * ( 9 / bits );
-    uint8_t* pcm = (uint8_t*)malloc( outbytes );
+    outbytes = bytes * ( 9 / bits );
+    pcm = (uint8_t*)malloc( outbytes );
     dbgprintf("DecodeADPCM( %X, %u ): malloc(%u)=%X, bits=%u\n", adpcm, bytes, outbytes, pcm, bits );
-    int outcount = 0;
 
     switch ( bits ) {
     case 2:
@@ -120,6 +123,7 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 	PCM_CV_TYPE_S *pcmdst;
 	unsigned long ipi;
 	unsigned int inpos = 0;//(samplerate < newrate) ? instep/2 : 0;
+	int total;
 #if MALLOCSTATIC
 	static int maxsample = 0;
 	static PCM_CV_TYPE_S* buff = NULL;
@@ -142,7 +146,7 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 	dbgprintf("mixer_speed_lq: srcrate=%u dstrate=%u chn=%u smpl=%u step=%x end=%x\n", samplerate, newrate, channels, samplenum, instep, inend );
 
 	pcmdst = pcmsrc;
-	int total = samplenum/channels;
+	total = samplenum/channels;
 
 	do{
 		int m1,m2;
@@ -172,10 +176,10 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum )
 /////////////////////////////////////////////////////////////////////////
 {
-	dbgprintf("cv_bits_8_to_16( pcm=%X, smpls=%u\n", pcm, samplenum );
-
 	PCM_CV_TYPE_C *inptr = (PCM_CV_TYPE_C *)pcm;
 	PCM_CV_TYPE_C *outptr = (PCM_CV_TYPE_C *)pcm;
+
+	dbgprintf("cv_bits_8_to_16( pcm=%X, smpls=%u\n", pcm, samplenum );
 
 	inptr += samplenum;
 	outptr += samplenum * 2;
@@ -226,6 +230,11 @@ static void SNDISR_Interrupt( void )
     uint32_t mastervol;
     uint32_t voicevol;
     uint32_t midivol;
+    int samples;
+    bool digital;
+    int dma;
+    int32_t DMA_Count;
+    int i;
 
 #if !TRIGGERATONCE
     if ( VSB_TriggerIRQ ) {
@@ -262,16 +271,15 @@ static void SNDISR_Interrupt( void )
     if ( midivol == 0xff ) midivol = 0x100;
 #endif
     aui.card_outbytes = aui.card_dmasize;
-    int samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
     //dbgprintf("samples:%u ",samples);
 
     if(samples == 0) /* no free space in DMA buffer? */
         return;
 
-    bool digital = VSB_Running();
-    int dma = VSB_GetDMA();
-    int32_t DMA_Count = VDMA_GetCounter(dma);
-    int i;
+    digital = VSB_Running();
+    dma = VSB_GetDMA();
+    DMA_Count = VDMA_GetCounter(dma);
 
     if( digital ) {
         int i,j;
@@ -282,9 +290,13 @@ static void SNDISR_Interrupt( void )
         uint32_t SB_Rate = VSB_GetSampleRate();
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int channels = VSB_GetChannels();
+        int pos = 0;
+        int count;
+        bool resample; //don't resample if sample rates are close
+        int bytes;
+
         //dbgprintf("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels );
         //dbgprintf("DMA index: %x\n", DMA_Index);
-        int pos = 0;
         do {
 #if !PREMAPDMA
             /* check if the current DMA address is within the mapped region.
@@ -316,8 +328,8 @@ static void SNDISR_Interrupt( void )
                 // dbgprintf("ISR: chn=%d DMA_Addr/Index/Count=%x/%x/%x ISR_DMA_Addr/Size/MappedAddr=%x/%x/%x\n", dma, DMA_Addr, DMA_Index, DMA_Count, ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr );
             }
 #endif
-            int count = samples - pos;
-            bool resample = true; //don't resample if sample rates are close
+            count = samples - pos;
+            resample = true; //don't resample if sample rates are close
             if(SB_Rate < aui.freq_card)
                 //count = max(channels, count/((aui.freq_card+SB_Rate-1)/SB_Rate));
                 count = max(1, count * SB_Rate / aui.freq_card );
@@ -330,7 +342,7 @@ static void SNDISR_Interrupt( void )
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
             if(VSB_GetBits() < 8) //ADPCM 8bit
                 count = max(1, count / (9 / VSB_GetBits()));
-            int bytes = count * samplesize * channels;
+            bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer
              */
@@ -393,11 +405,13 @@ static void SNDISR_Interrupt( void )
     /* software mixer: very simple implemented - but should work quite well */
 
     //if( gvars.opl3 ) {
-    if( VOPL3_IsActive() ) {
+#ifndef NOFM
+	if( VOPL3_IsActive() ) {
         int16_t* pcm = digital ? ISR_OPLPCM : ISR_PCM;
+        int channels;
         VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
-        int channels = VOPL3_GetMode() ? 2 : 1;
+        channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
             cv_channels_1_to_2( pcm, samples );
 
@@ -419,12 +433,14 @@ static void SNDISR_Interrupt( void )
         } else
             for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
     } else {
+#endif
         if( digital )
             for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
         else
             memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 );
+#ifndef NOFM
     }
-
+#endif
     aui.samplenum = samples * 2;
     aui.pcm_sample = ISR_PCM;
 

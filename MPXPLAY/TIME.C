@@ -23,8 +23,16 @@
 
 #include "MPXPLAY.H"
 
+#ifdef DJGPP
 #define _disableint() asm("mov $0x900, %%ax \n\t" "int $0x31 \n\t" "mov %%ax, %0\n\t" : "=m"(oldstate) :: "eax" )
 #define _restoreint() asm("mov %0, %%ax \n\t" "int $0x31 \n\t" :: "m"(oldstate) : "eax" )
+#else
+#include <conio.h> /* for outp()/inp() */
+unsigned char _disableint(void);
+void _restoreint(unsigned char);
+#pragma aux _disableint = "mov ax, 900h" "int 31h" parm[] modify exact[ax];
+#pragma aux _restoreint = "mov ah, 9"    "int 31h" parm[al] modify exact[ax];
+#endif
 
 unsigned long pds_gettimeh(void)
 ////////////////////////////////
@@ -53,21 +61,40 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 {
 	unsigned int divisor = PIT_DIVISOR_DEFAULT; // is 65536
 	unsigned int i,oldtsc, tsctemp, tscdif;
+#ifdef DJGPP
 	unsigned short oldstate;
+#else
+	unsigned char oldstate;
+#endif
 
 	for( i = 0; i < ticks; i++ ){
+#ifdef DJGPP
 		_disableint();
 		outp( 0x43, 0x04 );
 		oldtsc = inp(0x40);
 		oldtsc += inp(0x40) << 8;
 		_restoreint();
-
+#else
+		oldstate = _disableint();
+		outp( 0x43, 0x04 );
+		oldtsc = inp(0x40);
+		oldtsc += inp(0x40) << 8;
+		_restoreint(oldstate);
+#endif
 		do{
+#ifdef DJGPP
 			_disableint();
 			outp( 0x43, 0x04 );
 			tsctemp = inp(0x40);
 			tsctemp += inp(0x40) << 8;
 			_restoreint();
+#else
+			oldstate = _disableint();
+			outp( 0x43, 0x04 );
+			tsctemp = inp(0x40);
+			tsctemp += inp(0x40) << 8;
+			_restoreint(oldstate);
+#endif
 			if(tsctemp <= oldtsc)
 				tscdif = oldtsc - tsctemp; // handle overflow
 			else

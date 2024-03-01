@@ -557,6 +557,7 @@ int AU_writedata( struct audioout_info_s *aui )
 ///////////////////////////////////////////////
 {
 	unsigned int outbytes_left;
+	int left;
 
 	/* this function is called during interrupt time! */
 
@@ -574,7 +575,7 @@ int AU_writedata( struct audioout_info_s *aui )
 
 	aui->card_outbytes -= (aui->card_outbytes % aui->card_bytespersign);
 
-	int left = aucards_writedata_intsound( aui, outbytes_left );
+	left = aucards_writedata_intsound( aui, outbytes_left );
 
 	aui->samplenum = 0;
 

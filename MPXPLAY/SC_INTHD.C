@@ -61,7 +61,7 @@
 #define PDS_PUTB_8U(p,v)   *((uint8_t *)(p))=(v)        //
 #define PDS_PUTB_LE16(p,v) *((int16_t *)(p))=(v)        //
 #define PDS_PUTB_LEU16(p,v) *((uint16_t *)(p))=(v)      //
-#define PDS_PUTB_LE24(p,v) *((uint8_t *)(p))=((v)&0xff); PDS_PUTB_LE16(((uint8_t*)p+1),((v)>>8))
+#define PDS_PUTB_LE24(p,v) *((uint8_t *)(p))=((v) & 0xff); PDS_PUTB_LE16(((uint8_t*)p+1),((v) >> 8))
 #define PDS_PUTB_LE32(p,v) *((int32_t *)(p))=(v)        // long to 4bytes LE
 #define PDS_PUTB_LE64(p,v) *((int64_t *)(p))=(v)        // int64 to 8bytes LE
 
@@ -149,7 +149,8 @@ static struct aucards_mixerchan_s hda_master_vol = {
 
 #define azx_writel(chip,reg,value) PDS_PUTB_LE32((char *)((chip)->iobase + HDA_REG_##reg),value)
 #define azx_readl(chip,reg) PDS_GETB_LE32((char *)((chip)->iobase + HDA_REG_##reg))
-#define azx_writew(chip,reg,value) PDS_PUTB_LE16((char *)((chip)->iobase + HDA_REG_##reg), value)
+//#define azx_writew(chip,reg,value) PDS_PUTB_LE16((char *)((chip)->iobase + HDA_REG_##reg), value)
+#define azx_writew(chip,reg,value) PDS_PUTB_LEU16((char *)((chip)->iobase + HDA_REG_##reg), value)
 #define azx_readw(chip,reg) PDS_GETB_LE16((char *)((chip)->iobase + HDA_REG_##reg))
 #define azx_writeb(chip,reg,value) *((unsigned char *)((chip)->iobase + HDA_REG_##reg))=value
 #define azx_readb(chip,reg) PDS_GETB_8U((char *)((chip)->iobase + HDA_REG_##reg))
@@ -276,6 +277,8 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 /////////////////////////////////////////////////////////////////
 {
 	int timeout = 2000; // 200 ms
+	int rirbindex;
+	long long data;
 
 #if USEIMMEDIATECMDS //Immediate Commands are optional, some devices don't have it, use CORB
 
@@ -303,8 +306,8 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 
 	if(!timeout) {dbgprintf("azx_get_response: timeout\n");}
 
-	int rirbindex = azx_readw( chip, RIRBWP );
-	long long data = chip->rirb_buffer[rirbindex];
+	rirbindex = azx_readw( chip, RIRBWP );
+	data = chip->rirb_buffer[rirbindex];
 	azx_writeb(chip, RIRBSTS, 1); /* writing a 1 clears bit 0! */
 	return (unsigned int)data;
 
@@ -697,6 +700,7 @@ static void hda_enable_eapd(struct intelhd_card_s *card, struct hda_gnode *node)
 static int hda_parse_output(struct intelhd_card_s *card)
 ////////////////////////////////////////////////////////
 {
+	int i;
 	struct hda_gnode *node;
 	int8_t *po,parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
 	int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
@@ -707,7 +711,7 @@ static int hda_parse_output(struct intelhd_card_s *card)
 	case 2: po = &parseorder_speaker[1]; break;
 	}
 
-	int i = 0;
+	i = 0;
 	do{
 		node = parse_output_jack(card, *po);
 		if(node){
@@ -822,8 +826,8 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	beginmem_aligned = (((unsigned long)card->dm->pMem + 1023) & (~1023));
 	card->table_buffer = (uint32_t *)beginmem_aligned;
 	card->pcmout_buffer = (char *)(beginmem_aligned + BDL_SIZE);
-	card->corb_buffer = (long*)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN - 1) & (~(HDA_CORB_ALIGN - 1)));
-	card->rirb_buffer = (long long*)(((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE + HDA_RIRB_ALIGN - 1) & (~(HDA_RIRB_ALIGN - 1)));
+	card->corb_buffer = (unsigned long *)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN - 1) & (~(HDA_CORB_ALIGN - 1)));
+	card->rirb_buffer = (unsigned long long *)(((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE + HDA_RIRB_ALIGN - 1) & (~(HDA_RIRB_ALIGN - 1)));
 
     /* set offset for access to output stream descriptor; the first output stream descriptor is used */
 
@@ -1362,6 +1366,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	 */
 	//if(pcibios_search_devices(intelhda_devices,card->pci_dev)!=PCI_SUCCESSFUL)
 	for ( ;; aui->card_select_devicenum++ ) {
+		__dpmi_meminfo info;
 		card->pci_dev->device_type = AZX_DRIVER_GENERIC; /* set as default, will be changed if device is known */
 		if(pcibios_FindDeviceClass( 4, 3, 0, aui->card_select_devicenum, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
 			break;
@@ -1381,7 +1386,6 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			}
 		}
 		card->iobase &= 0xfffffff0;
-		__dpmi_meminfo info;
 		info.address = card->iobase;
 		info.size = 0x2000;
 		if (__dpmi_physical_address_mapping(&info) != 0) {
@@ -1566,12 +1570,15 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	int status = azx_sd_readb(card, SD_STS) & SD_INT_MASK;
+	int corbsts;
+	int rirbsts;
+
 	if(status)
 		azx_sd_writeb(card, SD_STS, status); //ack all
 
 	//ack CORB/RIRB status
-	int corbsts = azx_readb(card, CORBSTS) & 0x1;
-	int rirbsts = azx_readb(card, RIRBSTS) & RIRB_INT_MASK;
+	corbsts = azx_readb(card, CORBSTS) & 0x1;
+	rirbsts = azx_readb(card, RIRBSTS) & RIRB_INT_MASK;
 	if(corbsts)
 		azx_writeb(card, CORBSTS, corbsts);
 	if(rirbsts)

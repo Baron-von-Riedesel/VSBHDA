@@ -12,12 +12,20 @@ extern uint8_t _hdpmi_set_context_mode( uint8_t bMode );
 
 /* struct expected by HDPMI port trapping API */
 
+#ifdef DJGPP
 struct __attribute__((packed)) _hdpmi_traphandler {
-    uint32_t ofsIn;
+#else
+#pragma pack( __push, 1 )
+struct _hdpmi_traphandler {
+#endif
+	uint32_t ofsIn;
     uint16_t segIn;
     uint32_t ofsOut;
     uint16_t segOut;
 };
+#ifndef DJGPP
+#pragma pack( __pop )
+#endif
 
 extern uint32_t _hdpmi_install_trap( int port, int cnt, struct _hdpmi_traphandler * );
 extern bool     _hdpmi_uninstall_trap( uint32_t handle );

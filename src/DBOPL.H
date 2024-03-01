@@ -112,6 +112,7 @@ public:
 
 	uint8_t rateZero;				//Bits for the different states of the envelope having no changes
 	uint8_t keyOn;				//Bitmask of different values that can generate keyon
+    uint8_t bState;
 	//Registers, also used to check for changes
 	uint8_t reg20, reg40, reg60, reg80, regE0;
 	//Active part of the envelope we're in
@@ -144,7 +145,7 @@ public:
 	void KeyOn( uint8_t mask);
 	void KeyOff( uint8_t mask);
 
-	template< State state>
+//	template< State state>
 	Bits TemplateVolume( );
 
 	int32_t RateForward( uint32_t add );
@@ -173,6 +174,7 @@ struct Channel {
 	uint8_t fourMask;
 	int8_t maskLeft;		//Sign extended values for both channel's panning
 	int8_t maskRight;
+    SynthMode mode;
 
 	//Forward the channel data to the operators of the channel
 	void SetChanData( const Chip* chip, uint32_t data );
@@ -188,7 +190,7 @@ struct Channel {
 	void GeneratePercussion( Chip* chip, int16_t* output );
 
 	//Generate blocks of data in specific modes
-	template<SynthMode mode>
+	//template<SynthMode mode>
 	Channel* BlockTemplate( Chip* chip, uint32_t samples, int16_t* output );
 	Channel();
 };
@@ -198,33 +200,33 @@ struct Chip {
 	Channel chan[18];
 
 	//This is used as the base counter for vibrato and tremolo
-	uint32_t lfoCounter = 0;
-	uint32_t lfoAdd = 0;
+	uint32_t lfoCounter;
+	uint32_t lfoAdd;
 
-	uint32_t noiseCounter = 0;
-	uint32_t noiseAdd = 0;
-	uint32_t noiseValue = 0;
+	uint32_t noiseCounter;
+	uint32_t noiseAdd;
+	uint32_t noiseValue;
 
 	//Frequency scales for the different multiplications
-    uint32_t freqMul[16] = {};
+	uint32_t freqMul[16]; // = {};
 	//Rates for decay and release for rate of this chip
-    uint32_t linearRates[76] = {};
+    uint32_t linearRates[76]; //= {};
 	//Best match attack rates for the rate of this chip
-    uint32_t attackRates[76] = {};
+    uint32_t attackRates[76]; // = {};
 
 	uint8_t reg104;
 	uint8_t reg08;
 	uint8_t reg04;
 	uint8_t regBD;
-	uint8_t vibratoIndex = 0;
-	uint8_t tremoloIndex = 0;
-	int8_t vibratoSign = 0;
-	uint8_t vibratoShift = 0;
-	uint8_t tremoloValue = 0;
-	uint8_t vibratoStrength = 0;
-	uint8_t tremoloStrength = 0;
+	uint8_t vibratoIndex;
+	uint8_t tremoloIndex;
+	int8_t vibratoSign;
+	uint8_t vibratoShift;
+	uint8_t tremoloValue;
+	uint8_t vibratoStrength;
+	uint8_t tremoloStrength;
 	//Mask for allowed wave forms
-	uint8_t waveFormMask = 0;
+	uint8_t waveFormMask;
 	//0 or -1 when enabled
 	int8_t opl3Active;
 	//Running in opl3 mode

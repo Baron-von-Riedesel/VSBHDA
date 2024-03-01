@@ -2,7 +2,11 @@
 ;--- switch stack, call port trap function, update client registers
 
 	.386
+ifdef ?FLAT
+	.MODEL flat, c
+else
 	.MODEL small, c
+endif
 	option casemap:none
 	option proc:private
 
@@ -50,7 +54,8 @@ VIRQ_Invoke proto c
 VSB_SetIRQStatus proto c
 endif
 
-	comm c __djgpp_stack_top:dword
+;	comm c __djgpp_stack_top:dword
+externdef c __djgpp_stack_top:dword
 
 	.code
 
@@ -232,6 +237,8 @@ endif
 	align 4
 
 SwitchStackIOrmcb endp
+
+;--- alloc the realmode callback for realmode port trapping
 
 _hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
 	push ds

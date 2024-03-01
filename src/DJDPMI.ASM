@@ -3,7 +3,11 @@
 ;--- all functions return -1 on error, 0 on success
 
 	.386
+ifdef ?FLAT
+	.MODEL flat, c
+else
 	.MODEL small, c
+endif
 	option casemap:none
 	option proc:private
 
@@ -33,6 +37,7 @@ __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dw
 	align 4
 __dpmi_get_segment_base_address endp
 
+if 0
 __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword
 	mov dx, word ptr dwLimit+0
 	mov cx, word ptr dwLimit+2
@@ -43,6 +48,7 @@ __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword
 	ret
 	align 4
 __dpmi_set_segment_limit endp
+endif
 
 __dpmi_free_dos_memory proc c public dwSelector:dword
 	mov edx, dwSelector

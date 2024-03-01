@@ -31,8 +31,8 @@ uint8_t PTRAP_UntrappedIO_IN(uint16_t port);
 void PTRAP_PrintPorts( void ); /* display trapped ports in protected-mode */
 #endif
 
-void (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value);
-uint8_t (*UntrappedIO_IN_Handler)(uint16_t port);
+extern void    (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value);
+extern uint8_t (*UntrappedIO_IN_Handler)(uint16_t port);
 
 #define UntrappedIO_OUT( a, b ) UntrappedIO_OUT_Handler( a, b )
 #define UntrappedIO_IN( a ) UntrappedIO_IN_Handler( a )

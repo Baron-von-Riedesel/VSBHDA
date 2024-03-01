@@ -17,6 +17,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#ifndef DJGPP
+#include <conio.h>
+#endif
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
@@ -337,6 +340,7 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 		pds_delay_10us(10);
 	}
 	dbgprintf("codec_read: timeout CODEC (%X)\n", x );
+    return 0;
 }
 
 static void snd_es1371_adc_rate(struct ensoniq_card_s *card, unsigned int rate)

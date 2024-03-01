@@ -16,6 +16,9 @@
 //based on the ALSA (http://www.alsa-project.org)
 
 #include <stdint.h>
+#ifndef DJGPP
+#include <conio.h>
+#endif
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
@@ -390,8 +393,9 @@ static int snd_live24_isr( struct emu10k1_card *card)
 /////////////////////////////////////////////////////
 {
 	//const uint32_t channel = 0;
-	dbgprintf("snd_live24_isr\n");
 	int intmask = snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0);
+
+	dbgprintf("snd_live24_isr\n");
 	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, intmask); //ack
 	return intmask;
 }

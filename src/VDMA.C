@@ -54,7 +54,7 @@ void VDMA_Write(uint16_t port, uint8_t byte)
         } else
             VDMA_Regs[base+port] = byte;
     }
-    else if(( port >= VDMA_REG_CH0_ADDR && port <= VDMA_REG_CH3_COUNTER ) ||
+    else if(( (int16_t)port >= VDMA_REG_CH0_ADDR && port <= VDMA_REG_CH3_COUNTER ) ||
             ( port >= VDMA_REG_CH4_ADDR && port <= VDMA_REG_CH7_COUNTER )) {
         int channel = ( port >> 1 );
         int base = 0;
@@ -98,8 +98,10 @@ void VDMA_Write(uint16_t port, uint8_t byte)
 uint8_t VDMA_Read(uint16_t port)
 ////////////////////////////////
 {
-	dbgprintf("VDMA_Read: port=%x\n", port);
     int channel = -1;
+    uint8_t result;
+
+    dbgprintf("VDMA_Read: port=%x\n", port);
 
     if( port <= VDMA_REG_CH3_COUNTER )
         channel = (port >> 1);
@@ -109,22 +111,24 @@ uint8_t VDMA_Read(uint16_t port)
         channel = VDMA_PortChannelMap[port - 0x80];
 
     if( VMDA_IS_CHANNEL_VIRTUALIZED( channel ) ) {
-        if( ( port >= VDMA_REG_CH0_ADDR && port <= VDMA_REG_CH3_COUNTER ) ||
+        if( ( (int16_t)port >= VDMA_REG_CH0_ADDR && port <= VDMA_REG_CH3_COUNTER ) ||
            ( port >= VDMA_REG_CH4_ADDR && port <= VDMA_REG_CH7_COUNTER ) ) {
             int base = 0;
+            int value;
+            uint8_t ret;
             if( port >= VDMA_REG_CH4_ADDR && port <= VDMA_REG_CH7_COUNTER ) {
                 port = (port-VDMA_REG_CH4_ADDR)/2;
                 base = 16;
             }
             //dbgprintf("base:%d port:%d\n", base, port);
 
-            int value = VDMA_Regs[base+port];
+            value = VDMA_Regs[base+port];
             dbgprintf("VDMA_Read %s: %d\n", ((port&0x1) == 1) ? "counter" : "addr", value);
             if( ( ( VDMA_Regs[base+VDMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
                 VDMA_InIO[channel] = true;
                 return value & 0xFF;
             }
-            uint8_t ret = ((value>>8)&0xFF);
+            ret = ((value >> 8) & 0xFF);
             if(VDMA_DelayUpdate[channel]) {
                 int size = channel <= 3 ? 1 : 2;
                 int base2 = channel <= 3 ? (channel<<1) : 16+((channel-4)<<1);
@@ -139,10 +143,11 @@ uint8_t VDMA_Read(uint16_t port)
         return VDMA_PageRegs[channel];
     }
 
-    uint8_t result = UntrappedIO_IN(port);
+    result = UntrappedIO_IN(port);
 
     if( port == VDMA_REG_STATUS_CMD ) {
-        for( int i = 0; i < 8; ++i ) {
+        int i;
+        for( i = 0; i < 8; ++i ) {
             if( VMDA_IS_CHANNEL_VIRTUALIZED( i ) ) {
                 result &= ~(( 1 << i) | ( 1 << (i+4) ) );
                 result |= VDMA_Complete[i] ? ( 1<<i ) : 0;

@@ -4,7 +4,11 @@
 ;--- 2. clear ISR_DMA_MappedAddr at DOS exit, since it will be released by hdpmi
 
 	.386
+ifdef ?FLAT
+	.MODEL flat, c
+else
 	.MODEL small, c
+endif
 	option casemap:none
 	option proc:private
 

@@ -2,7 +2,11 @@
 ;--- handle sound hardware interrupt
 
 	.386
+ifdef ?FLAT
+	.MODEL flat, c
+else
 	.MODEL small, c
+endif
 	option casemap:none
 	option proc:private
 
@@ -18,7 +22,8 @@ dwISR	dd ?
 dwDS    dd ?
 intno	db ?
 
-	comm c __djgpp_stack_top:dword
+;	comm c __djgpp_stack_top:dword
+externdef c __djgpp_stack_top:dword
 
 	.code
 

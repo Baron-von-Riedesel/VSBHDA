@@ -4,13 +4,13 @@
 #include <dos.h>
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef DJGPP
+#include <conio.h>
+#endif
 
 #include "PLATFORM.H"
 #include "PIC.H"
 #include "PTRAP.H"
-
-#define inp UntrappedIO_IN
-#define outp UntrappedIO_OUT
 
 //master PIC
 #define PIC_PORT1 0x20
@@ -21,8 +21,8 @@
 
 #define PIC_READISR 0x0B    //read interrupte service register (current interrupting IRQ)
 
-#define inp UntrappedIO_IN
-#define outp UntrappedIO_OUT
+//#define inp UntrappedIO_IN
+//#define outp UntrappedIO_OUT
 
 void PIC_SendEOIWithIRQ(uint8_t irq)
 ////////////////////////////////////
@@ -30,14 +30,14 @@ void PIC_SendEOIWithIRQ(uint8_t irq)
 //    if(irq == 7 || irq == 15) //check spurious irq
 //        return PIC_SendEOI();
     if(irq >= 8)
-        outp(PIC_PORT2, 0x20);
-    outp(PIC_PORT1, 0x20);
+        UntrappedIO_OUT(PIC_PORT2, 0x20);
+    UntrappedIO_OUT(PIC_PORT1, 0x20);
 }
 
-#undef inp
-#undef outp
-#define inp inp
-#define outp outp
+//#undef inp
+//#undef outp
+//#define inp inp
+//#define outp outp
 
 void PIC_UnmaskIRQ(uint8_t irq)
 ///////////////////////////////

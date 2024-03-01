@@ -18,6 +18,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#ifndef DJGPP
+#include <conio.h>
+#endif
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
@@ -1129,10 +1132,12 @@ static void snd_p16v_mixer_write( struct emu10k1_card *card,unsigned int reg,uns
 static int snd_p16v_isr( struct emu10k1_card *card)
 ///////////////////////////////////////////////////
 {
+	int interrupts2;
 	int interrupts = inl(card->iobase + IPR);
+
 	if ( interrupts )
 		emu10k1_writefn0(card, IPR, interrupts );
-	int interrupts2 = inl(card->iobase + IPR2);
+	interrupts2 = inl(card->iobase + IPR2);
 	if ( interrupts2 )
 		emu10k1_writefn0(card, IPR2, interrupts2 );
 	return interrupts | interrupts2;

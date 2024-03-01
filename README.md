@@ -20,3 +20,10 @@ Requirements:
 VSBHDA uses some source codes from:
  * MPXPlay: https://mpxplay.sourceforge.net/, for sound card access
  * DOSBox: https://www.dosbox.com/, for OPL3 FM emulation
+
+To create the binary, one of 2 tool chains may be used:
+ * DJGPP v2.05
+ * Open Watcom 2.0
+
+In both cases the JWasm assembler (v2.17 or better) is also needed.
+

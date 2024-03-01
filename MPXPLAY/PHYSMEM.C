@@ -50,6 +50,7 @@ static int pds_xms_init(void)
 static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
 ////////////////////////////////////////////////////////////
 {
+	uint16_t handle;
 	*addr = 0;
    
 	if(sizeKB == 0 || !pds_xms_init())
@@ -59,7 +60,7 @@ static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
 	if ( _xms_regs.x.ax != 1 )
 		return 0;
-	uint16_t handle = _xms_regs.x.dx;
+	handle = _xms_regs.x.dx;
 	_xms_regs.h.ah = 0x0C;    //lock memory block
 	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
 	if( _xms_regs.x.ax != 1 ) {

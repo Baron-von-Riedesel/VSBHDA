@@ -8,7 +8,11 @@
 #define ADPCM 1       /* 1=support ADPCM */
 #define SETIF 1       /* 1=enable interrupts when ISR is entered */
 #define TRIGGERATONCE 1  /* 1=trigger IRQ from inside trap handler */
+#ifndef NOFM
 #define REINITOPL 1   /* 1=reinit OPL during RESET */
+#else
+#define REINITOPL 0
+#endif
 #define PREMAPDMA 0   /* 1=map full 16MB ISA address range */
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
 

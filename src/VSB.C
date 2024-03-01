@@ -85,7 +85,8 @@ static uint8_t VSB_MixerRegs[256];
 static int VSB_Indexof(const uint8_t* array, int count, uint8_t  val)
 /////////////////////////////////////////////////////////////////////
 {
-	for(int i = 0; i < count; ++i) {
+	int i;
+	for( i = 0; i < count; ++i ) {
 		if(array[i] == val)
 			return i;
 	}
@@ -254,10 +255,11 @@ static void DSP_Reset( uint8_t value )
 static void DSP_Write( uint8_t value )
 //////////////////////////////////////
 {
+    int OldStarted;
     dbgprintf("DSP_Write %02x, DSPCMD=%02x\n", value, VSB_DSPCMD);
     if(VSB_HighSpeed) //highspeed won't accept further commands, need reset
         return;
-    int OldStarted = VSB_Started;
+    OldStarted = VSB_Started;
     VSB_WS = 0x80;
     if( VSB_DSPCMD == -1 ) {
         //VSB_DSPCMD = value;
@@ -388,11 +390,12 @@ static void DSP_Write( uint8_t value )
         }
 #endif
     } else {
+        int i;
         switch(VSB_DSPCMD) {
-		case SB_DSP_SET_TIMECONST: /* 40 */
+        case SB_DSP_SET_TIMECONST: /* 40 */
             VSB_SampleRate = 0;
 #if !LATERATE
-			for(int i = 0; i < 3; ++i) {
+            for( i = 0; i < 3; ++i ) {
                 if(value >= VSB_TimeConstantMapMono[i][0]-3 && value <= VSB_TimeConstantMapMono[i][0]+3) {
                     VSB_SampleRate = VSB_TimeConstantMapMono[i][1] / VSB_GetChannels();
                     break;
@@ -400,11 +403,11 @@ static void DSP_Write( uint8_t value )
             }
             if(VSB_SampleRate == 0)
                 VSB_SampleRate = 256000000/( 65536 - (value << 8) ) / VSB_GetChannels();
-				//VSB_SampleRate = 1000000 / ( 256 - value ) / VSB_GetChannels();
+                //VSB_SampleRate = 1000000 / ( 256 - value ) / VSB_GetChannels();
 #else
             bTimeConst = value;
 #endif
-			dbgprintf("DSP_Write: time constant=%X\n", value );
+            dbgprintf("DSP_Write: time constant=%X\n", value );
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
         case SB_DSP_SET_SIZE: /* 48 - used for auto command */
@@ -567,9 +570,10 @@ void VSB_Init(int irq, int dma, int hdma, int type )
 uint8_t VSB_GetIRQ()
 ////////////////////
 {
+    int bit;
     if(VSB_MixerRegs[SB_MIXERREG_INT_SETUP] == 0)
         return 0xFF;
-    int bit = BSF(VSB_MixerRegs[SB_MIXERREG_INT_SETUP]);
+    bit = BSF(VSB_MixerRegs[SB_MIXERREG_INT_SETUP]);
     if(bit >= 4)
         return 0xFF;
     return VSB_IRQMap[bit];
@@ -593,9 +597,10 @@ uint8_t VSB_GetDMA()
 uint8_t VSB_GetHDMA()
 /////////////////////
 {
+    int bit;
     if( !(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 ))
         return 0xFF;
-    int bit = BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP]>>4) + 4;
+    bit = BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP]>>4) + 4;
     return bit;
 }
 #endif

@@ -38,6 +38,38 @@
 
 extern int SNDISR_InterruptPM();
 
+#ifndef DJGPP
+uint32_t    __djgpp_stack_top;
+uint32_t _get_stack_top( void );
+#pragma aux _get_stack_top = \
+	"mov eax, esp" \
+	parm [] \
+	modify exact[eax];
+uint32_t _linear_psp;
+uint32_t _get_linear_psp( void );
+#pragma aux _get_linear_psp = \
+	"mov ah, 51h" \
+	"int 21h" \
+	"mov ax, 6" \
+	"int 31h" \
+	"mov ax, cx" \
+	"shl eax, 16" \
+	"mov ax, dx" \
+	parm [] \
+	modify exact [bx cx dx eax]
+uint32_t _linear_rmstack;
+uint32_t _get_linear_rmstack( int * );
+#pragma aux _get_linear_rmstack = \
+	"mov bx, 40h" \
+	"mov ax, 100h" \
+	"int 31h" \
+	"mov [ecx], dx" \
+	"movzx eax, ax" \
+	"shl eax, 4" \
+	parm [ecx] \
+	modify exact [bx eax]
+#endif
+
 struct audioout_info_s aui = {0};
 
 /* for AU_setrate() - use fixed rate */
@@ -96,7 +128,7 @@ static struct {
     "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "/F", "Set frequency [22050|44100, def 22050]", &adi.freq,
+    "/F", "Set frequency [22050|44100, def 22050]", (int *)&adi.freq,
     "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "/O", "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
@@ -225,7 +257,7 @@ void MAIN_Uninstall( void )
 {
 	ReleaseRes();
 	AU_close( &aui );
-	_uninstall_tsr( my_psp() );
+	_uninstall_tsr( _my_psp() );
 	return;
 }
 
@@ -265,6 +297,7 @@ int main(int argc, char* argv[])
     //parse BLASTER env first.
     int i;
     void * p;
+    int rmstksel;
     char* blaster = getenv("BLASTER");
 
     if(blaster != NULL) {
@@ -352,9 +385,14 @@ int main(int argc, char* argv[])
         printf("Error: Invalid frequency.\n");
         return 1;
     }
-
-    __dpmi_get_segment_base_address(_my_ds(), &DSBase);
-
+#ifdef DJGPP
+    __dpmi_get_segment_base_address(_my_ds(), (unsigned long *)&DSBase);
+#endif
+#ifndef DJGPP
+	__djgpp_stack_top = _get_stack_top();
+	_linear_psp = _get_linear_psp();
+	_linear_rmstack = _get_linear_rmstack(&rmstksel);
+#endif
     /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
      * while another client is active will result in problems, since that memory is released when
      * the client exits.
@@ -426,8 +464,10 @@ int main(int argc, char* argv[])
         gvars.hdma = 0;
 #endif
 
-    PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
-
+#ifdef NOFM
+    gvars.opl3 = 0;
+#endif
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
 
 #if SB16
     VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
@@ -451,12 +491,12 @@ int main(int argc, char* argv[])
         //PTRAP_PrintPorts(); /* for debugging */
 #endif
     }
-
+#ifndef NOFM
     if( gvars.opl3 ) {
         VOPL3_Init(aui.freq_card);
         printf("OPL3 emulation enabled at port 388h (%u Hz).\n", aui.freq_card );
     }
-
+#endif
 #if SB16
     printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, Type=%d\n",
            gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type );
@@ -484,7 +524,7 @@ int main(int argc, char* argv[])
         uint32_t psp;
         __dpmi_regs r = {0};
         __dpmi_set_coprocessor_emulation( 0 );
-        psp = my_psp();
+        psp = _my_psp();
         __dpmi_free_dos_memory( ReadLinearW( psp+0x2C ) );
         WriteLinearW( psp+0x2C, 0 );
         for ( i = 0; i < 5; i++ )
@@ -499,10 +539,7 @@ int main(int argc, char* argv[])
             "pop %fs"
            );
 #else
-        _asm push 0
-        _asm pop gs
-        _asm push 0
-        _asm pop fs
+        __dpmi_free_dos_memory( rmstksel );
 #endif
         r.x.dx= 0x10; /* only psp remains in conv. memory */
         r.x.ax = 0x3100;

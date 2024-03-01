@@ -2,19 +2,15 @@
 ;--- HDPMI API interface, C compatible
 
 	.386
+ifdef ?FLAT
+	.MODEL flat
+else
 	.MODEL small
+endif
 	option casemap:none
 	option proc:private
 
 	assume ds:_DATA
-
-CStr macro text:vararg
-local sym
-	.const
-sym db text,0
-	.code
-	exitm <offset sym>
-endm
 
 _hdpmi_traphandler struct
 dwOfsIn dd ?
@@ -34,7 +30,7 @@ externdef c HDPMIAPI_Entry: fword
 _get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
 	xor edi, edi
 	mov es, edi
-	mov esi, CStr("HDPMI")
+	mov esi, offset szHDPMI
 	mov ax, 168ah
 	int 2Fh
 	cmp al,0
@@ -45,6 +41,8 @@ _get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
 failed:
 	ret
 _get_hdpmi_vendor_api endp
+
+szHDPMI db "HDPMI",0
 
 ;--- set hdpmi context mode ( cmdline option -a )
 

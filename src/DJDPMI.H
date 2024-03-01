@@ -1,6 +1,10 @@
 
 /* C interface for __dpmi_xxx replacement functions implemented by djdpmi.asm */
 
+#ifdef cplusplus
+extern "C" {
+#endif
+
 typedef union {
   struct {
     unsigned long edi;
@@ -67,4 +71,6 @@ int __dpmi_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_free_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_set_coprocessor_emulation(int _flags);
 
-
+#ifdef cplusplus
+}
+#endif

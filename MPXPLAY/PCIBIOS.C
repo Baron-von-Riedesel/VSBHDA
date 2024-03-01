@@ -18,9 +18,12 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#ifdef DJGPP
 #include <go32.h>
+#endif
 //#include <dpmi.h>
 
+#include "PLATFORM.H"
 #include "DJDPMI.H"
 #include "NEWFUNC.H"
 #include "PCIBIOS.H"
@@ -45,13 +48,13 @@ extern void fatal_error( int );
 static uint8_t pcibios_GetBus(void)
 ///////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
+	__dpmi_regs reg = {0};
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_BIOS_PRESENT;
 	reg.x.flags = 0x203;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.sp = (uint16_t)_my_rmstksiz();
+	reg.x.ss = _my_rmstack() >> 4;
 
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
@@ -64,7 +67,7 @@ static uint8_t pcibios_GetBus(void)
 uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
+	__dpmi_regs reg = {0};
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_DEVICE;
@@ -72,8 +75,8 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
 	reg.x.dx = wVendor;
 	reg.x.si = 0;  //bIndex;
 	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.sp = (uint16_t)_my_rmstksiz();
+	reg.x.ss = _my_rmstack() >> 4;
 
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
@@ -97,17 +100,17 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
 uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0}; /* use the "simulate int" function */
+    int i;
+	__dpmi_regs reg = {0};
 
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = PCI_FIND_CLASS;
 	reg.d.ecx = bClass << 16 | bSubClass << 8 | bInterface;
 	reg.x.si = wIndex;
 	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.sp = (uint16_t)_my_rmstksiz();
+	reg.x.ss = _my_rmstack() >> 4;
 
-	//int386(PCI_SERVICE, &reg, &reg);
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
@@ -116,7 +119,7 @@ uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bI
 		ppkey->bFunc = PCIFUNCNUM(reg.h.bl);
 		ppkey->vendor_id = pcibios_ReadConfig_Word( ppkey, PCIR_VID );
 		ppkey->device_id = pcibios_ReadConfig_Word( ppkey, PCIR_DID );
-		for( int i = 0; devices[i].vendor_id; i++ ){
+		for( i = 0; devices[i].vendor_id; i++ ){
 			if ( devices[i].vendor_id == ppkey->vendor_id && devices[i].device_id == ppkey->device_id ) {
 				ppkey->device_name = devices[i].device_name;
 				ppkey->device_type = devices[i].device_type;
@@ -155,10 +158,10 @@ static uint32_t access_config( struct pci_config_s * ppkey, uint16_t wAdr, uint8
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0};
-
-	if ( _go32_info_block.size_of_transfer_buffer == 0 )
+#ifdef DJGPP
+	if ( _my_rmstksiz() == 0 )
         fatal_error( 1 );
-
+#endif
 	reg.h.ah = PCI_FUNCTION_ID;
 	reg.h.al = bFunc;
 	reg.h.bh = ppkey->bBus;
@@ -166,8 +169,8 @@ static uint32_t access_config( struct pci_config_s * ppkey, uint16_t wAdr, uint8
 	reg.d.ecx = data;
 	reg.x.di = wAdr;
 	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)(_go32_info_block.size_of_transfer_buffer);
-	reg.x.ss = _go32_info_block.linear_address_of_transfer_buffer >> 4;
+	reg.x.sp = (uint16_t)_my_rmstksiz();
+	reg.x.ss = _my_rmstack() >> 4;
 	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
 
 	return reg.d.ecx;
@@ -364,9 +367,10 @@ void pcibios_enable_BM_IO( struct pci_config_s *ppkey)
 //////////////////////////////////////////////////////
 {
 	unsigned int cmd;
-	cmd = pcibios_ReadConfig_Byte(ppkey, PCIR_PCICMD); /* read cmd register ( offset 4 ) */
-	cmd |= 0x01 | 0x04;  /* bit0: IO space, bit2: busmaster */
-	pcibios_WriteConfig_Byte(ppkey, PCIR_PCICMD, cmd);
+	cmd = pcibios_ReadConfig_Word(ppkey, PCIR_PCICMD); /* read cmd register ( offset 4 ) */
+	cmd |= 0x01 | 0x04;  /* enable IO space & busmaster */
+	cmd &= ~0x400;      /* reset "interrupt disable */
+	pcibios_WriteConfig_Word(ppkey, PCIR_PCICMD, cmd);
 }
 
 /* enable Busmuster and memory mapping, disable I/O */

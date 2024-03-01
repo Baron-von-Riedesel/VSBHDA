@@ -2,7 +2,11 @@
 ;--- debug printf
 
 	.386
+ifdef ?FLAT
+	.model flat
+else
 	.model small
+endif
 	option casemap:none
 	option proc:private
 

@@ -7,12 +7,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-#include <dos.h>
-#include <fcntl.h>
+#include <dos.h>    /* includes pc.h; for outp() */
+//#include <fcntl.h>  /* for _dos_open() */
 #include <assert.h>
-#include <go32.h>
 #ifdef DJGPP
+#include <go32.h>
 #include <sys/ioctl.h>
+#else
+#include <conio.h>  /* contains outp()/inp() in OW */
 #endif
 
 #include "CONFIG.H"
@@ -52,8 +54,8 @@ static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
 
 struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
 
-void (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = &outp;
-uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = &inp;
+void    (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = (void (*)(uint16_t, uint8_t))&outp;
+uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = (uint8_t (*)(uint16_t))&inp;
 
 static const uint8_t ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
 
@@ -141,11 +143,12 @@ uint16_t PTRAP_GetQEMMVersion(void)
 ///////////////////////////////////
 {
     //http://mirror.cs.msu.ru/oldlinux.org/Linux.old/docs/interrupts/int-html/rb-2830.htm
+    __dpmi_regs r = {0};
+#if 0 /* OW doesn't know ioctl() */
+    uint32_t entryfar = 0;
     int fd = 0;
     unsigned int result = _dos_open("QEMM386$", O_RDONLY, &fd);
-    uint32_t entryfar = 0;
     //ioctl - read from character device control channel
-    __dpmi_regs r = {0};
     if (result == 0) { //QEMM detected?
         int count = ioctl(fd, DOS_RCVDATA, 4, &entryfar);
         _dos_close(fd);
@@ -154,6 +157,19 @@ uint16_t PTRAP_GetQEMMVersion(void)
             r.x.cs = entryfar >> 16;
         }
     }
+#else
+    if ( ReadLinearD( 0x67*4 ) ) { /* int 67h initialized? */
+        r.x.cx = 0x5145; /* "QE" */
+        r.x.dx = 0x4d4d; /* "MM" */
+        r.x.flags = 0x202;
+        r.x.ax = 0x3f00;
+        __dpmi_simulate_real_mode_interrupt(0x67, &r);
+        if ( r.h.ah == 0 && r.x.es ) {
+            r.x.ip = r.x.di;
+            r.x.cs = r.x.es;
+        }
+    }
+#endif
     /* if Qemm hasn't been found, try Jemm's QPIEMU ... */
     if ( r.x.cs == 0 ) {
         /* QPIEMU installation check;
@@ -162,12 +178,12 @@ uint16_t PTRAP_GetQEMMVersion(void)
          * a small ( 3 bytes ) helper proc is constructed on the fly, at PSP:005Ch:
          * a INT 2Fh, followed by an RETF.
          */
-        uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x5C;
         uint8_t int2frm[] = { 0xCD, 0x2F, 0xCB };
-        memcpy( NearPtr(dosmem), &int2frm, 3 );
+        uint32_t dosmem = _my_psp() + 0x5C;
+        memcpy( NearPtr(dosmem), int2frm, 3 );
         r.x.ax = 0x1684;
         r.x.bx = 0x4354;
-        r.x.cs = _go32_info_block.linear_address_of_original_psp >> 4;
+        r.x.cs = _my_psp() >> 4;
         r.x.ip = 0x5C;
         if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || r.h.al )
             return 0;
@@ -188,6 +204,10 @@ bool PTRAP_Prepare_RM_PortTrap()
 {
     static __dpmi_regs TrapHandlerREG; /* static RMCS for RMCB */
     __dpmi_regs r = {0};
+#if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
+    uint32_t dosmem;
+#endif
+
     r.x.ip = QPI_Entry.offset16;
     r.x.cs = QPI_Entry.segment;
     r.x.ax = 0x1A06;
@@ -211,26 +231,30 @@ bool PTRAP_Prepare_RM_PortTrap()
      * 8-B: Qemm/Jemm entry
      * C-x: code
      */
-    uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
+    dosmem = _my_psp() + 0x80;
+
+    /* OW refuses to subtract two function addresses */
+    //memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, &PTRAP_RM_WrapperEnd - &PTRAP_RM_Wrapper );
+    memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, 0x80 );
+
+    /* the first 12 bytes are variables, now to be initialized */
+
     memcpy( NearPtr(dosmem), &rmcb, 4 );
-    WriteLinearD( dosmem + 4, 0 );
 #if !RMPICTRAPDYN
     memcpy( NearPtr(dosmem + 8), &QPI_Entry, 4 );
 #endif
-    /* 4+4+4 are sizes of variables in RMWRAP.ASM */
-    memcpy( NearPtr(dosmem + 4 + 4 + 4), &PTRAP_RM_Wrapper, &PTRAP_RM_WrapperEnd - &PTRAP_RM_Wrapper );
 
     /* set new trap handler ES:DI */
     r.x.es = dosmem >> 4;
-    r.x.di = 4+4+4;
+    r.x.di = 3*4;
 #else
     r.x.es = rmcb.segment;
     r.x.di = rmcb.offset16;
 #endif
-    r.x.ax = 0x1A07;
+    r.x.ax = 0x1A07; /* set trap handler */
     if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || (r.x.flags & CPU_CFLAG))
         return false;
-    return true;
+	return true;
 }
 
 
@@ -249,12 +273,12 @@ static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
              * so it might be safer to ignore the old state and - on exit -
              * untrap the port in any case!
              */
-            r.x.ax = 0x1A08;
+            r.x.ax = 0x1A08; /* get port status */
             r.x.dx = PDispTab[i].port;
             __dpmi_simulate_real_mode_procedure_retf(&r);
             PDispTab[i].flags |= (r.h.bl) << 8; //previously trapped state
         }
-        r.x.ax = 0x1A09;
+        r.x.ax = 0x1A09; /* trap port */
         r.x.dx = PDispTab[i].port;
         __dpmi_simulate_real_mode_procedure_retf(&r); /* trap port */
         PDispTab[i].flags |= PDT_FLGS_RMINST;
@@ -306,14 +330,10 @@ void PTRAP_SetPICPortTrap( int bSet )
 #else
         /* patch the 16-bit real-mode code stored in the PSP.
          * see rmwrap.asm, proc PTRAP_RM_Wrapper.
-         * the +12 is the size of variables in RMWRAP.ASM!
+         * 6 is the offset where the trapped port (PIC) in RMWRAP.ASM is stored!
          */
-        uint32_t dosmem = _go32_info_block.linear_address_of_original_psp + 0x80;
-        if ( bSet ) {
-            WriteLinearW( dosmem+12+2, -1 );  /* cmp dx,0xffff */
-        } else {
-            WriteLinearW( dosmem+12+2, 0x20); /* cmp dx,0x0020 */
-        }
+        uint32_t dosmem = _my_psp() + 0x80 + 6;
+        WriteLinearW( dosmem, bSet ? 0xffff : 0x0020 );
 #endif
     }
     return;
@@ -331,7 +351,7 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
     for( i = 0; i < max; ++i ) {
         if ( !( PDispTab[i].flags & 0xff00 )) {
             if( PDispTab[i].flags & PDT_FLGS_RMINST ) {
-                r.x.ax = 0x1A0A; //clear trap
+                r.x.ax = 0x1A0A; /* clear port trap */
                 r.x.dx = PDispTab[i].port;
                 __dpmi_simulate_real_mode_procedure_retf(&r);
                 PDispTab[i].flags &= ~PDT_FLGS_RMINST;
@@ -339,7 +359,7 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
             }
         }
     }
-    r.x.ax = 0x1A07;
+    r.x.ax = 0x1A07; /* set trap handler */
     r.x.es = QPI_OldCallbackCS;
     r.x.di = QPI_OldCallbackIP;
     if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0) //restore old handler

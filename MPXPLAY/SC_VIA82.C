@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#ifndef DJGPP
+#include <conio.h>
+#endif
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
@@ -318,8 +321,9 @@ err_adetect:
 static void VIA82XX_close(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////
 {
-	dbgprintf("VIA82XX_close\n");
 	struct via82xx_card *card = aui->card_private_data;
+
+	dbgprintf("VIA82XX_close\n");
 	if(card){
 		if(card->iobase)
 			via82xx_chip_close(card);

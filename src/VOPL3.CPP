@@ -37,7 +37,7 @@ static DBOPL::Chip* VOPL3_Chip;
 void VOPL3_Init(int samplerate)
 ///////////////////////////////
 {
-    VOPL3_Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
+	VOPL3_Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
     VOPL3_Chip->Setup(samplerate);
 #if NOSILENTGEN
 	bWritten = false;

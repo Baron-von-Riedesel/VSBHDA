@@ -2,7 +2,11 @@
 ;--- software mixer - not used
 
 	.386
+ifdef ?FLAT
+	.MODEL flat
+else
 	.MODEL small
+endif
 	option casemap:none
 	option proc:private
 

@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
+#ifndef DJGPP
+#include <conio.h> /* for outb/outw/outd */
+#endif
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
@@ -549,6 +552,7 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	struct intel_card_s *card = aui->card_private_data;
 	int64_t starttime,endtime,timelen; // in usecs
 	long freq_save = aui->freq_card,dmabufsize;
+    int cr;
 
 	aui->freq_card = 48000;
 	aui->chan_card = 2;
@@ -561,7 +565,7 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	MDma_clearbuf(aui);
 
 #ifdef SBEMU
-	int cr = snd_intel_read_8(card,ICH_PO_CR_REG);
+	cr = snd_intel_read_8(card,ICH_PO_CR_REG);
 	snd_intel_write_8(card,ICH_PO_CR_REG, 0); //disable LVBIE/IOCE
 #endif
 	INTELICH_start(aui);

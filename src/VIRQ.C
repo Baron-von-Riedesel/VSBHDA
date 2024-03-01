@@ -82,6 +82,13 @@ static void SafeCall( uint8_t irq )
     __dpmi_simulate_real_mode_procedure_iret(&r);
 }
 
+#ifndef DJGPP
+void callint0F(void);
+void callint0D(void);
+#pragma aux callint0F = "int 0Fh" parm[] modify exact[];
+#pragma aux callint0D = "int 0Dh" parm[] modify exact[];
+#endif
+
 /*
  * FastCall.
  * Pro: fast, no unneeded mode switches for protected-mode handlers.
@@ -90,22 +97,30 @@ static void SafeCall( uint8_t irq )
 static void FastCall( uint8_t irq )
 ///////////////////////////////////
 {
+#ifdef DJGPP
     if(irq == 7)
         asm("int $0x0F");
     else
         asm("int $0x0D");
+#else
+    if(irq == 7)
+        callint0F();
+    else
+        callint0D();
+#endif
 }
 
 void VIRQ_Invoke( void )
 ////////////////////////
 {
     uint8_t irq;
+    int mask;
 
     dbgprintf("VIRQ_Invoke\n");
     irq = VSB_GetIRQ();
 
 #if CHANGEPICMASK
-    int mask = PIC_GetIRQMask();
+    mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
 #endif
 
