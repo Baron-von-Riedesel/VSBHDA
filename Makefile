@@ -1,7 +1,7 @@
 
-# create vsbhda.exe with DJGPP.
+# create vsbhda.exe with DJGPP and JWasm.
 # to create a debug version, enter: make DEBUG=1
-# note that for assembly jwasm v2.17+ is needed ( understands -djgpp option )
+# note that JWasm v2.17+ is needed ( understands -djgpp option )
 
 ifndef DEBUG
 DEBUG=0

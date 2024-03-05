@@ -23,7 +23,7 @@ static uint16_t OrgCS;
 static void SafeCall( uint8_t irq );
 static void FastCall( uint8_t irq );
 
-void (* CallIRQ)(uint8_t) = &FastCall;
+static void (* CallIRQ)(uint8_t) = &FastCall;
 
 static void VIRQ_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////

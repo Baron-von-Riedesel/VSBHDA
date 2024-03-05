@@ -47,16 +47,16 @@ uint32_t _get_stack_top( void );
 	modify exact[eax];
 uint32_t _linear_psp;
 uint32_t _get_linear_psp( void );
+/* don't assume hdpmi is loaded - get PSP selector from OW's _psp global var! */
 #pragma aux _get_linear_psp = \
-	"mov ah, 51h" \
-	"int 21h" \
+	"mov ebx, [_psp]" \
 	"mov ax, 6" \
 	"int 31h" \
 	"mov ax, cx" \
 	"shl eax, 16" \
 	"mov ax, dx" \
 	parm [] \
-	modify exact [bx cx dx eax]
+	modify exact [ebx cx dx eax]
 uint32_t _linear_rmstack;
 uint32_t _get_linear_rmstack( int * );
 #pragma aux _get_linear_rmstack = \
@@ -389,9 +389,9 @@ int main(int argc, char* argv[])
     __dpmi_get_segment_base_address(_my_ds(), (unsigned long *)&DSBase);
 #endif
 #ifndef DJGPP
-	__djgpp_stack_top = _get_stack_top();
-	_linear_psp = _get_linear_psp();
-	_linear_rmstack = _get_linear_rmstack(&rmstksel);
+    __djgpp_stack_top = _get_stack_top();
+    _linear_psp = _get_linear_psp();
+    _linear_rmstack = _get_linear_rmstack(&rmstksel);
 #endif
     /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
      * while another client is active will result in problems, since that memory is released when

@@ -28,12 +28,13 @@
 #define _restoreint() asm("mov %0, %%ax \n\t" "int $0x31 \n\t" :: "m"(oldstate) : "eax" )
 #else
 #include <conio.h> /* for outp()/inp() */
-unsigned char _disableint(void);
-void _restoreint(unsigned char);
+unsigned short _disableint(void);
+void _restoreint(unsigned short);
 #pragma aux _disableint = "mov ax, 900h" "int 31h" parm[] modify exact[ax];
-#pragma aux _restoreint = "mov ah, 9"    "int 31h" parm[al] modify exact[ax];
+#pragma aux _restoreint =                "int 31h" parm[ax] modify exact[ax];
 #endif
 
+#if 0
 unsigned long pds_gettimeh(void)
 ////////////////////////////////
 {
@@ -47,6 +48,7 @@ int64_t pds_gettimem(void)
 	time_ms = (int64_t)clock() * (int64_t)1000 / (int64_t)CLOCKS_PER_SEC;
 	return time_ms;
 }
+#endif
 
 int64_t pds_gettimeu(void)
 //////////////////////////
@@ -61,11 +63,7 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 {
 	unsigned int divisor = PIT_DIVISOR_DEFAULT; // is 65536
 	unsigned int i,oldtsc, tsctemp, tscdif;
-#ifdef DJGPP
 	unsigned short oldstate;
-#else
-	unsigned char oldstate;
-#endif
 
 	for( i = 0; i < ticks; i++ ){
 #ifdef DJGPP

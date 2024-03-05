@@ -13,7 +13,9 @@ endif
 
 	.data
 
+if @Model ne 7
 externdef c DSBase:dword
+endif
 
 	.code
 
@@ -39,7 +41,10 @@ local	bRows:byte
 	pushad
 
 	mov edi, 400h
+
+if @Model ne 7
 	sub edi, cs:[DSBase]
+endif
 	mov bChar, al
 	mov ch, [edi+84h]		; rows-1
 	mov cl, [edi+4Ah]		; cols
@@ -60,8 +65,9 @@ local	bRows:byte
 @@:
 	movzx esi, si
 	add esi, 0B0000h
+if @Model ne 7
 	sub esi, cs:[DSBase]
-
+endif
 	mov al, bChar
 
 	cmp al, 13
@@ -150,7 +156,9 @@ if 0
 VioGetCsrPos proc
 	push edi
 	mov edi, 400h
+if @Model ne 7
 	sub edi, cs:[DSBase]
+endif
 	@getcursorpos ax
 	pop edi
 	ret
@@ -165,7 +173,9 @@ VioSetCsrPos proc
 	mov eax, [esp+4]
 	push edi
 	mov edi, 400h
+if @Model ne 7
 	sub edi, cs:[DSBase]
+endif
 	@setcursorpos dx
 	pop edi
 	ret 4

@@ -14,6 +14,10 @@ VioPutChar proto
 
 	.data
 
+;--- bDbgInit is 1 while the program runs as current program;
+;--- once it has made itself resident, bDbgInit will be 0, meaning
+;--- stdout shouldn't be used anymore.
+
 externdef c bDbgInit:byte
 
 	.code
@@ -68,15 +72,14 @@ i64toa PROC stdcall uses esi edi number:qword, outb:ptr, base:dword
 
 i64toa ENDP
 
-dbgprintf PROC c public uses ebx esi edi fmt:ptr sbyte, args:VARARG
-
+vprintf proc c uses ebx esi edi fmt:ptr sbyte, pArgs:ptr
 local flag:byte
 local longarg:byte
 local size_:dword
 local fillchr:dword
 local szTmp[24]:byte
 
-	lea edi,args
+	mov edi,pArgs
 @@L335:
 	mov esi,fmt
 nextchar:
@@ -228,14 +231,22 @@ handle_char:
 	.endif
 	retn
 	align 4
+vprintf endp
+
+dbgprintf PROC c public fmt:ptr sbyte, args:VARARG
+
+	invoke vprintf, fmt, addr args
+	ret
 
 dbgprintf ENDP
 
 if 0
 
+if @Model ne 7
 	.data
 externdef c DSBase:dword
 	.code
+endif
 
 ;--- display 32-bit number on screen
 ;--- low-level.
@@ -246,7 +257,9 @@ dbgprintcnt proc c public number:dword, pos:dword
 	mov ebx, pos
 	shl ebx, 1
 	add ebx, 0B8000h
+if @Model ne 7
 	sub ebx, cs:[DSBase]
+endif
 	mov eax, number
 	mov edi, 10
 @@nextdigit:
@@ -266,6 +279,18 @@ exit:
 	ret
 
 dbgprintcnt endp
+
+endif
+
+;--- in case the CRT printf is NOT to be used, activate the switch below
+if @Model eq 7	; for flat model only (=OW)
+
+;--- no idea why OW's printf has the syscall type ( no leading underscore )
+
+printf proc syscall public fstr:ptr, args:vararg
+	invoke vprintf, fstr, addr args
+	ret
+printf endp
 
 endif
 

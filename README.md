@@ -26,4 +26,5 @@ To create the binary, one of 2 tool chains may be used:
  * Open Watcom 2.0
 
 In both cases the JWasm assembler (v2.17 or better) is also needed.
-
+For Open Watcom, a few things from the HX development package (HXDEV)
+are required - see Watcom.mak for details.

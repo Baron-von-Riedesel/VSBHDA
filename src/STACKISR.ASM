@@ -42,6 +42,10 @@ SwitchStackISR proc
 	mov edx, ss
 	mov ecx, esp
 	sub [__djgpp_stack_top], 4096
+ifdef _DEBUG
+	mov eax, [__djgpp_stack_top]	; test if the new stack is writable before ss is changed
+	mov [eax-4], eax
+endif
 	mov ss, [dwDS]
 	mov esp, [__djgpp_stack_top]
 	push edx

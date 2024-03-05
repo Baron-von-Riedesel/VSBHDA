@@ -1,30 +1,45 @@
 
-# create vsbhda.exe with Open Watcom v2.0.
-# to create a debug version, enter: make DEBUG=1
+# create vsbhda.exe with Open Watcom v2.0 and JWasm.
+# to create the binary, enter
+#   wmake -f watcom.mak
+# optionally, for a debug version, enter
+#   wmake -f watcom.mak DEBUG=1
 
-# note that the HX DOS extender is used; that means, a C start
-# module adjusted for HX (cstrtdhx.obj)  will be added to the
-# binary in the link step.
+# the HX DOS extender is used; that means, a few
+# things from the HXDEV package are required:
+#
+# - loadpe.bin       pe loader stub attached to binary
+# - cstrtdhx.obj     startup module linked into binary
+# - patchpe.exe      patches PE signature to PX
+#
+# patchpe is a Win32 application; to run it in DOS, the
+# HXRT package will be needed; cstrtdx.obj should be copied
+# to the Open Watcom lib386\dos directory; and loadpe.bin
+# will be searched by the linker in the current directory
+# or in any directory contained in the PATH environment var.
 
 !ifndef DEBUG
 DEBUG=0
 !endif
 
-#WATCOM=\watcom
 WATCOM=\ow20
+# activate next line if FM synth should be deactivated
+#NOFM=1
+
 CC=$(WATCOM)\binnt\wcc386
 CPP=$(WATCOM)\binnt\wpp386
 LINK=$(WATCOM)\binnt\wlink
 
 NAME=vsbhda
-#NOFM=1
 
 !if $(DEBUG)
 OUTD=owd
 C_DEBUG_FLAGS=-D_DEBUG
+A_DEBUG_FLAGS=-D_DEBUG
 !else
 OUTD=ow
 C_DEBUG_FLAGS=
+A_DEBUG_FLAGS=
 !endif
 
 OBJFILES = &
@@ -53,7 +68,7 @@ INCLUDES=-Isrc -Impxplay -I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
-	jwasm.exe -q -D?FLAT -Fo$@ $<
+	jwasm.exe -q -D?FLAT $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
 	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
@@ -74,7 +89,7 @@ $(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib
 format win pe runtime console
 file $(OUTD)\main.obj name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
-libfile res\cstrtdhx.obj
+libfile cstrtdhx.obj
 lib $(OUTD)\$(NAME).lib
 op q,m=$(OUTD)\$(NAME).map,stub=loadpe.bin,stack=0x10000,heap=0x1000
 <<
@@ -121,7 +136,7 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 !endif
 
 # to avoid any issues with 16-bit relocations in PE binaries,
-# the 16-bit code is included in binary format into rmwraph.asm.
+# the 16-bit code is included in binary format into rmwrap.asm.
 
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
 	jwasm.exe -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm

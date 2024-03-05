@@ -44,27 +44,6 @@
 #define RIRB_START 0x2
 
 
-// note LE: lowest byte first, highest byte last
-#define PDS_GETB_8S(p)   *((int8_t *)(p))               // signed 8 bit (1 byte)
-#define PDS_GETB_8U(p)   *((uint8_t *)(p))              // unsigned 8 bit (1 byte)
-#define PDS_GETB_LE16(p) *((int16_t *)(p))              // 2bytes LE to short
-#define PDS_GETB_LEU16(p)*((uint16_t *)(p))             // 2bytes LE to unsigned short
-#define PDS_GETB_LE32(p) *((int32_t *)(p))              // 4bytes LE to long
-#define PDS_GETB_LEU32(p) *((uint32_t *)(p))            // 4bytes LE to unsigned long
-#define PDS_GETB_LE24(p) ((PDS_GETB_LEU32(p))&0x00ffffff)
-#define PDS_GETB_LE64(p) *((int64_t *)(p))              // 8bytes LE to int64
-#define PDS_GETB_LEU64(p) *((uint64_t *)(p))            // 8bytes LE to uint64
-#define PDS_GET4C_LE32(a,b,c,d) ((uint32_t)(a) | ((uint32_t)(b) << 8) | ((uint32_t)(c) << 16) | ((uint32_t)(d) << 24))
-#define PDS_GETS_LE32(p) ((char *)&(p))                 // unsigned long to 4 bytes string
-
-#define PDS_PUTB_8S(p,v)   *((int8_t *)(p))=(v)         //
-#define PDS_PUTB_8U(p,v)   *((uint8_t *)(p))=(v)        //
-#define PDS_PUTB_LE16(p,v) *((int16_t *)(p))=(v)        //
-#define PDS_PUTB_LEU16(p,v) *((uint16_t *)(p))=(v)      //
-#define PDS_PUTB_LE24(p,v) *((uint8_t *)(p))=((v) & 0xff); PDS_PUTB_LE16(((uint8_t*)p+1),((v) >> 8))
-#define PDS_PUTB_LE32(p,v) *((int32_t *)(p))=(v)        // long to 4bytes LE
-#define PDS_PUTB_LE64(p,v) *((int64_t *)(p))=(v)        // int64 to 8bytes LE
-
 struct intelhd_card_s
 {
  unsigned long  iobase;
@@ -122,6 +101,8 @@ struct hda_rate_tbl {
 #define MUL2 (1 << 11)
 #define MUL4 (3 << 11)
 
+static volatile int xxx;
+
 static const struct hda_rate_tbl rate_bits[] = {
  { 48000 / 6,      BASE48K | DIV6 },          //  8000 0
  { 44100 / 4,      BASE44K | DIV4 },          // 11025 1
@@ -146,21 +127,23 @@ static struct aucards_mixerchan_s hda_master_vol = {
 };
 
 //Intel HDA codec has memory mapping only (by specification)
+// VSBHDA: access changed to "volatile"
 
-#define azx_writel(chip,reg,value) PDS_PUTB_LE32((char *)((chip)->iobase + HDA_REG_##reg),value)
-#define azx_readl(chip,reg) PDS_GETB_LE32((char *)((chip)->iobase + HDA_REG_##reg))
-//#define azx_writew(chip,reg,value) PDS_PUTB_LE16((char *)((chip)->iobase + HDA_REG_##reg), value)
-#define azx_writew(chip,reg,value) PDS_PUTB_LEU16((char *)((chip)->iobase + HDA_REG_##reg), value)
-#define azx_readw(chip,reg) PDS_GETB_LE16((char *)((chip)->iobase + HDA_REG_##reg))
-#define azx_writeb(chip,reg,value) *((unsigned char *)((chip)->iobase + HDA_REG_##reg))=value
-#define azx_readb(chip,reg) PDS_GETB_8U((char *)((chip)->iobase + HDA_REG_##reg))
+#define azx_writel(chip,reg,value) *((volatile int32_t *)((chip)->iobase + HDA_REG_##reg)) = value
+#define azx_writew(chip,reg,value) *((volatile int16_t *)((chip)->iobase + HDA_REG_##reg)) = value
+#define azx_writeb(chip,reg,value) *((volatile uint8_t *)((chip)->iobase + HDA_REG_##reg)) = value
 
-#define azx_sd_writel(dev,reg,value) PDS_PUTB_LE32((char *)((dev)->sd_addr + HDA_REG_##reg),value)
-#define azx_sd_readl(dev,reg) PDS_GETB_LE32((char *)((dev)->sd_addr + HDA_REG_##reg))
-#define azx_sd_writew(dev,reg,value) PDS_PUTB_LE16((char*)((dev)->sd_addr + HDA_REG_##reg),value)
-#define azx_sd_readw(dev,reg) PDS_GETB_LE16((char *)((dev)->sd_addr + HDA_REG_##reg))
-#define azx_sd_writeb(dev,reg,value) *((unsigned char *)((dev)->sd_addr + HDA_REG_##reg))=value
-#define azx_sd_readb(dev,reg) PDS_GETB_8U((char *)((dev)->sd_addr + HDA_REG_##reg))
+#define azx_readl(chip,reg) *((volatile int32_t *)((chip)->iobase + HDA_REG_##reg))
+#define azx_readw(chip,reg) *((volatile int16_t *)((chip)->iobase + HDA_REG_##reg))
+#define azx_readb(chip,reg) *((volatile uint8_t *)((chip)->iobase + HDA_REG_##reg))
+
+#define azx_sd_writel(dev,reg,value) *((volatile int32_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
+#define azx_sd_writew(dev,reg,value) *((volatile int16_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
+#define azx_sd_writeb(dev,reg,value) *((volatile uint8_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
+
+#define azx_sd_readl(dev,reg) *((volatile int32_t *)((dev)->sd_addr + HDA_REG_##reg))
+#define azx_sd_readw(dev,reg) *((volatile int16_t *)((dev)->sd_addr + HDA_REG_##reg))
+#define azx_sd_readb(dev,reg) *((volatile uint8_t *)((dev)->sd_addr + HDA_REG_##reg))
 
 #define codec_param_read(codec,nid,param) hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
 
@@ -240,7 +223,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 #else
 
 	static int corbsizes[4] = {2, 16, 256, 0};
-	int corbsize = corbsizes[(azx_readw( chip, CORBSIZE) & 0x3 )];
+	int corbsize = corbsizes[(azx_readb( chip, CORBSIZE) & 0x3 )];
 	int corbindex = azx_readw( chip, CORBWP ) & 0xFF;
 	do
 	{
@@ -638,10 +621,14 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 
 	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
 
+		dbgprintf("parse_output_jack[%u]: type=%X caps=%X\n", i, node->type, node->pin_caps );
 		if(node->type != AC_WID_PIN)  /* widget must be a "pin" */
 			continue;
 		if(!(node->pin_caps & AC_PINCAP_OUT))
 			continue;
+		dbgprintf("parse_output_jack[%u]: node id=%u cfg=0x%X\n", i, node->nid, node->def_cfg );
+
+		/* check port connectivity ( bits 30-31 ) */
 		if(defcfg_port_conn(node) == AC_JACK_PORT_NONE)
 			continue;
 		if( jack_type >= 0 ){
@@ -653,17 +640,18 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 			if(!(node->pin_ctl & AC_PINCTL_OUT_ENABLE))
 				continue;
 		}
+		dbgprintf("parse_output_jack[%u]: widget preselected\n", i );
 		clear_check_flags(card);
 		err = parse_output_path(card, node, 0);
 		if( err < 0 ) {
-			dbgprintf("parse_output_jack: parse_output_path(%u) failed, err=%d\n", i, err );
+			dbgprintf("parse_output_jack[%u]: parse_output_path() failed, err=%d\n", i, err );
 			return NULL;
 		}
 		/* ??? */
 		if(!err && card->out_pin_node[0]){
 			err = parse_output_path(card, node, 1);
 			if( err < 0 ) {
-				dbgprintf("parse_output_jack: parse_output_path(%u) failed [2], err=%d\n", i, err );
+				dbgprintf("parse_output_jack[%u]: parse_output_path() failed [2], err=%d\n", i, err );
 				return NULL;
 			}
 		}
@@ -751,7 +739,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	pds_delay_10us(100);
 	azx_writeb(chip, GCTL, azx_readb(chip, GCTL) | HDA_GCTL_RESET);
 	timeout = 500;
-	while(((azx_readb(chip, GCTL)&HDA_GCTL_RESET)==0) && (--timeout))
+	while(((azx_readb(chip, GCTL)&HDA_GCTL_RESET) == 0) && (--timeout))
 		pds_delay_10us(100);
 	pds_delay_10us(100);
 	dbgprintf("azx_reset: after reset, GCTL=%X timeout=%d\n",(unsigned long)azx_readb(chip, GCTL),timeout);
@@ -767,16 +755,32 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
 	azx_writel(chip, CORBUBASE, 0 );
 	azx_writew(chip, CORBWP, 0 );
+
     /* to reset CORB RP, set/reset bit 15 */
-	azx_writew(chip, CORBRP, 0x8000 );
-	pds_delay_10us(100);
+	azx_writew(chip, CORBRP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
+	/* according to specs wait until bit 15 changes to 1. then write a
+	* 0 and again wait until a 0 is read.
+	 */
+#if 1
+	timeout = 500;
+	while ( ( 0 == (azx_readw( chip, CORBRP ) & 0x8000 ) ) && timeout--) {
+		pds_delay_10us(100);
+	}
+#endif	
 	azx_writew(chip, CORBRP, 0 );
-	//azx_writel(chip, CORBSIZE, 0);
+#if 1
+	timeout = 500;
+	while ( (azx_readw( chip, CORBRP ) & 0x8000 ) && timeout-- ) {
+		pds_delay_10us(100);
+	}
+#endif	
+	//azx_writeb(chip, CORBSIZE, 0);
+
 	azx_writel(chip, RIRBLBASE, pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
 	azx_writel(chip, RIRBUBASE, 0 );
-	azx_writew(chip, RIRBWP, 0x8000 );
-	//azx_writel(chip, RIRBSIZE, 0); maybe only 1 supported
-	azx_writew(chip, RINTCNT, 1); //1 response for one interrupt each time
+	azx_writew(chip, RIRBWP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
+	//azx_writeb(chip, RIRBSIZE, 0); maybe only 1 supported
+	azx_writew(chip, RIRBRIC, 1); //1 response for one interrupt each time
 
 	pds_delay_10us(100);
 
@@ -879,9 +883,9 @@ static void hda_hw_init(struct intelhd_card_s *card)
 
 	dbgprintf("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) );
 	dbgprintf("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readw( card, CORBSIZE ));
+			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE ));
 	dbgprintf("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RINTCNT ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readw( card, RIRBSIZE ));
+			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE ));
 
 }
 
@@ -990,9 +994,9 @@ static void hda_hw_close(struct intelhd_card_s *card)
 	azx_writel( card, INTSTS, 0 );
 	dbgprintf("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) );
 	dbgprintf("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readw( card, CORBSIZE ));
+			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE ));
 	dbgprintf("hda_hw_close: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RINTCNT ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readw( card, RIRBSIZE ));
+			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE ));
 #endif
 }
 
@@ -1011,14 +1015,14 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 
 	for( i = 0; i < card->pcmout_num_periods; i++ ) {
 		unsigned int off  = i << 2;
-		unsigned int addr = ( pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
-		PDS_PUTB_LE32(&bdl[off  ],(uint32_t)addr);
-		PDS_PUTB_LE32(&bdl[off+1],0);
-		PDS_PUTB_LE32(&bdl[off+2],card->pcmout_period_size);
+		uint32_t addr = ( pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
+		*(&bdl[off+0]) = addr;
+		*(&bdl[off+1]) = 0;
+		*(&bdl[off+2]) = card->pcmout_period_size;
 #ifdef SBEMU
-		PDS_PUTB_LE32(&bdl[off+3],0x01);
+		*(&bdl[off+3]) = 0x01;
 #else
-		PDS_PUTB_LE32(&bdl[off+3],0x00); // 0x01 enable interrupt
+		*(&bdl[off+3]) = 0x00; // 0x01 enable interrupt
 #endif
  }
 }

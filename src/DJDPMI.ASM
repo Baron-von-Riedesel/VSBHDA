@@ -23,6 +23,7 @@ MEMINFO ends
 
 	.code
 
+if @Model ne 7
 __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dword
 	mov ebx, dwSeg
 	mov ax, 6
@@ -36,6 +37,7 @@ __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dw
 	ret
 	align 4
 __dpmi_get_segment_base_address endp
+endif
 
 if 0
 __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword

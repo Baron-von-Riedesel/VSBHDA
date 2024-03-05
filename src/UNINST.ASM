@@ -33,7 +33,9 @@ __dpmi_simulate_real_mode_interrupt proto c intno:byte, pRegs:ptr
 
 	.data
 
+if @Model ne 7
 externdef c DSBase:dword
+endif
 
 	.code
 
@@ -79,12 +81,16 @@ local regs:RMCS
 	invoke __dpmi_simulate_real_mode_interrupt, 21h, addr regs
 
 	mov esi, dwLinPSP
+if @Model ne 7
 	sub esi, DSBase
+endif
 
 if 0	; adjust PSP:2Eh? probably not a good idea.
 	movzx ebx, word ptr regs.rEBX
 	shl ebx, 4
+if @Model ne 7
 	sub ebx, DSBase
+endif
 	mov eax, [ebx+2Eh]
 	mov [esi+2Eh], eax
 endif

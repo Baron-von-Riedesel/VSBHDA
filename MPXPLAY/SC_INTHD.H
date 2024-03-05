@@ -444,21 +444,21 @@ enum {
 #define HDA_REG_WALCLK         0x30
 #define HDA_REG_SYNC           0x34
 
-#define HDA_REG_CORBLBASE      0x40
-#define HDA_REG_CORBUBASE      0x44
-#define HDA_REG_CORBWP         0x48
-#define HDA_REG_CORBRP         0x4A
-#define HDA_REG_CORBCTL        0x4c
-#define HDA_REG_CORBSTS        0x4d
-#define HDA_REG_CORBSIZE       0x4e
+#define HDA_REG_CORBLBASE      0x40 /* uint32 */
+#define HDA_REG_CORBUBASE      0x44 /* uint32 */
+#define HDA_REG_CORBWP         0x48 /* int16 */
+#define HDA_REG_CORBRP         0x4A /* int16 */
+#define HDA_REG_CORBCTL        0x4c /* uint8 */
+#define HDA_REG_CORBSTS        0x4d /* uint8 */
+#define HDA_REG_CORBSIZE       0x4e /* uint8 */
 
-#define HDA_REG_RIRBLBASE      0x50
-#define HDA_REG_RIRBUBASE      0x54
-#define HDA_REG_RIRBWP         0x58
-#define HDA_REG_RINTCNT        0x5a
-#define HDA_REG_RIRBCTL        0x5c
-#define HDA_REG_RIRBSTS        0x5d
-#define HDA_REG_RIRBSIZE       0x5e
+#define HDA_REG_RIRBLBASE      0x50 /* uint32 */
+#define HDA_REG_RIRBUBASE      0x54 /* uint32 */
+#define HDA_REG_RIRBWP         0x58 /* int16 */
+#define HDA_REG_RIRBRIC        0x5a /* int16 */
+#define HDA_REG_RIRBCTL        0x5c /* uint8 */
+#define HDA_REG_RIRBSTS        0x5d /* uint8 */
+#define HDA_REG_RIRBSIZE       0x5e /* uint8 */
 
 #define HDA_REG_IC            0x60
 #define HDA_REG_IR            0x64
