@@ -79,12 +79,12 @@ LIBS=
 {mpxplay}.c{$(OUTD)}.obj
 	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)\$(NAME).exe
+all: $(OUTD) $(OUTD)\$(NAME)w.exe
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib
+$(OUTD)\$(NAME)w.exe: $(OUTD)\$(NAME).lib
 	@$(LINK) @<<
 format win pe runtime console
 file $(OUTD)\main.obj name $@

@@ -36,6 +36,9 @@
 #endif
 #define VOL_DEFAULT 7
 
+#define VERMAJOR "1"
+#define VERMINOR "3"
+
 extern int SNDISR_InterruptPM();
 
 #ifndef DJGPP
@@ -341,7 +344,7 @@ int main(int argc, char* argv[])
     /* if -? or unrecognised option was entered, display help and exit */
     if( bHelp ) {
         bHelp = false;
-        printf("VSBHDA: Sound Blaster emulation on AC97. Usage:\n");
+        printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Usage:\n");
 
         for( i = 0; MAIN_Options[i].option; i++ )
             printf( " %-8s: %s\n", MAIN_Options[i].option, MAIN_Options[i].desc );
