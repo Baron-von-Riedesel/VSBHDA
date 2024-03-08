@@ -102,7 +102,7 @@ static unsigned int snd_audigyls_selector( struct emu10k1_card *card, struct aud
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10021102) || (card->serial==0x10051102))){
-		dbgprintf("selected : audigy ls\n");
+		dbgprintf(("selected : audigy ls\n"));
 		return 1;
 	}
 
@@ -113,7 +113,7 @@ static unsigned int snd_live24_selector( struct emu10k1_card *card, struct audio
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	if((card->chips&EMU_CHIPS_0106) && ((card->serial==0x10061102) || (card->serial==0x10071102) || (card->serial==0x10091462) || (card->serial==0x30381297) || (card->serial==0x10121102) || !card->card_capabilities->subsystem)){
-		dbgprintf("selected : live24\n");
+		dbgprintf(("selected : live24\n"));
 		return 1;
 	}
 
@@ -125,7 +125,7 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 {
 	unsigned int ch;
 
-	dbgprintf("snd_ca0106_hw_init\n");
+	dbgprintf(("snd_ca0106_hw_init\n"));
 	outl(card->iobase + INTE, 0);
 
 	snd_ca0106_ptr_write(card, SPCS0, 0,
@@ -184,7 +184,7 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 static void snd_audigyls_hw_init( struct emu10k1_card *card)
 ////////////////////////////////////////////////////////////
 {
-	dbgprintf("snd_audigyls_hw_init\n");
+	dbgprintf(("snd_audigyls_hw_init\n"));
 	snd_ca0106_hw_init(card);
 
 	//outl(card->iobase+GPIO, 0x005f03a3); // analog
@@ -197,13 +197,13 @@ static void snd_audigyls_hw_init( struct emu10k1_card *card)
 #else
 	snd_emu_ac97_mute(card);
 #endif
-	dbgprintf("snd_audigys_hw init: exit\n");
+	dbgprintf(("snd_audigys_hw init: exit\n"));
 }
 
 static void snd_live24_hw_init( struct emu10k1_card *card)
 //////////////////////////////////////////////////////////
 {
-	dbgprintf("snd_live24_hw_init\n");
+	dbgprintf(("snd_live24_hw_init\n"));
 	snd_ca0106_hw_init(card);
 
 	//outl(card->iobase+GPIO, 0x005f5301); // analog
@@ -230,7 +230,7 @@ static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct au
         return 0;
 	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable)+CA0106_DMABUF_PERIODS*2*sizeof(uint32_t);
-	dbgprintf("buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	dbgprintf(("buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
 
@@ -295,7 +295,7 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 	snd_ca0106_ptr_write(card, 0x08, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0x0, 0x0); // unmute output
 
-	dbgprintf("snd_ca0106_pcm_prepare playback: exit\n");
+	dbgprintf(("snd_ca0106_pcm_prepare playback: exit\n"));
 }
 
 static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_s *aui )
@@ -325,7 +325,7 @@ static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_
 
 	dmabufsize=MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,CA0106_DMABUF_ALIGN,0);
 	card->period_size=(dmabufsize/CA0106_DMABUF_PERIODS);
-	dbgprintf("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size);
+	dbgprintf(("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));
 
 	snd_ca0106_pcm_prepare_playback(card,aui);
 }
@@ -335,7 +335,7 @@ static void snd_live24_pcm_start_playback( struct emu10k1_card *card)
 {
 	const uint32_t channel=0;
 	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) | (0x1<<channel));
-	dbgprintf("snd_live24_pcm_start_playback\n");
+	dbgprintf(("snd_live24_pcm_start_playback\n"));
 }
 
 static void snd_live24_pcm_stop_playback( struct emu10k1_card *card)
@@ -343,7 +343,7 @@ static void snd_live24_pcm_stop_playback( struct emu10k1_card *card)
 {
 	const uint32_t channel=0;
 	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) & (~(0x1<<channel)));
-	dbgprintf("snd_live24_pcm_stop_playback\n");
+	dbgprintf(("snd_live24_pcm_stop_playback\n"));
 }
 
 static unsigned int snd_live24_pcm_pointer_playback( struct emu10k1_card *card, struct audioout_info_s *aui )
@@ -362,7 +362,7 @@ static unsigned int snd_live24_pcm_pointer_playback( struct emu10k1_card *card, 
 
 	ptr=(ptr4*card->period_size)+ptr1;
 
-	dbgprintf("snd_live24_pcm_pointer_playback: list_ptr:%3d period_ptr:%4d bufpos:%d",ptr4,ptr1,ptr);
+	dbgprintf(("snd_live24_pcm_pointer_playback: list_ptr:%3d period_ptr:%4d bufpos:%d",ptr4,ptr1,ptr));
 
 	ptr /= aui->chan_card;
 	ptr /= aui->bits_card>>3;
@@ -395,7 +395,7 @@ static int snd_live24_isr( struct emu10k1_card *card)
 	//const uint32_t channel = 0;
 	int intmask = snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0);
 
-	dbgprintf("snd_live24_isr\n");
+	dbgprintf(("snd_live24_isr\n"));
 	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, intmask); //ack
 	return intmask;
 }

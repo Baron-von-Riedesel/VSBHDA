@@ -32,11 +32,11 @@ struct globalvars {
 	int device;
 };
 
-int dbgprintf(const char *fmt, ... );
+int _dprintf(const char *fmt, ... );
 #ifdef _DEBUG
-#define dbgprintf dbgprintf
+#define dbgprintf(x) _dprintf x
 #else
-#define dbgprintf
+#define dbgprintf(x)
 #endif
 
 #endif//_CONFIG_H_

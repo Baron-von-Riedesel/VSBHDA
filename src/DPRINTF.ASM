@@ -233,12 +233,12 @@ handle_char:
 	align 4
 vprintf endp
 
-dbgprintf PROC c public fmt:ptr sbyte, args:VARARG
+_dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
 	invoke vprintf, fmt, addr args
 	ret
 
-dbgprintf ENDP
+_dprintf ENDP
 
 if 0
 

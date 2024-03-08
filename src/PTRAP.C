@@ -123,7 +123,7 @@ static void RM_TrapHandler( __dpmi_regs * regs)
 
     /* this should never be reached. */
 
-    dbgprintf("RM_TrapHandler: unhandled port=%x val=%x out=%x (OldCB=%x:%x)\n", port, val, out, QPI_OldCallbackCS, QPI_OldCallbackIP );
+    dbgprintf(("RM_TrapHandler: unhandled port=%x val=%x out=%x (OldCB=%x:%x)\n", port, val, out, QPI_OldCallbackCS, QPI_OldCallbackIP ));
     //regs->w.flags |= CPU_CFLAG;
     if ( QPI_OldCallbackCS ) {
         __dpmi_regs r = *regs;
@@ -216,7 +216,7 @@ bool PTRAP_Prepare_RM_PortTrap()
         return false;
     QPI_OldCallbackIP = r.x.es;
     QPI_OldCallbackCS = r.x.di;
-    dbgprintf("PTRAP_Prepare_RM_PortTrap: old callback=%x:%x\n",r.x.es, r.x.di);
+    dbgprintf(("PTRAP_Prepare_RM_PortTrap: old callback=%x:%x\n",r.x.es, r.x.di));
 
     /* get a realmode callback */
     if ( _hdpmi_rmcbIO( &RM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
@@ -355,7 +355,7 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
                 r.x.dx = PDispTab[i].port;
                 __dpmi_simulate_real_mode_procedure_retf(&r);
                 PDispTab[i].flags &= ~PDT_FLGS_RMINST;
-                //dbgprintf("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PDispTab[i].port );
+                //dbgprintf(("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PDispTab[i].port ));
             }
         }
     }
@@ -424,7 +424,7 @@ bool PTRAP_Install_PM_PortTraps( void )
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
             start = PDispTab[portranges[i]].port;
             end = PDispTab[portranges[i+1]-1].port;
-            dbgprintf("PTRAP_Install_PM_PortTraps: %X-%X\n", start, end );
+            dbgprintf(("PTRAP_Install_PM_PortTraps: %X-%X\n", start, end ));
             if (!(traphdl[i] = PTRAP_Int_Install_PM_Trap( start, end, &SwitchStackIOIn, &SwitchStackIOOut)))
                 return false;
         }
@@ -514,13 +514,13 @@ void PTRAP_PrintPorts( void )
 {
     int start = 0;
     int i;
-    dbgprintf( "ports:\n" );
+    dbgprintf(( "ports:\n" ));
     for ( i = 0; i < maxports; i++ ) {
         if ( i < (maxports -1) && ( PDispTab[i+1].port != PDispTab[i].port+1 || PDispTab[i+1].flags != PDispTab[i].flags )) {
             if ( i == start )
-                dbgprintf( "%X (%X)\n", PDispTab[start].port, PDispTab[start].flags );
+                dbgprintf(( "%X (%X)\n", PDispTab[start].port, PDispTab[start].flags ));
             else
-                dbgprintf( "%X-%X (%X)\n", PDispTab[start].port, PDispTab[i].port, PDispTab[start].flags );
+                dbgprintf(( "%X-%X (%X)\n", PDispTab[start].port, PDispTab[i].port, PDispTab[start].flags ));
             start = i + 1;
         }
     }

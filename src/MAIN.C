@@ -409,7 +409,7 @@ int main(int argc, char* argv[])
     }
     if( gvars.rm ) {
         int bcd = PTRAP_GetQEMMVersion();
-        //dbgprintf("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF);
+        //dbgprintf(("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF));
         if(bcd < 0x703) {
             printf("Jemm/Qemm not installed, or version below 7.03: %x.%02x - disable real mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
@@ -520,7 +520,7 @@ int main(int argc, char* argv[])
 #if PREMAPDMA
     /* Map the full first 16M to simplify DMA mem access */
     MAIN_MappedBase = MapFirst16M();
-    dbgprintf("MappedBase=%x\n", MAIN_MappedBase );
+    dbgprintf(("MappedBase=%x\n", MAIN_MappedBase ));
 #endif
 
     if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {

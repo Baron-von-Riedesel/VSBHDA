@@ -88,7 +88,7 @@ int AU_init( struct audioout_info_s *aui )
 {
 	const struct sndcard_info_s **asip;
 
-	dbgprintf("AU_init\n");
+	dbgprintf(("AU_init\n"));
 	aui->card_dmasize = aui->card_dma_buffer_size = MDma_get_max_pcmoutbufsize( aui, 65535, 4608, 2, 0);
 
 	if(!(aui->card_controlbits & AUINFOS_CARDCTRLBIT_TESTCARD)){
@@ -104,7 +104,7 @@ int AU_init( struct audioout_info_s *aui )
 		for ( asip = all_sndcard_info; *asip; asip++ ) {
 			aui->card_handler = *asip;
 			if( aui->card_handler->card_detect ) {
-				dbgprintf("AU_init: checking card %s\n", aui->card_handler->shortname);
+				dbgprintf(("AU_init: checking card %s\n", aui->card_handler->shortname));
 				if( carddetect( aui ) )
 					break;
 			}
@@ -178,7 +178,7 @@ void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 
 {
 	unsigned int new_cardcontrolbits;
-	dbgprintf("AU_setrate enter\n");
+	dbgprintf(("AU_setrate enter\n"));
 
 	//aui->chan_song = adi->outchannels;
 	//aui->bits_song = adi->bits;
@@ -194,7 +194,7 @@ void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 		if ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING )
 			AU_stop(aui);
 
-		dbgprintf("AU_setrate: changing rate to %u\n", adi->freq );
+		dbgprintf(("AU_setrate: changing rate to %u\n", adi->freq ));
 		aui->freq_song = adi->freq;
 
 		aui->freq_card = (aui->freq_set) ? aui->freq_set : adi->freq;
@@ -268,7 +268,7 @@ void AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsi
 	unsigned int subchannelnum, sch, channel, function;
 	long newpercentval, maxpercentval;
 
-	dbgprintf("AU_setmixer_one( %u, %u, %u )\n", mixchannum, setmode, newvalue );
+	dbgprintf(("AU_setmixer_one( %u, %u, %u )\n", mixchannum, setmode, newvalue ));
 	//mixer structure/values verifying
 	function = AU_MIXCHANFUNCS_GETFUNC(mixchannum);
 	if(function >= AU_MIXCHANFUNCS_NUM)
@@ -297,7 +297,7 @@ void AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsi
 	//calculate new percent
 	switch(setmode){
 	case MIXER_SETMODE_ABSOLUTE:
-		dbgprintf("AU_setmixer_one( SETMODE_ABSOLUTE, %u %% )\n", newvalue );
+		dbgprintf(("AU_setmixer_one( SETMODE_ABSOLUTE, %u %% )\n", newvalue ));
 		newpercentval = newvalue;
 	break;
 	case MIXER_SETMODE_RELATIVE:

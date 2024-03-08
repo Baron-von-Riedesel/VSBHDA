@@ -30,7 +30,7 @@ static void VIRQ_Write(uint16_t port, uint8_t value)
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
-        dbgprintf("VIRQ_Write:%x,%x\n",port,value);
+        dbgprintf(("VIRQ_Write:%x,%x\n",port,value));
         if((port & 0x0F) == 0x00) {
             int index = ((port==0x20) ? 0 : 1);
             VIRQ_OCW[index] = value;
@@ -54,7 +54,7 @@ static uint8_t VIRQ_Read(uint16_t port)
 {
     if(VIRQ_IS_VIRTUALIZING())
     {
-        dbgprintf("VIRQ_Read:%x\n",port);
+        dbgprintf(("VIRQ_Read:%x\n",port));
         if((port & 0x0F) == 0x00) {
             int index = ((port == 0x20) ? 0 : 1);
             if(VIRQ_OCW[index] == 0x0B) { //ISR
@@ -116,7 +116,7 @@ void VIRQ_Invoke( void )
     uint8_t irq;
     int mask;
 
-    dbgprintf("VIRQ_Invoke\n");
+    dbgprintf(("VIRQ_Invoke\n"));
     irq = VSB_GetIRQ();
 
 #if CHANGEPICMASK

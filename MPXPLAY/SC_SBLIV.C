@@ -122,7 +122,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card)
 	int ch;
 	uint32_t silent_page;
 
-	dbgprintf("snd_emu10k1_hw_init enter\n");
+	dbgprintf(("snd_emu10k1_hw_init enter\n"));
 	// disable audio and lock cache
 	emu10k1_writefn0(card,HCFG,HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
 
@@ -335,7 +335,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card)
 #endif
 		outl(card->iobase + A_IOCFG, tmp);
 	}
-	dbgprintf("snd_emu10k1_hw_init exit\n");
+	dbgprintf(("snd_emu10k1_hw_init exit\n"));
 }
 
 static void snd_emu10k1_hw_close( struct emu10k1_card *card)
@@ -343,7 +343,7 @@ static void snd_emu10k1_hw_close( struct emu10k1_card *card)
 {
 	int ch;
 
-	dbgprintf("snd_emu10k1_hw_close enter\n");
+	dbgprintf(("snd_emu10k1_hw_close enter\n"));
 	emu10k1_writefn0(card,EMU10K_INTENABLE,0);
 
 	// Shutdown the chip
@@ -380,7 +380,7 @@ static void snd_emu10k1_hw_close( struct emu10k1_card *card)
 	// disable audio and lock cache
 	outl(card->iobase + HCFG,HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
 	emu10k1_writeptr(card, PTB, 0, 0);
-	dbgprintf("snd_emu10k1_hw_close exit\n");
+	dbgprintf(("snd_emu10k1_hw_close exit\n"));
 }
 
 
@@ -675,7 +675,7 @@ static void emu10k1_pcm_init_voice( struct emu10k1_card *card, unsigned int voic
 	uint32_t silent_page;
 	int vol_left, vol_right;
 
-	dbgprintf("emu10k1_pcm_init_voice enter\n");
+	dbgprintf(("emu10k1_pcm_init_voice enter\n"));
 
 	if(flags & VOICE_FLAGS_STEREO){
 		start_addr >>= 1;
@@ -745,7 +745,7 @@ static void emu10k1_pcm_init_voice( struct emu10k1_card *card, unsigned int voic
 	emu10k1_writeptr(card, PEFE_FILTERAMOUNT, voice, 0); // was 0x7f
 	// pitch envelope
 	emu10k1_writeptr(card, PEFE_PITCHAMOUNT, voice, 0);
-	dbgprintf("emu10k1_pcm_init_voice exit\n");
+	dbgprintf(("emu10k1_pcm_init_voice exit\n"));
 }
 
 static void snd_emu10k1_playback_start_voice( struct emu10k1_card *card, int voice, int flags)
@@ -832,7 +832,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 {
 	uint32_t pagecount,pcmbufp;
 
-	dbgprintf("snd_emu10kx_buffer_init enter\n");
+	dbgprintf(("snd_emu10kx_buffer_init enter\n"));
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,EMUPAGESIZE,2,0);
 	card->dm = MDma_alloc_cardmem( MAXPAGES*sizeof(uint32_t)       // virtualpage
 								+EMUPAGESIZE                     // silentpage
@@ -842,8 +842,8 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 	card->silentpage = (void *)(((uint32_t)card->dm->pMem + 0x0fff) & 0xfffff000); // buffer begins on page boundary
 	card->virtualpagetable = (uint32_t *)((uint32_t)card->silentpage + EMUPAGESIZE);
 	card->pcmout_buffer = (char *)(card->virtualpagetable + MAXPAGES);
-	//dbgprintf("snd_emu10kx_buffer_init: silentpage=%X, vpt=%X, pcmout=%X\n", card->silentpage, card->virtualpagetable, card->pcmout_buffer );
-	//dbgprintf("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm->physicalptr, card->dm->linearptr );
+	//dbgprintf(("snd_emu10kx_buffer_init: silentpage=%X, vpt=%X, pcmout=%X\n", card->silentpage, card->virtualpagetable, card->pcmout_buffer ));
+	//dbgprintf(("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm->physicalptr, card->dm->linearptr ));
 
 	pcmbufp = (uint32_t)card->pcmout_buffer;
 	//pcmbufp <<= 1;
@@ -851,7 +851,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 		//card->virtualpagetable[pagecount] = pcmbufp | pagecount;
 		//card->virtualpagetable[pagecount] = pds_cardmem_physicalptr(card->dm,pcmbufp) | pagecount;
 		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,pcmbufp) << 1) | pagecount;
-		//dbgprintf("snd_emu10kx_buffer_init: %u: %X\n", pagecount, card->virtualpagetable[pagecount] );
+		//dbgprintf(("snd_emu10kx_buffer_init: %u: %X\n", pagecount, card->virtualpagetable[pagecount] ));
 		//pcmbufp+=EMUPAGESIZE*2;
 		pcmbufp+=EMUPAGESIZE;
 	}
@@ -859,7 +859,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 		//card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage)<<1;
 		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,card->silentpage)) << 1;
 
-	dbgprintf("snd_emu10kx_buffer_init exit\n");
+	dbgprintf(("snd_emu10kx_buffer_init exit\n"));
 	return 1;
 }
 
@@ -871,7 +871,7 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	aui->chan_card=2;
 	aui->bits_card=16;
 
-	dbgprintf("snd_emu10kx_setrate enter\n");
+	dbgprintf(("snd_emu10kx_setrate enter\n"));
 	if( aui->freq_card < 4000 )
 		aui->freq_card = 4000;
 	else{
@@ -895,7 +895,7 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 
 	emu10k1_pcm_init_voice(card,0,VOICE_FLAGS_MASTER|VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT,0,dmabufsize);
 	emu10k1_pcm_init_voice(card,1,VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT,0,dmabufsize);
-	dbgprintf("snd_emu10kx_setrate exit, freq=%u\n", aui->freq_card );
+	dbgprintf(("snd_emu10kx_setrate exit, freq=%u\n", aui->freq_card ));
 }
 
 static void snd_emu10kx_pcm_start_playback( struct emu10k1_card *card)
@@ -1014,7 +1014,7 @@ static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audi
 	card->dm = MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize);
 	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t);
-	dbgprintf("snd_p16v_selector: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	dbgprintf(("snd_p16v_selector: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
 
@@ -1026,7 +1026,7 @@ static void snd_p16v_pcm_prepare_playback( struct emu10k1_card *card,unsigned in
 	const uint32_t channel = 0;
 	uint32_t i;
 
-	dbgprintf("snd_p16v_pcm_prepare_playback enter\n");
+	dbgprintf(("snd_p16v_pcm_prepare_playback enter\n"));
 	snd_emu_set_spdif_freq(card,freq);
 
 	for(i=0; i<AUDIGY2_P16V_PERIODS; i++) {
@@ -1049,7 +1049,7 @@ static void snd_p16v_pcm_prepare_playback( struct emu10k1_card *card,unsigned in
 	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB ); /* vsbhda */
 	//emu10k1_writefn0(card, P16V_INTENABLE, INTE2_PLAYBACK_CH_0_HALF_LOOP | INTE2_PLAYBACK_CH_0_LOOP);
 #endif
-	dbgprintf("snd_p16v_pcm_prepare_playback exit\n");
+	dbgprintf(("snd_p16v_pcm_prepare_playback exit\n"));
 }
 
 static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s *aui)
@@ -1075,7 +1075,7 @@ static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s 
 
 	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,AUDIGY2_P16V_DMABUF_ALIGN,0);
 	card->period_size = (dmabufsize / AUDIGY2_P16V_PERIODS);
-	dbgprintf("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size);
+	dbgprintf(("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));
 
 	snd_p16v_pcm_prepare_playback(card,aui->freq_card);
 }
@@ -1283,7 +1283,7 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	const struct emu_card_version_s *emucv;
 	const struct emu_driver_func_s **edaf;
 
-	dbgprintf("SBLIVE_adetect\n");
+	dbgprintf(("SBLIVE_adetect\n"));
 	card = (struct emu10k1_card *)pds_calloc(1,sizeof(struct emu10k1_card));
 	if(!card)
 		return 0;
@@ -1383,7 +1383,7 @@ static void SBLIVE_start( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////
 {
 	struct emu10k1_card *card = aui->card_private_data;
-	dbgprintf("SBLIVE_start\n");
+	dbgprintf(("SBLIVE_start\n"));
 #ifdef SBEMU
 	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB );
 	outw(card->iobase + TIMER, 0x200); /* default of 0 seems too "slow" */
@@ -1455,7 +1455,7 @@ static unsigned long SBLIVE_readMIXER( struct audioout_info_s *aui, unsigned lon
 static int SBLIVE_IRQRoutine( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////
 {
-	//dbgprintf("SBLIVE_IRQRoutine\n");
+	//dbgprintf(("SBLIVE_IRQRoutine\n"));
 	struct emu10k1_card *card = aui->card_private_data;
 	return card->driver_funcs->interrupt_isr(card);
 }

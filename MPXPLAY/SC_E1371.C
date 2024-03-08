@@ -175,7 +175,7 @@ static unsigned int snd_es1371_wait_src_ready(struct ensoniq_card_s *card)
 			return r;
         pds_delay_10us(10);
 	}
-	dbgprintf("wait_src_ready: timeout, smprate=%X\n", r);
+	dbgprintf(("wait_src_ready: timeout, smprate=%X\n", r));
 	/* better return a valid register value than just 0; the returned value
      * may be used by the caller to "restore" the register...
 	 */
@@ -211,7 +211,7 @@ static unsigned int snd_es1371_src_read(struct ensoniq_card_s *card, unsigned sh
 			pds_delay_10us(10);
 		}
 #ifdef _DEBUG
-		if( i == POLL_COUNT ) dbgprintf("src_read timeout (%X)\n",temp);
+		if( i == POLL_COUNT ) dbgprintf(("src_read timeout (%X)\n",temp));
 #endif
 	}
 
@@ -238,14 +238,14 @@ static void snd_es1371_codec_write(struct ensoniq_card_s *card, unsigned short r
 {
 	unsigned int t, x;
 
-	dbgprintf("codec_write begin reg:%8X val:%8X\n",reg,val);
+	dbgprintf(("codec_write begin reg:%8X val:%8X\n",reg,val));
 	for ( t = 0; t < POLL_COUNT; t++) {
 		if (!(inl(card->port + ES_REG_1371_CODEC) & ES_1371_CODEC_WIP))
 			break;
 		pds_delay_10us(10);
 	}
 	if ( t == POLL_COUNT ) {
-		dbgprintf("codec_write: timeout r=%X\n",inl(card->port + ES_REG_1371_CODEC));
+		dbgprintf(("codec_write: timeout r=%X\n",inl(card->port + ES_REG_1371_CODEC)));
 		return;
 	}
 
@@ -260,7 +260,7 @@ static void snd_es1371_codec_write(struct ensoniq_card_s *card, unsigned short r
 		pds_delay_10us(10);
 	}
 #ifdef _DEBUG
-	if ( t == POLL_COUNT ) dbgprintf("codec_write: timeout SRC 1\n");
+	if ( t == POLL_COUNT ) dbgprintf(("codec_write: timeout SRC 1\n"));
 #endif
 
 	/* wait for a SAFE time to write addr/data */
@@ -270,7 +270,7 @@ static void snd_es1371_codec_write(struct ensoniq_card_s *card, unsigned short r
 		pds_delay_10us(10);
 	}
 #ifdef _DEBUG
-	if ( t == POLL_COUNT ) dbgprintf("codec_write: timeout SRC 2\n");
+	if ( t == POLL_COUNT ) dbgprintf(("codec_write: timeout SRC 2\n"));
 #endif
 	/* write CODEC word */
 	outl((card->port + ES_REG_1371_CODEC), ES_1371_CODEC_WRITE(reg, val));
@@ -292,7 +292,7 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 		pds_delay_10us(10);
 	}
 	if ( t == POLL_COUNT ) {
-		dbgprintf("codec_read: timeout (%X)\n", inl(card->port + ES_REG_1371_CODEC) );
+		dbgprintf(("codec_read: timeout (%X)\n", inl(card->port + ES_REG_1371_CODEC) ));
 		return 0;
 	}
 
@@ -307,7 +307,7 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 		pds_delay_10us(10);
 	}
 #ifdef _DEBUG
-	if ( t == POLL_COUNT ) dbgprintf("codec_read: timeout SRC 1\n");
+	if ( t == POLL_COUNT ) dbgprintf(("codec_read: timeout SRC 1\n"));
 #endif
 
 	/* wait for a SAFE time to write addr */
@@ -317,7 +317,7 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 		pds_delay_10us(10);
 	}
 #ifdef _DEBUG
-	if ( t == POLL_COUNT ) dbgprintf("codec_read: timeout SRC 2\n");
+	if ( t == POLL_COUNT ) dbgprintf(("codec_read: timeout SRC 2\n"));
 #endif
 
 	/* select the CODEC register to read */
@@ -339,7 +339,7 @@ static unsigned short snd_es1371_codec_read(struct ensoniq_card_s *card, unsigne
 			return ES_1371_CODEC_READ(x);
 		pds_delay_10us(10);
 	}
-	dbgprintf("codec_read: timeout CODEC (%X)\n", x );
+	dbgprintf(("codec_read: timeout CODEC (%X)\n", x ));
     return 0;
 }
 
@@ -410,7 +410,7 @@ static unsigned int snd_es1371_buffer_init( struct ensoniq_card_s *card, struct 
 		return 0;
 	card->pcmout_buffer = card->dm->pMem;
 	aui->card_DMABUFF = card->pcmout_buffer;
-	dbgprintf("buffer init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize);
+	dbgprintf(("buffer init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
 
@@ -423,20 +423,20 @@ static void snd_es1371_chip_init(struct ensoniq_card_s *card)
 	outl((card->port + ES_REG_SERIAL), card->sctrl);
 	outl((card->port + ES_REG_1371_LEGACY), 0);
 	if( card->infobits & ENSONIQ_CARD_INFOBIT_AC97RESETHACK ){
-		dbgprintf("chip_init: AC97 cold reset\n");
+		dbgprintf(("chip_init: AC97 cold reset\n"));
 		outl((card->port + ES_REG_STATUS), card->cssr);
 		pds_delay_10us(20*100);
 		snd_es1371_wait_src_ready(card);
 	}
 
-	dbgprintf("chip_init: AC97 warm reset\n");
+	dbgprintf(("chip_init: AC97 warm reset\n"));
 	outl((card->port + ES_REG_CONTROL), (card->ctrl | ES_1371_SYNC_RES));
 	inl(card->port + ES_REG_CONTROL);
 	pds_delay_10us(3);
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
 	snd_es1371_wait_src_ready(card);
 
-	dbgprintf("chip_init: sample rate converter init\n");
+	dbgprintf(("chip_init: sample rate converter init\n"));
 	outl((card->port + ES_REG_1371_SMPRATE), ES_1371_SRC_DISABLE);
 	for (idx = 0; idx < 0x80; idx++)
 		snd_es1371_src_write(card, idx, 0);
@@ -457,24 +457,24 @@ static void snd_es1371_chip_init(struct ensoniq_card_s *card)
 
     /* why is the SRC reset after it has been "initialized"? */
 
-	dbgprintf("chip_init: SMPRATE reset\n");
+	dbgprintf(("chip_init: SMPRATE reset\n"));
 	outl((card->port + ES_REG_1371_SMPRATE), 0);
 	snd_es1371_wait_src_ready(card);
 
-	dbgprintf("chip_init: CODEC reset\n");
+	dbgprintf(("chip_init: CODEC reset\n"));
 	outl((card->port + ES_REG_1371_CODEC),  ES_1371_CODEC_WRITE(0, 0));
 	snd_es1371_wait_src_ready(card);
 
-	dbgprintf("chip_init: UART reset\n");
+	dbgprintf(("chip_init: UART reset\n"));
 	outb((card->port + ES_REG_UART_CONTROL), 0x00);
 	outb((card->port + ES_REG_UART_RES), 0x00);
 	snd_es1371_wait_src_ready(card);
 
-	dbgprintf("chip_init: STATUS reset\n");
+	dbgprintf(("chip_init: STATUS reset\n"));
 	outl((card->port + ES_REG_STATUS), card->cssr);
 	snd_es1371_wait_src_ready(card);
 
-	dbgprintf("chip_init end\n");
+	dbgprintf(("chip_init end\n"));
 }
 
 static void snd_es1371_chip_close(struct ensoniq_card_s *card)
@@ -491,7 +491,7 @@ static void snd_es1371_ac97_init(struct ensoniq_card_s *card)
 	snd_es1371_codec_write(card, AC97_PCMOUT_VOL,        0x0404);
 	snd_es1371_codec_write(card, AC97_HEADPHONE_VOL,     0x0404);
 	snd_es1371_codec_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
-	dbgprintf("ac97 init end\n");
+	dbgprintf(("ac97 init end\n"));
 }
 
 static void snd_es1371_prepare_playback( struct ensoniq_card_s *card, struct audioout_info_s *aui )
@@ -511,7 +511,7 @@ static void snd_es1371_prepare_playback( struct ensoniq_card_s *card, struct aud
 	outl((card->port + ES_REG_DAC1_COUNT), (aui->card_dmasize >> 2) -1);
 	outl((card->port + ES_REG_CONTROL), card->ctrl);
 	snd_es1371_dac1_rate(card, aui->freq_card);
-	dbgprintf("prepare playback end\n");
+	dbgprintf(("prepare playback end\n"));
 }
 
 //-------------------------------------------------------------------------
@@ -558,7 +558,7 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 	if(pcibios_search_devices( ensoniq_devices, card->pci_dev ) != PCI_SUCCESSFUL)
 		goto err_adetect;
 
-	dbgprintf("ES1371_adetect: known card found, enable PCI io and busmaster\n");
+	dbgprintf(("ES1371_adetect: known card found, enable PCI io and busmaster\n"));
 	pcibios_enable_BM_IO( card->pci_dev );
 
 	card->port = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
@@ -578,8 +578,8 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 	if( pcibios_search_devices( amplifier_hack_devices, NULL ) == PCI_SUCCESSFUL)
 		card->ctrl |= ES_1371_GPIO_OUT(1); // turn on amplifier
 
-	dbgprintf("ES1371_adetect: vend_id=%X dev_id=%X port=%X irq=%u rev=%X info=%X\n",
-			  card->pci_dev->vendor_id,card->pci_dev->device_id,card->port,card->irq,card->chiprev,card->infobits);
+	dbgprintf(("ES1371_adetect: vend_id=%X dev_id=%X port=%X irq=%u rev=%X info=%X\n",
+			  card->pci_dev->vendor_id,card->pci_dev->device_id,card->port,card->irq,card->chiprev,card->infobits));
 	card->port &= 0xfff0;
 
 	if(!snd_es1371_buffer_init(card,aui))
@@ -660,7 +660,7 @@ static long ES1371_getbufpos( struct audioout_info_s *aui )
 		if(bufpos < aui->card_dmasize)
 			aui->card_dma_lastgoodpos = bufpos;
 	}
-	dbgprintf("getbufpos: bufpos=%u gpos=%u dmasize=%u\n",bufpos,aui->card_dma_lastgoodpos,aui->card_dmasize);
+	dbgprintf(("getbufpos: bufpos=%u gpos=%u dmasize=%u\n",bufpos,aui->card_dma_lastgoodpos,aui->card_dmasize));
 
 	return aui->card_dma_lastgoodpos;
 }
@@ -686,7 +686,7 @@ static int ES1371_IRQRoutine( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
-	//dbgprintf("ES1371_IRQRoutine\n");
+	//dbgprintf(("ES1371_IRQRoutine\n"));
 	int intmask = inl(card->port + ES_REG_STATUS );
 	if ( intmask & ES_1371_ST_INTR ) {
 		outl(card->port + ES_REG_STATUS , intmask ); //ack???

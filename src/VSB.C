@@ -98,7 +98,7 @@ static int VSB_Indexof(const uint8_t* array, int count, uint8_t  val)
 static void VSB_Mixer_WriteAddr( uint8_t value )
 ////////////////////////////////////////////////
 {
-    dbgprintf("VSB_Mixer_WriteAddr: value=%x\n", value);
+    dbgprintf(("VSB_Mixer_WriteAddr: value=%x\n", value));
     VSB_MixerRegIndex = value;
 }
 
@@ -107,7 +107,7 @@ static void VSB_Mixer_WriteAddr( uint8_t value )
 static void VSB_Mixer_Write( uint8_t value )
 ////////////////////////////////////////////
 {
-	dbgprintf("VSB_Mixer_Write[%u]: value=%x\n", VSB_MixerRegIndex, value);
+	dbgprintf(("VSB_Mixer_Write[%u]: value=%x\n", VSB_MixerRegIndex, value));
 	VSB_MixerRegs[VSB_MixerRegIndex] = value;
 	if( VSB_MixerRegIndex == SB_MIXERREG_RESET ) {
 		VSB_MixerRegs[SB_MIXERREG_MASTERVOL] = 0xD; /* 02: bits 1-3, L&R?, default 0x99?, for SBPro+: map to 0x22? */
@@ -194,7 +194,7 @@ static void VSB_Mixer_Write( uint8_t value )
 static uint8_t VSB_Mixer_Read( void )
 /////////////////////////////////////
 {
-	dbgprintf("Mixer_Read: %x\n", VSB_MixerRegs[VSB_MixerRegIndex]);
+	dbgprintf(("Mixer_Read: %x\n", VSB_MixerRegs[VSB_MixerRegIndex]));
 	return VSB_MixerRegs[VSB_MixerRegIndex];
 }
 
@@ -203,7 +203,7 @@ static uint8_t VSB_Mixer_Read( void )
 static void DSP_Reset( uint8_t value )
 //////////////////////////////////////
 {
-    dbgprintf("DSP_Reset: %u\n",value);
+    dbgprintf(("DSP_Reset: %u\n",value));
     if(value == 1) {
         VSB_ResetState = VSB_RESET_START;
         VSB_MixerRegs[SB_MIXERREG_INT_SETUP] = 1 << VSB_Indexof(VSB_IRQMap, countof(VSB_IRQMap), VSB_IRQ);
@@ -256,7 +256,7 @@ static void DSP_Write( uint8_t value )
 //////////////////////////////////////
 {
     int OldStarted;
-    dbgprintf("DSP_Write %02x, DSPCMD=%02x\n", value, VSB_DSPCMD);
+    dbgprintf(("DSP_Write %02x, DSPCMD=%02x\n", value, VSB_DSPCMD));
     if(VSB_HighSpeed) //highspeed won't accept further commands, need reset
         return;
     OldStarted = VSB_Started;
@@ -407,7 +407,7 @@ static void DSP_Write( uint8_t value )
 #else
             bTimeConst = value;
 #endif
-            dbgprintf("DSP_Write: time constant=%X\n", value );
+            dbgprintf(("DSP_Write: time constant=%X\n", value ));
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
         case SB_DSP_SET_SIZE: /* 48 - used for auto command */
@@ -491,7 +491,7 @@ static void DSP_Write( uint8_t value )
             VSB_DSPCMD = -1;
     } /* endif DSPCMD == -1 */
     if(VSB_Started != OldStarted ) {
-        dbgprintf("DSP_Write exit, VSB_Started=%u\n", VSB_Started );
+        dbgprintf(("DSP_Write exit, VSB_Started=%u\n", VSB_Started ));
     }
 }
 
@@ -501,12 +501,12 @@ static uint8_t DSP_Read( void )
 ///////////////////////////////
 {
     if ( DSPDataBytes ) {
-        dbgprintf("DSP_Read: %X\n", *pData );
+        dbgprintf(("DSP_Read: %X\n", *pData ));
         DSPDataBytes--;
         VSB_RS &= 0x7F;
         return( *(pData++));
     }
-    dbgprintf("DSP_Read: read buffer empty (FFh)\n");
+    dbgprintf(("DSP_Read: read buffer empty (FFh)\n"));
     return 0xFF;
 }
 
@@ -517,7 +517,7 @@ static uint8_t DSP_Read( void )
 static uint8_t DSP_WriteStatus( void )
 //////////////////////////////////////
 {
-    //dbgprintf("DSP_WriteStatus (bit 7=0 means DSP ready for cmd/data)\n");
+    //dbgprintf(("DSP_WriteStatus (bit 7=0 means DSP ready for cmd/data)\n"));
     //return 0; //ready for write (bit7 clear)
     VSB_WS += 0x80; //some games will wait on busy first
     return VSB_WS;
@@ -532,7 +532,7 @@ static uint8_t DSP_ReadStatus( void )
 
     if ( DSPDataBytes || ( VSB_ResetState != VSB_RESET_END ) )
         VSB_RS |= 0x80;
-    dbgprintf("DSP_ReadStatus=%X\n", VSB_RS);
+    dbgprintf(("DSP_ReadStatus=%X\n", VSB_RS));
 
     return VSB_RS;
 }
@@ -542,7 +542,7 @@ static uint8_t DSP_ReadStatus( void )
 static uint8_t DSP_INT16ACK( void )
 ///////////////////////////////////
 {
-    dbgprintf("DSP_INT16ACK\n");
+    dbgprintf(("DSP_INT16ACK\n"));
     VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x2;
     return 0xFF;
 }

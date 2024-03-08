@@ -101,8 +101,6 @@ struct hda_rate_tbl {
 #define MUL2 (1 << 11)
 #define MUL4 (3 << 11)
 
-static volatile int xxx;
-
 static const struct hda_rate_tbl rate_bits[] = {
  { 48000 / 6,      BASE48K | DIV6 },          //  8000 0
  { 44100 / 4,      BASE44K | DIV4 },          // 11025 1
@@ -213,7 +211,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 	while((azx_readw(chip, IRS) & HDA_IRS_BUSY) && (--timeout))
 		pds_delay_10us(10);
 
-	if(!timeout) {dbgprintf("azx_single_send_cmd: timeout\n");}
+	if(!timeout) {dbgprintf(("azx_single_send_cmd: timeout\n"));}
 
 	pds_delay_10us(INTHD_CODEC_EXTRA_DELAY_US/10); // 0.1 ms
 
@@ -233,7 +231,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 		pds_delay_10us(10);
 	}while(--timeout);
 
-	if(!timeout) {dbgprintf("azx_single_send_cmd: timeout\n");}
+	if(!timeout) {dbgprintf(("azx_single_send_cmd: timeout\n"));}
 
 	corbindex = (corbindex+1) % corbsize;
 	chip->corb_buffer[corbindex] = val;
@@ -272,7 +270,7 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 		pds_delay_10us(10);
 	}while(--timeout);
 
-	if(!timeout) {dbgprintf("azx_get_response: timeout\n");}
+	if(!timeout) {dbgprintf(("azx_get_response: timeout\n"));}
 
 	pds_delay_10us(10);
 
@@ -287,7 +285,7 @@ static unsigned int azx_get_response(struct intelhd_card_s *chip)
 		pds_delay_10us(10);
 	}while(--timeout);
 
-	if(!timeout) {dbgprintf("azx_get_response: timeout\n");}
+	if(!timeout) {dbgprintf(("azx_get_response: timeout\n"));}
 
 	rirbindex = azx_readw( chip, RIRBWP );
 	data = chip->rirb_buffer[rirbindex];
@@ -325,7 +323,7 @@ static unsigned int hda_get_sub_nodes(struct intelhd_card_s *card, hda_nid_t nid
 	int parm;
 
 	parm = codec_param_read(card, nid, AC_PAR_NODE_COUNT);
-	dbgprintf("hda_get_sub_nodes: nid=%d, returns parm=%X\n", nid, parm );
+	dbgprintf(("hda_get_sub_nodes: nid=%d, returns parm=%X\n", nid, parm ));
 	if( parm < 0 )
 		return 0;
 	*start_id = (parm >> 16) & 0xff;
@@ -342,14 +340,14 @@ static void hda_search_audio_node(struct intelhd_card_s *card)
 
 	card->afg_root_nodenum = 0;
 	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
-	dbgprintf( "hda_search_audio_node: nodes=%d\n",total_nodes );
+	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
 	for( i = 0; i < total_nodes; i++, nid++ ){
 		if((codec_param_read(card,nid,AC_PAR_FUNCTION_TYPE) & 0xff) == AC_GRP_AUDIO_FUNCTION){
 			card->afg_root_nodenum = nid;
 			break;
 		}
 	}
-	dbgprintf( "hda_search_audio_node: exit, afg_nodenum=%d\n", (int)card->afg_root_nodenum );
+	dbgprintf(( "hda_search_audio_node: exit, afg_nodenum=%d\n", (int)card->afg_root_nodenum ));
 }
 
 static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_nid_t *conn_list, int max_conns)
@@ -430,9 +428,9 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 			node->pin_caps = codec_param_read(card, node->nid, AC_PAR_PIN_CAP);
 			node->pin_ctl = hda_codec_read(card, node->nid, 0, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
 			node->def_cfg = hda_codec_read(card, node->nid, 0, AC_VERB_GET_CONFIG_DEFAULT, 0);
-			/* dbgprintf("hda_add_node: id:%d type:PIN caps:%X conn:%d ctl:%X caps:%X def:%X amp-in:%X amp-out:%X\n",
+			/* dbgprintf(("hda_add_node: id:%d type:PIN caps:%X conn:%d ctl:%X caps:%X def:%X amp-in:%X amp-out:%X\n",
 				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg,
-				  node->amp_in_caps, node->amp_out_caps); */
+				  node->amp_in_caps, node->amp_out_caps)); */
 		}
 
 		if(node->wid_caps & AC_WCAP_OUT_AMP){
@@ -454,10 +452,10 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 	}
 
 	/*
-	 dbgprintf("hda_add_node:%2d cons:%2d wc:%8X t:%2d aoc:%8X ot:%2d sf:%8X st:%2d of:%2d\n", (int)nid,nconns,node->wid_caps,
+	 dbgprintf(("hda_add_node:%2d cons:%2d wc:%8X t:%2d aoc:%8X ot:%2d sf:%8X st:%2d of:%2d\n", (int)nid,nconns,node->wid_caps,
 	 node->type,node->amp_out_caps,(node->wid_caps&AC_WCAP_OUT_AMP),
 	 node->supported_formats,((node->amp_out_caps>>8)&0x7f),
-	 (node->amp_out_caps&AC_AMPCAP_OFFSET));
+	 (node->amp_out_caps&AC_AMPCAP_OFFSET)));
 	*/
 	return nconns;
 }
@@ -621,12 +619,12 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 
 	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
 
-		dbgprintf("parse_output_jack[%u]: type=%X caps=%X\n", i, node->type, node->pin_caps );
+		dbgprintf(("parse_output_jack[%u]: type=%X caps=%X\n", i, node->type, node->pin_caps ));
 		if(node->type != AC_WID_PIN)  /* widget must be a "pin" */
 			continue;
 		if(!(node->pin_caps & AC_PINCAP_OUT))
 			continue;
-		dbgprintf("parse_output_jack[%u]: node id=%u cfg=0x%X\n", i, node->nid, node->def_cfg );
+		dbgprintf(("parse_output_jack[%u]: node id=%u cfg=0x%X\n", i, node->nid, node->def_cfg ));
 
 		/* check port connectivity ( bits 30-31 ) */
 		if(defcfg_port_conn(node) == AC_JACK_PORT_NONE)
@@ -640,18 +638,18 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 			if(!(node->pin_ctl & AC_PINCTL_OUT_ENABLE))
 				continue;
 		}
-		dbgprintf("parse_output_jack[%u]: widget preselected\n", i );
+		dbgprintf(("parse_output_jack[%u]: widget preselected\n", i ));
 		clear_check_flags(card);
 		err = parse_output_path(card, node, 0);
 		if( err < 0 ) {
-			dbgprintf("parse_output_jack[%u]: parse_output_path() failed, err=%d\n", i, err );
+			dbgprintf(("parse_output_jack[%u]: parse_output_path() failed, err=%d\n", i, err ));
 			return NULL;
 		}
 		/* ??? */
 		if(!err && card->out_pin_node[0]){
 			err = parse_output_path(card, node, 1);
 			if( err < 0 ) {
-				dbgprintf("parse_output_jack[%u]: parse_output_path() failed [2], err=%d\n", i, err );
+				dbgprintf(("parse_output_jack[%u]: parse_output_path() failed [2], err=%d\n", i, err ));
 				return NULL;
 			}
 		}
@@ -664,7 +662,7 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 								AC_VERB_SET_PIN_WIDGET_CONTROL,
 								AC_PINCTL_OUT_ENABLE |
 								((node->pin_caps & AC_PINCAP_HP_DRV)? AC_PINCTL_HP_ENABLE : 0));
-			dbgprintf("parse_output_jack: found node, id=%u, type=%u\n", node->nid, jack_type );
+			dbgprintf(("parse_output_jack: found node, id=%u, type=%u\n", node->nid, jack_type ));
 			return node;
 		}
 	}
@@ -725,16 +723,16 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 {
 	int timeout;
 
-	dbgprintf("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL));
+	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
 
 	azx_writeb(chip, STATESTS, STATESTS_INT_MASK);
 	azx_writel(chip, GCTL, azx_readl(chip, GCTL) & ~HDA_GCTL_RESET);
 
-	dbgprintf("azx_reset: GCTL=%X(b) GCTL=%X(l)\n",(unsigned long)azx_readb(chip, GCTL),azx_readl(chip, GCTL));
+	dbgprintf(("azx_reset: GCTL=%X(b) GCTL=%X(l)\n", azx_readb(chip, GCTL), azx_readl(chip, GCTL)));
 	timeout = 500;
 	while((( azx_readb(chip, GCTL) & HDA_GCTL_RESET) != 0 ) && (--timeout))
 		pds_delay_10us(100);
-	dbgprintf("azx_reset: GCTL=%X timeout=%d\n",azx_readl(chip, GCTL),timeout);
+	dbgprintf(("azx_reset: GCTL=%X timeout=%d\n",azx_readl(chip, GCTL),timeout));
 
 	pds_delay_10us(100);
 	azx_writeb(chip, GCTL, azx_readb(chip, GCTL) | HDA_GCTL_RESET);
@@ -742,9 +740,9 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	while(((azx_readb(chip, GCTL)&HDA_GCTL_RESET) == 0) && (--timeout))
 		pds_delay_10us(100);
 	pds_delay_10us(100);
-	dbgprintf("azx_reset: after reset, GCTL=%X timeout=%d\n",(unsigned long)azx_readb(chip, GCTL),timeout);
+	dbgprintf(("azx_reset: after reset, GCTL=%X timeout=%d\n", azx_readb(chip, GCTL), timeout));
 	if(!azx_readb(chip, GCTL)){
-		dbgprintf("HDA controller not ready!\n");
+		dbgprintf(("HDA controller not ready!\n"));
 		return 0;
 	}
 
@@ -786,7 +784,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	chip->codec_mask = azx_readw(chip, STATESTS);
 
-	dbgprintf("azx_reset: done, codec_mask:%X\n",chip->codec_mask);
+	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
 
 	return 1;
 }
@@ -852,8 +850,8 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 		}
 	}
 
-	dbgprintf("hda_buffer_init: cs=%X csc=%d GCAP=%X SD-ofs=%X\n",
-				   card->config_select, aui->card_select_config, gcap, sdo_offset);
+	dbgprintf(("hda_buffer_init: cs=%X csc=%d GCAP=%X SD-ofs=%X\n",
+				   card->config_select, aui->card_select_config, gcap, sdo_offset));
 
 	card->sd_addr = card->iobase + sdo_offset;
 	card->pcmout_period_size = AZX_PERIOD_SIZE;
@@ -881,11 +879,11 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_writel(card, DPLBASE, 0);
 	azx_writel(card, DPUBASE, 0);
 
-	dbgprintf("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) );
-	dbgprintf("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE ));
-	dbgprintf("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE ));
+	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) ));
+	dbgprintf(("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
+			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
+	dbgprintf(("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
+			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
 
 }
 
@@ -895,15 +893,15 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 	unsigned int i;
 	hda_nid_t nid;
 
-	dbgprintf("hda_mixer_init: reading codec vendor id...\n");
+	dbgprintf(("hda_mixer_init: reading codec vendor id...\n"));
 	card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
 	if(card->codec_vendor_id <= 0)
 		card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
 
-	dbgprintf("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id);
+	dbgprintf(("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id));
 	hda_search_audio_node(card);
 	if( !card->afg_root_nodenum ) {
-		dbgprintf("hda_mixer_init: no afg found\n");
+		dbgprintf(("hda_mixer_init: no afg found\n"));
 		goto err_out_mixinit;
 	}
 
@@ -915,15 +913,15 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 	card->def_amp_in_caps = codec_param_read(card, card->afg_root_nodenum, AC_PAR_AMP_IN_CAP);
 	card->afg_num_nodes = hda_get_sub_nodes(card, card->afg_root_nodenum, &nid);
 	if((card->afg_num_nodes <= 0) || !nid) {
-		dbgprintf("hda_mixer_init: no afg sub nodes\n");
+		dbgprintf(("hda_mixer_init: no afg sub nodes\n"));
 		goto err_out_mixinit;
 	}
 
-	dbgprintf("hda_mixer_init: outcaps=%X incaps=%X afgsubnodes=%d anid=%d\n",card->def_amp_out_caps,card->def_amp_in_caps,card->afg_num_nodes,(int)nid);
+	dbgprintf(("hda_mixer_init: outcaps=%X incaps=%X afgsubnodes=%d anid=%d\n",card->def_amp_out_caps,card->def_amp_in_caps,card->afg_num_nodes,(int)nid));
 
 	card->afg_nodes = (struct hda_gnode *)pds_calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
 	if(!card->afg_nodes) {
-		dbgprintf("hda_mixer_init: malloc failed\n");
+		dbgprintf(("hda_mixer_init: malloc failed\n"));
 		goto err_out_mixinit;
 	}
 
@@ -932,7 +930,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 	/* get the widgets we need for the selected ouput pin ( lineout/speaker/hp ) */
 	if(!hda_parse_output(card)) {
-		dbgprintf("hda_mixer_init: hda_parse_output failed\n");
+		dbgprintf(("hda_mixer_init: hda_parse_output failed\n"));
 		goto err_out_mixinit;
 	}
 
@@ -944,7 +942,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 		card->supported_max_freq = hda_get_max_freq(card);
 		card->supported_max_bits = hda_get_max_bits(card);
-		dbgprintf("hda_mixer_init: supp formats=%X, max freq=%u, max bits=%u\n", card->supported_formats, card->supported_max_freq, card->supported_max_bits );
+		dbgprintf(("hda_mixer_init: supp formats=%X, max freq=%u, max bits=%u\n", card->supported_formats, card->supported_max_freq, card->supported_max_bits ));
 	}
 
 	for( i = 0; i < MAX_PCM_VOLS; i++)
@@ -953,15 +951,15 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 			hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
 		}
 
-	dbgprintf("hda_mixer_init: dac0=%d dac1=%d out0=%d out1=%d vol0=%d vol1=%d\n",
+	dbgprintf(("hda_mixer_init: dac0=%d dac1=%d out0=%d out1=%d vol0=%d vol1=%d\n",
 				   (int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
 				   (int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
 				   (int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
 				   (int)((card->out_pin_node[1]) ? card->out_pin_node[1]->nid: 0),
 				   (int)((card->pcm_vols[0].node) ? card->pcm_vols[0].node->nid: 0),
-				   (int)((card->pcm_vols[1].node) ? card->pcm_vols[1].node->nid: 0));
+				   (int)((card->pcm_vols[1].node) ? card->pcm_vols[1].node->nid: 0)));
 
-	dbgprintf("hda_mixer_init: done\n");
+	dbgprintf(("hda_mixer_init: done\n"));
 
 	return 1;
 
@@ -970,7 +968,7 @@ err_out_mixinit:
 		pds_free(card->afg_nodes);
 		card->afg_nodes = NULL;
 	}
-	dbgprintf("mixer_init: failed\n");
+	dbgprintf(("mixer_init: failed\n"));
 	return 0;
 }
 
@@ -992,11 +990,11 @@ static void hda_hw_close(struct intelhd_card_s *card)
 	azx_writeb( card, CORBCTL, 0 );
 	azx_writeb( card, RIRBCTL, 0 );
 	azx_writel( card, INTSTS, 0 );
-	dbgprintf("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) );
-	dbgprintf("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE ));
-	dbgprintf("hda_hw_close: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE ));
+	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) ));
+	dbgprintf(("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
+			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
+	dbgprintf(("hda_hw_close: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
+			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
 #endif
 }
 
@@ -1008,7 +1006,7 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 
 	card->pcmout_num_periods = card->pcmout_dmasize / card->pcmout_period_size;
 
-	dbgprintf("azx_setup_periods: dmasize=%d periods=%d prsize=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size);
+	dbgprintf(("azx_setup_periods: dmasize=%d periods=%d prsize=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size));
 
 	azx_sd_writel(card, SD_BDLPL, 0);
 	azx_sd_writel(card, SD_BDLPU, 0);
@@ -1044,7 +1042,7 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 	while(!((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
-	dbgprintf("azx_setup_controller: timeout1=%d\n",timeout);
+	dbgprintf(("azx_setup_controller: timeout1=%d\n",timeout));
 
 	val &= ~SD_CTL_STREAM_RESET;
 	azx_sd_writeb(card, SD_CTL, val);
@@ -1054,7 +1052,7 @@ static void azx_setup_controller(struct intelhd_card_s *card)
 	while(((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
-	dbgprintf("azx_setup_controller: timeout2=%d format:%X\n",timeout,(int)card->format_val);
+	dbgprintf(("azx_setup_controller: timeout2=%d format:%X\n",timeout,(int)card->format_val));
 
 	azx_sd_writel(card, SD_CTL,(azx_sd_readl(card, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK)| (stream_tag << SD_CTL_STREAM_TAG_SHIFT));
 	azx_sd_writel(card, SD_CBL, card->pcmout_dmasize);
@@ -1095,7 +1093,7 @@ static unsigned int hda_calc_stream_format( struct audioout_info_s *aui, struct 
 			val = rate_bits[i].hda_fmt;
 			break;
 		}
-	dbgprintf("hda_calc_stream_format: freq_card=%u, supp formats=%X\n", aui->freq_card, card->supported_formats );
+	dbgprintf(("hda_calc_stream_format: freq_card=%u, supp formats=%X\n", aui->freq_card, card->supported_formats ));
 
 	val |= aui->chan_card - 1;
 
@@ -1353,7 +1351,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 
 	card = (struct intelhd_card_s *)pds_calloc( 1, sizeof(struct intelhd_card_s) );
 	if( !card ) {
-		dbgprintf("HDA_adetect: 1. calloc() failed\n" );
+		dbgprintf(("HDA_adetect: 1. calloc() failed\n" ));
 		return 0;
 	}
 	aui->card_private_data = card;
@@ -1361,7 +1359,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	card->pci_dev = (struct pci_config_s *)pds_calloc( 1, sizeof(struct pci_config_s) );
 	if( !card->pci_dev ) {
 		pds_free( card );
-		dbgprintf("HDA_adetect: 2. calloc() failed\n" );
+		dbgprintf(("HDA_adetect: 2. calloc() failed\n" ));
 		return( 0 );
 	}
 
@@ -1379,13 +1377,13 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		if( card->iobase & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
 			card->iobase = 0;
 		if( !card->iobase ) {
-			dbgprintf("HDA_adetect: card index %u skipped (no PCI base addr)\n", aui->card_select_devicenum );
+			dbgprintf(("HDA_adetect: card index %u skipped (no PCI base addr)\n", aui->card_select_devicenum ));
 			continue;
 		}
 		if( card->iobase & 4 ) {// 64-bit address? then check if it's beyond 4G...
 			uint32_t tmp = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR+4);
 			if ( tmp ) {
-				dbgprintf("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", aui->card_select_devicenum );
+				dbgprintf(("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", aui->card_select_devicenum ));
 				continue;
 			}
 		}
@@ -1410,18 +1408,18 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		aui->card_DMABUFF = card->pcmout_buffer;
 		aui->card_irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN); /* vsbhda */
 
-		dbgprintf("HDA_adetect, board type: %s (vendor/ID=%X/%X)\n",
+		dbgprintf(("HDA_adetect, board type: %s (vendor/ID=%X/%X)\n",
 			  card->pci_dev->device_name ? card->pci_dev->device_name : "NULL",
-			  (long)card->pci_dev->vendor_id,(long)card->pci_dev->device_id);
+			  (long)card->pci_dev->vendor_id,(long)card->pci_dev->device_id));
 		hda_hw_init( card );
-		dbgprintf("HDA_adetect: hw init done\n" );
+		dbgprintf(("HDA_adetect: hw init done\n" ));
 
 		/* hda_mixer_init talks to codec; means CORB/RIRB must be ready to use */
 		for( i = 0; i < AZX_MAX_CODECS; i++ ){
 			if( card->codec_mask & ( 1 << i) ) {
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
-					dbgprintf("HDA_adetect: exit, found mixer for codec %u\n", i );
+					dbgprintf(("HDA_adetect: exit, found mixer for codec %u\n", i ));
 					return( 1 );
 				}
 			}
@@ -1430,7 +1428,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		HDA_cardclose( card );
 	}
 	HDA_close( aui );
-	dbgprintf("HDA_adetect: no acceptable card found\n" );
+	dbgprintf(("HDA_adetect: no acceptable card found\n" ));
 	return 0;
 }
 
@@ -1438,7 +1436,7 @@ static void HDA_close( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	dbgprintf("HDA_close\n" );
+	dbgprintf(("HDA_close\n" ));
 	if( card ){
 		if( card->iobase ){
 			__dpmi_meminfo info;
@@ -1470,7 +1468,7 @@ static void HDA_setrate( struct audioout_info_s *aui )
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 
-	dbgprintf("HDA_setrate: freq_card=%u\n", aui->freq_card );
+	dbgprintf(("HDA_setrate: freq_card=%u\n", aui->freq_card ));
 	aui->card_wave_id = WAVEID_PCM_SLE;
 	aui->chan_card = (aui->chan_set) ? aui->chan_set : PCM_CHANNELS_DEFAULT;
 	if( aui->chan_card > INTHD_MAX_CHANNELS )
@@ -1480,7 +1478,7 @@ static void HDA_setrate( struct audioout_info_s *aui )
 
 	card->format_val = hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
 	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
-	dbgprintf("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card );
+	dbgprintf(("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card ));
 
 	azx_setup_periods( card );
 	azx_setup_controller( card );
@@ -1492,7 +1490,7 @@ static void HDA_start( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
 
-	dbgprintf("HDA_start\n" );
+	dbgprintf(("HDA_start\n" ));
 	//const unsigned int stream_index = 0;
 	//azx_writeb(card, INTCTL, azx_readb(card, INTCTL) | (1 << stream_index)); // enable SIE
 
@@ -1512,7 +1510,7 @@ static void HDA_stop( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
 
-	dbgprintf("HDA_start\n" );
+	dbgprintf(("HDA_start\n" ));
 
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~(SD_CTL_DMA_START | SD_INT_MASK)); // stop DMA
 
@@ -1537,9 +1535,9 @@ static long HDA_getbufpos( struct audioout_info_s *aui )
 	bufpos = azx_sd_readl(card, SD_LPIB);
 
 	/*
-	dbgprintf("HDA_getbufpos: bufpos1=%u sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
+	dbgprintf(("HDA_getbufpos: bufpos1=%u sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
 	    bufpos, azx_sd_readb(card, SD_STS), azx_sd_readl(card, SD_CTL), azx_sd_readl(card, SD_CBL), aui->card_dmasize,
-	    card->pcmout_period_size, card->pcmout_num_periods );
+	    card->pcmout_period_size, card->pcmout_num_periods ));
 	 */
 
 	if( bufpos < aui->card_dmasize )

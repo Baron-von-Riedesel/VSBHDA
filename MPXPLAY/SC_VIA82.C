@@ -250,8 +250,8 @@ static void VIA82XX_card_info(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
-	dbgprintf("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
-		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model);
+	dbgprintf(("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
+		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model));
 }
 
 static int VIA82XX_adetect(struct audioout_info_s *aui)
@@ -283,7 +283,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
 #ifdef SBEMU
 	aui->card_irq = card->irq;
-	dbgprintf("VIA82XX_adetect: irq=%d\n",aui->card_irq);
+	dbgprintf(("VIA82XX_adetect: irq=%d\n",aui->card_irq));
 	if(aui->card_irq == 0 || aui->card_irq == 0xFF) {
 		printf("VIA82XX_adetect: no IRQ set, setting to 10\n");
 		aui->card_irq = card->irq = 10;
@@ -323,7 +323,7 @@ static void VIA82XX_close(struct audioout_info_s *aui)
 {
 	struct via82xx_card *card = aui->card_private_data;
 
-	dbgprintf("VIA82XX_close\n");
+	dbgprintf(("VIA82XX_close\n"));
 	if(card){
 		if(card->iobase)
 			via82xx_chip_close(card);
@@ -342,7 +342,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	unsigned int dmabufsize,pagecount,spdif_rate;
 	unsigned long pcmbufp;
 
-	dbgprintf("VIA82XX_setrate\n");
+	dbgprintf(("VIA82XX_setrate\n"));
 	if(aui->freq_card < 4000)
 		aui->freq_card = 4000;
 	else{
@@ -359,7 +359,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	// page tables
 	card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;
 	pcmbufp = (unsigned long)card->pcmout_buffer;
-	dbgprintf("VIA82XX_setrate: PCM pages=%u\n", card->pcmout_pages);
+	dbgprintf(("VIA82XX_setrate: PCM pages=%u\n", card->pcmout_pages));
  
 	for( pagecount = 0; pagecount < card->pcmout_pages; pagecount++) {
 		card->virtualpagetable[pagecount * 2] = pds_cardmem_physicalptr(card->dm,pcmbufp);
@@ -418,7 +418,7 @@ static void VIA82XX_start(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
-	dbgprintf("VIA82XX_start\n");
+	dbgprintf(("VIA82XX_start\n"));
 	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686) {
 #ifdef SBEMU
 		outb(card->iobase + VIA686_REG_OFFSET_TYPE, inb( card->iobase + VIA686_REG_OFFSET_TYPE ) | VIA686_REG_TYPE_INT_LSAMPLE | VIA686_REG_TYPE_INT_EOL | VIA686_REG_TYPE_INT_FLAG);
@@ -436,7 +436,7 @@ static void VIA82XX_stop(struct audioout_info_s *aui)
 /////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
-	dbgprintf("VIA82XX_stop\n");
+	dbgprintf(("VIA82XX_stop\n"));
 	outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE);
 }
 
@@ -474,7 +474,7 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 			aui->card_dma_lastgoodpos = bufpos;
 	}
 
-	dbgprintf("VIA82XX_getbufpos: %X\n", aui->card_dma_lastgoodpos );
+	dbgprintf(("VIA82XX_getbufpos: %X\n", aui->card_dma_lastgoodpos ));
 	return aui->card_dma_lastgoodpos;
 }
 

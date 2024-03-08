@@ -103,7 +103,7 @@ int _alloc_physical_memory( struct xmsmem_s * mem, uint32_t size)
 		}
 		xms_free( mem->handle );
 	}
-	dbgprintf("No XMS memory.\n");
+	dbgprintf(("No XMS memory.\n"));
 	return 0;
 }
 
