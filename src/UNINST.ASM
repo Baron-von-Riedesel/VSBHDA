@@ -31,6 +31,12 @@ RMCS    ends
 
 __dpmi_simulate_real_mode_interrupt proto c intno:byte, pRegs:ptr
 
+ifdef NOTFLAT
+ASSUMEDS textequ <DGROUP>
+else
+ASSUMEDS textequ <_DATA>
+endif
+
 	.data
 
 if @Model ne 7
@@ -39,7 +45,7 @@ endif
 
 	.code
 
-	assume ds:_DATA
+	assume ds:ASSUMEDS
 
 ;--- check if vsbhda is installed already.
 ;--- since vsbhda hides itself quite good, the simplest
@@ -88,9 +94,9 @@ endif
 if 0	; adjust PSP:2Eh? probably not a good idea.
 	movzx ebx, word ptr regs.rEBX
 	shl ebx, 4
-if @Model ne 7
+ if @Model ne 7
 	sub ebx, DSBase
-endif
+ endif
 	mov eax, [ebx+2Eh]
 	mov [esi+2Eh], eax
 endif

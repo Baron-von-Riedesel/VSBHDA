@@ -1,5 +1,6 @@
 
 ;--- debug printf
+;--- for OW, assemble with -zcw
 
 	.386
 ifdef ?FLAT
@@ -10,19 +11,22 @@ endif
 	option casemap:none
 	option proc:private
 
+ifdef DJGPP
+	assume ds:_DATA
+endif
+
 VioPutChar proto
 
 	.data
 
-;--- bDbgInit is 1 while the program runs as current program;
-;--- once it has made itself resident, bDbgInit will be 0, meaning
+;--- bOMode is 1 while the program runs as current program;
+;--- once it has made itself resident, bOMode will be 2, meaning
 ;--- stdout shouldn't be used anymore.
 
-externdef c bDbgInit:byte
+bInit db 0
+externdef c bOMode:byte
 
 	.code
-
-	assume ds:_DATA
 
 ;--- i64toa(long long n, char * s, int base);
 ;--- convert 64-bit long long to string
@@ -222,12 +226,16 @@ handle_char:
 	call @F
 	mov al,10
 @@:
-	.if bDbgInit
+	.if bOMode & 1
 		mov dl, al
 		mov ah, 2
 		int 21h
-	.else
+	.elseif bOMode & 2
 		call VioPutChar
+	.else
+		mov dl, al
+		xor ax, ax
+		int 41h
 	.endif
 	retn
 	align 4
@@ -235,57 +243,22 @@ vprintf endp
 
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
+	cmp bInit, 1
+	jz @F
+	mov bInit, 1
+	mov ax, 04Fh
+	int 41h
+	cmp ax, 0F386h
+	jnz @F
+	mov bOMode, 4	; output to debugger
+@@:
 	invoke vprintf, fmt, addr args
 	ret
 
 _dprintf ENDP
 
-if 0
-
-if @Model ne 7
-	.data
-externdef c DSBase:dword
-	.code
-endif
-
-;--- display 32-bit number on screen
-;--- low-level.
-
-dbgprintcnt proc c public number:dword, pos:dword
-
-	pushad
-	mov ebx, pos
-	shl ebx, 1
-	add ebx, 0B8000h
-if @Model ne 7
-	sub ebx, cs:[DSBase]
-endif
-	mov eax, number
-	mov edi, 10
-@@nextdigit:
-	xor edx, edx
-	div edi
-	add dl,'0'
-	cmp dl,'9'
-	jbe @F
-	add dl,7+20h
-@@:
-	mov [ebx],dl
-	sub ebx, 2
-	and eax, eax
-	jne @@nextdigit
-exit:
-	popad
-	ret
-
-dbgprintcnt endp
-
-endif
-
 ;--- in case the CRT printf is NOT to be used, activate the switch below
-if @Model eq 7	; for flat model only (=OW)
-
-;--- no idea why OW's printf has the syscall type ( no leading underscore )
+ifndef DJGPP	; for Open Watcom only
 
 printf proc syscall public fstr:ptr, args:vararg
 	invoke vprintf, fstr, addr args

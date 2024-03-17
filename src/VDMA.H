@@ -49,11 +49,11 @@ uint32_t VDMA_DMA(uint32_t port, uint32_t val, uint32_t out);
 
 void VDMA_Virtualize(int channel, int enable);
 uint32_t VDMA_GetAddress(int channel);
-uint32_t VDMA_GetCounter(int channel);
-int32_t VDMA_GetIndex(int channel);
-int32_t VDMA_SetIndexCounter(int channel, int32_t index, int32_t counter);
+int32_t VDMA_GetCounter(int channel);
+uint32_t VDMA_GetIndex(int channel);
+uint32_t VDMA_SetIndexCounter(int channel, uint32_t index, int32_t counter);
 int VDMA_GetAuto(int channel);
-void VDMA_ToggleComplete(int channel);
+//void VDMA_ToggleComplete(int channel);
 
 #ifdef __cplusplus
 }

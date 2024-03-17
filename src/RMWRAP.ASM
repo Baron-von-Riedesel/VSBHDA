@@ -20,4 +20,12 @@ PTRAP_RM_Wrapper endp
 PTRAP_RM_WrapperEnd proc c public
 PTRAP_RM_WrapperEnd endp
 
+copyrmwrap proc c public uses esi edi pDst:ptr
+	mov edi, pDst
+	mov esi, offset PTRAP_RM_Wrapper
+	mov ecx, PTRAP_RM_WrapperEnd - PTRAP_RM_Wrapper
+	rep movsb es:[edi], cs:[esi]
+	ret
+copyrmwrap endp
+
 	end

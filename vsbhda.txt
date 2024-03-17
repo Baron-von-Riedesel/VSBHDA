@@ -2,17 +2,21 @@
 
    1. About
 
-    VSBHDA is a fork of SBEMU - it's compatible with the standard HDPMI32i
-   included in the HX runtime package. 
+    VSBHDA is a SoundBlaster emulation program for DOS. It's a fork of SBEMU,
+   compatible with the standard HDPMI DPMI hosts included in the HX runtime
+   package. 
 
 
    2. Requirements
 
-    Besides VSBHDA the following binaries are needed:
+    Besides VSBHDA the following external binaries are needed:
 
    - HDPMI32i : included in the HX DOS extender runtime package HXRT.
                 Download from https://github.com/Baron-von-Riedesel/HX.
                 Version of HDPMI32i must be v3.21 or better.
+
+   - HDPMI16i : also included in the HX DOS extender runtime package HXRT.
+                This is the 16-bit variant of the DPMI host.
 
    - Jemm     : To be found at https://github.com/Baron-von-Riedesel/Jemm.
                 This package will also contain JLOAD.EXE and QPIEMU.DLL.
@@ -23,17 +27,32 @@
 
    3. Usage
 
-   The steps to load VSBHDA are
+    VSBHDA consists of two programs: vsbhda.exe and vsbhda16.exe. Due to the
+   nature of DPMI one cannot mix 32-bit and 16-bit clients in an address
+   space. Hence vsbhda.exe can only communicate with 32-bit protected-mode
+   games, while vsbhda16 is limited to 16-bit protected-mode ones. Both
+   varians support real-mode games, though.
+
+   The steps to load the VSBHDA emulation layer are
    
    - load JemmEx/Jemm386 in CONFIG.SYS
    - set environment variable BLASTER
    - run "JLoad QPIEMU.DLL"
-   - run "HDPMI32i -x"
-   - run "VSBHDA"
 
+   The rest depends on the game that is to run:
+
+    32-bit                 16-bit
+   --------------------------------------
+    HDPMI32i -x            HDPMI16i -x
+    VSBHDA                 VSBHDA16
+  
     As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
    also, if it's not installed, UNINST.COM, a program to unload VSBHDA, won't
    work.
+
+    Vsbhda16.exe loads file sndcard.drv during initialization. Due to
+   limitations of the 16-bit environment the binary had to be split into
+   two parts.
 
     With the BLASTER variable one can select what card VSBHDA is to emulate:
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select

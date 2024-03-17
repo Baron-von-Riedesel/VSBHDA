@@ -110,7 +110,7 @@ struct audioout_info_s {
  unsigned long  card_infobits;     // card info flags
  unsigned long  card_outbytes;     // samplenum*bytespersample_card
  unsigned long  card_dma_buffer_size;
- unsigned long  card_dmasize;
+ unsigned long  card_dmasize;      /* set in dmairq.c */
  unsigned long  card_dmalastput;
  unsigned long  card_dmaspace;
  unsigned long  card_dmafilled;
@@ -171,6 +171,7 @@ struct sndcard_info_s {
  const struct aucards_mixerchan_s **card_mixerchans;
 };
 
+#if 0
 /* audio_decoder_info is used as input for AU_setrate() */
 struct audio_decoder_info_s{
  void *private_data;         // decoder
@@ -187,24 +188,31 @@ struct audio_decoder_info_s{
  unsigned int pcm_framelen;  // comes out from the decoder (samplenum without channels!)(=bytes/bytespersample)
  char *shortname;            // set by decoder (3 chars), can static ("MP3","OGG","AC3","WMA")
 };
+#endif
 
+#ifdef NOTFLAT
+#define FAREXP _far
+#else
+#define FAREXP
+#endif
 
 //main soundcard routines
-extern int  AU_init( struct audioout_info_s * );
-extern void AU_prestart( struct audioout_info_s * );
-extern void AU_start( struct audioout_info_s * );
-extern void AU_stop( struct audioout_info_s * );
-extern void AU_close( struct audioout_info_s * );
-extern void AU_setrate( struct audioout_info_s * , struct audio_decoder_info_s * );
-extern void AU_setmixer_init( struct audioout_info_s * );
-extern void AU_setmixer_one( struct audioout_info_s *, unsigned int mixch, unsigned int setmode, int value );
-extern void AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
-extern void AU_setmixer_all( struct audioout_info_s * );
-extern void AU_clearbuffs( struct audioout_info_s * );
+extern int  FAREXP AU_init( int, int );
+extern int  FAREXP AU_getirq( struct audioout_info_s * );
+extern void FAREXP AU_prestart( struct audioout_info_s * );
+extern void FAREXP AU_start( struct audioout_info_s * );
+extern void FAREXP AU_stop( struct audioout_info_s * );
+extern void FAREXP AU_close( struct audioout_info_s * );
+extern void FAREXP AU_setrate( struct audioout_info_s * , int, int, int );
+extern void FAREXP AU_setmixer_init( struct audioout_info_s * );
+extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int mixch, unsigned int setmode, int value );
+extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
+extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
+static void AU_clearbuffs( struct audioout_info_s * );
 #ifdef SBEMU
-extern unsigned int AU_cardbuf_space( struct audioout_info_s * );
+extern unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s * );
 #endif
-extern int  AU_writedata( struct audioout_info_s * );
+extern int  FAREXP AU_writedata( struct audioout_info_s *, int, void * );
 
 #ifdef __cplusplus
 }

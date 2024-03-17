@@ -10,24 +10,42 @@ endif
 	option casemap:none
 	option proc:private
 
-	assume ds:_DATA
-
 _hdpmi_traphandler struct
+ifdef NOTFLAT
+wOfsIn dw ?
+wSegIn dw ?
+wOfsOut dw ?
+wSegOut dw ?
+else
 dwOfsIn dd ?
 wSegIn dw ?
 dwOfsOut dd ?
 wSegOut dw ?
+endif
 _hdpmi_traphandler ends
 
-	.data
-
+ifdef NOTFLAT
+SEGOFS equ 2
+PF16 typedef ptr far16
+externdef c HDPMIAPI_Entry: PF16
+else
+	assume ds:_DATA
+SEGOFS equ 4
 externdef c HDPMIAPI_Entry: fword
+endif
+
+@hdpmicall macro
+	call HDPMIAPI_Entry
+endm
+
+	.data
 
 	.code
 
 ;--- get hdpmi API entry point
 
 _get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
+
 	xor edi, edi
 	mov es, edi
 	mov esi, offset szHDPMI
@@ -37,19 +55,25 @@ _get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
 	jnz failed
 	mov edx, pAPI
 	mov dword ptr [edx+0], edi
-	mov word ptr [edx+4], es
+	mov word ptr [edx+SEGOFS], es
 failed:
 	ret
 _get_hdpmi_vendor_api endp
 
+ifdef NOTFLAT	; string in code not allowed in true small model
+	.const
+endif
 szHDPMI db "HDPMI",0
+ifdef NOTFLAT
+	.code
+endif
 
 ;--- set hdpmi context mode ( cmdline option -a )
 
 _hdpmi_set_context_mode proc c public uses ebx bMode:byte
 	mov bl, bMode
 	mov ax, 5
-	call HDPMIAPI_Entry
+	@hdpmicall
 	ret
 _hdpmi_set_context_mode endp
 
@@ -64,7 +88,7 @@ _hdpmi_install_trap proc c public uses ebx esi start:dword, cnt:dword, pTrapHand
 	mov [esi]._hdpmi_traphandler.wSegIn, cs
 	mov [esi]._hdpmi_traphandler.wSegOut, cs
 	mov ax, 6
-	call HDPMIAPI_Entry
+	@hdpmicall
 	jc @F
 	ret
 @@:
@@ -78,7 +102,7 @@ _hdpmi_install_trap endp
 _hdpmi_uninstall_trap proc c public handle:dword
 	mov edx, handle
 	mov ax, 7
-	call HDPMIAPI_Entry
+	@hdpmicall
 	sbb eax, eax
 	inc eax
 	ret
@@ -88,7 +112,7 @@ _hdpmi_simulate_byte_in proc c public uses ebx port:word
 	mov bl, 0
 	mov dx, port
 	mov ax, 8
-	call HDPMIAPI_Entry
+	@hdpmicall
 	ret
 _hdpmi_simulate_byte_in endp
 
@@ -97,7 +121,7 @@ _hdpmi_simulate_byte_out proc c public uses ebx port:word, value:byte
 	mov cl, value
 	mov dx, port
 	mov ax, 8
-	call HDPMIAPI_Entry
+	@hdpmicall
 	ret
 _hdpmi_simulate_byte_out endp
 
@@ -114,7 +138,7 @@ _hdpmi_set_cli_handler proc c public uses ebx pHandler:ptr
 @@:
 	mov bl, 0
 	mov ax, 9
-	call HDPMIAPI_Entry
+	@hdpmicall
 	ret
 _hdpmi_set_cli_handler endp
 

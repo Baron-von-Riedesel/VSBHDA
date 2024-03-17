@@ -15,6 +15,11 @@ endif
 
 if @Model ne 7
 externdef c DSBase:dword
+ ifdef DJGPP
+PREFIX textequ <cs:>
+ else
+PREFIX textequ <ds:>
+ endif
 endif
 
 	.code
@@ -43,7 +48,7 @@ local	bRows:byte
 	mov edi, 400h
 
 if @Model ne 7
-	sub edi, cs:[DSBase]
+	sub edi, PREFIX[DSBase]
 endif
 	mov bChar, al
 	mov ch, [edi+84h]		; rows-1
@@ -66,7 +71,7 @@ endif
 	movzx esi, si
 	add esi, 0B0000h
 if @Model ne 7
-	sub esi, cs:[DSBase]
+	sub esi, PREFIX[DSBase]
 endif
 	mov al, bChar
 
@@ -157,7 +162,7 @@ VioGetCsrPos proc
 	push edi
 	mov edi, 400h
 if @Model ne 7
-	sub edi, cs:[DSBase]
+	sub edi, PREFIX[DSBase]
 endif
 	@getcursorpos ax
 	pop edi
@@ -174,7 +179,7 @@ VioSetCsrPos proc
 	push edi
 	mov edi, 400h
 if @Model ne 7
-	sub edi, cs:[DSBase]
+	sub edi, PREFIX[DSBase]
 endif
 	@setcursorpos dx
 	pop edi

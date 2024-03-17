@@ -22,8 +22,9 @@
 #include "VIRQ.H"
 #include "VOPL3.H"
 #include "VSB.H"
+#include "SNDISR.H"
 
-#include "MPXPLAY.H"
+#include "AU.H"
 
 #define BASE_DEFAULT 0x220
 #define IRQ_DEFAULT 7
@@ -39,29 +40,25 @@
 #define VERMAJOR "1"
 #define VERMINOR "3"
 
-extern int SNDISR_InterruptPM();
-
 #ifndef DJGPP
 uint32_t    __djgpp_stack_top;
-uint32_t _get_stack_top( void );
-#pragma aux _get_stack_top = \
-	"mov eax, esp" \
-	parm [] \
-	modify exact[eax];
 uint32_t _linear_psp;
+uint32_t _linear_rmstack;
 uint32_t _get_linear_psp( void );
+uint32_t _get_linear_rmstack( int * );
+uint32_t _get_stack_top( void );
+
 /* don't assume hdpmi is loaded - get PSP selector from OW's _psp global var! */
 #pragma aux _get_linear_psp = \
 	"mov ebx, [_psp]" \
 	"mov ax, 6" \
 	"int 31h" \
-	"mov ax, cx" \
-	"shl eax, 16" \
-	"mov ax, dx" \
+	"push cx" \
+	"push dx" \
+	"pop eax" \
 	parm [] \
 	modify exact [ebx cx dx eax]
-uint32_t _linear_rmstack;
-uint32_t _get_linear_rmstack( int * );
+
 #pragma aux _get_linear_rmstack = \
 	"mov bx, 40h" \
 	"mov ax, 100h" \
@@ -71,24 +68,18 @@ uint32_t _get_linear_rmstack( int * );
 	"shl eax, 4" \
 	parm [ecx] \
 	modify exact [bx eax]
+
+#pragma aux _get_stack_top = \
+	"mov eax, esp" \
+	parm [] \
+	modify exact[eax];
+
 #endif
 
-struct audioout_info_s aui = {0};
+int hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
+static int freq = 22050; /* default value for AU_setrate() */
 
-/* for AU_setrate() - use fixed rate */
-static struct audio_decoder_info_s adi = {
-    NULL, /* private data */
-    0, /* infobits */
-    WAVEID_PCM_SLE, /* 16-bit samples */
-    22050, /* freq: 22050 or 44100 */
-    HW_CHANNELS, /* channels in file (not used) */
-    HW_CHANNELS, /* decoded channels */
-    NULL, /* output channel matrix */
-    HW_BITS, /* 16 */
-    HW_BITS/8, /* bytes per sample */
-    0}; /* bitrate */
-
-uint8_t bDbgInit = 1; /* 1=debug output to DOS, 0=low-level */
+uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
 
 #if PREMAPDMA
@@ -97,10 +88,6 @@ uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0x
 #if SETABSVOL
 uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
 #endif
-bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
-bool _hdpmi_UninstallISR( void );
-bool _hdpmi_InstallInt31( uint8_t );
-bool _hdpmi_UninstallInt31( void );
 
 static bool bISR; /* 1=ISR installed */
 static bool bQemm = false;
@@ -131,7 +118,7 @@ static struct {
     "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "/F", "Set frequency [22050|44100, def 22050]", (int *)&adi.freq,
+    "/F", "Set frequency [22050|44100, def 22050]", (int *)&freq,
     "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "/O", "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
@@ -199,15 +186,6 @@ static int IsInstalled( void )
     return _is_installed();
 }
 
-static bool InstallISR( uint8_t intno, int(*ISR)(void) )
-////////////////////////////////////////////////////////////
-{
-    if ( _hdpmi_InstallISR( intno, ISR ) ) {
-        return ( _hdpmi_InstallInt31( intno ) );
-    }
-    return false;
-}
-
 #if 1 //def _DEBUG
 void fatal_error( int nError )
 //////////////////////////////
@@ -226,19 +204,10 @@ void fatal_error( int nError )
 }
 #endif
 
-static bool UninstallISR( void )
-////////////////////////////////
-{
-    /* first uninstall int 31h, then ISR! */
-    _hdpmi_UninstallInt31();
-    return ( _hdpmi_UninstallISR() );
-}
-
-
 static void ReleaseRes( void )
 //////////////////////////////
 {
-	if (bISR) UninstallISR();
+	if (bISR) SNDISR_UninstallISR();
 
 	if( gvars.rm )
 		PTRAP_Uninstall_RM_PortTraps();
@@ -259,8 +228,8 @@ void MAIN_Uninstall( void )
 ///////////////////////////
 {
 	ReleaseRes();
-	AU_close( &aui );
-	_uninstall_tsr( _my_psp() );
+	AU_close( hAU );
+	_uninstall_tsr( _my_psp() ); /* should not return */
 	return;
 }
 
@@ -275,7 +244,7 @@ void MAIN_ReinitOPL( void )
 #else
 		_asm fsave [buffer]
 #endif
-		VOPL3_Reinit(aui.freq_card);
+		VOPL3_Reinit( AU_getfreq( hAU ) );
 #ifdef DJGPP
 		asm("frstor %0"::"m"(buffer));
 #else
@@ -384,11 +353,11 @@ int main(int argc, char* argv[])
         printf("Error: Invalid volume.\n");
         return 1;
     }
-     if( adi.freq != 22050 && adi.freq != 44100 ) {
+     if( freq != 22050 && freq != 44100 ) {
         printf("Error: Invalid frequency.\n");
         return 1;
     }
-#ifdef DJGPP
+#if defined(DJGPP)
     __dpmi_get_segment_base_address(_my_ds(), (unsigned long *)&DSBase);
 #endif
 #ifndef DJGPP
@@ -400,9 +369,10 @@ int main(int argc, char* argv[])
      * while another client is active will result in problems, since that memory is released when
      * the client exits.
      */
+#ifndef NOTFLAT
     if (p = malloc( 0x10000 ) )
         free( p );
-
+#endif
     if ( IsInstalled() ) {
         printf("SB found - probably VSBHDA already installed.\n" );
         return(0);
@@ -416,7 +386,7 @@ int main(int argc, char* argv[])
         }
     }
     if( gvars.pm ) {
-        bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used other than HDPMI
+        bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used than HDPMI?
         if(!hasHDPMI)
             printf("HDPMI not installed, disable protected mode support.\n");
         gvars.pm = hasHDPMI;
@@ -426,25 +396,25 @@ int main(int argc, char* argv[])
         return 1;
     }
     VIRQ_Init();
-    aui.card_select_config = gvars.pin;
-    aui.card_select_devicenum = gvars.device;
-    if ( !AU_init( &aui ) ) {
+    //aui.card_select_config = gvars.pin;
+    //aui.card_select_devicenum = gvars.device;
+    if ( (hAU = AU_init( gvars.pin, gvars.device ) ) == 0 ) {
         printf("No soundcard found!\n");
         return 1;
     }
-    printf("Found sound card: %s\n", aui.card_handler->shortname);
-    if( aui.card_irq == gvars.irq ) {
+    printf("Found sound card: %s\n", AU_getshortname( hAU ) );
+    if( AU_getirq( hAU ) == gvars.irq ) {
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
-    AU_setmixer_init(&aui);
+    AU_setmixer_init( hAU );
     //MAIN_GLB_VOL = gvars.vol;
 #if SETABSVOL
     MAIN_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
 #endif
-    AU_setmixer_outs(&aui, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
-    //AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
-    AU_setrate(&aui, &adi);
+    AU_setmixer_outs( hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    //AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    AU_setrate( hAU, freq, HW_CHANNELS, HW_BITS );
 
     if( gvars.rm ) {
         gvars.rm = PTRAP_Prepare_RM_PortTrap();
@@ -496,8 +466,8 @@ int main(int argc, char* argv[])
     }
 #ifndef NOFM
     if( gvars.opl3 ) {
-        VOPL3_Init(aui.freq_card);
-        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", aui.freq_card );
+        VOPL3_Init( AU_getfreq( hAU ) );
+        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( hAU ) );
     }
 #endif
 #if SB16
@@ -509,13 +479,13 @@ int main(int argc, char* argv[])
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 
-    bISR = InstallISR(PIC_IRQ2VEC( aui.card_irq), &SNDISR_InterruptPM );
+    bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_InterruptPM );
 
-    PIC_UnmaskIRQ(aui.card_irq);
+    PIC_UnmaskIRQ( AU_getirq( hAU ) );
 
-    bDbgInit = 0;
-    AU_prestart(&aui);
-    AU_start(&aui);
+    AU_prestart( hAU );
+    AU_start( hAU );
+    if (bOMode & 1 ) bOMode = 2; /* switch to low-level i/o */
 
 #if PREMAPDMA
     /* Map the full first 16M to simplify DMA mem access */
@@ -542,7 +512,7 @@ int main(int argc, char* argv[])
             "pop %fs"
            );
 #else
-        __dpmi_free_dos_memory( rmstksel );
+        __dpmi_free_dos_memory( rmstksel ); /* free _linear_rmstack */
 #endif
         r.x.dx= 0x10; /* only psp remains in conv. memory */
         r.x.ax = 0x3100;

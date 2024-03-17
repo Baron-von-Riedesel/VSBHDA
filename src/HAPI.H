@@ -2,7 +2,11 @@
 /* C interface for HDPMI vendor API */
 
 struct HDPMIAPI_ENTRY {
+#ifdef NOTFLAT
+    uint16_t ofs;
+#else
     uint32_t ofs;
+#endif
     uint16_t seg;
 };
 
@@ -18,9 +22,17 @@ struct __attribute__((packed)) _hdpmi_traphandler {
 #pragma pack( __push, 1 )
 struct _hdpmi_traphandler {
 #endif
-	uint32_t ofsIn;
+#ifdef NOTFLAT
+    uint16_t ofsIn;
+#else
+    uint32_t ofsIn;
+#endif
     uint16_t segIn;
+#ifdef NOTFLAT
+    uint16_t ofsOut;
+#else
     uint32_t ofsOut;
+#endif
     uint16_t segOut;
 };
 #ifndef DJGPP

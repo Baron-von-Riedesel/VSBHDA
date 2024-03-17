@@ -2,11 +2,14 @@
 #define _PLATFORM_H_
 
 #ifdef DJGPP
+
 static inline uint32_t BSF(uint32_t x) {uint32_t i; asm("bsf %1, %0" : "=r" (i) : "rm" (x)); return i;} //386+
 #define _my_psp() _go32_info_block.linear_address_of_original_psp
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
 #define _my_rmstksiz() _go32_info_block.size_of_transfer_buffer
+
 #else
+
 extern uint32_t _my_ds();
 uint32_t BSF(uint32_t);
 #pragma aux BSF = \
@@ -23,6 +26,7 @@ extern unsigned int _size_rmstack;
 #define _my_psp()      _linear_psp
 #define _my_rmstack()  _linear_rmstack
 #define _my_rmstksiz() 0x400
+
 #endif
 
 //align down

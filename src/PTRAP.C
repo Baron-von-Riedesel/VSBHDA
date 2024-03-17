@@ -48,6 +48,9 @@ static int PICIndex;
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
 extern void PTRAP_RM_Wrapper( void );
 extern void PTRAP_RM_WrapperEnd( void );
+#ifdef NOTFLAT
+extern void copyrmwrap( void * );
+#endif
 #endif
 
 static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
@@ -233,9 +236,13 @@ bool PTRAP_Prepare_RM_PortTrap()
      */
     dosmem = _my_psp() + 0x80;
 
+#ifdef NOTFLAT
+    copyrmwrap( NearPtr(dosmem) );
+#else
     /* OW refuses to subtract two function addresses */
     //memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, &PTRAP_RM_WrapperEnd - &PTRAP_RM_Wrapper );
     memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, 0x80 );
+#endif
 
     /* the first 12 bytes are variables, now to be initialized */
 
@@ -243,7 +250,6 @@ bool PTRAP_Prepare_RM_PortTrap()
 #if !RMPICTRAPDYN
     memcpy( NearPtr(dosmem + 8), &QPI_Entry, 4 );
 #endif
-
     /* set new trap handler ES:DI */
     r.x.es = dosmem >> 4;
     r.x.di = 3*4;
@@ -401,8 +407,13 @@ static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
     struct _hdpmi_traphandler traphandler;
+#ifdef NOTFLAT
+    traphandler.ofsIn  = (uint16_t)handlerIn;
+    traphandler.ofsOut = (uint16_t)handlerOut;
+#else
     traphandler.ofsIn  = (uint32_t)handlerIn;
     traphandler.ofsOut = (uint32_t)handlerOut;
+#endif
     return _hdpmi_install_trap( start, end - start + 1, &traphandler );
 }
 
@@ -417,9 +428,10 @@ bool PTRAP_Install_PM_PortTraps( void )
     /* reset hdpmi=32 option in case it is set */
     _hdpmi_set_context_mode( 0 );
 
+#ifndef NOTFLAT
     /* install CLI handler */
     _hdpmi_set_cli_handler( _hdpmi_CliHandler );
-
+#endif
     for ( i = 0; i < max; i++ ) {
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
             start = PDispTab[portranges[i]].port;
@@ -489,8 +501,10 @@ bool PTRAP_Uninstall_PM_PortTraps( void )
     for ( i = 0; traphdl[i]; i++ )
         _hdpmi_uninstall_trap( traphdl[i] );
 
+#ifndef NOTFLAT
     /* uninstall CLI trap handler */
     _hdpmi_set_cli_handler( NULL );
+#endif
 
     return true;
 }

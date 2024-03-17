@@ -30,6 +30,28 @@ PUSHADS ends
 
 ;--- stack frame for StackSwitch()
 
+ifdef NOTFLAT
+STACKCORR equ 2048
+ASSUMEDS textequ <DGROUP>
+insIRET textequ <IRET>
+EXCFRAME struct
+		dd ?	; es
+		dd ?	; ds
+		PUSHADS <>
+dwMode  dd ?	; dwMode
+		dw ?	; DPMI ret 
+		dw ?	; DPMI ret
+dwErr	dw ?
+dwEip	dw ?
+wCS		dw ?
+dwEfl	dw ?
+dwEsp	dw ?
+wSS		dw ?
+EXCFRAME ends
+else
+STACKCORR equ 4096
+ASSUMEDS textequ <_DATA>
+insIRET textequ <IRETD>
 EXCFRAME struct
 		dd ?	; es
 		dd ?	; ds
@@ -44,10 +66,12 @@ dwEfl	dd ?
 dwEsp	dd ?
 wSS		dw ?,?
 EXCFRAME ends
+endif
+
+externdef dwDS:dword	; it's in _TEXT
 
 	.data
 
-externdef dwDS:dword
 if TRIGGERIRQ
 externdef VSB_TriggerIRQ:dword
 VIRQ_Invoke proto c
@@ -76,10 +100,17 @@ SwitchStackIO proc
 	push ds
 	push es
 	mov ebp, esp
+ifdef NOTFLAT
+	mov cx, [ebp].EXCFRAME.dwErr
+	and cx, 7
+	add [ebp].EXCFRAME.dwEip, cx
+	mov cx, [ebp].EXCFRAME.dwErr
+else
 	mov ecx, [ebp].EXCFRAME.dwErr
 	and ecx, 7
 	add [ebp].EXCFRAME.dwEip, ecx
 	mov ecx, [ebp].EXCFRAME.dwErr
+endif
 	and cl, 0f8h
 	or cl, byte ptr [ebp].EXCFRAME.dwMode
 	test cl, 8h	; string?
@@ -90,10 +121,16 @@ SwitchStackIO proc
 @@:
 	cld
 	mov ds, cs:[dwDS]
-	assume ds:_DATA
+
+	assume ds:ASSUMEDS
+
 	mov ebx, ss
-	sub [__djgpp_stack_top], 4096
+	sub [__djgpp_stack_top], STACKCORR
+ifdef NOTFLAT
+	mov ss, cs:[dwDS]
+else
 	mov ss, [dwDS]
+endif
 	mov esp, [__djgpp_stack_top]
 	push ds
 	pop es
@@ -104,7 +141,7 @@ SwitchStackIO proc
 	call PTRAP_PM_TrapHandler
 	mov ss, ebx
 	mov esp, ebp
-	add [__djgpp_stack_top], 4096
+	add [__djgpp_stack_top], STACKCORR
 	test byte ptr [ebp].EXCFRAME.dwErr, 8h	; string?
 	jnz isstring
 	cmp [ebp].EXCFRAME.dwMode, 0			; IN?
@@ -130,21 +167,29 @@ if TRIGGERIRQ
 	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2
 	jz @F
 	mov [VSB_TriggerIRQ], 0
-	sub [__djgpp_stack_top], 4096
+	sub [__djgpp_stack_top], STACKCORR
+ifdef NOTFLAT
+	mov ss, cs:[dwDS]
+else
 	mov ss, [dwDS]
+endif
 	mov esp, [__djgpp_stack_top]
 	call VSB_SetIRQStatus
 	call VIRQ_Invoke
 	mov ss, ebx
 	mov esp, ebp
-	add [__djgpp_stack_top], 4096
+	add [__djgpp_stack_top], STACKCORR
 @@:
 endif
 	pop es
 	pop ds
 	popad
 	add esp, 4	; skip mode
-	retd
+ifdef NOTFLAT
+	retw
+else
+	retd	; return to DPMI host
+endif
 	align 4
 
 SwitchStackIO endp
@@ -191,7 +236,9 @@ SwitchStackIOrmcb proc
 	add es:[edi].RMCS.rSP, 2+2
 
 	mov ds, cs:[dwDS]
-	assume ds:_DATA
+
+	assume ds:ASSUMEDS
+
 	sub [__djgpp_stack_top], 4096
 	mov ebx, ss
 	mov ebp, esp
@@ -233,7 +280,7 @@ ife COPYRMCS
 endif
 	mov ss, ebx
 	mov esp, ebp
-	iretd
+	insIRET
 	align 4
 
 SwitchStackIOrmcb endp
@@ -265,11 +312,19 @@ _hdpmi_rmcbIO endp
 ;--- CLI trap handler
 ;--- will only be called if CR4.PVI is 0.
 
+ifdef NOTFLAT
+IRETWS struct
+rIp		dw ?
+rCS		dw ?
+rFl		dw ?
+IRETWS ends
+else
 IRETDS struct
 rEip	dd ?
 rCS		dd ?
 rEfl	dd ?
 IRETDS ends
+endif
 
 _hdpmi_CliHandler proc public
 	push ds
@@ -278,7 +333,12 @@ _hdpmi_CliHandler proc public
 ;--- if CLI is to be a NOP, activate next line
 ;	jmp enable
 
+ifdef NOTFLAT
+	lds si, dword ptr [esp+2*4].IRETWS.rIp
+	movzx esi, si
+else
 	lds esi, fword ptr [esp+2*4].IRETDS.rEip
+endif
 	cmp esi, 3
 	jb unchanged
 	cmp word ptr [esi-3], 589Ch	; "pushfd" "pop eax"; needed by ID games' DOS/4G
@@ -293,7 +353,7 @@ enable:
 unchanged:
 	pop esi
 	pop ds
-	iretd
+	insIRET
 _hdpmi_CliHandler endp
 
 	END

@@ -19,7 +19,7 @@
 //#include <dpmi.h>
 
 #include "DJDPMI.H"
-#include "CONFIG.H"
+#include "CONFIG.H" /* for dbgprintf() */
 #include "NEWFUNC.H"
 
 static __dpmi_regs _xms_regs = {0};

@@ -302,9 +302,12 @@ static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, u
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 #if !USEIMMEDIATECMDS
+	//dbgprintf(( "hda_codec_read: start RIRB DMA engine\n" ));
 	azx_writeb(chip, RIRBCTL, RIRB_START ); /* start RIRB DMA engine */
 #endif
-	hda_codec_write(chip,nid,direct,verb,parm);
+	//dbgprintf(( "hda_codec_read: write verb\n" ));
+	hda_codec_write( chip, nid, direct, verb, parm );
+	//dbgprintf(( "hda_codec_read: getting response\n" ));
 	return azx_get_response(chip);
 }
 
@@ -342,7 +345,7 @@ static void hda_search_audio_node(struct intelhd_card_s *card)
 	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
 	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
 	for( i = 0; i < total_nodes; i++, nid++ ){
-		if((codec_param_read(card,nid,AC_PAR_FUNCTION_TYPE) & 0xff) == AC_GRP_AUDIO_FUNCTION){
+		if(( codec_param_read(card,nid,AC_PAR_FUNCTION_TYPE) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
 			card->afg_root_nodenum = nid;
 			break;
 		}
@@ -414,17 +417,21 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 {
 	int nconns = 0;
 
+	//dbgprintf(("hda_add_node: ms 0\n"));
 	node->nid = nid;
-	node->wid_caps = codec_param_read(card, nid, AC_PAR_AUDIO_WIDGET_CAP);
+	node->wid_caps = codec_param_read( card, nid, AC_PAR_AUDIO_WIDGET_CAP );
 	node->type = (node->wid_caps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
 
-	if(node->wid_caps&AC_WCAP_CONN_LIST)
+	//dbgprintf(("hda_add_node: ms 1\n"));
+	if( node->wid_caps & AC_WCAP_CONN_LIST )
 		nconns = hda_get_connections(card, nid,&node->conn_list[0],HDA_MAX_CONNECTIONS);
 
-	if(nconns >= 0){
+	//dbgprintf(("hda_add_node: ms 2, nconns=%u\n", nconns ));
+	if( nconns >= 0 ){
 		node->nconns = nconns;
 
-		if(node->type == AC_WID_PIN){
+		if( node->type == AC_WID_PIN ){
+			//dbgprintf(("hda_add_node: ms 3, AC_WID_PIN\n" ));
 			node->pin_caps = codec_param_read(card, node->nid, AC_PAR_PIN_CAP);
 			node->pin_ctl = hda_codec_read(card, node->nid, 0, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
 			node->def_cfg = hda_codec_read(card, node->nid, 0, AC_VERB_GET_CONFIG_DEFAULT, 0);
@@ -433,22 +440,26 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 				  node->amp_in_caps, node->amp_out_caps)); */
 		}
 
-		if(node->wid_caps & AC_WCAP_OUT_AMP){
+		if( node->wid_caps & AC_WCAP_OUT_AMP ) {
+			//dbgprintf(("hda_add_node: ms 4, AC_WCAP_OUT_AMP\n" ));
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_out_caps = codec_param_read(card, node->nid, AC_PAR_AMP_OUT_CAP);
 			if(!node->amp_out_caps)
 				node->amp_out_caps = card->def_amp_out_caps;
 		}
 
-		if(node->wid_caps & AC_WCAP_IN_AMP){
+		if( node->wid_caps & AC_WCAP_IN_AMP ) {
+			//dbgprintf(("hda_add_node: ms 5, AC_WCAP_IN_AMP\n" ));
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_in_caps = codec_param_read(card, node->nid, AC_PAR_AMP_IN_CAP);
 			if(!node->amp_in_caps)
 				node->amp_in_caps = card->def_amp_in_caps;
 		}
 
-		if(node->wid_caps & AC_WCAP_FORMAT_OVRD)
+		if( node->wid_caps & AC_WCAP_FORMAT_OVRD ) {
+			//dbgprintf(("hda_add_node: ms 6, AC_WCAP_FORMAT_OVRD\n" ));
 			node->supported_formats = codec_param_read(card, node->nid, AC_PAR_PCM);
+		}
 	}
 
 	/*
@@ -924,7 +935,6 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 		dbgprintf(("hda_mixer_init: malloc failed\n"));
 		goto err_out_mixinit;
 	}
-
 	for( i = 0; i < card->afg_num_nodes; i++, nid++ )
 		hda_add_node(card, &card->afg_nodes[i], nid);
 

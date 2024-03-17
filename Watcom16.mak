@@ -1,22 +1,12 @@
 
-# create vsbhda.exe with Open Watcom v2.0 and JWasm.
+# create vsbhda16.exe with Open Watcom v2.0 and JWasm.
 # to create the binary, enter
-#   wmake -f watcom.mak
+#   wmake -f watcom16.mak
 # optionally, for a debug version, enter
-#   wmake -f watcom.mak DEBUG=1
-
-# the HX DOS extender is used; that means, a few
-# things from the HXDEV package are required:
+#   wmake -f watcom16.mak DEBUG=1
 #
-# - loadpe.bin       pe loader stub attached to binary
-# - cstrtdhx.obj     startup module linked into binary
-# - patchpe.exe      patches PE signature to PX
-#
-# patchpe is a Win32 application; to run it in DOS, the
-# HXRT package will be needed; cstrtdx.obj should be copied
-# to the Open Watcom lib386\dos directory; and loadpe.bin
-# will be searched by the linker in the current directory
-# or in any directory contained in the PATH environment var.
+# jwlink is used instead of wlink, because wlink displays warning 1080
+# if a 32-bit object module is used in format DOS.
 
 !ifndef DEBUG
 DEBUG=0
@@ -26,20 +16,22 @@ WATCOM=\ow20
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
-CC=$(WATCOM)\binnt\wcc386.exe
-CPP=$(WATCOM)\binnt\wpp386.exe
-LINK=$(WATCOM)\binnt\wlink.exe
-LIB=$(WATCOM)\binnt\wlib.exe
+CC=$(WATCOM)\binnt\wcc386
+CPP=$(WATCOM)\binnt\wpp386
+LINK=$(WATCOM)\binnt\wlink
+LINK=jwlink
+LIB=$(WATCOM)\binnt\wlib
 ASM=jwasm.exe
 
-NAME=vsbhda
+NAME=vsbhda16
+NAME2=sndcard
 
 !if $(DEBUG)
-OUTD=owd
+OUTD=ow16d
 C_DEBUG_FLAGS=-D_DEBUG
 A_DEBUG_FLAGS=-D_DEBUG
 !else
-OUTD=ow
+OUTD=ow16
 C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 !endif
@@ -50,16 +42,20 @@ OBJFILES = &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
+	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
+	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
+	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj
+
+OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/time.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
-	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj
+	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/libmain.obj   
 
-C_OPT_FLAGS=-q -oxa -ecc -5s -fp5 -fpi87 -wcd=111
+C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
-CPP_OPT_FLAGS=-q -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS= -DSBEMU
+CPP_OPT_FLAGS=-q -ms -bc -5s -fp5 -fpi87 
+C_EXTRA_FLAGS= -DSBEMU -DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
@@ -70,7 +66,7 @@ INCLUDES=-Isrc -Impxplay -I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
-	$(ASM) -q -D?FLAT $(A_DEBUG_FLAGS) -Fo$@ $<
+	$(ASM) -q -DNOTFLAT $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
 	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
@@ -81,24 +77,39 @@ LIBS=
 {mpxplay}.c{$(OUTD)}.obj
 	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)\$(NAME).exe
+{startup}.asm{$(OUTD)}.obj
+	jwasm.exe -q -zcw -DNOTFLAT $(A_DEBUG_FLAGS) -Fo$@ $<
+
+{startup}.c{$(OUTD)}.obj
+	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+
+all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD)\$(NAME2).drv
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib
+$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrt16x.obj $(OUTD)\init1632.obj
 	@$(LINK) @<<
-format win pe runtime console
-file $(OUTD)\main.obj name $@
-libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
-libfile cstrtdhx.obj
-lib $(OUTD)\$(NAME).lib
-op q,m=$(OUTD)\$(NAME).map,stub=loadpe.bin,stack=0x10000,heap=0x1000
+format dos 
+file $(OUTD)\cstrt16x, $(OUTD)\main, $(OUTD)\init1632 
+name $@ libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386 lib $(OUTD)\$(NAME).lib
+op q,m=$*.map
 <<
-	@patchpe $*.exe
+
+$(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj
+	@$(LINK) @<<
+format dos 
+file $(OUTD)\dstrt16x, $(OUTD)\linear
+name $@ libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
+lib $*.lib lib clib3s.lib
+op q,statics,m=$*.map
+<<
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
+
+$(OUTD)\$(NAME2).lib: $(OBJFILES2)
+	@$(LIB) -q -b -n $(OUTD)\$(NAME2).lib $(OBJFILES2)
 
 $(OUTD)/ac97mix.obj:   mpxplay\ac97mix.c
 $(OUTD)/au_cards.obj:  mpxplay\au_cards.c
@@ -113,6 +124,8 @@ $(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
 $(OUTD)/time.obj:      mpxplay\time.c
+
+$(OUTD)/auhlp16.obj:   src\auhlp16.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
@@ -137,14 +150,26 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 	$(CPP) $(C_DEBUG_FLAGS) -q -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
 
+$(OUTD)/cstrt16x.obj:  startup\cstrt16x.asm
+$(OUTD)/dstrt16x.obj:  startup\dstrt16x.asm
+$(OUTD)/ldmod16.obj:   startup\ldmod16.asm
+$(OUTD)/init1632.obj:  startup\init1632.asm
+$(OUTD)/sbrk.obj:      startup\sbrk.asm
+$(OUTD)/libmain.obj:   startup\libmain.c
+
 # to avoid any issues with 16-bit relocations in PE binaries,
 # the 16-bit code is included in binary format into rmwrap.asm.
 
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
 	$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
-	$(ASM) -q -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
+	$(ASM) -q -DNOTFLAT -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
-	@del $(OUTD)\$(NAME).exe
 	@del $(OUTD)\$(NAME).lib
+	@del $(OUTD)\$(NAME2).lib
+	@del $(OUTD)\$(NAME).exe
+	@del $(OUTD)\$(NAME2).drv
 	@del $(OUTD)\*.obj
+	@del $(OUTD)\*.map
+	@del $(OUTD)\*.lst
+	@del $(OUTD)\rmcode.bin

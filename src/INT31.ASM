@@ -12,10 +12,36 @@ endif
 	option casemap:none
 	option proc:private
 
+externdef c ISR_DMA_MappedAddr:dword
+
+ifdef NOTFLAT
+
+externdef c _csalias:dword
+
+	.code
+
+SEGOFS equ 2
+IRETFLOFS equ 2*2
+insIRET textequ <IRET>
+
+externdef dfOldISR:dword
+
+PF16 typedef ptr far16
+oldint31 PF16 ?
+oldint21 PF16 ?
+currsndint dd ?	; current vector for sound ISR
+
+else
+
+	assume ds:_DATA
+
 	.data
 
+SEGOFS equ 4
+IRETFLOFS equ 2*4
+insIRET textequ <IRETD>
+
 externdef dfOldISR:fword
-externdef c ISR_DMA_MappedAddr:dword
 
 oldint31 df ?
 	dw ?
@@ -23,12 +49,12 @@ oldint21 df ?
 	dw ?
 currsndint df ?	; current vector for sound ISR
 	dw ?
+
+endif
 dsseg dw ?
 intno db ?
 
 	.code
-
-	assume ds:_DATA
 
 myint31 proc
 
@@ -45,19 +71,25 @@ is205:
 	cmp al, 5
 	jz is05
 	mov edx, dword ptr cs:[currsndint+0]
-	mov cx, word ptr cs:[currsndint+4]
-	and byte ptr [esp+2*4], 0feh
-	iretd
+	mov cx, word ptr cs:[currsndint+SEGOFS]
+	and byte ptr [esp+IRETFLOFS], 0feh
+	insIRET
 is05:
 	push eax
 	push ds
 	mov ds, cs:[dsseg]
+ifdef NOTFLAT
+	assume ds:_TEXT
+endif
 	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+4], cx
+	mov word ptr [currsndint+SEGOFS], cx
 	pop ds
+ifdef NOTFLAT
+	assume ds:DGROUP
+endif
 	pop eax
-	and byte ptr [esp+2*4], 0feh
-	iretd
+	and byte ptr [esp+IRETFLOFS], 0feh
+	insIRET
 	align 4
 myint31 endp
 
@@ -84,19 +116,25 @@ is35:
 	cmp ah, 25h
 	jz isset
 	mov ebx, dword ptr cs:[currsndint+0]
-	mov es, word ptr cs:[currsndint+4]
-	and byte ptr [esp+2*4], 0feh
-	iretd
+	mov es, word ptr cs:[currsndint+SEGOFS]
+	and byte ptr [esp+IRETFLOFS], 0feh
+	insIRET
 isset:
 	push eax
 	push ds
 	mov ds, cs:[dsseg]
+ifdef NOTFLAT
+	assume ds:_TEXT
+endif
 	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+4], cx
+	mov word ptr [currsndint+SEGOFS], cx
 	pop ds
+ifdef NOTFLAT
+	assume ds:DGROUP
+endif
 	pop eax
-	and byte ptr [esp+2*4], 0feh
-	iretd
+	and byte ptr [esp+IRETFLOFS], 0feh
+	insIRET
 	align 4
 myint21 endp
 
@@ -104,13 +142,19 @@ myint21 endp
 
 _hdpmi_InstallInt31 proc public uses ebx interrupt:byte
 
+ifdef NOTFLAT
+	push ds
+	mov ds, [_csalias]
+	assume ds:_TEXT
+endif
+
 ;--- hook into DPMI int 31h
 	mov bl, 31h
 	mov ax, 204h
 	int 31h
 	jc error
 	mov dword ptr oldint31+0, edx
-	mov word ptr oldint31+4, cx
+	mov word ptr oldint31+SEGOFS, cx
 	mov ecx, cs
 	mov edx, offset myint31
 	mov ax, 205h
@@ -122,23 +166,30 @@ _hdpmi_InstallInt31 proc public uses ebx interrupt:byte
 	int 31h
 	jc error
 	mov dword ptr oldint21+0, edx
-	mov word ptr oldint21+4, cx
+	mov word ptr oldint21+SEGOFS, cx
 	mov ecx, cs
 	mov edx, offset myint21
 	mov ax, 205h
 	int 31h
 	jc error
 
-	mov edx, dword ptr dfOldISR+0
-	mov cx, word ptr dfOldISR+4
 	mov bl, interrupt
+	mov edx, dword ptr dfOldISR+0
+	mov cx, word ptr dfOldISR+SEGOFS
 	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+4], cx
+	mov word ptr [currsndint+SEGOFS], cx
 	mov [intno], bl
 	mov [dsseg], ds
+ifdef NOTFLAT
+	pop ds
+endif
 	mov eax, 1
 	ret
 error:
+ifdef NOTFLAT
+	pop ds
+	assume ds:DGROUP
+endif
 	xor eax, eax
 	ret
 _hdpmi_InstallInt31 endp
@@ -146,14 +197,14 @@ _hdpmi_InstallInt31 endp
 _hdpmi_UninstallInt31 proc public uses ebx
 
 	mov edx, dword ptr [oldint21+0]
-	mov cx, word ptr [oldint21+4]
+	mov cx, word ptr [oldint21+SEGOFS]
 	mov bl, 21h
 	mov ax, 205h
 	int 31h
 	jc error
 
 	mov edx, dword ptr [oldint31+0]
-	mov cx, word ptr [oldint31+4]
+	mov cx, word ptr [oldint31+SEGOFS]
 	mov bl, 31h
 	mov ax, 205h
 	int 31h

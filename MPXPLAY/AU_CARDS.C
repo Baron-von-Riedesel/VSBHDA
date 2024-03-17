@@ -22,6 +22,8 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 
+extern uint8_t bOMode;
+
 #ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
 #endif
@@ -83,13 +85,20 @@ static unsigned int carddetect( struct audioout_info_s *aui )
 
 /* scan for audio devices */
 
-int AU_init( struct audioout_info_s *aui )
-//////////////////////////////////////////
+int FAREXP AU_init( int device, int pin )
+/////////////////////////////////////////
 {
+    struct audioout_info_s *aui;
 	const struct sndcard_info_s **asip;
 
 	dbgprintf(("AU_init\n"));
+	if ( !( aui = (struct audioout_info_s *)pds_calloc( 1, sizeof( struct audioout_info_s ) ) ) ) {
+		dbgprintf(("AU_init: out of memory\n"));
+		return(0);
+	}
 	aui->card_dmasize = aui->card_dma_buffer_size = MDma_get_max_pcmoutbufsize( aui, 65535, 4608, 2, 0);
+	aui->card_select_devicenum = device;
+	aui->card_select_config = pin;
 
 	if(!(aui->card_controlbits & AUINFOS_CARDCTRLBIT_TESTCARD)){
 		for ( asip = all_sndcard_info; *asip; asip++ ) {
@@ -114,19 +123,58 @@ int AU_init( struct audioout_info_s *aui )
 	if( *asip == NULL )
 		return(0);
 
+	dbgprintf(("AU_init exit, aui=%X\n", aui));
 	aui->freq_card = aui->chan_card = aui->bits_card = 0;
-	return(1);
+	return((int)aui);
 }
 
-void AU_prestart( struct audioout_info_s *aui )
-///////////////////////////////////////////////
+int FAREXP AU_getirq( struct audioout_info_s *aui )
+///////////////////////////////////////////////////
+{
+    return( aui->card_irq );
+}
+
+char * FAREXP AU_getshortname( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////
+{
+    return( aui->card_handler->shortname );
+}
+
+int FAREXP AU_getfreq( struct audioout_info_s *aui )
+////////////////////////////////////////////////////
+{
+    return( aui->freq_card );
+}
+
+int FAREXP AU_isirq( struct audioout_info_s *aui )
+//////////////////////////////////////////////////
+{
+    /* check if the irq belongs to the sound card */
+    return( aui->card_handler->irq_routine && aui->card_handler->irq_routine(aui));
+}
+
+void FAREXP AU_setoutbytes( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////////
+{
+    aui->card_outbytes = aui->card_dmasize;
+    return;
+}
+void AU_setsamplenum( struct audioout_info_s *aui, int samples )
+////////////////////////////////////////////////////////////////
+{
+    aui->samplenum = samples ;
+    return;
+}
+
+void FAREXP AU_prestart( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////
 {
 	if(aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR)
 		AU_clearbuffs(aui);
 }
 
-void AU_start( struct audioout_info_s *aui )
-////////////////////////////////////////////
+void FAREXP AU_start( struct audioout_info_s *aui )
+///////////////////////////////////////////////////
 {
 	if( !(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) ) {
 		if( aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR )
@@ -135,11 +183,12 @@ void AU_start( struct audioout_info_s *aui )
 			aui->card_handler->card_start( aui );
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_PLAYING;
 	}
+	if ( bOMode & 1 ) bOMode = 2;  /* no DOS output anymore */
 	aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 }
 
-void AU_stop( struct audioout_info_s *aui )
-///////////////////////////////////////////
+void FAREXP AU_stop( struct audioout_info_s *aui )
+//////////////////////////////////////////////////
 {
 	if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 
@@ -153,8 +202,8 @@ void AU_stop( struct audioout_info_s *aui )
 	}
 }
 
-void AU_close( struct audioout_info_s *aui )
-////////////////////////////////////////////
+void FAREXP AU_close( struct audioout_info_s *aui )
+///////////////////////////////////////////////////
 {
 	if(!aui)
 		return;
@@ -163,8 +212,8 @@ void AU_close( struct audioout_info_s *aui )
 		aui->card_handler->card_close(aui);
 }
 
-void AU_clearbuffs( struct audioout_info_s *aui )
-/////////////////////////////////////////////////
+static void AU_clearbuffs( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////
 {
 	if(aui->card_handler->cardbuf_clear)
 		aui->card_handler->cardbuf_clear(aui);
@@ -173,8 +222,8 @@ void AU_clearbuffs( struct audioout_info_s *aui )
 
 /* AU_setrate() is called by main(), not during interrupt time! */
 
-void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
-////////////////////////////////////////////////////////////////////////////////
+void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, int bits )
+//////////////////////////////////////////////////////////////////////////////////////////
 
 {
 	unsigned int new_cardcontrolbits;
@@ -189,17 +238,17 @@ void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 	// The channel and bit differences are always handled by the AU_MIXER
 
 	if( ( aui->freq_set && (aui->freq_set != aui->freq_card) )
-	   || ( !aui->freq_set && (aui->freq_song != adi->freq ) )
+	   || ( !aui->freq_set && (aui->freq_song != freq ) )
 	   || ( aui->card_controlbits & AUINFOS_CARDCTRLBIT_UPDATEFREQ ) ) {
 		if ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING )
 			AU_stop(aui);
 
-		dbgprintf(("AU_setrate: changing rate to %u\n", adi->freq ));
-		aui->freq_song = adi->freq;
+		dbgprintf(("AU_setrate: changing rate to %u\n", freq ));
+		aui->freq_song = freq;
 
-		aui->freq_card = (aui->freq_set) ? aui->freq_set : adi->freq;
-		aui->chan_card = (aui->chan_set) ? aui->chan_set : adi->outchannels;
-		aui->bits_card = (aui->bits_set) ? aui->bits_set : adi->bits;
+		aui->freq_card = (aui->freq_set) ? aui->freq_set : freq;
+		aui->chan_card = (aui->chan_set) ? aui->chan_set : outchannels;
+		aui->bits_card = (aui->bits_set) ? aui->bits_set : bits;
 		aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
 		aui->bytespersample_card = 0;
 		aui->card_controlbits = new_cardcontrolbits;
@@ -227,11 +276,11 @@ void AU_setrate( struct audioout_info_s *aui, struct audio_decoder_info_s *adi )
 		aui->card_outbytes = aui->card_dmasize/4; // ??? for interrupt_decoder
 #endif
 	}
-	aui->freq_song = adi->freq;
+	aui->freq_song = freq;
 }
 
-void AU_setmixer_init( struct audioout_info_s *aui )
-////////////////////////////////////////////////////
+void FAREXP AU_setmixer_init( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////
 {
 	unsigned int i;
 
@@ -260,8 +309,8 @@ static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucar
  * defined by SC_xxx mixerset...
  */
 
-void AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsigned int setmode, int newvalue )
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannum, unsigned int setmode, int newvalue )
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	const struct sndcard_info_s *cardi;
 	const struct aucards_mixerchan_s *onechi; // one mixer channel infos (master,pcm,etc.)
@@ -404,8 +453,8 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
 	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
 
-void AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode, int newvalue )
-////////////////////////////////////////////////////////////////////////////////////////
+void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode, int newvalue )
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i;
 
@@ -415,8 +464,8 @@ void AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode, int ne
 	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER]; // ???
 }
 
-void AU_setmixer_all( struct audioout_info_s *aui )
-///////////////////////////////////////////////////
+void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////////
 {
 	unsigned int i;
 	int vol = aui->card_master_volume;
@@ -446,12 +495,21 @@ void AU_setmixer_all( struct audioout_info_s *aui )
 #ifndef SBEMU
 static
 #endif
-unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////////
+unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////////////
 {
 	unsigned long buffer_protection;
 
-    /* this function is called from sound ISR! */
+	/* this function is called from sound ISR!
+	 * modifies:
+	 * - card_dmalastput
+	 * - card_dmaspace
+	 * - card_dmalastput
+	 * - card_dmafilled
+	 * - card_infobits
+	 * its also the only function that calls cardbuf_pos(),
+     * that sets and returns card_dma_lastgoodpos.
+	 */
 
 	buffer_protection = SOUNDCARD_BUFFER_PROTECTION;     // rounding to bytespersign
 	buffer_protection += aui->card_bytespersign - 1;
@@ -466,7 +524,7 @@ unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
 				aui->card_dmaspace = aui->card_handler->cardbuf_pos(aui);
 				aui->card_dmaspace -= (aui->card_dmaspace % aui->card_bytespersign); // round
 			} else
-				aui->card_dmaspace = (aui->card_dmaspace>aui->card_outbytes)? (aui->card_dmaspace-aui->card_outbytes):0;
+				aui->card_dmaspace = (aui->card_dmaspace > aui->card_outbytes) ? (aui->card_dmaspace - aui->card_outbytes) : 0;
 		} else {
 			unsigned long bufpos;
 
@@ -479,7 +537,7 @@ unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
 
 				if( aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN ){   // sets a new put-pointer in this case
 					if( bufpos >= aui->card_outbytes )
-						aui->card_dmalastput = bufpos-aui->card_outbytes;
+						aui->card_dmalastput = bufpos - aui->card_outbytes;
 					else
 						aui->card_dmalastput = aui->card_dmasize + bufpos - aui->card_outbytes;
 					aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
@@ -488,25 +546,25 @@ unsigned int AU_cardbuf_space( struct audioout_info_s *aui )
 				bufpos = 0;
 			}
 
-			//if(aui->card_dmalastput>=aui->card_dmasize) // checking
-			// aui->card_dmalastput=0;
+			//if(aui->card_dmalastput >= aui->card_dmasize) // checking
+			// aui->card_dmalastput = 0;
 
 			if(bufpos > aui->card_dmalastput)
-				aui->card_dmaspace = bufpos-aui->card_dmalastput;
+				aui->card_dmaspace = bufpos - aui->card_dmalastput;
 			else
-				aui->card_dmaspace = aui->card_dmasize-aui->card_dmalastput + bufpos;
+				aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput + bufpos;
 		}
-	}else{
-		aui->card_dmaspace = aui->card_outbytes+buffer_protection;
+	} else {
+		aui->card_dmaspace = aui->card_outbytes + buffer_protection;
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 	}
 
 	if(aui->card_dmaspace > aui->card_dmasize) // checking
 		aui->card_dmaspace = aui->card_dmasize;
 
-	aui->card_dmafilled = aui->card_dmasize-aui->card_dmaspace;
+	aui->card_dmafilled = aui->card_dmasize - aui->card_dmaspace;
 
-	return (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace-buffer_protection) : 0;
+	return (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace - buffer_protection) : 0;
 }
 
 /* function called by AU_writedata() - during interrupt time! */
@@ -553,17 +611,19 @@ static int aucards_writedata_intsound( struct audioout_info_s *aui, unsigned lon
 #endif
 }
 
-int AU_writedata( struct audioout_info_s *aui )
-///////////////////////////////////////////////
+int FAREXP AU_writedata( struct audioout_info_s *aui, int samples, void *pcm_sample )
+/////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int outbytes_left;
 	int left;
 
 	/* this function is called during interrupt time! */
 
-	if(!aui->samplenum)
+	if( !samples )
 		return 0;
 
+	aui->samplenum = samples;
+	aui->pcm_sample = pcm_sample;
 	aui->samplenum -= (aui->samplenum % aui->chan_card); // if samplenum is buggy (round to chan_card)
 	outbytes_left = aui->samplenum * aui->bytespersample_card;
 

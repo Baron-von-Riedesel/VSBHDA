@@ -16,16 +16,21 @@
 #include "VSB.H"
 #include "CTADPCM.H"
 
-#include "MPXPLAY.H"
+#include "AU.H"
 
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
 #define MIXERROUTINE 0
 
+bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
+bool _hdpmi_UninstallISR( void );
+bool _hdpmi_InstallInt31( uint8_t );
+bool _hdpmi_UninstallInt31( void );
+
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
 extern void fatal_error( int );
 
-extern struct audioout_info_s aui;
+extern int hAU;
 extern struct globalvars gvars;
 #if SETABSVOL
 extern uint16_t MAIN_SB_VOL;
@@ -45,12 +50,28 @@ static uint32_t ISR_DMA_Size = 0;
  */
 uint32_t ISR_DMA_MappedAddr = 0;
 
+#ifdef DJGPP
+static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
+static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
+#else
+static inline void _disable_ints(void) {
+	_asm mov ax, 900h
+	_asm int 31h
+}
+static inline void _enable_ints(void) {
+	_asm mov ax, 901h
+	_asm int 31h
+}
+#endif
+
 static void SNDISR_Interrupt( void );
 
 #define ISR_PCM_SAMPLESIZE 16384 /* sample buffer size */
 
-static int16_t ISR_OPLPCM[ISR_PCM_SAMPLESIZE+256];
-static int16_t ISR_PCM[ISR_PCM_SAMPLESIZE+256];
+static int16_t *pOPLPCM = NULL;
+static int16_t *pPCM = NULL;
+//static int16_t ISR_OPLPCM[ISR_PCM_SAMPLESIZE+256];
+//static int16_t ISR_PCM[ISR_PCM_SAMPLESIZE+256];
 
 #define MALLOCSTATIC 1
 
@@ -212,13 +233,14 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int samplenu
 int SNDISR_InterruptPM( void )
 //////////////////////////////
 {
-    if(aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
-    {
+    /* check if the irq belong the sound card */
+    //if(aui.card_handler->irq_routine && aui.card_handler->irq_routine(&aui)) //check if the irq belong the sound card
+    if( AU_isirq( hAU ) ) {
 #if SETIF
         _enable_ints();
 #endif
         SNDISR_Interrupt();
-        PIC_SendEOIWithIRQ(aui.card_irq);
+        PIC_SendEOIWithIRQ( AU_getirq( hAU ) );
         return(1);
     }
     return(0);
@@ -259,7 +281,7 @@ static void SNDISR_Interrupt( void )
         MAIN_SB_VOL =  mastervol * gvars.vol / 9;
         //uint8_t buffer[200];
         //asm("fsave %0": "m"(buffer)); /* needed if AU_setmixer_one() uses floats */
-        AU_setmixer_one( &aui, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
+        AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
         //asm("frstor %0": "m"(buffer));
         //dbgprintf(("ISR: set master volume=%u\n", MAIN_SB_VOL ));
     }
@@ -270,8 +292,8 @@ static void SNDISR_Interrupt( void )
     midivol  = ( (midivol  | 0xF + 1) * (mastervol | 0xF + 1) - 1) >> 8;
     if ( midivol == 0xff ) midivol = 0x100;
 #endif
-    aui.card_outbytes = aui.card_dmasize;
-    samples = AU_cardbuf_space(&aui) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    AU_setoutbytes( hAU ); //aui.card_outbytes = aui.card_dmasize;
+    samples = AU_cardbuf_space( hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
     //dbgprintf(("samples:%u ",samples));
 
     if(samples == 0) /* no free space in DMA buffer? */
@@ -288,6 +310,7 @@ static void SNDISR_Interrupt( void )
         uint32_t SB_Bytes = VSB_GetSampleBytes();
         uint32_t SB_Pos = VSB_GetPos();
         uint32_t SB_Rate = VSB_GetSampleRate();
+        uint32_t freq = AU_getfreq( hAU );
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int channels = VSB_GetChannels();
         int pos = 0;
@@ -330,12 +353,12 @@ static void SNDISR_Interrupt( void )
 #endif
             count = samples - pos;
             resample = true; //don't resample if sample rates are close
-            if(SB_Rate < aui.freq_card)
-                //count = max(channels, count/((aui.freq_card+SB_Rate-1)/SB_Rate));
-                count = max(1, count * SB_Rate / aui.freq_card );
-            else if(SB_Rate > aui.freq_card)
+            if( SB_Rate < freq )
+                //count = max(channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
+                count = max(1, count * SB_Rate / freq );
+            else if(SB_Rate > freq )
                 //count *= (SB_Rate + aui.freq_card/2)/aui.freq_card;
-                count = count * SB_Rate / aui.freq_card;
+                count = count * SB_Rate / freq;
             else
                 resample = false;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
@@ -347,32 +370,32 @@ static void SNDISR_Interrupt( void )
             /* copy samples to our PCM buffer
              */
 #if PREMAPDMA
-            memcpy( ISR_PCM + pos * 2, NearPtr(MAIN_MappedBase + DMA_Addr + DMA_Index, bytes));
+            memcpy( pPCM + pos * 2, NearPtr(MAIN_MappedBase + DMA_Addr + DMA_Index, bytes));
 #else
             if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
-                memset(ISR_PCM + pos * 2, 0, bytes);
+                memset( pPCM + pos * 2, 0, bytes);
             } else
-                memcpy( ISR_PCM + pos * 2, NearPtr(ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr) + DMA_Index ), bytes);
+                memcpy( pPCM + pos * 2, NearPtr(ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr) + DMA_Index ), bytes);
 #endif
 
             /* format conversion needed? */
 #if ADPCM
             if( VSB_GetBits() < 8) //ADPCM  8bit
-                count = DecodeADPCM((uint8_t*)(ISR_PCM + pos * 2), bytes);
+                count = DecodeADPCM((uint8_t*)(pPCM + pos * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_8_to_16( ISR_PCM + pos * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
+                cv_bits_8_to_16( pPCM + pos * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
-                for ( i = pos * 2, j = i + count * channels; i < j; ISR_PCM[i] ^= 0x8000, i++ );
+                for ( i = pos * 2, j = i + count * channels; i < j; *(pPCM+i) ^= 0x8000, i++ );
 #endif
-            if( resample ) /* SB_Rate != aui.freq_card*/
-                count = mixer_speed_lq( ISR_PCM + pos * 2, count * channels, channels, SB_Rate, aui.freq_card)/channels;
+            if( resample ) /* SB_Rate != freq */
+                count = mixer_speed_lq( pPCM + pos * 2, count * channels, channels, SB_Rate, freq ) / channels;
             if( channels == 1) //should be the last step
-                cv_channels_1_to_2( ISR_PCM + pos * 2, count);
+                cv_channels_1_to_2( pPCM + pos * 2, count);
             pos += count;
             //dbgprintf(("samples:%d %d %d\n", count, pos, samples));
-            DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index+bytes, DMA_Count-bytes);
+            DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index + bytes, DMA_Count - bytes);
             //int LastDMACount = DMA_Count;
             DMA_Count = VDMA_GetCounter( dma );
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status! (register 0x82) */
@@ -396,7 +419,7 @@ static void SNDISR_Interrupt( void )
         //dbgprintf(("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() ));
 #if 1
         for( i = pos; i < samples; i++ )
-            ISR_PCM[i*2+1] = ISR_PCM[i*2] = 0;
+            *(pPCM + i*2+1) = *(pPCM + i*2) = 0;
 #else
         samples = min(samples, pos);
 #endif
@@ -407,7 +430,7 @@ static void SNDISR_Interrupt( void )
     //if( gvars.opl3 ) {
 #ifndef NOFM
 	if( VOPL3_IsActive() ) {
-        int16_t* pcm = digital ? ISR_OPLPCM : ISR_PCM;
+        int16_t* pcm = digital ? pOPLPCM : pPCM;
         int channels;
         VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
         //always use 2 channels
@@ -418,31 +441,56 @@ static void SNDISR_Interrupt( void )
         if( digital ) {
 #if MIXERROUTINE==0
             for( i = 0; i < samples * 2; i++ ) {
-                int a = (ISR_PCM[i] * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
-                int b = (ISR_OPLPCM[i] * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
+                int a = (*(pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
+                int b = (*(pOPLPCM+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
-                ISR_PCM[i] = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
+                *(pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
             }
 #elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
-            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol + ISR_OPLPCM[i] * midivol ) >> (8+1);
+            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * voicevol + *(pOPLPCM+i) * midivol ) >> (8+1);
 #else
             /* in assembly it's probably easier to handle signed/unsigned shifts */
-            SNDISR_Mixer( ISR_PCM, ISR_OPLPCM, samples * 2, voicevol, midivol );
+            SNDISR_Mixer( pPCM, pOPLPCM, samples * 2, voicevol, midivol );
 #endif
         } else
-            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * midivol ) >> 8;
+            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * midivol ) >> 8;
     } else {
 #endif
         if( digital )
-            for( i = 0; i < samples * 2; i++ ) ISR_PCM[i] = ( ISR_PCM[i] * voicevol ) >> 8;
+            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * voicevol ) >> 8;
         else
-            memset( ISR_PCM, 0, samples * sizeof(int16_t) * 2 );
+            memset( pPCM, 0, samples * sizeof(int16_t) * 2 );
 #ifndef NOFM
     }
 #endif
-    aui.samplenum = samples * 2;
-    aui.pcm_sample = ISR_PCM;
-
-    AU_writedata(&aui);
+    //aui.samplenum = samples * 2;
+    //aui.pcm_sample = ISR_PCM;
+    AU_writedata( hAU, samples * 2, pPCM );
 }
+
+bool SNDISR_InstallISR( uint8_t intno, int(*ISR)(void) )
+////////////////////////////////////////////////////////
+{
+    pOPLPCM = malloc( sizeof(int16_t) * (ISR_PCM_SAMPLESIZE + 256 ) );
+    pPCM    = malloc( sizeof(int16_t) * (ISR_PCM_SAMPLESIZE + 256 ) );
+    dbgprintf(("SNDISR_InstallISR: pcm buffers: %X %X\n", pPCM, pOPLPCM ));
+    if ( pOPLPCM && pPCM ) {
+        if ( _hdpmi_InstallISR( intno, ISR ) ) {
+            if ( _hdpmi_InstallInt31( intno ) ) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+bool SNDISR_UninstallISR( void )
+////////////////////////////////
+{
+    /* first uninstall int 31h, then ISR! */
+    _hdpmi_UninstallInt31();
+    return ( _hdpmi_UninstallISR() );
+}
+
+
+
