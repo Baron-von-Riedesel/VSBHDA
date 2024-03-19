@@ -8,6 +8,8 @@
 
 ENOMEM equ 5
 
+MINCHUNK equ 8000h
+
 	.data
 
 externdef errno:dword
@@ -28,9 +30,7 @@ endm
 __dprintf proto c :ptr, :vararg
 endif
 
-;--- expand DGROUP
-;--- returns -1 on error
-;--- updates _curbrk
+;--- updates _curbrk, _dynend
 
 __brk proc c uses esi edi ebx brk_value:dword
 
@@ -42,6 +42,10 @@ endif
 	mov eax, brk_value
 	add eax, 16-1
 	and al, 0f0h
+	cmp eax, MINCHUNK
+	jae @F
+	mov eax, MINCHUNK
+@@:
 	mov seg_size, eax
 
 ;--- DPMI realloc block function cannot be used, since

@@ -4,9 +4,6 @@
 #   wmake -f watcom16.mak
 # optionally, for a debug version, enter
 #   wmake -f watcom16.mak DEBUG=1
-#
-# jwlink is used instead of wlink, because wlink displays warning 1080
-# if a 32-bit object module is used in format DOS.
 
 !ifndef DEBUG
 DEBUG=0
@@ -19,7 +16,7 @@ WATCOM=\ow20
 CC=$(WATCOM)\binnt\wcc386
 CPP=$(WATCOM)\binnt\wpp386
 LINK=$(WATCOM)\binnt\wlink
-LINK=jwlink
+#LINK=jwlink
 LIB=$(WATCOM)\binnt\wlib
 ASM=jwasm.exe
 
@@ -59,8 +56,6 @@ C_EXTRA_FLAGS= -DSBEMU -DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
-LD_FLAGS=
-LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
 
 INCLUDES=-Isrc -Impxplay -I$(WATCOM)\h
 LIBS=
@@ -91,18 +86,21 @@ $(OUTD):
 $(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrt16x.obj $(OUTD)\init1632.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\cstrt16x, $(OUTD)\main, $(OUTD)\init1632 
-name $@ libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386 lib $(OUTD)\$(NAME).lib
-op q,m=$*.map
+file $(OUTD)\cstrt16x, $(OUTD)\main, $(OUTD)\init1632 name $@
+libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
+lib $*.lib
+op q,statics,m=$*.map
+disable 80
 <<
 
 $(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\dstrt16x, $(OUTD)\linear
-name $@ libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
-lib $*.lib lib clib3s.lib
+file $(OUTD)\dstrt16x name $@
+libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
+lib $*.lib
 op q,statics,m=$*.map
+disable 80
 <<
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
@@ -157,7 +155,6 @@ $(OUTD)/init1632.obj:  startup\init1632.asm
 $(OUTD)/sbrk.obj:      startup\sbrk.asm
 $(OUTD)/libmain.obj:   startup\libmain.c
 
-# to avoid any issues with 16-bit relocations in PE binaries,
 # the 16-bit code is included in binary format into rmwrap.asm.
 
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm

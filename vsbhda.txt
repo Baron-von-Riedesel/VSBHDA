@@ -45,14 +45,17 @@
    --------------------------------------
     HDPMI32i -x            HDPMI16i -x
     VSBHDA                 VSBHDA16
-  
+
+    Files start.bat and start16.bat are examples how this startup sequence
+   might look like.
+
     As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
    also, if it's not installed, UNINST.COM, a program to unload VSBHDA, won't
    work.
 
     Vsbhda16.exe loads file sndcard.drv during initialization. Due to
-   limitations of the 16-bit environment the binary had to be split into
-   two parts.
+   limitations of the 16-bit environment ( a module's code/data segments must
+   not exceed 64 kB ) the binary had to be split into two parts.
 
     With the BLASTER variable one can select what card VSBHDA is to emulate:
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select

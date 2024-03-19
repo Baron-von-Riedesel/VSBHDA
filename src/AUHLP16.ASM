@@ -1,5 +1,5 @@
 
-;--- for 16-bit variant: helper to call sndcard.drv binary.
+;--- for 16-bit variant: helper to call functions in sndcard.drv binary.
 ;--- the calls trigger a full stack switch, so that the called
 ;--- functions can assume small model setup SS=DS.
 
@@ -15,7 +15,7 @@ externdef c _linear_rmstack:dword
 
 LoadMod16 proto c :ptr, :ptr
 
-;--- 2. argument for LoadMod16
+;--- LoadMod16() fills LDPARMS
 
 LDPARMS struct
 wIP		dw ?
@@ -43,6 +43,7 @@ AU_setmixer_outs dd ?
 AU_setmixer_all  dd ?
 AU_writedata     dd ?
 AU_cardbuf_space dd ?
+DllStart dd ?
 SCDEXP ends
 
 	.data?
@@ -57,17 +58,29 @@ szDrv db "sndcard.drv",0
 
 	.code
 
-;--- macro to switch stacks & copy arguments
-;--- if an argument/return value is a near pointer, it must be converted.
-;--- this happens twice, currently.
+;--- macro to call an exported function in sndcard.drv
 
-callexp:
+@callexp macro func, argspace
+	mov eax, vec.func
+	mov ecx, argspace
+	call callexp
+endm
+
+;--- call function contained in SCDEXP.
+;--- switch stack, copy arguments, call function, switch stack back
+;--- eax=function to call
+;--- ecx=# of arguments to copy
+
+STKADJUST equ 2048h
+
+callexp proc
 	push es
 	push ds
 	push edi
 	push esi
 	mov es, scd.wSS
 	movzx edi, scd.wSP
+	sub scd.wSP, STKADJUST	; adjusting wSP, just in case
 	shl ecx, 2
 	sub edi, ecx
 	shr ecx, 2
@@ -77,16 +90,14 @@ callexp:
 	mov dx, sp
 	mov ss, scd.wSS
 	mov esp, edi
-;	mov eax, vec.func
 	stosd
-	movzx eax, scd.wCS
+	mov ax, scd.wCS
 	stosd
 	mov eax, retaddr
 	stosd
 	mov eax, cs
 	stosd
 	lea esi, [ebp+2*4]
-;	mov ecx, argspace
 	rep movsd
 	mov es:[edi], edx	; finally, our ss:sp
 	mov ds, scd.wSS
@@ -96,75 +107,51 @@ retaddr:
 	pop esi
 	pop edi
 	pop ds
+	add scd.wSP, STKADJUST
 	pop es
 	ret
-
-@callexp macro func, argspace
-	mov eax, vec.func
-	mov ecx, argspace
-	call callexp
-endm
+callexp endp
 
 ;--- AU_init is the first function that is called.
 
-AU_init proc c public a1:dword, a2:dword
+AU_init proc c public uses ebx esi edi a1:dword, a2:dword
 
 ;--- load the sndcard.drv binary.
 	invoke LoadMod16, addr szDrv, addr scd
 	cmp eax, 0
 	jz exit
-    push ebx
 	mov bx, scd.wSS
 	mov ax, 6
 	int 31h
-	pop ebx
 	mov word ptr [dwDrvBase+0], dx
 	mov word ptr [dwDrvBase+2], cx
 
 ;--- call the module's entry point
-;--- arguments are:
-;--- # es = psp
-;--- # edi= heap size
-;--- # esi= linear address real-mode stack
-	push es
-	push ds
-	pushad
-	mov es, [psp]
-	mov ecx, ss
-	mov edx, esp
+;--- call structure is:
+;---  void *DllStart( word psp_sel, uint32_t heapsize, uint32_t rmstack );
+
 	movzx eax, [scd.wIP]
-	mov bx, [scd.wCS]
-	mov ss, [scd.wSS]
-	movzx esp, [scd.wSP]
-	mov edi, [scd.dwHeap]
-	mov esi, _linear_rmstack
-	mov ds, [scd.wSS]
-	push cx
-	push dx
-	push cs
-	push @F
-	push ebx
-	push eax
-	retd
-@@:
-	lss sp, [esp]
-	mov [esp+1Ch], eax
+	mov vec.DllStart, eax
+	push _linear_rmstack
+	push scd.dwHeap
+	push [psp]
+	push 0
+	push ebp
+	movzx ebp, sp
+	@callexp DllStart, 3
+	pop ebp
+	add esp, 4*4
 	.if eax
 ;--- copy the exported functions array to vec
-		mov ecx, sizeof SCDEXP / 4
+		mov ecx, (sizeof SCDEXP - 4 ) / 4
 		mov edi, offset vec
+		add eax, dwDrvBase	;now a linear address
+		sub eax, DSBase		;now a near pointer
 		mov esi, eax
-		push ss
-		pop es
 		rep movsd
+;--- and finally call AU_init().
+		@callexp AU_init, 2
 	.endif
-	popad
-	pop ds
-	pop es
-	cmp eax, 0
-	jz exit
-;--- everything went well, so now call AU_init().
-	@callexp AU_init, 2
 exit:
 	ret
 

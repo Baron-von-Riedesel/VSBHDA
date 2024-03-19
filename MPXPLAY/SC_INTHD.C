@@ -41,7 +41,6 @@
 #endif
 
 #define USE_IMMEDIATECMDS 0
-#define RIRB_START 0x2
 
 
 struct intelhd_card_s
@@ -204,41 +203,20 @@ static void azx_init_pci(struct intelhd_card_s *card)
 static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 /////////////////////////////////////////////////////////////////////////
 {
-	int timeout = 2000; // 200 ms
-
-#if USEIMMEDIATECMDS //Immediate Commands are optional, some devices don't have it, use CORB
-
-	while((azx_readw(chip, IRS) & HDA_IRS_BUSY) && (--timeout))
-		pds_delay_10us(10);
-
-	if(!timeout) {dbgprintf(("azx_single_send_cmd: timeout\n"));}
-
-	pds_delay_10us(INTHD_CODEC_EXTRA_DELAY_US/10); // 0.1 ms
-
-	azx_writel(chip, IC, val);
-	azx_writew(chip, IRS, azx_readw(chip, IRS) | (HDA_IRS_VALID | HDA_IRS_BUSY));
-
-#else
-
+	int        timeout      = 2000; // 200 ms
 	static int corbsizes[4] = {2, 16, 256, 0};
-	int corbsize = corbsizes[(azx_readb( chip, CORBSIZE) & 0x3 )];
-	int corbindex = azx_readw( chip, CORBWP ) & 0xFF;
-	do
-	{
-		int corbread = azx_readw(chip, CORBRP);
-		if( ( (corbindex+1) % corbsize) != corbread )
-			break;
-		pds_delay_10us(10);
-	}while(--timeout);
+	int        corbsize     = corbsizes[(azx_readb( chip, CORBSIZE) & 0x3 )];
+	int        corbindex    = azx_readw( chip, CORBWP ) & 0xFF;  /* get current CORB write pointer */
+    uint8_t    corbrp       = azx_readw( chip, CORBRP ) & 0xFF;
 
-	if(!timeout) {dbgprintf(("azx_single_send_cmd: timeout\n"));}
-
-	corbindex = (corbindex+1) % corbsize;
+	corbindex = (corbindex + 1) % corbsize;
 	chip->corb_buffer[corbindex] = val;
-	azx_writew(chip, CORBWP, corbindex);
-	azx_writeb(chip, CORBCTL, 0x2); //start CORB DMA engine
-#endif
+	azx_writew(chip, CORBWP, corbindex); /* update buffer pointer */
+	/* wait till cmd has been sent */
+    for ( ; timeout && (corbrp == ( azx_readw( chip, CORBRP ) & 0xFF ) ); timeout--, pds_delay_10us(100) );
 }
+
+/* argument "direct" is always zero */
 
 static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t direct, unsigned int verb, unsigned int parm)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -254,61 +232,32 @@ static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t
 	azx_single_send_cmd(chip, val);
 }
 
-static unsigned int azx_get_response(struct intelhd_card_s *chip)
-/////////////////////////////////////////////////////////////////
-{
-	int timeout = 2000; // 200 ms
-	int rirbindex;
-	long long data;
-
-#if USEIMMEDIATECMDS //Immediate Commands are optional, some devices don't have it, use CORB
-
-	do{
-		uint16_t irs = azx_readw(chip, IRS);
-		if(( irs & HDA_IRS_VALID ) && !( irs & HDA_IRS_BUSY ))
-			break;
-		pds_delay_10us(10);
-	}while(--timeout);
-
-	if(!timeout) {dbgprintf(("azx_get_response: timeout\n"));}
-
-	pds_delay_10us(10);
-
-	return azx_readl(chip, IR);
-
-#else
-
-	//azx_writeb(chip, RIRBCTL, RIRB_START );
-	do{
-		if(azx_readb(chip, RIRBSTS) & 1)
-			break;
-		pds_delay_10us(10);
-	}while(--timeout);
-
-	if(!timeout) {dbgprintf(("azx_get_response: timeout\n"));}
-
-	rirbindex = azx_readw( chip, RIRBWP );
-	data = chip->rirb_buffer[rirbindex];
-	azx_writeb(chip, RIRBSTS, 1); /* writing a 1 clears bit 0! */
-	return (unsigned int)data;
-
-#endif
-}
-
-/* send a cmd to codec and return response
+/* send a cmd to codec and return response.
+ * argument "direct" is always zero.
  */
 
 static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t direct, unsigned int verb, unsigned int parm)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-#if !USEIMMEDIATECMDS
-	//dbgprintf(( "hda_codec_read: start RIRB DMA engine\n" ));
-	azx_writeb(chip, RIRBCTL, RIRB_START ); /* start RIRB DMA engine */
-#endif
-	//dbgprintf(( "hda_codec_read: write verb\n" ));
+	int timeout = 2000; // 200 ms
+	int rirbindex;
+	uint16_t rirbwp = azx_readw( chip, RIRBWP );
+	long long data;
+
+	dbgprintf(( "hda_codec_read: write verb %X, parm=%X\n", verb, parm ));
+
 	hda_codec_write( chip, nid, direct, verb, parm );
-	//dbgprintf(( "hda_codec_read: getting response\n" ));
-	return azx_get_response(chip);
+
+	dbgprintf(( "hda_codec_read: waiting for response\n" ));
+	for( ; timeout && ( rirbwp == azx_readw( chip, RIRBWP ) ); timeout--, pds_delay_10us(100) );
+	if (!timeout) {
+		dbgprintf(( "hda_codec_read: timeout waiting for codec response\n" ));
+		return 0;
+	}
+	rirbindex = azx_readw( chip, RIRBWP );
+	data = chip->rirb_buffer[rirbindex];
+	//azx_writeb(chip, RIRBSTS, 1); /* writing a 1 clears bit 0! */
+	return (unsigned int)data;
 }
 
 static void hda_codec_setup_stream(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t stream_tag, int channel_id, int format)
@@ -345,7 +294,7 @@ static void hda_search_audio_node(struct intelhd_card_s *card)
 	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
 	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
 	for( i = 0; i < total_nodes; i++, nid++ ){
-		if(( codec_param_read(card,nid,AC_PAR_FUNCTION_TYPE) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
+		if(( codec_param_read( card, nid, AC_PAR_FUNCTION_TYPE ) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
 			card->afg_root_nodenum = nid;
 			break;
 		}
@@ -729,77 +678,6 @@ static int hda_parse_output(struct intelhd_card_s *card)
 	return 1;
 }
 
-static unsigned int azx_reset(struct intelhd_card_s *chip)
-//////////////////////////////////////////////////////////
-{
-	int timeout;
-
-	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
-
-	azx_writeb(chip, STATESTS, STATESTS_INT_MASK);
-	azx_writel(chip, GCTL, azx_readl(chip, GCTL) & ~HDA_GCTL_RESET);
-
-	dbgprintf(("azx_reset: GCTL=%X(b) GCTL=%X(l)\n", azx_readb(chip, GCTL), azx_readl(chip, GCTL)));
-	timeout = 500;
-	while((( azx_readb(chip, GCTL) & HDA_GCTL_RESET) != 0 ) && (--timeout))
-		pds_delay_10us(100);
-	dbgprintf(("azx_reset: GCTL=%X timeout=%d\n",azx_readl(chip, GCTL),timeout));
-
-	pds_delay_10us(100);
-	azx_writeb(chip, GCTL, azx_readb(chip, GCTL) | HDA_GCTL_RESET);
-	timeout = 500;
-	while(((azx_readb(chip, GCTL)&HDA_GCTL_RESET) == 0) && (--timeout))
-		pds_delay_10us(100);
-	pds_delay_10us(100);
-	dbgprintf(("azx_reset: after reset, GCTL=%X timeout=%d\n", azx_readb(chip, GCTL), timeout));
-	if(!azx_readb(chip, GCTL)){
-		dbgprintf(("HDA controller not ready!\n"));
-		return 0;
-	}
-
-	// disable unsolicited responses (single cmd mode)
-	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~HDA_GCTL_UREN)));
-
-	// set CORB command DMA buffer
-	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
-	azx_writel(chip, CORBUBASE, 0 );
-	azx_writew(chip, CORBWP, 0 );
-
-    /* to reset CORB RP, set/reset bit 15 */
-	azx_writew(chip, CORBRP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
-	/* according to specs wait until bit 15 changes to 1. then write a
-	* 0 and again wait until a 0 is read.
-	 */
-#if 1
-	timeout = 500;
-	while ( ( 0 == (azx_readw( chip, CORBRP ) & 0x8000 ) ) && timeout--) {
-		pds_delay_10us(100);
-	}
-#endif	
-	azx_writew(chip, CORBRP, 0 );
-#if 1
-	timeout = 500;
-	while ( (azx_readw( chip, CORBRP ) & 0x8000 ) && timeout-- ) {
-		pds_delay_10us(100);
-	}
-#endif	
-	//azx_writeb(chip, CORBSIZE, 0);
-
-	azx_writel(chip, RIRBLBASE, pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
-	azx_writel(chip, RIRBUBASE, 0 );
-	azx_writew(chip, RIRBWP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
-	//azx_writeb(chip, RIRBSIZE, 0); maybe only 1 supported
-	azx_writew(chip, RIRBRIC, 1); //1 response for one interrupt each time
-
-	pds_delay_10us(100);
-
-	chip->codec_mask = azx_readw(chip, STATESTS);
-
-	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
-
-	return 1;
-}
-
 static unsigned long hda_get_max_freq(struct intelhd_card_s *card)
 //////////////////////////////////////////////////////////////////
 {
@@ -871,30 +749,102 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	return 1;
 }
 
+static unsigned int azx_reset(struct intelhd_card_s *chip)
+//////////////////////////////////////////////////////////
+{
+	int timeout;
+
+	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
+
+	;
+	if ( !(azx_readl(chip, GCTL ) & HDA_GCTL_RESET )) {
+		azx_writel(chip, GCTL, azx_readl(chip, GCTL) | HDA_GCTL_RESET );
+
+		timeout = 500;
+		while( (!azx_readl(chip, GCTL) & HDA_GCTL_RESET) && (--timeout))
+			pds_delay_10us(100);
+		if( !timeout ) {
+			dbgprintf(("HDA controller not ready!\n"));
+			return 0;
+		}
+	}
+	// disable unsolicited responses (single cmd mode)
+	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~HDA_GCTL_UREN)));
+
+    /* reset CORB & RIRB */
+    azx_writew( chip, CORBCTL, azx_readw( chip, CORBCTL ) & ~2 );
+	azx_writew( chip, RIRBCTL, azx_readw( chip, CORBCTL ) & ~2 );
+	for( timeout = 100;
+		(azx_readw(chip, CORBCTL) & 2) && timeout;
+		 timeout--, pds_delay_10us(10));
+
+	// set CORB command DMA buffer
+	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
+	azx_writel(chip, CORBUBASE, 0 );
+	azx_writew(chip, CORBWP, 0 );
+
+	/* to reset CORB RP, set/reset bit 15 */
+	azx_writew(chip, CORBRP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
+	/* according to specs wait until bit 15 changes to 1. then write a
+	 * 0 and again wait until a 0 is read.
+	 */
+#if 1
+	timeout = 500;
+	while ( ( 0 == (azx_readw( chip, CORBRP ) & 0x8000 ) ) && timeout--) {
+		pds_delay_10us(100);
+	}
+#endif
+	azx_writew(chip, CORBRP, 0 );
+#if 1
+	timeout = 500;
+	while ( (azx_readw( chip, CORBRP ) & 0x8000 ) && timeout-- ) {
+		pds_delay_10us(100);
+	}
+#endif
+	//azx_writeb(chip, CORBSIZE, 0);
+
+	azx_writel(chip, RIRBLBASE, pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
+	azx_writel(chip, RIRBUBASE, 0 );
+	azx_writew(chip, RIRBWP, (int16_t)0x8000 ); /* reset RIRB write pointer */
+	//azx_writeb(chip, RIRBSIZE, 0); maybe only 1 supported
+	azx_writew(chip, RIRBRIC, 64); //1 response for one interrupt each time
+
+	pds_delay_10us(100);
+
+	chip->codec_mask = azx_readw(chip, STATESTS);
+
+	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
+
+	return 1;
+}
+
 static void hda_hw_init(struct intelhd_card_s *card)
 ////////////////////////////////////////////////////
 {
 	azx_init_pci(card);
 	azx_reset(card);
 
+	/* set stream int mask */
 	azx_sd_writeb(card, SD_STS, SD_INT_MASK);
-	azx_writeb(card, STATESTS, STATESTS_INT_MASK);
+
+	/* should not be written */
+	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
+
 	azx_writeb(card, RIRBSTS, RIRB_INT_MASK);
-	azx_writel(card, INTSTS, HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM);
-#ifdef SBEMU
+
+	/* set interrupt control register */
 	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM);
-#else
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN);
-#endif
+	/* interrupt status register is RO! */
+	//azx_writel(card, INTSTS, HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM);
 
 	azx_writel(card, DPLBASE, 0);
 	azx_writel(card, DPUBASE, 0);
 
 	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) ));
 	dbgprintf(("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
+		azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
 	dbgprintf(("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
+		azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
 
 }
 
@@ -906,11 +856,11 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 	dbgprintf(("hda_mixer_init: reading codec vendor id...\n"));
 	card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
-	if(card->codec_vendor_id <= 0)
-		card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT,AC_PAR_VENDOR_ID);
+	if( card->codec_vendor_id <= 0 )
+		card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
 
 	dbgprintf(("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id));
-	hda_search_audio_node(card);
+	hda_search_audio_node( card );
 	if( !card->afg_root_nodenum ) {
 		dbgprintf(("hda_mixer_init: no afg found\n"));
 		goto err_out_mixinit;
@@ -1379,6 +1329,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	//if(pcibios_search_devices(intelhda_devices,card->pci_dev)!=PCI_SUCCESSFUL)
 	for ( ;; aui->card_select_devicenum++ ) {
 		__dpmi_meminfo info;
+		unsigned int timeout;
+
 		card->pci_dev->device_type = AZX_DRIVER_GENERIC; /* set as default, will be changed if device is known */
 		if(pcibios_FindDeviceClass( 4, 3, 0, aui->card_select_devicenum, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
 			break;
@@ -1425,6 +1377,11 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		dbgprintf(("HDA_adetect: hw init done\n" ));
 
 		/* hda_mixer_init talks to codec; means CORB/RIRB must be ready to use */
+		azx_writeb( card, CORBCTL, 2 ); /* start CORB DMA engine */
+		azx_writeb( card, RIRBCTL, 2 ); /* start RIRB DMA engine */
+		/* wait till engines are up */
+		for ( timeout = 0; timeout < 100 && !(azx_readb( card, CORBCTL ) & 2); timeout++, pds_delay_10us(100) );
+
 		for( i = 0; i < AZX_MAX_CODECS; i++ ){
 			if( card->codec_mask & ( 1 << i) ) {
 				card->codec_index = i;

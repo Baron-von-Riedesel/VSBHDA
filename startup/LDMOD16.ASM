@@ -6,7 +6,7 @@
 	.386
 	.model small
 
-HEAPSIZE equ 8000h	;additional memory behind stack
+HEAPSIZE equ 1000h	;additional memory behind stack
 
 IMAGE_DOS_HEADER STRUCT
   e_magic           WORD      ?	;+0
@@ -113,6 +113,8 @@ local mzhdr:IMAGE_DOS_HEADER
 	movzx edx, mzhdr.e_minalloc
 	shl edx, 4
 	add eax, edx
+	add eax, 4-1	; ensure the size is dword aligned
+	and al, 0fch
 	mov dwSizeAllData, eax
 
 ;--- alloc code

@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -28,8 +29,6 @@ static const int VSB_DSPVersion[] =
     0x0405, /* type 6: SB16 */
 #endif
 };
-
-extern void pds_mdelay(unsigned long x);
 
 void MAIN_Uninstall( void );
 
@@ -74,7 +73,7 @@ static const int VSB_TimeConstantMapMono[][2] =
 static const uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.";
 
 static int DSPDataBytes = 0;
-static uint8_t *pData;
+static uint8_t *pData = NULL;
 static uint8_t DataBuffer[2];
 static uint8_t bSpeaker;
 #if LATERATE
@@ -204,7 +203,7 @@ static void DSP_Reset( uint8_t value )
 //////////////////////////////////////
 {
     dbgprintf(("DSP_Reset: %u\n",value));
-    if(value == 1) {
+	if(value == 1) {
         VSB_ResetState = VSB_RESET_START;
         VSB_MixerRegs[SB_MIXERREG_INT_SETUP] = 1 << VSB_Indexof(VSB_IRQMap, countof(VSB_IRQMap), VSB_IRQ);
         //VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << VSB_DMA) & 0xEB;
@@ -246,6 +245,7 @@ static void DSP_Reset( uint8_t value )
             break;
         case 0x55:  /* uninstall */
             MAIN_Uninstall();
+            break;
         }
     }
 }
@@ -338,7 +338,7 @@ static void DSP_Write( uint8_t value )
 			break;
 		case SB_DSP_COPYRIGHT: /* E3 */
 			pData = (uint8_t *)SB_Copyright;
-			DSPDataBytes = sizeof( SB_Copyright ) - 1;
+			DSPDataBytes = sizeof( SB_Copyright );
 			break;
 		case SB_DSP_READ_TESTREG: /* E8 */
 			pData = DataBuffer;
@@ -357,11 +357,22 @@ static void DSP_Write( uint8_t value )
 			DataBuffer[0] = VSB_Started ? (( VSB_Bits <= 8 ? 1 : 4 ) ) : 0;
 			break;
 #endif
-        case 0x2A: //unknown commands
+		case SB_DSP_DSP_AUX_STATUS: /* FC */
+			pData = DataBuffer;
+			DSPDataBytes = 1;
+			DataBuffer[0] = VSB_Auto << 4; /* aux status, bits 1,2,4 */
             break;
-        default:
+		case 0x04: //unknwn ASP cmd
+		case 0x2A: //???
+            dbgprintf(("DSP_Write: unknown cmd %X\n", value ));
+            VSB_DSPCMD_Subindex = 0;
+            DSPDataBytes = 0;
+            break;
+		default:
+			dbgprintf(("DSP_Write: generic cmd %X\n", value ));
             VSB_DSPCMD = value;
             VSB_DSPCMD_Subindex = 0;
+            DSPDataBytes = 0;
         }
 #if SB16
     } else if ( VSB_DSPCMD >= 0xB0 && VSB_DSPCMD <= 0xCF ) {
@@ -391,7 +402,7 @@ static void DSP_Write( uint8_t value )
 #endif
     } else {
         int i;
-        switch(VSB_DSPCMD) {
+        switch( VSB_DSPCMD ) {
         case SB_DSP_SET_TIMECONST: /* 40 */
             VSB_SampleRate = 0;
 #if !LATERATE
@@ -481,11 +492,34 @@ static void DSP_Write( uint8_t value )
             pData = DataBuffer;
             DSPDataBytes = 1;
             DataBuffer[0] = value ^ 0xFF;
+            VSB_DSPCMD_Subindex = 2; //only 1byte
+            break;
+		case 0x0E: /* used by diagnose.exe, expect 2 bytes */
+			dbgprintf(("DSP_Write: cmd=%X, byte[%u]=%X\n", VSB_DSPCMD, VSB_DSPCMD_Subindex, value ));
+			if ( VSB_DSPCMD_Subindex == 1 ) {
+				pData = DataBuffer;
+				DSPDataBytes = 1;
+				DataBuffer[0] = 0; /* no idea what is expected */
+			}
+			VSB_DSPCMD_Subindex++;
+			break;
+        case 0x0F: /* used by diagnose.exe, expect 1 byte */
+			dbgprintf(("DSP_Write: cmd=%X, byte[%u]=%X\n", VSB_DSPCMD, VSB_DSPCMD_Subindex, value ));
+			pData = DataBuffer;
+			DSPDataBytes = 1;
+			VSB_DSPCMD_Subindex = 2;
+			DataBuffer[0] = 0; /* no idea what is expected */
+			break;
+        case 0x05: /* ASP cmd */
+            VSB_DSPCMD_Subindex++;
             break;
         case SB_DSP_WRITE_TESTREG: /* E4 */
             VSB_TestReg = value;
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
+        default:
+            dbgprintf(("DSP_Write: unhandled cmd %X\n", VSB_DSPCMD ));
+            VSB_DSPCMD_Subindex++; /* unknown cmd: just ensure that cmd will be reset */
         } /* end switch */
         if( VSB_DSPCMD_Subindex >= 2 )
             VSB_DSPCMD = -1;
@@ -500,13 +534,20 @@ static void DSP_Write( uint8_t value )
 static uint8_t DSP_Read( void )
 ///////////////////////////////
 {
-    if ( DSPDataBytes ) {
-        dbgprintf(("DSP_Read: %X\n", *pData ));
-        DSPDataBytes--;
-        VSB_RS &= 0x7F;
-        return( *(pData++));
-    }
-    dbgprintf(("DSP_Read: read buffer empty (FFh)\n"));
+	if ( DSPDataBytes ) {
+		uint8_t rc;
+		dbgprintf(("DSP_Read: %X (DSP cmd=%X)\n", *pData, VSB_DSPCMD ));
+		DSPDataBytes--;
+		VSB_RS &= 0x7F;
+		rc = *pData;
+		if (DSPDataBytes ) pData++;
+		return( rc );
+	} else if ( pData ) {
+		/* return the last byte that was sent */
+		dbgprintf(("DSP_Read: read buffer empty, returning %X\n", *pData ));
+        return *pData;
+	}
+    dbgprintf(("DSP_Read: read buffer empty (FFh) (DSP cmd=%X)\n", VSB_DSPCMD));
     return 0xFF;
 }
 
@@ -528,13 +569,13 @@ static uint8_t DSP_WriteStatus( void )
 static uint8_t DSP_ReadStatus( void )
 /////////////////////////////////////
 {
-    VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x1; /* bit 0-2: IRQ 8,16,MIDI */
+	VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x1; /* bit 0-2: IRQ 8,16,MIDI */
 
-    if ( DSPDataBytes || ( VSB_ResetState != VSB_RESET_END ) )
+    if ( DSPDataBytes )
         VSB_RS |= 0x80;
-    dbgprintf(("DSP_ReadStatus=%X\n", VSB_RS));
 
-    return VSB_RS;
+	dbgprintf(("DSP_ReadStatus=%X (cmd=%X)\n", VSB_RS, VSB_DSPCMD ));
+	return VSB_RS;
 }
 
 /* read port 02xF */

@@ -89,7 +89,8 @@ $(OUTD):
 $(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib
 	@$(LINK) @<<
 format win pe runtime console
-file $(OUTD)\main.obj name $@
+file $(OUTD)\main.obj, $(OUTD)\linear.obj
+name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 libfile cstrtdhx.obj
 lib $(OUTD)\$(NAME).lib
