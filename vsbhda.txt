@@ -31,7 +31,7 @@
    nature of DPMI one cannot mix 32-bit and 16-bit clients in an address
    space. Hence vsbhda.exe can only communicate with 32-bit protected-mode
    games, while vsbhda16 is limited to 16-bit protected-mode ones. Both
-   varians support real-mode games, though.
+   variants support real-mode games, though.
 
    The steps to load the VSBHDA emulation layer are
    
@@ -47,11 +47,13 @@
     VSBHDA                 VSBHDA16
 
     Files start.bat and start16.bat are examples how this startup sequence
-   might look like.
+   might look like. UNINST.COM may be used to unload the programs. This must
+   be done if one wants to switch from 32-bit to 16-bit and vice versa; the
+   programs themselves have problems to detect the presence of the other
+   variant.
 
     As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
-   also, if it's not installed, UNINST.COM, a program to unload VSBHDA, won't
-   work.
+   also, if it's not installed, UNINST.COM won't work.
 
     Vsbhda16.exe loads file sndcard.drv during initialization. Due to
    limitations of the 16-bit environment ( a module's code/data segments must
@@ -98,7 +100,7 @@
     Some DOS games refuse to run if too much extended memory is available. There
    are some simple software workarounds for such issues:
 
-   - HDPMI32i's -x cmdline option: this restricts the free DPMI memory to 256MB.
+   - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
      Optionally, this can be further reduced by appending a digit to -x: -x2
      reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
      since it's just the amount of memory that's reported as free - the program 
@@ -114,10 +116,10 @@
    4.3 Jemm's NOVCPI Option
    
     If VSBHDA is to work for DOS protected-mode games, those games must use the
-   HDPMI32i DPMI host. This is usually no problem, because there's an API to
-   detect the presence of such a host. However, games may ignore an installed
-   DPMI host and use the so-called VCPI API instead to run their very own low-
-   level code. This will actually deactivate HDPMI32i ( and VSBHDA ) for the
-   game. For such cases, Jemm386/JemmEx offers the NOVCPI option. This option
-   must be set *after* VSBHDA has been loaded and *before* the game is launched.
+   HDPMI32i/HDPMI16i DPMI host. This is usually no problem, because there's an
+   API to detect the presence of such a host. However, games may ignore an
+   installed DPMI host and use the so-called VCPI API instead to run their very
+   own low-level code. This will actually deactivate VSBHDA for the game. To
+   cover such cases, Jemm386/JemmEx offers the NOVCPI option. This option must
+   be set *after* VSBHDA has been loaded and *before* the game is launched.
 

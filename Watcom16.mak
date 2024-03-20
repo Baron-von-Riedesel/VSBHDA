@@ -41,13 +41,13 @@ OBJFILES = &
 !endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj
+	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj
 
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/time.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/libmain.obj   
+	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/libmain.obj   
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -152,6 +152,7 @@ $(OUTD)/cstrt16x.obj:  startup\cstrt16x.asm
 $(OUTD)/dstrt16x.obj:  startup\dstrt16x.asm
 $(OUTD)/ldmod16.obj:   startup\ldmod16.asm
 $(OUTD)/init1632.obj:  startup\init1632.asm
+$(OUTD)/malloc.obj:    startup\malloc.asm
 $(OUTD)/sbrk.obj:      startup\sbrk.asm
 $(OUTD)/libmain.obj:   startup\libmain.c
 

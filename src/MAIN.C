@@ -38,7 +38,7 @@
 #define VOL_DEFAULT 7
 
 #define VERMAJOR "1"
-#define VERMINOR "3"
+#define VERMINOR "4"
 
 #ifndef DJGPP
 uint32_t    __djgpp_stack_top;

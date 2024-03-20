@@ -1,0 +1,27 @@
+
+  v1.4. __.3.2024
+
+  - added 16-bit protected-mode variant vsbhda16.exe.
+  - reworked HDA initialization code
+  - Creative's diagnose.exe accepts vsbhda's SB emulation.
+  - fix: virtual DMA address may have been too high (crash in tyrian2k)
+  - fix: writes to virtual DMA channel ports C0h-DFh caused writes to
+    ports 10-1Fh
+
+  v1.3. 26.3.2024
+
+  - source made compatible with Open Watcom 2.0.
+  - tool chain changed to Open Watcom 2.0; gives a significant size reduction.
+
+  v1.2, 26.2.2024
+
+  - reset "interrupt disable" bit in PCI config space
+  - PCI access with BIOS functions.
+
+  v1.1,  9.2.2024
+
+  - fix: code for port trap 0x20 in real-mode modified AH register
+
+  v1.0, 12.4.2023
+
+  - initial
