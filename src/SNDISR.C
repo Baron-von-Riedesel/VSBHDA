@@ -474,7 +474,7 @@ bool SNDISR_InstallISR( uint8_t intno, int(*ISR)(void) )
 {
     pOPLPCM = malloc( sizeof(int16_t) * (ISR_PCM_SAMPLESIZE + 256 ) );
     pPCM    = malloc( sizeof(int16_t) * (ISR_PCM_SAMPLESIZE + 256 ) );
-    dbgprintf(("SNDISR_InstallISR: pcm buffers: %X %X\n", pPCM, pOPLPCM ));
+    dbgprintf(("SNDISR_InstallISR: pOPLPCM=%X pPCM=%X\n", pOPLPCM, pPCM ));
     if ( pOPLPCM && pPCM ) {
         if ( _hdpmi_InstallISR( intno, ISR ) ) {
             if ( _hdpmi_InstallInt31( intno ) ) {

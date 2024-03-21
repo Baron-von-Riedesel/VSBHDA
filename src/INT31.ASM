@@ -27,8 +27,8 @@ SEGOFS equ 2
 IRETFLOFS equ 2*2
 insIRET textequ <IRET>
 
-externdef dfOldISR:dword
-externdef oldexc00:dword
+externdef dfOldISR:dword	; in _TEXT for 16-bit
+externdef oldexc00:dword	; in _TEXT for 16-bit
 
 PF16 typedef ptr far16
 oldint31 PF16 ?
@@ -115,7 +115,7 @@ is202:
 	cmp bl,0
 	jnz prevint
 	mov dx, word ptr cs:[oldexc00+0]
-	mov dx, word ptr cs:[oldexc00+2]
+	mov cx, word ptr cs:[oldexc00+2]
 	insIRET
 is203:
 	cmp bl,0

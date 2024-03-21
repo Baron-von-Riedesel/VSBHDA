@@ -31,7 +31,9 @@ __brk proto c :dword
 malloc proc c public amnt:dword
 
 ifdef _DEBUG
-	invoke __dprintf, CStr(MODULE,": malloc(%X) dynend=%X curbrk=%X",10), amnt, _dynend, _curbrk
+	mov eax, _curbrk
+	sub eax, _dynend
+	invoke __dprintf, CStr("%X: malloc(%X) free=%X (dynend/curbrk=%X/%X",10), cs, amnt, eax, _dynend, _curbrk
 endif
 tryagain:
 	mov ecx, amnt
@@ -51,6 +53,9 @@ outofmem:
 	invoke __brk, ecx	; __brk() will update _curbrk AND _dynend -
 	and eax, eax		; meaning that a new "stack" has begun.
 	jnz tryagain
+ifdef _DEBUG
+	invoke __dprintf, CStr("%X: malloc(%X) failed",10), cs, amnt
+endif
 	ret
 malloc endp
 
@@ -65,13 +70,13 @@ free proc c public pMem:ptr
 	jz reset
 @@:
 ifdef _DEBUG
-	invoke __dprintf, CStr(MODULE,": free(%X) failed",10), ecx
+	invoke __dprintf, CStr("%X: free(%X) failed",10), cs, ecx
 endif
 	ret
 reset:
 	mov _dynend, ecx
 ifdef _DEBUG
-	invoke __dprintf, CStr(MODULE,": free(%X) ok",10), ecx
+	invoke __dprintf, CStr("%X: free(%X) ok",10), cs, ecx
 endif
 	ret
 free endp
