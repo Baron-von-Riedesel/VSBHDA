@@ -15,6 +15,7 @@
 //function: common AC97 mixer definitions (for SB Live, ES1371, ICH)
 
 #include <stdint.h>
+#include <stddef.h>
 
 #include "MPXPLAY.H"
 #include "AC97MIX.H"

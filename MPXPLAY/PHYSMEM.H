@@ -2,7 +2,7 @@
 //*                     This file is part of the                           *
 //*                      Mpxplay - audio player.                           *
 //*                  The source code of Mpxplay is                         *
-//*        (C) copyright 1998-2008 by PDSoft (Attila Padar)                *
+//*        (C) copyright 1998-2012 by PDSoft (Attila Padar)                *
 //*                http://mpxplay.sourceforge.net                          *
 //*                  email: mpxplay@freemail.hu                            *
 //**************************************************************************
@@ -12,20 +12,32 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: memory handling
 
-#include <stdint.h>
-#include <malloc.h>
+#ifndef physmem_h
+#define physmem_h
 
-void *pds_calloc( unsigned int nitems, unsigned int itemsize)
-/////////////////////////////////////////////////////////////
-{
-	void *p = calloc( nitems, itemsize );
-	return p;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct xmsmem_s{
+	union {
+		uint32_t dwLinear;  /* the linear address is usually converted to a near ptr! */
+		char *pMem;
+	};
+	uint32_t physicalptr;
+	unsigned short handle;
+};
+
+#define cardmem_s xmsmem_s
+#define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->pMem))
+
+//physmem.c
+extern int  _alloc_physical_memory( struct xmsmem_s *, uint32_t size);
+extern void _free_physical_memory( struct xmsmem_s *);
+
+#ifdef __cplusplus
 }
+#endif
 
-void pds_free( void *bufptr )
-/////////////////////////////
-{
-	free( bufptr );
-}
+#endif // physmem_h

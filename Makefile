@@ -30,7 +30,7 @@ OBJFILES=\
 	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
 	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
-	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/time.o\
+	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o	$(OUTD)/uninst.o
@@ -39,7 +39,7 @@ INCLUDE_DIRS=src mpxplay
 SRC_DIRS=src mpxplay
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
-C_EXTRA_FLAGS=-march=i386 -DSBEMU
+C_EXTRA_FLAGS=-march=i386
 LD_FLAGS=$(addprefix -Xlinker ,$(LD_EXTRA_FLAGS))
 LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 
@@ -83,19 +83,19 @@ $(OUTD)/rmwrap.o:: rmwrap.asm rmcode.asm
 	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode.bin src/rmcode.asm
 	jwasm.exe -q -djgpp -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
-$(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h newfunc.h ac97mix.h
-$(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h newfunc.h dmairq.h config.h
-$(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h newfunc.h dmairq.h
+$(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h ac97mix.h
+$(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h dmairq.h config.h
+$(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h dmairq.h
 $(OUTD)/memory.o::   memory.c
-$(OUTD)/pcibios.o::  pcibios.c   pcibios.h newfunc.h
-$(OUTD)/physmem.o::  physmem.c   newfunc.h
-$(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
-$(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h sc_inthd.h
-$(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbl24.h emu10k1.h
-$(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97mix.h sc_sbliv.h emu10k1.h
-$(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmairq.h pcibios.h newfunc.h ac97.h
-$(OUTD)/time.o::     time.c      mpxplay.h au_cards.h newfunc.h
+$(OUTD)/pcibios.o::  pcibios.c   pcibios.h
+$(OUTD)/physmem.o::  physmem.c
+$(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h
+$(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h sc_inthd.h
+$(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
+$(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
+$(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97.h
+$(OUTD)/timer.o::    timer.c     mpxplay.h au_cards.h timer.h
 
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/linear.o::   linear.c    linear.h platform.h

@@ -25,7 +25,7 @@
 
 #include "PLATFORM.H"
 #include "DJDPMI.H"
-#include "NEWFUNC.H"
+#include "MEMORY.H"
 #include "PCIBIOS.H"
 
 /* PCIBIOSACCESS 1 requires the go32 transfer buffer to be present; that's

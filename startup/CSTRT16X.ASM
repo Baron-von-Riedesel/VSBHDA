@@ -99,7 +99,6 @@ CONST2  ends
 
 	.data
 __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
-__csalias dw 0
 __8087    db 0
 __real87  db 0
 
@@ -142,6 +141,8 @@ _cstart_ proc near public
 	align 4
 	dd ___begtext              ; make sure dead code elimination
 
+__csalias dw 0
+
 around:
 ifdef _DEBUG
 	invoke __dprintf, CStr("vsbhda16: entry, esp=%X",10), esp
@@ -155,7 +156,12 @@ endif
 	mov ebx, cs
 	mov ax, 000Ah
 	int 31h
+	push ds
+	mov ds, eax
+	assume ds:_TEXT
 	mov __csalias, ax
+	pop ds
+	assume ds:DGROUP
 
 	mov ebx, ds
 	mov ax, 0006h

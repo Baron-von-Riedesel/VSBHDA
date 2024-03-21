@@ -22,6 +22,7 @@
 #include "CONFIG.H"
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
+#include "PHYSMEM.H"
 #include "LINEAR.H"
 
 struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)

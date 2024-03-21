@@ -41,18 +41,18 @@ OBJFILES = &
 !endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj
+	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj
 
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
-	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/time.obj &
+	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/libmain.obj   
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -ms -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS= -DSBEMU -DNOTFLAT
+C_EXTRA_FLAGS=-DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
@@ -121,7 +121,7 @@ $(OUTD)/sc_inthd.obj:  mpxplay\sc_inthd.c
 $(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
-$(OUTD)/time.obj:      mpxplay\time.c
+$(OUTD)/timer.obj:     mpxplay\timer.c
 
 $(OUTD)/auhlp16.obj:   src\auhlp16.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
@@ -133,6 +133,7 @@ $(OUTD)/main.obj:      src\main.c
 $(OUTD)/mixer.obj:     src\mixer.asm
 $(OUTD)/pic.obj:       src\pic.c
 $(OUTD)/ptrap.obj:     src\ptrap.c
+$(OUTD)/rte200.obj:    src\rte200.asm
 $(OUTD)/sndisr.obj:    src\sndisr.c
 $(OUTD)/stackio.obj:   src\stackio.asm
 $(OUTD)/stackisr.obj:  src\stackisr.asm

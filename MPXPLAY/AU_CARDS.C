@@ -492,9 +492,8 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 
 #define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (required for PCI cards)
 
-#ifndef SBEMU
-static
-#endif
+/* this function is static in mpxplay */
+
 unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////
 {

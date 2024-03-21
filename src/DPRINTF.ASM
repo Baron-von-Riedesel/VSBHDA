@@ -241,6 +241,7 @@ handle_char:
 	align 4
 vprintf endp
 
+ifdef _DEBUG
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
 	cmp bInit, 1
@@ -256,6 +257,7 @@ _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 	ret
 
 _dprintf ENDP
+endif
 
 ;--- in case the CRT printf is NOT to be used, activate the switch below
 ifndef DJGPP	; for Open Watcom only

@@ -2,7 +2,7 @@
 //*                     This file is part of the                           *
 //*                      Mpxplay - audio player.                           *
 //*                  The source code of Mpxplay is                         *
-//*        (C) copyright 1998-2008 by PDSoft (Attila Padar)                *
+//*        (C) copyright 1998-2012 by PDSoft (Attila Padar)                *
 //*                http://mpxplay.sourceforge.net                          *
 //*                  email: mpxplay@freemail.hu                            *
 //**************************************************************************
@@ -12,20 +12,22 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: memory handling
 
-#include <stdint.h>
-#include <malloc.h>
+#ifndef memory_h
+#define memory_h
 
-void *pds_calloc( unsigned int nitems, unsigned int itemsize)
-/////////////////////////////////////////////////////////////
-{
-	void *p = calloc( nitems, itemsize );
-	return p;
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <string.h>
+#define pds_memset(t,v,l)   memset(t,v,l)
+#define pds_memcpy(t,s,l)   memcpy(t,s,l)
+extern void *pds_calloc(unsigned int nitems,unsigned int itemsize);
+extern void pds_free(void *bufptr);
+
+#ifdef __cplusplus
 }
+#endif
 
-void pds_free( void *bufptr )
-/////////////////////////////
-{
-	free( bufptr );
-}
+#endif // memory_h

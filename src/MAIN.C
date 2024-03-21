@@ -365,14 +365,7 @@ int main(int argc, char* argv[])
     _linear_psp = _get_linear_psp();
     _linear_rmstack = _get_linear_rmstack(&rmstksel);
 #endif
-    /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
-     * while another client is active will result in problems, since that memory is released when
-     * the client exits.
-     */
-#ifndef NOTFLAT
-    if (p = malloc( 0x10000 ) )
-        free( p );
-#endif
+
     if ( IsInstalled() ) {
         printf("SB found - probably VSBHDA already installed.\n" );
         return(0);
@@ -480,6 +473,14 @@ int main(int argc, char* argv[])
         printf("Volume=%u\n", gvars.vol );
 
     bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_InterruptPM );
+
+    /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
+     * while another client is active will result in problems, since that memory is released when
+     * the client exits. It's important that this is done AFTER SNDISR_InstallISR(), because that
+     * function does now alloc the PCM buffers ( which in total are > 64 kB).
+     */
+    if (p = malloc( 0x10000 ) )
+        free( p );
 
     PIC_UnmaskIRQ( AU_getirq( hAU ) );
 

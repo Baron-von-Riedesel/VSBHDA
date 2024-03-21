@@ -20,16 +20,16 @@
 
 #include "DJDPMI.H"
 #include "CONFIG.H" /* for dbgprintf() */
-#include "NEWFUNC.H"
+#include "PHYSMEM.H"
 
 static __dpmi_regs _xms_regs = {0};
 
-#define pds_xms_inited() (_xms_regs.x.cs != 0 || _xms_regs.x.ip != 0)
+#define _xms_inited() ( _xms_regs.x.cs || _xms_regs.x.ip )
 
-static int pds_xms_init(void)
-/////////////////////////////
+static int _xms_init(void)
+//////////////////////////
 {
-	if(pds_xms_inited())
+	if( _xms_inited() )
 		return 1;
 	//memset( &_xms_regs, 0, sizeof(_xms_regs) );
 	_xms_regs.x.ax = 0x4300;
@@ -53,7 +53,7 @@ static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
 	uint16_t handle;
 	*addr = 0;
    
-	if(sizeKB == 0 || !pds_xms_init())
+	if(sizeKB == 0 || !_xms_init())
 		return 0;
 	_xms_regs.h.ah = 0x09;    //alloc memory block
 	_xms_regs.x.dx = sizeKB;
@@ -75,7 +75,7 @@ static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
 static int xms_free( uint16_t handle )
 //////////////////////////////////////
 {
-	if(!pds_xms_inited())
+	if(!_xms_inited())
 		return 0;
 	_xms_regs.h.ah = 0x0D; /* unlock memory block */
 	_xms_regs.x.dx = handle;

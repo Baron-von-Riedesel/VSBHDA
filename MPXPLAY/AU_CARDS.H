@@ -179,7 +179,7 @@ struct audio_decoder_info_s{
  unsigned int infobits;      // flags
  unsigned int wave_id;       // audio type (wav:0x0001,mp3:0x0055,ac3:0x2000)
  unsigned int freq;          // frequency (44100,48000,...)
- unsigned int filechannels;  // number of channels in file ( not used by SBEMU )
+ unsigned int filechannels;  // number of channels in file ( not used here )
  unsigned int outchannels;   // decoded (used) channels, comes out from the decoder
  uint8_t *chanmatrix;        // output channel matrix (ie: 5.1)
  unsigned int bits;          // 8,16 ... (scalebits at float,filebits at integer output)
@@ -209,9 +209,7 @@ extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int mixch
 extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
 extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
 static void AU_clearbuffs( struct audioout_info_s * );
-#ifdef SBEMU
 extern unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s * );
-#endif
 extern int  FAREXP AU_writedata( struct audioout_info_s *, int, void * );
 
 #ifdef __cplusplus

@@ -21,6 +21,8 @@
 extern "C" {
 #endif
 
+#define SBEMU
+
 // out pcm defs
 #define PCM_OUTSAMPLES    1152     // at 44100Hz ( see PIT_DIVISOR_NEW )
 //#define PCM_MIN_CHANNELS     1
@@ -48,7 +50,23 @@ extern "C" {
 
 //------------------------------------------------------------------------
 
-#include "NEWFUNC.H"
+#ifndef max
+#define max(a,b) (((a)>(b))? (a):(b))
+#endif
+
+#ifndef min
+#define min(a,b) (((a)<(b))? (a):(b))
+#endif
+
+#if defined(DJGPP)
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
+#endif
+
+#include "PHYSMEM.H"
+#include "MEMORY.H"
+#include "TIMER.H"
 #include "AU_CARDS.H"
 
 #ifdef __cplusplus

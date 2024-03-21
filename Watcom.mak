@@ -51,7 +51,7 @@ OBJFILES = &
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
-	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/time.obj &
+	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj
@@ -59,7 +59,7 @@ OBJFILES = &
 C_OPT_FLAGS=-q -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS= -DSBEMU
+C_EXTRA_FLAGS=
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
@@ -113,7 +113,7 @@ $(OUTD)/sc_inthd.obj:  mpxplay\sc_inthd.c
 $(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
-$(OUTD)/time.obj:      mpxplay\time.c
+$(OUTD)/timer.obj:     mpxplay\timer.c
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/hapi.obj:      src\hapi.asm

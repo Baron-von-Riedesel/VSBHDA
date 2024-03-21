@@ -26,6 +26,7 @@ insIRET textequ <IRET>
 PF16 typedef ptr far16
 
 	.code
+
 dfOldISR PF16 ?
 dwDS    dd ?
 
@@ -97,7 +98,7 @@ _hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword
 	jc error
 ifdef NOTFLAT
 	push ds
-	mov ds, [_csalias]
+	mov ds, cs:[_csalias]
 	assume ds:_TEXT
 endif
 	mov dword ptr dfOldISR+0, edx

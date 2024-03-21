@@ -16,6 +16,7 @@
 //based on the ALSA (http://www.alsa-project.org)
 
 #include <stdint.h>
+#include <stddef.h>
 #ifndef DJGPP
 #include <conio.h>
 #endif

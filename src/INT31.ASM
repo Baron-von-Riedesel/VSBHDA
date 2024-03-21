@@ -16,6 +16,9 @@ externdef c ISR_DMA_MappedAddr:dword
 
 ifdef NOTFLAT
 
+InstallExc00 proto 
+UninstallExc00 proto 
+
 externdef c _csalias:dword
 
 	.code
@@ -25,11 +28,15 @@ IRETFLOFS equ 2*2
 insIRET textequ <IRET>
 
 externdef dfOldISR:dword
+externdef oldexc00:dword
 
 PF16 typedef ptr far16
 oldint31 PF16 ?
 oldint21 PF16 ?
 currsndint dd ?	; current vector for sound ISR
+
+dsseg dw ?
+intno db ?
 
 else
 
@@ -50,14 +57,21 @@ oldint21 df ?
 currsndint df ?	; current vector for sound ISR
 	dw ?
 
-endif
 dsseg dw ?
 intno db ?
 
 	.code
 
+endif
+
 myint31 proc
 
+ifdef NOTFLAT
+	cmp ax, 202h
+	jz is202
+	cmp ax, 203h
+	jz is203
+endif
 	cmp ax, 204h
 	jz is204
 	cmp ax, 205h
@@ -70,16 +84,22 @@ is205:
 	jnz prevint
 	cmp al, 5
 	jz is05
+ifdef NOTFLAT
+	mov dx, word ptr cs:[currsndint+0]
+else
 	mov edx, dword ptr cs:[currsndint+0]
+endif
 	mov cx, word ptr cs:[currsndint+SEGOFS]
 	and byte ptr [esp+IRETFLOFS], 0feh
 	insIRET
 is05:
 	push eax
 	push ds
-	mov ds, cs:[dsseg]
 ifdef NOTFLAT
+	mov ds, cs:[_csalias]
 	assume ds:_TEXT
+else
+	mov ds, cs:[dsseg]
 endif
 	mov dword ptr [currsndint+0], edx
 	mov word ptr [currsndint+SEGOFS], cx
@@ -90,6 +110,25 @@ endif
 	pop eax
 	and byte ptr [esp+IRETFLOFS], 0feh
 	insIRET
+ifdef NOTFLAT
+is202:
+	cmp bl,0
+	jnz prevint
+	mov dx, word ptr cs:[oldexc00+0]
+	mov dx, word ptr cs:[oldexc00+2]
+	insIRET
+is203:
+	cmp bl,0
+	jnz prevint
+	push ds
+	mov ds, cs:[_csalias]
+	assume ds:_TEXT
+	mov word ptr [oldexc00+0], dx
+	mov word ptr [oldexc00+2], cx
+	pop ds
+	assume ds:DGROUP
+	insIRET
+endif
 	align 4
 myint31 endp
 
@@ -115,16 +154,22 @@ is35:
 	jnz prevint
 	cmp ah, 25h
 	jz isset
+ifdef NOTFLAT
+	mov bx, word ptr cs:[currsndint+0]
+else
 	mov ebx, dword ptr cs:[currsndint+0]
+endif
 	mov es, word ptr cs:[currsndint+SEGOFS]
 	and byte ptr [esp+IRETFLOFS], 0feh
 	insIRET
 isset:
 	push eax
 	push ds
-	mov ds, cs:[dsseg]
 ifdef NOTFLAT
+	mov ds, cs:[_csalias]
 	assume ds:_TEXT
+else
+	mov ds, cs:[dsseg]
 endif
 	mov dword ptr [currsndint+0], edx
 	mov word ptr [currsndint+SEGOFS], cx
@@ -143,8 +188,9 @@ myint21 endp
 _hdpmi_InstallInt31 proc public uses ebx interrupt:byte
 
 ifdef NOTFLAT
+	call InstallExc00
 	push ds
-	mov ds, [_csalias]
+	mov ds, cs:[_csalias]
 	assume ds:_TEXT
 endif
 
@@ -210,6 +256,9 @@ _hdpmi_UninstallInt31 proc public uses ebx
 	int 31h
 	jc error
 
+ifdef NOTFLAT
+	call UninstallExc00
+endif
 	mov eax, 1
 	ret
 error:

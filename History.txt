@@ -1,5 +1,5 @@
 
-  v1.4. __.3.2024
+  v1.4. __._.2024
 
   - added 16-bit protected-mode variant vsbhda16.exe.
   - reworked HDA initialization code
@@ -7,6 +7,7 @@
   - fix: virtual DMA address may have been too high (crash in tyrian2k)
   - fix: writes to virtual DMA channel ports C0h-DFh caused writes to
     ports 10-1Fh
+  - handle "Runtime Error 200" issue in vsbhda16.
 
   v1.3. 26.3.2024
 
