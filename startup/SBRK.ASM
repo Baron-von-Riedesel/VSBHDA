@@ -36,9 +36,6 @@ __brk proc c uses esi edi ebx brk_value:dword
 
 local seg_size:dword
 
-ifdef _DEBUG
-	invoke __dprintf, CStr("brk: brk_value=%X, curbrk=%X",10), brk_value, _curbrk
-endif
 	mov eax, brk_value
 	add eax, 16-1
 	and al, 0f0h
@@ -64,8 +61,14 @@ endif
 	mov [_dynend], eax
 	add eax, seg_size
 	xchg eax, _curbrk	; return old value of _curbrk
+ifdef _DEBUG
+	invoke __dprintf, CStr("%X, brk(%X): new/old _curbrk %X/%X, _dynend=%X",10), cs, brk_value, _curbrk, eax, _dynend
+endif
 	ret
 error:
+ifdef _DEBUG
+	invoke __dprintf, CStr("%X, brk(%X): int 31h, ax=501 failed, bx:cx=%X",10), cs, brk_value, bx::cx
+endif
 	mov errno, ENOMEM
 	xor eax, eax
 	ret

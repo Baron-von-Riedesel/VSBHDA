@@ -519,6 +519,7 @@ int main(int argc, char* argv[])
         r.x.ax = 0x3100;
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }
+    dbgprintf(("main: bISR=%u, bQemm=%u, bHdpmi=%u\n", bISR, bQemm, bHdpmi ));
     ReleaseRes();
     printf("Error: Failed installing TSR.\n");
     return 1;

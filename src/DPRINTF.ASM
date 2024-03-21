@@ -253,7 +253,13 @@ _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 	jnz @F
 	mov bOMode, 4	; output to debugger
 @@:
+	push eax
+	push ecx
+	push edx
 	invoke vprintf, fmt, addr args
+	pop edx
+	pop ecx
+	pop eax
 	ret
 
 _dprintf ENDP
