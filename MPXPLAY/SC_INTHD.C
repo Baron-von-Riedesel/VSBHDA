@@ -40,9 +40,6 @@
 #define AZX_PERIOD_SIZE 4096
 #endif
 
-#define USE_IMMEDIATECMDS 0
-
-
 struct intelhd_card_s
 {
  unsigned long  iobase;
@@ -579,17 +576,18 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 
 	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
 
-		dbgprintf(("parse_output_jack[%u]: type=%X caps=%X\n", i, node->type, node->pin_caps ));
+		dbgprintf(("parse_output_jack(%u)[%u]: type=%X caps=%X\n", jack_type, i, node->type, node->pin_caps ));
 		if(node->type != AC_WID_PIN)  /* widget must be a "pin" */
 			continue;
 		if(!(node->pin_caps & AC_PINCAP_OUT))
 			continue;
 		dbgprintf(("parse_output_jack[%u]: node id=%u cfg=0x%X\n", i, node->nid, node->def_cfg ));
 
-		/* check port connectivity ( bits 30-31 ) */
+		/* check port connectivity ( bits 30-31; 01=not connected ) */
 		if(defcfg_port_conn(node) == AC_JACK_PORT_NONE)
 			continue;
-		if( jack_type >= 0 ){
+
+		if( jack_type >= 0 ) {
 			if(jack_type != defcfg_type(node)) /* has widget the type we're searching? */
 				continue;
 			if(node->wid_caps & AC_WCAP_DIGITAL)
@@ -598,7 +596,7 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 			if(!(node->pin_ctl & AC_PINCTL_OUT_ENABLE))
 				continue;
 		}
-		dbgprintf(("parse_output_jack[%u]: widget preselected\n", i ));
+		dbgprintf(("parse_output_jack[%u]: widget %u preselected\n", i, node->nid ));
 		clear_check_flags(card);
 		err = parse_output_path(card, node, 0);
 		if( err < 0 ) {
@@ -626,6 +624,7 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 			return node;
 		}
 	}
+	dbgprintf(("parse_output_jack: nothing found\n" ));
 	return NULL;
 }
 
@@ -647,20 +646,24 @@ static int hda_parse_output(struct intelhd_card_s *card)
 ////////////////////////////////////////////////////////
 {
 	int i;
+	static char *dtstrings[] = {"lineout","speaker","headphone"};
+	int8_t prefered_devtype;
 	struct hda_gnode *node;
 	int8_t *po,parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
 	int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
 
+    /* scan for output device according to /O option */
 	switch ( card->config_select & AUCARDSCONFIG_IHD_OUT_DEV_MASK ) {
 	case 0: po = parseorder_line; break;
 	case 1: po = parseorder_speaker; break;
 	case 2: po = &parseorder_speaker[1]; break;
 	}
 
+	prefered_devtype = *po;
 	i = 0;
 	do{
 		node = parse_output_jack(card, *po);
-		if(node){
+		if( node ) {
 			card->out_pin_node[i++] = node;
 			if((*po == AC_JACK_SPEAKER) || (*po == AC_JACK_HP_OUT))
 				hda_enable_eapd(card, node);
@@ -674,6 +677,9 @@ static int hda_parse_output(struct intelhd_card_s *card)
 			return 0;
 		card->out_pin_node[0] = node;
 	}
+	/* in case the selected output type isn't the one wanted, tell it */
+	if ( defcfg_type(card->out_pin_node[0]) != prefered_devtype )
+		printf("Pin %u (%s) used for output\n", card->out_pin_node[0]->nid, dtstrings[defcfg_type(card->out_pin_node[0])] );
 
 	return 1;
 }
@@ -724,6 +730,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 
 	gcap = (unsigned long)azx_readw( card, GCAP);
 	if(!(card->config_select & AUCARDSCONFIG_IHD_USE_FIXED_SDO) && (gcap & 0xF000)) // number of playback streams
+		/* 0x80=offset start SDs in HDA, 0x20=size SD, gcap[8-11]=#input SDs */
 		sdo_offset = ((gcap >> 8) & 0x0F) * 0x20 + 0x80; // number of capture streams
 	else{
 		switch(card->board_driver_type){
@@ -824,7 +831,7 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_init_pci(card);
 	azx_reset(card);
 
-	/* set stream int mask */
+	/* reset int errors by writing 1s in SD_STS */
 	azx_sd_writeb(card, SD_STS, SD_INT_MASK);
 
 	/* should not be written */
@@ -832,8 +839,9 @@ static void hda_hw_init(struct intelhd_card_s *card)
 
 	azx_writeb(card, RIRBSTS, RIRB_INT_MASK);
 
-	/* set interrupt control register */
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM);
+	/* set interrupt control register; don't enable all stream interrupts - will be done more specific later */
+	//azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM);
+	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN );
 	/* interrupt status register is RO! */
 	//azx_writel(card, INTSTS, HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM);
 
@@ -987,42 +995,53 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 
 /* called by HDA_setrate() */
 
-static void azx_setup_controller(struct intelhd_card_s *card)
-/////////////////////////////////////////////////////////////
+static void azx_setup_stream(struct intelhd_card_s *card)
+/////////////////////////////////////////////////////////
 {
 	unsigned char val;
 	unsigned int stream_tag = 1;
 	int timeout;
 
+	/* stop streams DMA engine */
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~SD_CTL_DMA_START);
+	/* reset stream */
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_STREAM_RESET);
 	pds_delay_10us(100);
 
+	/* wait till stream is in reset state */
 	timeout = 300;
 	while(!((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
-	dbgprintf(("azx_setup_controller: timeout1=%d\n",timeout));
+#ifdef _DEBUG
+	if ( !timeout )
+		dbgprintf(("azx_setup_stream: stream reset timeout\n"));
+#endif	
 
+	 /* get stream out of reset state */
 	val &= ~SD_CTL_STREAM_RESET;
 	azx_sd_writeb(card, SD_CTL, val);
 	pds_delay_10us(100);
 
-	timeout = 300;
+	timeout = 300; /* wait till stream is ready */
 	while(((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
-	dbgprintf(("azx_setup_controller: timeout2=%d format:%X\n",timeout,(int)card->format_val));
-
-	azx_sd_writel(card, SD_CTL,(azx_sd_readl(card, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK)| (stream_tag << SD_CTL_STREAM_TAG_SHIFT));
+#ifdef _DEBUG
+	if ( !timeout )
+		dbgprintf(("azx_setup_stream: stream ready timeout\n"));
+#endif
+	/* set stream# to use */
+	azx_sd_writel(card, SD_CTL, (azx_sd_readl(card, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK) | (stream_tag << SD_CTL_STREAM_TAG_SHIFT));
 	azx_sd_writel(card, SD_CBL, card->pcmout_dmasize);
 	azx_sd_writew(card, SD_LVI, card->pcmout_num_periods - 1);
 	azx_sd_writew(card, SD_FORMAT, card->format_val);
 	azx_sd_writel(card, SD_BDLPL, pds_cardmem_physicalptr(card->dm, card->table_buffer));
 	azx_sd_writel(card, SD_BDLPU, 0); // upper 32 bit
-	//azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_MASK);
+	//azx_sd_writel(card, SD_CTL, azx_sd_readl(card, SD_CTL) | SD_INT_MASK);
 #ifdef SBEMU
-	//azx_sd_writel(card, SD_CTL,azx_sd_readl(card, SD_CTL) | SD_INT_COMPLETE);
+	/* set stream int mask; now done later in setrate() */
+	//azx_sd_writel(card, SD_CTL, azx_sd_readl(card, SD_CTL) | SD_INT_COMPLETE);
 #endif
 	pds_delay_10us(100);
 
@@ -1448,36 +1467,50 @@ static void HDA_setrate( struct audioout_info_s *aui )
 	dbgprintf(("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card ));
 
 	azx_setup_periods( card );
-	azx_setup_controller( card );
+	azx_setup_stream( card );
 }
+
+/* start the stream's DMA engine;
+ * enable interrupts for this stream
+ */
 
 static void HDA_start( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
+	/* stream# isn't stored in card, so we have to calculate it */
+	const unsigned int stream_index = ( card->sd_addr - (card->iobase + 0x80)) / 0x20;
 
-	dbgprintf(("HDA_start\n" ));
-	//const unsigned int stream_index = 0;
-	//azx_writeb(card, INTCTL, azx_readb(card, INTCTL) | (1 << stream_index)); // enable SIE
+	dbgprintf(("HDA_start, stream#=%u\n", stream_index ));
+
+	/* enable interrupts from THIS stream */
+	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | (1 << stream_index)); // enable SIE
 
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START | SD_INT_MASK); // start DMA
 	//azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START); // start DMA
 
 	timeout = 500;
-	while(!(azx_sd_readb(card, SD_CTL) & SD_CTL_DMA_START) && --timeout) // wait for DMA start
+	while (!(azx_sd_readb(card, SD_CTL) & SD_CTL_DMA_START) && --timeout) // wait for DMA engine ready
 		pds_delay_10us(100);
-
+#ifdef _DEBUG
+	if (!timeout)
+		dbgprintf(("HDA_start: timeout starting stream DMA engine\n"));
+#endif
 	pds_delay_10us(100);
 }
 
+/* stop the stream's DMA engine;
+ * disable interrupts for this stream.
+ * currently, this function isn't called at all.
+ */
 static void HDA_stop( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
 
-	dbgprintf(("HDA_start\n" ));
+	dbgprintf(("HDA_stop\n" ));
 
 	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~(SD_CTL_DMA_START | SD_INT_MASK)); // stop DMA
 
@@ -1489,7 +1522,7 @@ static void HDA_stop( struct audioout_info_s *aui )
 
 	//azx_sd_writeb( card, SD_STS, SD_INT_MASK); // to be sure
 
-	//const unsigned int stream_index = 0;
+	//const unsigned int stream_index = (card->sd_addr - (card->iobase + 0x80)) / 0x20;
 	//azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index));
 }
 

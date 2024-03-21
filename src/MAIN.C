@@ -391,7 +391,7 @@ int main(int argc, char* argv[])
     VIRQ_Init();
     //aui.card_select_config = gvars.pin;
     //aui.card_select_devicenum = gvars.device;
-    if ( (hAU = AU_init( gvars.pin, gvars.device ) ) == 0 ) {
+    if ( (hAU = AU_init( gvars.device, gvars.pin ) ) == 0 ) {
         printf("No soundcard found!\n");
         return 1;
     }

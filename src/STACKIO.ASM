@@ -309,6 +309,8 @@ error:
 	ret
 _hdpmi_rmcbIO endp
 
+ifndef NOTFLAT	; currently not active for 16-bit
+
 ;--- CLI trap handler
 ;--- will only be called if CR4.PVI is 0.
 
@@ -355,5 +357,7 @@ unchanged:
 	pop ds
 	insIRET
 _hdpmi_CliHandler endp
+
+endif
 
 	END

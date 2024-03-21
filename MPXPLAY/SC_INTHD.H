@@ -380,7 +380,7 @@ enum {
     AC_JACK_LOC_MOBILE_OUT,
 };
 
-/* Port connectivity (0-3) */
+/* Port connectivity (0-3), bits 30-31 */
 enum {
     AC_JACK_PORT_COMPLEX,
     AC_JACK_PORT_NONE,
@@ -505,22 +505,22 @@ enum {
 #define HDA_GCTL_RESET        (1<<0)
 
 /* SD_CTL bits */
-#define SD_CTL_STREAM_RESET    0x01    /* stream reset bit */
-#define SD_CTL_DMA_START       0x02    /* stream DMA start bit */
-#define SD_CTL_STREAM_TAG_MASK    (0xf << 20)
+#define SD_CTL_STREAM_RESET    0x01    /* stream reset bit; 0=stream ready */
+#define SD_CTL_DMA_START       0x02    /* 1=DMA engine runs */
+#define SD_CTL_STREAM_TAG_MASK    (0xf << 20) /* bits 20-23 stream# */
 #define SD_CTL_STREAM_TAG_SHIFT    20
 
 /* SD_CTL and SD_STS */
-#define SD_INT_DESC_ERR        0x10    /* descriptor error interrupt */
-#define SD_INT_FIFO_ERR        0x08    /* FIFO error interrupt */
-#define SD_INT_COMPLETE        0x04    /* completion interrupt */
+#define SD_INT_COMPLETE        0x04    /* int on completion enable/status */
+#define SD_INT_FIFO_ERR        0x08    /* FIFO error interrupt enable/status */
+#define SD_INT_DESC_ERR        0x10    /* descriptor error interrupt enable/status */
 #define SD_INT_MASK            (SD_INT_DESC_ERR | SD_INT_FIFO_ERR | SD_INT_COMPLETE)
 
 #define RIRB_INT_MASK        0x05
 
 /* INTCTL and INTSTS */
 /* bits 0-29 are for streams, starting with input, output, bidirect */
-#define HDA_INT_ALL_STREAM   0xff       /* all stream interrupts */
+//#define HDA_INT_ALL_STREAM   0xff       /* all stream interrupts */
 #define HDA_INT_CTRL_EN      0x40000000 /* controller interrupt enable bit */
 #define HDA_INT_GLOBAL_EN    0x80000000 /* global interrupt enable bit */
 
