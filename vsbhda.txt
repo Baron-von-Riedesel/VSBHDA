@@ -83,7 +83,6 @@
 
    4. Hints
 
-
    4.1 SETPVI/RESPVI
 
     A few protected-mode games may "freeze" with the default settings of VSBHDA.
@@ -122,4 +121,34 @@
    own low-level code. This will actually deactivate VSBHDA for the game. To
    cover such cases, Jemm386/JemmEx offers the NOVCPI option. This option must
    be set *after* VSBHDA has been loaded and *before* the game is launched.
+
+
+   5. Error Messages
+   
+   - "Sound card IRQ conflict": the sound hardware uses the very same IRQ number
+     than the emulated SB ( 5 or 7 ). This is currently rejected ( it may
+     confuse the emulator ).
+
+   - "SB found - probably VSBHDA already installed": a SoundBlaster was
+     detected. If it's due to an installed VSBHDA, use UNINST.COM to remove the
+     running VSBHDA from memory.
+   
+   - "Jemm/Qemm not installed, or version below 7.03: x.x - disable real-mode
+     support": the so-called QPI wasn't found. It's either supplied by Qemm or
+     Jemm ( with QPIEMU.DLL loaded ).
+
+   - "HDPMI not installed - disable protected-mode support": running VSBHDA
+     under another DPMI host is possible, but not recommended.
+
+   - "Error: Failed installing IO port trap for real-mode.": the v86-monitor
+     (Qemm/Jemm) returned something unexpected when the port trapping API was
+     called.
+
+   - "Error: Failed installing IO port trap for protected-mode.": the DPMI
+     hosts HDPMI32i/HDPMI16i are the only ones implementing the protected-mode
+     port trapping API used by VSBHDA.
+
+   - "Pin <n> (<type>) used for output": HDA only; this is a warning that the
+     expected output device type ( lineout|speaker|headphone ) wasn't found
+     and hence another one had to be used.
 

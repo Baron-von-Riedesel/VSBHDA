@@ -1,5 +1,5 @@
 
-  v1.4. __._.2024
+  v1.4, 25.3.2024
 
   - added 16-bit protected-mode variant vsbhda16.exe.
   - reworked HDA initialization code
@@ -9,7 +9,7 @@
     ports 10-1Fh
   - handle "Runtime Error 200" issue in vsbhda16.
 
-  v1.3. 26.3.2024
+  v1.3, 5.3.2024
 
   - source made compatible with Open Watcom 2.0.
   - tool chain changed to Open Watcom 2.0; gives a significant size reduction.
