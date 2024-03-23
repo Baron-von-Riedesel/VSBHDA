@@ -54,14 +54,18 @@ uint32_t ISR_DMA_MappedAddr = 0;
 static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
 static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
 #else
-static inline void _disable_ints(void) {
-	_asm mov ax, 900h
-	_asm int 31h
-}
-static inline void _enable_ints(void) {
-	_asm mov ax, 901h
-	_asm int 31h
-}
+void _disable_ints(void);
+void  _enable_ints(void);
+#pragma aux _disable_ints = \
+    "mov ax, 900h" \
+    "int 31h" \
+    parm[] \
+    modify exact [ax]
+#pragma aux _enable_ints = \
+    "mov ax, 901h" \
+    "int 31h" \
+    parm[] \
+    modify exact [ax]
 #endif
 
 static void SNDISR_Interrupt( void );

@@ -27,6 +27,8 @@ PF16 typedef ptr far16
 
 	.code
 
+externdef oldint31:PF16
+
 dfOldISR PF16 ?
 dwDS    dd ?
 
@@ -40,13 +42,16 @@ insIRET textequ <IRETD>
 
 	.data
 
-dfOldISR df ?
+externdef oldint31:FWORD
+
 dwDS    dd ?
+dfOldISR df ?
 
 endif
 
 	.data
 
+	align 4
 dwISR	dd ?
 intno	db ?
 
@@ -81,7 +86,19 @@ endif
 	pop ds
 	popad
 	jz @F
-	sti
+if 0
+	sti		; use DPMI func 901h instead?
+else
+	push eax
+	mov ax, 901h
+ ifdef NOTFLAT
+	pushf
+ else
+	pushfd
+ endif
+	call cs:[oldint31]
+	pop eax
+endif
 	insIRET
 @@:
 	jmp cs:[dfOldISR]

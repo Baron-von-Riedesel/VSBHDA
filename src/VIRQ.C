@@ -13,30 +13,29 @@
 #define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
 
 static int VIRQ_Irq = -1;
-static uint8_t VIRQ_ISR[2];
-static uint8_t VIRQ_OCW[2];
+static uint8_t VPIC_ISR[2];
+static uint8_t VPIC_OCW[2];
 
 static uint16_t OrgCS;
 
-#define VIRQ_IS_VIRTUALIZING() (VIRQ_Irq != -1)
+#define IRQ_IS_VIRTUALIZED() (VIRQ_Irq != -1)
 
 static void SafeCall( uint8_t irq );
 static void FastCall( uint8_t irq );
 
 static void (* CallIRQ)(uint8_t) = &FastCall;
 
-static void VIRQ_Write(uint16_t port, uint8_t value)
+static void VPIC_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
-    if(VIRQ_IS_VIRTUALIZING())
-    {
-        dbgprintf(("VIRQ_Write:%x,%x\n",port,value));
+    if( IRQ_IS_VIRTUALIZED() ) {
+        dbgprintf(("VPIC_Write:%x,%x\n",port,value));
         if((port & 0x0F) == 0x00) {
             int index = ((port==0x20) ? 0 : 1);
-            VIRQ_OCW[index] = value;
+            VPIC_OCW[index] = value;
 
             if(value == 0x20) { //EOI: clear ISR
-                VIRQ_ISR[index] = 0;
+                VPIC_ISR[index] = 0;
                 return; //don't send to real PIC. it's virtualized
             }
 
@@ -49,16 +48,15 @@ static void VIRQ_Write(uint16_t port, uint8_t value)
     UntrappedIO_OUT(port, value);
 }
 
-static uint8_t VIRQ_Read(uint16_t port)
+static uint8_t VPIC_Read(uint16_t port)
 ///////////////////////////////////////
 {
-    if(VIRQ_IS_VIRTUALIZING())
-    {
-        dbgprintf(("VIRQ_Read:%x\n",port));
-        if((port & 0x0F) == 0x00) {
+    if( IRQ_IS_VIRTUALIZED() ) {
+        dbgprintf(("VPIC_Read:%x\n",port));
+        if( (port & 0x0F) == 0x00) {
             int index = ((port == 0x20) ? 0 : 1);
-            if(VIRQ_OCW[index] == 0x0B) { //ISR
-                return VIRQ_ISR[index];
+            if (VPIC_OCW[index] == 0x0B) { //ISR
+                return VPIC_ISR[index];
             }
         }
         return 0;
@@ -77,7 +75,8 @@ static void SafeCall( uint8_t irq )
 {
     static __dpmi_regs r = {0};
     int n = PIC_IRQ2VEC(irq);
-    r.x.ip = ReadLinearW(n*4);
+    r.x.flags = 0x0002;
+    r.x.ip = ReadLinearW(n*4+0);
     r.x.cs = ReadLinearW(n*4+2);
     __dpmi_simulate_real_mode_procedure_iret(&r);
 }
@@ -126,13 +125,13 @@ void VIRQ_Invoke( void )
 
     PTRAP_SetPICPortTrap( 1 );
 
-    VIRQ_ISR[0] = VIRQ_ISR[1] = 0;
-    if(irq < 8) //master
-        VIRQ_ISR[0] = 1 << irq;
-    else //slave
-    {
-        VIRQ_ISR[0] = 0x04; //cascade
-        VIRQ_ISR[1] = 1 << (irq-8);
+    /* set values for ports 0x0020/0x00a0 */
+    if(irq < 8) {
+        VPIC_ISR[0] = 1 << irq;
+        VPIC_ISR[1] = 0;
+    } else {
+        VPIC_ISR[0] = 0x04; //cascade
+        VPIC_ISR[1] = 1 << (irq - 8);
     }
     
     VIRQ_Irq = irq;
@@ -167,8 +166,8 @@ void VIRQ_Init( void )
         OrgCS = ReadLinearW(n*4+2);
 }
 
-uint32_t VIRQ_IRQ(uint32_t port, uint32_t val, uint32_t out)
+uint32_t VPIC_PIC(uint32_t port, uint32_t val, uint32_t out)
 ////////////////////////////////////////////////////////////
 {
-    return out ? (VIRQ_Write(port, val), val) : (val &=~0xFF, val |= VIRQ_Read(port));
+    return out ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
 }

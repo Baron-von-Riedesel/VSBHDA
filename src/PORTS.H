@@ -6,10 +6,10 @@ tportx( 0x388, &VOPL3_388, OPL3 )
 tport( 0x389, &VOPL3_389 )
 tport( 0x38A, &VOPL3_38A )
 tport( 0x38B, &VOPL3_38B )
-tportx(  0x20, &VIRQ_IRQ, IRQ )
-//tport(  0x21, &VIRQ_IRQ )
-//tportx(  0xA0, &VIRQ_IRQ, IRQH )   /* no need to trap SPIC, since currently just IRQ 5/7 are accepted */
-//tport(  0xA1, &VIRQ_IRQ )
+tportx(  0x20, &VPIC_PIC, PIC )
+//tport(  0x21, &VPIC_PIC )
+//tportx(  0xA0, &VPIC_PIC, PICH )   /* no need to trap SPIC, since currently just IRQ 5/7 are accepted */
+//tport(  0xA1, &VPIC_PIC )
 tportx(  0x02, &VDMA_DMA, DMA )      /* ch 1; will be modified if LDMA != 1 */
 tport(  0x03, &VDMA_DMA )            /* ch 1; will be modified if LDMA != 1 */
 tport(  0x08, &VDMA_DMA )

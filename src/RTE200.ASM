@@ -40,7 +40,7 @@ myexc00 proc
 	jnz oldexc
 	cmp byte ptr es:[ebx-1], 0
 	jnz oldexc
-	mov dx, 30h	; anthing below 37 should do
+	mov dx, 35h	; anthing below 37h should do
 	pop ebx
 	pop es
 	retw

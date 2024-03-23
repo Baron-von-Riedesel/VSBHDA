@@ -30,6 +30,8 @@ insIRET textequ <IRET>
 externdef dfOldISR:dword	; in _TEXT for 16-bit
 externdef oldexc00:dword	; in _TEXT for 16-bit
 
+	public oldint31
+
 PF16 typedef ptr far16
 oldint31 PF16 ?
 oldint21 PF16 ?
@@ -49,6 +51,8 @@ IRETFLOFS equ 2*4
 insIRET textequ <IRETD>
 
 externdef dfOldISR:fword
+
+	public oldint31
 
 oldint31 df ?
 	dw ?

@@ -13,7 +13,8 @@ endif
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
-TRIGGERIRQ equ 1
+TRIGGERIRQ equ 1	; 1=run virtual SB IRQ triggered by port access
+IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" problem (16-bit)
 
 PTRAP_PM_TrapHandler proto :dword, :dword, :dword
 
@@ -121,6 +122,19 @@ endif
 @@:
 	cld
 	mov ds, cs:[dwDS]
+
+ifdef NOTFLAT
+ if IRETFIX16
+	cmp dx, 20h
+	jnz @F
+	cmp al, 20h
+	jnz @F
+	test cl, 1	; so it's an EOI sent to master PIC
+	jz @F
+	or byte ptr [ebp].EXCFRAME.dwEfl+1, 02
+@@:
+ endif
+endif
 
 	assume ds:ASSUMEDS
 
