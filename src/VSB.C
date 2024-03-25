@@ -9,6 +9,7 @@
 #include "PLATFORM.H"
 #include "VSB.H"
 #include "VIRQ.H"
+#include "VDMA.H"
 
 #if REINITOPL
 extern void MAIN_ReinitOPL( void );
@@ -63,6 +64,8 @@ static uint8_t VSB_MixerRegIndex = 0;
 static uint8_t VSB_TestReg;
 static uint8_t VSB_WS = 0x80;
 static uint8_t VSB_RS = 0x7F;
+static uint8_t VSB_DMAID_A = 0xAA;
+static uint8_t VSB_DMAID_X = 0x96;
 static uint16_t VSB_DSPVER = 0x0302;
 static const int VSB_TimeConstantMapMono[][2] =
 {
@@ -225,6 +228,8 @@ static void DSP_Reset( uint8_t value )
         VSB_Bits = 8;
         VSB_Pos = 0;
         VSB_HighSpeed = 0;
+        VSB_DMAID_A = 0xAA;
+        VSB_DMAID_X = 0x96;
         VSB_TriggerIRQ = 0;
 #if LATERATE
         bTimeConst = 0xD2; /* = 22050 */
@@ -280,7 +285,6 @@ static void DSP_Write( uint8_t value )
         case SB_DSP_SPEAKER_OFF: /* D3 */
             bSpeaker = false;
             break;
-            break;
         case SB_DSP_HALT_DMA: /* D0 */
         case SB_DSP_CONTINUE_DMA: /* D4 */
             VSB_Started = ( value == SB_DSP_CONTINUE_DMA );
@@ -297,11 +301,12 @@ static void DSP_Write( uint8_t value )
             VSB_Started = true;
             break;
 #endif
+        case SB_DSP_8BIT_OUT_1_HS: /* 91 */
         case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 */
         case SB_DSP_8BIT_OUT_AUTO: /* 1C */
-            VSB_Auto = true;
+            VSB_Auto = ( value != SB_DSP_8BIT_OUT_1_HS );
             VSB_Bits = 8;
-            VSB_HighSpeed = ( value == SB_DSP_8BIT_OUT_AUTO_HS );
+            VSB_HighSpeed = ( value != SB_DSP_8BIT_OUT_AUTO );
             VSB_Signed = false;
             VSB_Silent = false;
             VSB_Started = true; //start transfer
@@ -375,8 +380,11 @@ static void DSP_Write( uint8_t value )
             DSPDataBytes = 0;
         }
 #if SB16
-    } else if ( VSB_DSPCMD >= 0xB0 && VSB_DSPCMD <= 0xCF ) {
-        //VSB_Fifo = ( VSB_DSPCMD & 0x2 ) ? 1 : 0;
+	} else if ( VSB_DSPCMD >= 0xB0 && VSB_DSPCMD <= 0xCF ) {
+		/* bit1=0: nofifo
+		/* bit2=1: auto (B4, C4, B6, C6)
+		 */
+        //VSB_Fifo = ( VSB_DSPCMD & 0x4 ) ? 1 : 0;
         switch ( VSB_DSPCMD_Subindex ) {
         case 0:
             VSB_Auto = ( ( VSB_DSPCMD & 0x4 ) ? true : false );
@@ -422,7 +430,6 @@ static void DSP_Write( uint8_t value )
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
         case SB_DSP_SET_SIZE: /* 48 - used for auto command */
-        case SB_DSP_8BIT_OUT_1_HS: /* 91 */
         case SB_DSP_8BIT_OUT_1: /* 14 */
             if(VSB_DSPCMD_Subindex++ == 0)
                 VSB_Samples = value;
@@ -512,6 +519,12 @@ static void DSP_Write( uint8_t value )
 			break;
         case 0x05: /* ASP cmd */
             VSB_DSPCMD_Subindex++;
+            break;
+        case SB_DSP_DMA_ID: /* E2 */
+            VSB_DMAID_A += value ^ VSB_DMAID_X;
+            VSB_DMAID_X = (VSB_DMAID_X >> 2u) | (VSB_DMAID_X << 6u);
+            VSB_DSPCMD_Subindex = 2;
+            VDMA_WriteData(VSB_DMA, VSB_DMAID_A );
             break;
         case SB_DSP_WRITE_TESTREG: /* E4 */
             VSB_TestReg = value;

@@ -66,20 +66,20 @@ C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 LD_FLAGS=
 LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
 
-INCLUDES=-Isrc -Impxplay -I$(WATCOM)\h
+INCLUDES=-I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
 	$(ASM) -q -D?FLAT $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
-	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {src}.cpp{$(OUTD)}.obj
-	$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
+	$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {mpxplay}.c{$(OUTD)}.obj
-	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)\$(NAME).exe
 

@@ -8,11 +8,13 @@
   - fix: writes to virtual DMA channel ports C0h-DFh caused writes to
     ports 10-1Fh
   - handle "Runtime Error 200" issue in vsbhda16.
+  - fix: DSP cmd 0x91 now handled correctly.
+  - fix: virtual DMA register reads of 08/D0 (status) corrected.
 
   v1.3, 5.3.2024
 
   - source made compatible with Open Watcom 2.0.
-  - tool chain changed to Open Watcom 2.0; gives a significant size reduction.
+  - tool chain changed to Open Watcom 2.0;
 
   v1.2, 26.2.2024
 

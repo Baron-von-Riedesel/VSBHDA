@@ -114,6 +114,7 @@
 #define SB_DSP_EXIT_8BIT_AUTO    0xDA
 #define SB_DSP_ID                0xE0 /* SB: DSP identification */
 #define SB_DSP_GETVER            0xE1 //1st byte major, 2nd byte minor
+#define SB_DSP_DMA_ID            0xE2 /* */
 #define SB_DSP_COPYRIGHT         0xE3
 #define SB_DSP_WRITE_TESTREG     0xE4 /* SB 2.0 */
 #define SB_DSP_READ_TESTREG      0xE8 /* SB 2.0 */
