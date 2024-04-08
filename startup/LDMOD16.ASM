@@ -6,6 +6,8 @@
 	.386
 	.model small
 
+	include debug.inc
+
 HEAPSIZE equ 1000h	;additional memory behind stack
 
 IMAGE_DOS_HEADER STRUCT
@@ -49,6 +51,7 @@ local dwBaseData:dword
 local reloc:dword
 local mzhdr:IMAGE_DOS_HEADER
 
+	@dprintf CStr("LoadMod16(%s) enter",10), pName
 	mov edx, pName
 	mov ah, 3Dh
 	int 21h
@@ -72,6 +75,7 @@ local mzhdr:IMAGE_DOS_HEADER
 	mov cx, 0
 	mov ax, 4200h
 	int 21h
+	jc seek_err
 	mov cx, 4
 	lea dx, reloc
 	mov ah, 3Fh
@@ -92,10 +96,12 @@ local mzhdr:IMAGE_DOS_HEADER
 	pop cx
 	mov ax, 4200h
 	int 21h
+	jc seek_err
 	lea dx, wDgroup
 	mov cx, 2
 	mov ah, 3Fh
 	int 21h
+	jc read_err
 	movzx eax, wDgroup
 	shl eax, 4
 	mov dwSizeCode, eax
@@ -156,6 +162,7 @@ endif
 	pop cx
 	mov ax, 8
 	int 31h
+	jc nodesc
 
 	add bx,8
 	mov dx, word ptr dwBaseData+0
@@ -183,12 +190,14 @@ endif
 	xor cx, cx
 	mov ax, 4200h
 	int 21h
+	jc seek_err
 	push ds
 	mov ds, wCodeSel
 	xor dx, dx
 	mov cx, word ptr dwSizeCode
 	mov ax, 3F00h
 	int 21h
+	jc read_err
 
 ;--- read data, init bss+stack
 	mov eax, ds
@@ -200,6 +209,7 @@ endif
 	push eax
 	mov ax, 3F00h
 	int 21h
+	jc read_err
 	mov edi, ecx
 	pop ecx
 	push es
@@ -236,6 +246,27 @@ endif
 	mov eax, 1
 	ret
 
+if 1
+nomem:
+nodesc:
+	mov ax, 109
+	jmp err_with_close
+fmt_err:
+	mov ax, 108
+seek_err:
+read_err:
+err_with_close:
+	push eax
+	mov bx, wFile
+	mov ah, 3Eh
+	int 21h
+	pop eax
+open_err:
+	@dprintf CStr("LoadMod16 failed, ax=%X",10), ax
+	mov edx, eax
+	xor eax, eax
+	ret
+else
 	.const
 
 errstr1 db "open error",13,10,'$'
@@ -243,33 +274,44 @@ errstr2 db "read error",13,10,'$'
 errstr3 db "no descriptors",13,10,'$'
 errstr4 db "no extended memory",13,10,'$'
 errstr5 db "format error",13,10,'$'
+errstr6 db "seek error",13,10,'$'
 
 	.code
 
 open_err:
 	push offset errstr1
-    jmp errexit
+	jmp errexit
+seek_err:
+	push offset errstr6
+	jmp err_with_close
 read_err:
 	push offset errstr2
-    jmp errexit2
+	jmp err_with_close
 nodesc:
 	push offset errstr3
-    jmp errexit
+	jmp err_with_close
 nomem:
 	push offset errstr4
-    jmp errexit
+	jmp err_with_close
 fmt_err:
 	push offset errstr5
-    jmp errexit2
 errexit2:
+	push eax
+	mov bx, wFile
 	mov ah, 3Eh
 	int 21h
+	pop eax
 errexit:
 	pop edx
+	push eax
 	mov ah,09
 	int 21h
+	pop edx
 	xor eax, eax
 	ret
+
+endif
+
 _LoadMod16 endp
 
     end

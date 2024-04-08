@@ -5,6 +5,7 @@
 	name dllstart
 
 	.386
+	.model small
 
 FINI_PRIORITY_EXIT equ 16
 
@@ -113,9 +114,9 @@ YI  ends
 YIE segment word public 'DATA'
 YIE ends
 
-_BSS    segment dword public 'BSS'
-_BSS    ends
+	.data?
 
+;--- don't use .stack in 32-bit (aligns to dword)
 STACK   segment para stack 'STACK'
         db 4000h dup(?)
 STACK   ends

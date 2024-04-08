@@ -4,11 +4,7 @@
 ;--- assumed selector of ds/es is data alias of cs.
 
 	.386
-ifdef ?FLAT
-	.model flat
-else
-	.model small
-endif
+	.model ?MODEL
 	option casemap:none
 
 	.data

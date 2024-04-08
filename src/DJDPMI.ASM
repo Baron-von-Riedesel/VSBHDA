@@ -3,11 +3,7 @@
 ;--- all functions return -1 on error, 0 on success
 
 	.386
-ifdef ?FLAT
-	.MODEL flat, c
-else
-	.MODEL small, c
-endif
+	.MODEL ?MODEL
 	option casemap:none
 	option proc:private
 

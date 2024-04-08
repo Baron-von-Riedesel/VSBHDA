@@ -7,6 +7,7 @@
 #include "PLATFORM.H"
 #include "DMA.H"
 #include "VDMA.H"
+#include "VSB.H"
 #include "PTRAP.H"
 #include "LINEAR.H"
 
@@ -22,22 +23,19 @@ static uint8_t VDMA_Modes[8]; /* bits[2-7] written to DMA_REG_MODE */
  */
 
 //internal datas
-static uint8_t VDMA_VMask[8];      // bool: 1=enabled, 0=disabled
-static uint32_t VDMA_Addr[8];      // initial addr (base)
+static uint32_t VDMA_Base[8];      // initial addr (base)
 static uint32_t VDMA_CurIdx[8];    // current offset
-static int32_t VDMA_Length[8];     // initial length
-static int32_t VDMA_CurCnt[8];     // current count
-
-static uint8_t VDMA_InIO[8];       // bool: 1=in the middle of reading counter/addr
+static int32_t VDMA_MaxCnt[8];     // initial count+1
+static int32_t VDMA_CurCnt[8];     // current count+1
+static uint8_t VDMA_VMask;         // bool: 1=channel virtualized
+static uint8_t VDMA_Complete;      // bool: set by VDMA_SetComplete() - will set DMA_REG_STATUS[0-3]
+static uint8_t VDMA_InIO[8];       // bool: 1=in the middle of reading count/addr
 static uint8_t VDMA_DelayUpdate[8]; // bool
-static uint8_t VDMA_Complete[8];   //
-static const uint8_t VDMA_PortChannelMap[16] =
+static const int8_t VDMA_PortChannelMap[16] =
 {
     -1, 2, 3, 1, -1, -1, -1, 0, /* ports 80-87 */
     -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
 };
-
-#define VMDA_IS_CHANNEL_VIRTUALIZED(channel) (channel != -1 && VDMA_VMask[channel])
 
 void VDMA_Write(uint16_t port, uint8_t byte)
 ////////////////////////////////////////////
@@ -85,20 +83,20 @@ void VDMA_Write(uint16_t port, uint8_t byte)
             VDMA_DelayUpdate[channel] = false;
         }
 
-        /* update addr or counter */
+        /* update base or count */
         if(( index & 0x1 ) == 0 ) {
             VDMA_CurIdx[channel] = 0;
-            VDMA_Addr[channel] = (VDMA_Addr[channel] & ~0xFFFF) | VDMA_Regs[base + index];
+            VDMA_Base[channel] = (VDMA_Base[channel] & ~0xFFFF) | VDMA_Regs[base + index];
         } else
-            VDMA_CurCnt[channel] = VDMA_Length[channel] = VDMA_Regs[base + index] + 1;
+            VDMA_CurCnt[channel] = VDMA_MaxCnt[channel] = VDMA_Regs[base + index] + 1;
 
     } else if(port >= 0x80 && port <= 0x8F)  {
         int channel = VDMA_PortChannelMap[port - 0x80];
         if( channel != -1 ) {
             VDMA_PageRegs[channel] = byte;
             VDMA_CurIdx[channel] = 0;
-            VDMA_Addr[channel] &= 0xFFFF;
-            VDMA_Addr[channel] |= byte << 16;
+            VDMA_Base[channel] &= 0xFFFF;
+            VDMA_Base[channel] |= byte << 16;
         }
     }
     UntrappedIO_OUT(port, byte);
@@ -107,7 +105,7 @@ void VDMA_Write(uint16_t port, uint8_t byte)
 uint8_t VDMA_Read(uint16_t port)
 ////////////////////////////////
 {
-    int channel = -1;
+	int channel = -1;
     uint8_t result;
     int index = port;
 
@@ -120,7 +118,7 @@ uint8_t VDMA_Read(uint16_t port)
     else if( port >= 0x80 && port <= 0x8F ) /* ports 80-8F */
         channel = VDMA_PortChannelMap[port - 0x80];
 
-    if( VMDA_IS_CHANNEL_VIRTUALIZED( channel ) ) {
+    if( channel > 0 && (VDMA_VMask & (1 << channel))) {
         /* select ports 00-03 or 0xC0-0xCE; meaning loword("addr") or "counter" */
         if( ( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) ||
            ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER ) ) {
@@ -131,26 +129,27 @@ uint8_t VDMA_Read(uint16_t port)
                 index = ( port - DMA_REG_CH4_ADDR ) / 2; /* [index] now 0-15 */
                 base = 16;
             }
-            //dbgprintf(("base:%d port:%d\n", base, port));
 
             value = VDMA_Regs[base + index];
-            //dbgprintf(("VDMA_Read %s: %d\n", ( (index & 0x1) == 1) ? "counter" : "addr", value));
+            dbgprintf(("VDMA_Read chn=%u, %s: %X (%X)\n", channel, ( (index & 0x1) == 1) ? "counter" : "addr", value, VDMA_InIO[channel]));
             if( ( ( VDMA_Regs[base + DMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
                 VDMA_InIO[channel] = true;
-                dbgprintf(("VDMA_Read(port %X)=%02x (chn=%u %s)\n", port, value & 0xFF, channel, ( index & 0x1 ) ? "counter" : "addr" ));
                 return value & 0xFF;
             }
             ret = ((value >> 8) & 0xFF);
+            /* update addr & counter regs? - page regs?? */
             if( VDMA_DelayUpdate[channel] ) {
                 int size = channel <= 3 ? 1 : 2;
                 int base2 = channel <= 3 ? (channel << 1) : 16 + ((channel - 4) << 1);
-                VDMA_Regs[base2+1] = VDMA_CurCnt[channel]-1; //update counter reg
-                VDMA_Regs[base2] = VDMA_Addr[channel] + VDMA_CurIdx[channel]; //update addr reg
-                VDMA_PageRegs[channel] = (VDMA_Addr[channel] + VDMA_CurIdx[channel]) >> 16;
+                VDMA_Regs[base2+1] = VDMA_CurCnt[channel] - 1;
+                /* v1.4: take care that the base won't go beyond addr+maxcnt (tyrian2k!) */
+                //VDMA_Regs[base2] = VDMA_Base[channel] + VDMA_CurIdx[channel];
+                VDMA_Regs[base2] = VDMA_Base[channel] + min( VDMA_CurIdx[channel], VDMA_MaxCnt[channel] );
+                /* v1.4: no auto update of the page regs */
+                //VDMA_PageRegs[channel] = (VDMA_Base[channel] + VDMA_CurIdx[channel]) >> 16;
             }
             VDMA_InIO[channel] = false;
             VDMA_DelayUpdate[channel] = false;
-            dbgprintf(("VDMA_Read(port %X)=%02x (chn=%u)\n", port, ret, channel));
             return ret;
         }
         /* must be a page register */
@@ -161,18 +160,13 @@ uint8_t VDMA_Read(uint16_t port)
     /* regs 08-0F and 0D0-DE */
     result = UntrappedIO_IN(port);
 
-    if( port == DMA_REG_STATUS_CMD || port == DMA_REG_STATUS_CMD16 ) {
-        int channel = (( port == DMA_REG_STATUS_CMD ) ? 0 : 4);
-        int i;
-        for( i = 0; i < 4; i++, channel++ ) {
-            if( VMDA_IS_CHANNEL_VIRTUALIZED( channel ) ) {
-                result &= ~((1 << i) | (1 << (i+4)));  /* bits 0-3: terminal count, bits 4-7: DREQ */
-                if ( VDMA_Complete[channel] )
-                    result |= ( 1 << i );
-                else if ( VDMA_CurIdx[channel] != -1 && VDMA_CurIdx[channel] < VDMA_GetCounter(channel) )
-                    result |= ( 1 << (i+4) );
-                VDMA_Complete[channel] = 0; //clear on read
-            }
+    if ( port == DMA_REG_STATUS_CMD || port == DMA_REG_STATUS_CMD16 ) {
+        int vchannel = VSB_GetDMA();
+        if (( port == DMA_REG_STATUS_CMD && vchannel < 4) || ( port == DMA_REG_STATUS_CMD16 && vchannel >= 4 )) {
+            vchannel &= 0x3;
+            result &= ~(0x11 << vchannel);  /* bits 0-3: terminal count, bits 4-7: DREQ */
+            if ( VSB_Running() )
+                result |= (1 << (vchannel+4) );
         }
         dbgprintf(("VDMA_Read(status port %X)=%02x\n", port, result));
     }
@@ -183,19 +177,22 @@ void VDMA_Virtualize(int channel, int enable)
 /////////////////////////////////////////////
 {
     if( channel >= 0 && channel <= 7 )
-        VDMA_VMask[channel] = enable ? 1 : 0;
+        if (enable)
+            VDMA_VMask |= (1 << channel);
+        else
+            VDMA_VMask &= ~(1 << channel);
 }
 
-uint32_t VDMA_GetAddress(int channel)
-/////////////////////////////////////
+uint32_t VDMA_GetBase(int channel)
+//////////////////////////////////
 {
     int size = channel <= 3 ? 1 : 2;
-    uint32_t page = VDMA_Addr[channel] & 0xFF0000; //page not /2
-    return (page | (VDMA_Addr[channel] & 0xFFFF ) * size ); //addr reg for 16 bit is real addr/2.
+    uint32_t page = VDMA_Base[channel] & 0xFF0000; //page not /2
+    return (page | (VDMA_Base[channel] & 0xFFFF ) * size ); //addr reg for 16 bit is real addr/2.
 }
 
-int32_t VDMA_GetCounter(int channel)
-////////////////////////////////////
+int32_t VDMA_GetCount(int channel)
+//////////////////////////////////
 {
     int size = channel <= 3 ? 1 : 2;
     return VDMA_CurCnt[channel] * size;
@@ -208,43 +205,46 @@ uint32_t VDMA_GetIndex(int channel)
     return VDMA_CurIdx[channel] * size;
 }
 
-static void VDMA_ToggleComplete(int channel)
-////////////////////////////////////////////
+static void VDMA_SetComplete(int channel)
+/////////////////////////////////////////
 {
-    VDMA_Complete[channel] = 1;
+    VDMA_Complete |= 1 << channel;
 }
 
 /* set both address and count of a channel.
  * this is called quite often.
  */
 
-uint32_t VDMA_SetIndexCounter(int channel, uint32_t index, int32_t counter)
-///////////////////////////////////////////////////////////////////////////
+uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
+///////////////////////////////////////////////////////////////////////
 {
     const int size = channel <= 3 ? 1 : 2;
     int base = channel <= 3 ? ( channel << 1 ) : 16 + ( (channel-4) << 1);
 
-    if( counter <= 0 ) {
-        counter = 0x10000 * size;
-        VDMA_ToggleComplete( channel );
+    //dbgprintf(("VDMA_SetIndexCount (chn %u): Idx=%X, Cnt=%X CurIdx=%X, CurCnt=%X\n", channel, index, count, VDMA_CurIdx[channel], VDMA_CurCnt[channel] ));
+    if( count <= 0 ) {
+        count = 0x10000 * size;
+        VDMA_SetComplete( channel );
         if(VDMA_GetAuto(channel)) {
             index = 0;
-            counter = VDMA_Length[channel] * size;
+            count = VDMA_MaxCnt[channel] * size;
         }
     }
-    //dbgprintf(("counter: %d, index: %d, size: %d\n", counter, index, size));
-    VDMA_CurCnt[channel] = counter / size;
+    VDMA_CurCnt[channel] = count / size;
     VDMA_CurIdx[channel] = index / size;
 
+    /* the VDMA_Regs[] values are either set here or later when the regs are read (DelayUpdate=true) */
     if(!VDMA_InIO[channel]) {
-        //dbgprintf(("VDMA channel: %d, addr: %x\n", channel, VDMA_Addr[channel]));
+        //dbgprintf(("VDMA_SetIndexCount (chn %u): base: %x\n", channel, VDMA_Base[channel]));
         VDMA_Regs[base+1] = VDMA_CurCnt[channel] - 1; //update counter reg
-        VDMA_Regs[base] = VDMA_Addr[channel] + VDMA_CurIdx[channel] % (VDMA_Length[channel]+1); //update addr reg
-        //VDMA_PageRegs[channel] = (VDMA_Addr[channel] + VDMA_CurIdx[channel]) >> 16;
+        /* v1.4: take care that base isn't beyond addr+length */
+        VDMA_Regs[base] = VDMA_Base[channel] + min( VDMA_CurIdx[channel], VDMA_MaxCnt[channel] );
+        /* v1.4: no auto update of the page regs */
+        //VDMA_PageRegs[channel] = (VDMA_Base[channel] + VDMA_CurIdx[channel]) >> 16;
     }
     else
         VDMA_DelayUpdate[channel] = true;
-    //dbgprintf(("VDMA_SetIndexCounter(%u,%X,%X): returns %X\n", channel, index, counter, VDMA_CurIdx[channel] * size ));
+    //dbgprintf(("VDMA_SetIndexCount(%u,%X,%X): returns %X\n", channel, index, count, VDMA_CurIdx[channel] * size ));
     return VDMA_CurIdx[channel] * size;
 }
 
@@ -264,7 +264,7 @@ void VDMA_WriteData(int channel, uint8_t data)
 {
     if(VDMA_GetWriteMode(channel)) {
         int32_t index = VDMA_GetIndex(channel);
-        uint32_t addr = VDMA_GetAddress(channel) + index;
+        uint32_t addr = VDMA_GetBase(channel) + index;
         
         if( addr > 1024*1024 ) {
             __dpmi_meminfo info;
@@ -276,7 +276,7 @@ void VDMA_WriteData(int channel, uint8_t data)
         } else
             *(uint8_t *)(NearPtr(addr)) = data;
 
-        VDMA_SetIndexCounter(channel, index+1, VDMA_GetCounter(channel)-1);
+        VDMA_SetIndexCount(channel, index+1, VDMA_GetCount(channel)-1);
     }
 }
 

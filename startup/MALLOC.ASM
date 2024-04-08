@@ -1,22 +1,15 @@
 
-;--- 16-bit only: very simple memory allocator.
+;--- very simple memory allocator.
 ;--- implements a stack.
-;--- currently the OW memory allocator cannot be used.
+;--- in 16-bin, the OW memory allocator cannot be used currently.
+;--- but it's now also used for 32-bit, because it's so simple
+;--- and sufficient for this kind of app.
 ;--- assemble with -zcw.
 
 	.386
-	.model small
+	.model ?MODEL
 
-ifdef _DEBUG
-CStr macro text:vararg
-local sym
-	.const
-sym db text,0
-	.code
-	exitm <offset sym>
-endm
-__dprintf proto c :ptr, :vararg
-endif
+	include debug.inc
 
 	.data
 
@@ -33,7 +26,7 @@ malloc proc c public amnt:dword
 ifdef _DEBUG
 	mov eax, _curbrk
 	sub eax, _dynend
-	invoke __dprintf, CStr("%X: malloc(%X) free=%X (dynend/curbrk=%X/%X",10), cs, amnt, eax, _dynend, _curbrk
+	@dprintf CStr("%X: malloc(%X) free=%X (dynend/curbrk=%X/%X",10), cs, amnt, eax, _dynend, _curbrk
 endif
 tryagain:
 	mov ecx, amnt
@@ -53,9 +46,7 @@ outofmem:
 	invoke __brk, ecx	; __brk() will update _curbrk AND _dynend -
 	and eax, eax		; meaning that a new "stack" has begun.
 	jnz tryagain
-ifdef _DEBUG
-	invoke __dprintf, CStr("%X: malloc(%X) failed",10), cs, amnt
-endif
+	@dprintf CStr("%X: malloc(%X) failed",10), cs, amnt
 	ret
 malloc endp
 
@@ -69,15 +60,11 @@ free proc c public pMem:ptr
 	cmp eax, _dynend
 	jz reset
 @@:
-ifdef _DEBUG
-	invoke __dprintf, CStr("%X: free(%X) failed",10), cs, ecx
-endif
+	@dprintf CStr("%X: free(%X) failed",10), cs, ecx
 	ret
 reset:
 	mov _dynend, ecx
-ifdef _DEBUG
-	invoke __dprintf, CStr("%X: free(%X) ok",10), cs, ecx
-endif
+	@dprintf CStr("%X: free(%X) ok",10), cs, ecx
 	ret
 free endp
 

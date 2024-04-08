@@ -2,13 +2,11 @@
 ;--- switch stack, call port trap function, update client registers
 
 	.386
-ifdef ?FLAT
-	.MODEL flat, c
-else
-	.MODEL small, c
-endif
+	.MODEL ?MODEL, c
 	option casemap:none
 	option proc:private
+
+	include debug.inc
 
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
@@ -302,6 +300,8 @@ SwitchStackIOrmcb endp
 ;--- alloc the realmode callback for realmode port trapping
 
 _hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
+
+	@dprintf CStr("hdpmi_rmcbIO enter",10)
 	push ds
 	mov esi, offset SwitchStackIOrmcb
 	push cs

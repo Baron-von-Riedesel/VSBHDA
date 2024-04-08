@@ -33,14 +33,13 @@ extern "C" {
 //#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
 //#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
 
-#define AU_AUTO_UNMUTE 1 // automatically unmute (switch off mute flags) at -scv
-
 //au_cards mixer channels
 #define AU_MIXCHAN_MASTER       0  // master out
 #define AU_MIXCHAN_PCM          1  // pcm out
 #define AU_MIXCHAN_HEADPHONE    2  // headphone out
 #define AU_MIXCHAN_SPDIFOUT     3  // digital out
 #define AU_MIXCHAN_SYNTH        4  // midi/synth out
+
 #define AU_MIXCHAN_MICIN        5  // MIC input
 #define AU_MIXCHAN_LINEIN       6  // LINE in
 #define AU_MIXCHAN_CDIN         7  // CD in
@@ -53,6 +52,7 @@ extern "C" {
 #define AU_MIXCHANFUNC_VOLUME 0  // volume control (of master,pcm,etc.)
 #define AU_MIXCHANFUNC_MUTE   1  // mute switch (of master,pcm,etc.)
 #define AU_MIXCHANFUNCS_NUM   2  // number of mixchanfuncs
+
 #define AU_MIXCHANFUNCS_FUNCSHIFT 8
 #define AU_MIXCHANFUNCS_FUNCMASK  0xff
 #define AU_MIXCHANFUNCS_CHANMASK  ((1<<AU_MIXCHANFUNCS_FUNCSHIFT)-1)
@@ -68,10 +68,6 @@ extern "C" {
 #define AU_MIXERCHAN_MAX_REGISTER   65535 // check this again at future cards (2^bits)
 #define AU_MIXERCHAN_MAX_BITS          32 //
 #define AU_MIXERCHAN_MAX_VALUE 0xffffffff // 2^32-1
-
-//aucards_submixerchan_s->infobits
-#define SUBMIXCH_INFOBIT_REVERSEDVALUE  1 // reversed value
-#define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
 
 typedef int32_t  PCM_CV_TYPE_I;  // max. 32 bit input/output pcm format (integer)
 typedef uint32_t PCM_CV_TYPE_UI; //
@@ -133,11 +129,21 @@ struct audioout_info_s {
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
 };
 
-//soundcard mixer structures
+//aucards_submixerchan_s->infobits
+#define SUBMIXCH_INFOBIT_REVERSEDVALUE  1 // reversed value
+#define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
+//new for vsbhda
+#define SUBMIXCH_INFOBIT_CARD_SETVOL    4 // let the card software handle volume settings
+
+/* soundcard mixer structures.
+ * vsbhda: fields submixch_max and submixch_shift aren't used if SUBMIXCH_INFOBIT_CARD_SETVOL is set,
+ * which is always true for HDA.
+ * field submixch_register for HDA contains a node id, btw.
+ */
 struct aucards_submixerchan_s {
  unsigned long submixch_register; // register-address of channel
  unsigned long submixch_max;      // max value (and mask) (must be 2^n-1 (ie:1,3,7,15,31,63,127,255))
- unsigned long submixch_shift;    // bit-shift from 0. bit
+ unsigned long submixch_shift;    // bit-shift from 0.
  unsigned long submixch_infobits; //
 };
 
@@ -170,25 +176,6 @@ struct sndcard_info_s {
  unsigned long (*card_readmixer)(struct audioout_info_s *,unsigned long mixreg);
  const struct aucards_mixerchan_s **card_mixerchans;
 };
-
-#if 0
-/* audio_decoder_info is used as input for AU_setrate() */
-struct audio_decoder_info_s{
- void *private_data;         // decoder
- //info
- unsigned int infobits;      // flags
- unsigned int wave_id;       // audio type (wav:0x0001,mp3:0x0055,ac3:0x2000)
- unsigned int freq;          // frequency (44100,48000,...)
- unsigned int filechannels;  // number of channels in file ( not used here )
- unsigned int outchannels;   // decoded (used) channels, comes out from the decoder
- uint8_t *chanmatrix;        // output channel matrix (ie: 5.1)
- unsigned int bits;          // 8,16 ... (scalebits at float,filebits at integer output)
- unsigned int bytespersample;// used in au_mixer
- unsigned int bitrate;       // in kbit/s (lossy formats)(ie: mp3,ogg,ac3,dts)
- unsigned int pcm_framelen;  // comes out from the decoder (samplenum without channels!)(=bytes/bytespersample)
- char *shortname;            // set by decoder (3 chars), can static ("MP3","OGG","AC3","WMA")
-};
-#endif
 
 #ifdef NOTFLAT
 #define FAREXP _far

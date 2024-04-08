@@ -2,6 +2,7 @@
 #include <stdbool.h>
 
 #include "CONFIG.H"
+#include "PLATFORM.H"
 #include "DBOPL.H"
 #include "VOPL3.H"
 
@@ -64,7 +65,12 @@ int VOPL3_GetMode()
 int VOPL3_GenSamples(int16_t* pcm16, int count)
 ///////////////////////////////////////////////
 {
-    return VOPL3_Chip->Generate(pcm16, count);
+    char buffer[108];
+	int rc;
+	fpu_save(buffer);
+	rc = VOPL3_Chip->Generate(pcm16, count);
+	fpu_restore(buffer);
+	return rc;
 }
 
 static uint32_t VOPL3_PrimaryRead(uint32_t val)

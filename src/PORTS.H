@@ -49,3 +49,7 @@ tport(  0x22A, &VSB_DSP_Read )
 tport(  0x22C, &VSB_DSP_Write )
 tport(  0x22E, &VSB_DSP_ReadStatus )
 tport(  0x22F, &VSB_DSP_ReadINT16BitACK )
+#if VMPU
+tportx( 0x330, &VMPU_MPU, MPU )
+tport(  0x331, &VMPU_MPU )
+#endif

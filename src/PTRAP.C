@@ -26,10 +26,13 @@
 #include "VIRQ.H"
 #include "VSB.H"
 #include "HAPI.H"
+#if VMPU
+#include "VMPU.H"
+#endif
 
 // next 2 defines must match EQUs in rmwrap.asm!
 #define HANDLE_IN_388H_DIRECTLY 1
-#define RMPICTRAPDYN 0 /* trap PIC for v86-mode dynamically when needed */
+#define RMPICTRAPDYN 0 /* 1=trap PIC for v86-mode dynamically when needed */
 
 uint32_t _hdpmi_rmcbIO( void(*Fn)( __dpmi_regs *), __dpmi_regs *reg, __dpmi_raddr * );
 void _hdpmi_CliHandler( void );
@@ -312,7 +315,11 @@ bool PTRAP_Install_RM_PortTraps( void )
 }
 
 /* set PIC port trap when a SB IRQ is emulated.
- * Since the SB IRQ is emulated, no EOI must be sent to the PIC.
+ * if RMPICTRAPDYN==0, the PIC port is permanently trapped;
+ * to avoid mode switches, the trapping is handled in v86-mode
+ * if the port is accessed in v86-mode and SB IEQ isn't virtualized:
+ *  - [psp:86h] = -1      activates SB irq virtualization
+ *  - [psp:86h] = 0020h deactivates SB irq virtualization
  */
 
 void PTRAP_SetPICPortTrap( int bSet )

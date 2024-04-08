@@ -50,7 +50,7 @@ static int VSB_HDMA = 5;
 static int VSB_DACSpeaker = 1;
 static unsigned int VSB_Bits = 8;
 static int VSB_SampleRate = 22050;
-static int VSB_Samples = 0;
+static int VSB_Samples = 0;  /* the length argument after a play command (samples - 1) */
 static int VSB_Auto = false; /* auto-initialize mode active */
 static int VSB_HighSpeed = 0;
 static int VSB_Signed = false;
@@ -58,7 +58,7 @@ static int VSB_Silent = false;
 static int VSB_DSPCMD = -1;
 static int VSB_DSPCMD_Subindex = 0;
 int VSB_TriggerIRQ = 0;
-static int VSB_Pos = 0;
+static int VSB_Pos = 0; /* position in sample buffer? modified by VSB_SetPos() */
 static const uint8_t VSB_IRQMap[4] = {2,5,7,10};
 static uint8_t VSB_MixerRegIndex = 0;
 static uint8_t VSB_TestReg;
@@ -596,7 +596,7 @@ static uint8_t DSP_ReadStatus( void )
 static uint8_t DSP_INT16ACK( void )
 ///////////////////////////////////
 {
-    dbgprintf(("DSP_INT16ACK\n"));
+    //dbgprintf(("DSP_INT16ACK\n"));
     VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x2;
     return 0xFF;
 }
@@ -633,28 +633,30 @@ uint8_t VSB_GetIRQ()
     return VSB_IRQMap[bit];
 }
 
-uint8_t VSB_GetDMA()
-////////////////////
+/* get current DMA channel */
+
+int VSB_GetDMA()
+////////////////
 {
 #if SB16
     if ( VSB_Bits > 8 ) {
         if( VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 )
-            return( BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP]>>4) + 4 );
+            return( BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] >> 4) + 4 );
     }
 #endif
     if( VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] )
         return( BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] ) );
-    return 0xFF;
+    return -1;
 }
 
-#if SB16
-uint8_t VSB_GetHDMA()
-/////////////////////
+#if 0 //SB16
+int VSB_GetHDMA()
+/////////////////
 {
     int bit;
     if( !(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 ))
-        return 0xFF;
-    bit = BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP]>>4) + 4;
+        return -1;
+    bit = BSF(VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] >> 4) + 4;
     return bit;
 }
 #endif
@@ -722,6 +724,8 @@ int VSB_GetSampleRate()
     return VSB_SampleRate;
 }
 
+/* returns size of sample buffer in bytes */
+
 int VSB_GetSampleBytes()
 ////////////////////////
 {
@@ -744,10 +748,13 @@ int VSB_GetPos()
     return VSB_Pos;
 }
 
+/* set pos (and IRQ status if pos beyond sample buffer) */
+
 int VSB_SetPos(int pos)
 ///////////////////////
 {
-    if(pos >= VSB_GetSampleBytes())
+    /* new pos above size of sample buffer? */
+    if(pos >= VSB_GetSampleBytes() )
         VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= ((VSB_GetBits() <= 8 ) ? 0x01 : 0x02);
     return VSB_Pos = pos;
 }

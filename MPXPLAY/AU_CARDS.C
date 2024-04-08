@@ -319,8 +319,10 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 
 	dbgprintf(("AU_setmixer_one( %u, %u, %u )\n", mixchannum, setmode, newvalue ));
 	//mixer structure/values verifying
+
+	/* there are 2 funcs: 0="set volume" or 1="set mute" */
 	function = AU_MIXCHANFUNCS_GETFUNC(mixchannum);
-	if(function >= AU_MIXCHANFUNCS_NUM)
+	if( function >= AU_MIXCHANFUNCS_NUM )
 		return;
 	channel = AU_MIXCHANFUNCS_GETCHAN(mixchannum);
 	if(channel > AU_MIXCHANS_NUM)
@@ -330,25 +332,21 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 		return;
 	if(!cardi->card_writemixer || !cardi->card_readmixer || !cardi->card_mixerchans)
 		return;
-	onechi = AU_search_mixerchan(cardi->card_mixerchans,mixchannum);
+	onechi = AU_search_mixerchan( cardi->card_mixerchans, mixchannum );
 	if(!onechi)
 		return;
 	subchannelnum = onechi->subchannelnum;
-	if(!subchannelnum || (subchannelnum>AU_MIXERCHAN_MAX_SUBCHANNELS))
+	if( !subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS) )
 		return;
 
-	switch(mixchannum){
-	case AU_MIXCHAN_BASS:
-	case AU_MIXCHAN_TREBLE: maxpercentval = AU_MIXCHAN_MAX_VALUE_TONE; break;
-	default: maxpercentval = AU_MIXCHAN_MAX_VALUE_VOLUME; break;
-	}
+	maxpercentval = AU_MIXCHAN_MAX_VALUE_VOLUME;
 
 	//calculate new percent
-	switch(setmode){
+	switch( setmode ) {
 	case MIXER_SETMODE_ABSOLUTE:
 		dbgprintf(("AU_setmixer_one( SETMODE_ABSOLUTE, %u %% )\n", newvalue ));
 		newpercentval = newvalue;
-	break;
+		break;
 	case MIXER_SETMODE_RELATIVE:
 		if(function == AU_MIXCHANFUNC_VOLUME)
 			newpercentval = aui->card_mixer_values[channel] + newvalue;
@@ -361,8 +359,9 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 	default:
 		return;
 	}
-	if(newpercentval < 0)
+	if( newpercentval < 0 )
 		newpercentval = 0;
+
 	if(newpercentval > maxpercentval)
 		newpercentval = maxpercentval;
 
@@ -371,29 +370,49 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 		const struct aucards_submixerchan_s *subchi = &(onechi->submixerchans[sch]); // one subchannel infos (left,right,etc.)
 		unsigned long currchval,newchval;
 
-		if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !subchi->submixch_max || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) // invalid subchannel infos
+		/* invalid subchannel infos? */
+		if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !subchi->submixch_max || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) {
+			dbgprintf(("AU_setmixer_one: setting mixer ignored due to invalid subchannel info (reg=%u, max=%u, shift=%u)\n",
+					subchi->submixch_register, subchi->submixch_max, subchi->submixch_shift ));
 			continue;
+		}
 
-        /* don't use floats here - function may be called during interrupt time */
-		//newchval=(long)(((float)newpercentval*(float)subchi->submixch_max+((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
-		newchval=((newpercentval * subchi->submixch_max + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
-		if( newchval > subchi->submixch_max)
-			newchval = subchi->submixch_max;
-		if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)   // reverse value if required
-			newchval = subchi->submixch_max - newchval;
+		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL==1, let the card handle the volume.
+		 * Thus the values submixch_max and submixch_shift aren't used.
+		 */
+		if ( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) {
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u)\n", newpercentval ));
+			cardi->card_writemixer( aui, subchi->submixch_register, newpercentval );
+		} else {
+			currchval = cardi->card_readmixer( aui, subchi->submixch_register);// read current value
+			dbgprintf(("AU_setmixer_one: called card_readmixer()=%X (max=%X, shift=%X)\n", currchval, subchi->submixch_max, subchi->submixch_shift ));
 
-		newchval <<= subchi->submixch_shift;                             // shift to position
+			/* vsbhda: don't use floats here - function may be called during interrupt time */
+			//newchval=(long)(((float)newpercentval * (float)subchi->submixch_max + ((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
+			newchval = ((newpercentval * subchi->submixch_max + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
+			if( newchval > subchi->submixch_max)
+				newchval = subchi->submixch_max;
+			if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)   // reverse value if required
+				newchval = subchi->submixch_max - newchval;
 
-		currchval = cardi->card_readmixer(aui,subchi->submixch_register);// read current value
-		currchval &= ~(subchi->submixch_max << subchi->submixch_shift);  // unmask
-		newchval = (currchval | newchval);                               // add new value
+			newchval <<= subchi->submixch_shift;                             // shift to position
 
-		cardi->card_writemixer(aui,subchi->submixch_register,newchval);  // write it back
+			currchval &= ~(subchi->submixch_max << subchi->submixch_shift);  // unmask
+			newchval = (currchval | newchval);                               // add new value
+
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(0x%X)\n", newchval ));
+			cardi->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
+		}
 	}
 
 	if( function == AU_MIXCHANFUNC_VOLUME )
 		aui->card_mixer_values[channel] = newpercentval;
 }
+
+/*
+ * called by AU_setmixer_all()
+ * describe what's done here!
+ */
 
 static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum )
 //////////////////////////////////////////////////////////////////////////////////
@@ -423,35 +442,47 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 	if(!subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS))
 		return -1;
 
-	switch(mixchannum){
-	case AU_MIXCHAN_BASS:
-	case AU_MIXCHAN_TREBLE: maxpercentval = AU_MIXCHAN_MAX_VALUE_TONE; break;
-	default: maxpercentval = AU_MIXCHAN_MAX_VALUE_VOLUME; break;
-	}
+	maxpercentval = AU_MIXCHAN_MAX_VALUE_VOLUME;
 
 	// we read one (the left at stereo) sub-channel only
 	subchi = &(onechi->submixerchans[0]);
-	if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) // invalid subchannel infos
+	if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) { // invalid subchannel infos
+		dbgprintf(("AU_getmixer_one(channel=%u, func=%u): don't like subchannel info (%u %u)!\n", channel, function, subchi->submixch_register, subchi->submixch_shift ));
 		return -1;
+	}
 
-	value = cardi->card_readmixer(aui,subchi->submixch_register); // read
-	value >>= subchi->submixch_shift;                             // shift
-	value &= subchi->submixch_max;                                // mask
+	value = cardi->card_readmixer( aui, subchi->submixch_register );
 
-	if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)// reverse value if required
-		value = subchi->submixch_max - value;
+	/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL==1, just return the plain value -
+	 * it's a volume percentage already. Thus it's ensured thatthe values in submixch_shift/max
+     * are never used.
+	 */
+	if ( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
+		value >>= subchi->submixch_shift;                             // shift
+		value &= subchi->submixch_max;                                // mask
 
-	//value=(long)((float)value*(float)maxpercentval/(float)subchi->submixch_max);       // chval to percent
-	value = ( value * maxpercentval / subchi->submixch_max );       // chval to percent
-	if( value > maxpercentval )
-		value = maxpercentval;
+		if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)// reverse value if required
+			value = subchi->submixch_max - value;
+
+		/* vsbhda: no float usage here! */
+		//value=(long)((float)value * (float)maxpercentval / (float)subchi->submixch_max); // chval to percent
+		value = ( value * maxpercentval / subchi->submixch_max ); // chval to percent
+		if( value > maxpercentval )
+			value = maxpercentval;
+	}
+	dbgprintf(("AU_getmixer_one(channel=%u, func=%u)=%d)\n", channel, function, value ));
 	return value;
 }
 
 #define AU_MIXCHANS_OUTS 4
 
+/* for AC97, there's a fifth out channel, AU_MIXCHAN_SYNTH */
+
 static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
 	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
+
+/* set the volumes of "output channels:", defined in array above.
+ */
 
 void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode, int newvalue )
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -461,8 +492,10 @@ void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode,
 	for( i = 0; i < AU_MIXCHANS_OUTS; i++ )
 		AU_setmixer_one( aui, AU_MIXCHANFUNCS_PACK(au_mixchan_outs[i], AU_MIXCHANFUNC_VOLUME ), setmode, newvalue );
 
-	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER]; // ???
+	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER];
 }
+
+/* get/set the volumes of the output "channels"???? */
 
 void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////
@@ -470,21 +503,20 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 	unsigned int i;
 	int vol = aui->card_master_volume;
 
-	if(vol >= 0) // we set all output channels to the master volume
+	dbgprintf(("AU_setmixer_all: vol=%d)\n", vol ));
+	/* set all output channels that haven't been set yet to the master volume */
+	if( vol >= 0 )
 		for( i = 0; i < AU_MIXCHANS_OUTS; i++)
-			if(aui->card_mixer_values[au_mixchan_outs[i]] < 0) // except the separated settings
+			if( aui->card_mixer_values[au_mixchan_outs[i]] < 0 )
 				aui->card_mixer_values[au_mixchan_outs[i]] = vol;
 
 	for( i = 0; i < AU_MIXCHANS_NUM; i++ ){
 		vol = aui->card_mixer_values[i];
 		if( vol >= 0 ){
-#ifdef AU_AUTO_UNMUTE
-			AU_setmixer_one(aui,AU_MIXCHANFUNCS_PACK(i,AU_MIXCHANFUNC_MUTE),MIXER_SETMODE_ABSOLUTE, ((i == AU_MIXCHAN_BASS) || (i == AU_MIXCHAN_TREBLE)) ? AU_MIXCHAN_MAX_VALUE_TONE : AU_MIXCHAN_MAX_VALUE_VOLUME);
-#endif
-			AU_setmixer_one(aui,AU_MIXCHANFUNCS_PACK(i,AU_MIXCHANFUNC_VOLUME),MIXER_SETMODE_ABSOLUTE,vol);
-		}else{
+			AU_setmixer_one(aui,AU_MIXCHANFUNCS_PACK( i, AU_MIXCHANFUNC_VOLUME ), MIXER_SETMODE_ABSOLUTE, vol );
+		} else {
 			vol = AU_getmixer_one(aui,AU_MIXCHANFUNCS_PACK(i,AU_MIXCHANFUNC_VOLUME));
-			if(vol >= 0)
+			if( vol >= 0 )
 				aui->card_mixer_values[i] = vol;
 		}
 	}

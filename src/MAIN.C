@@ -86,7 +86,7 @@ uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
 #endif
 #if SETABSVOL
-uint16_t MAIN_SB_VOL = 0; //initial set volume will cause interrupt missing?
+extern uint16_t SNDISR_SB_VOL = 0; //initial set volume will cause interrupt missing?
 #endif
 
 static bool bISR; /* 1=ISR installed */
@@ -100,7 +100,7 @@ HDMA_DEFAULT,
 #endif
 TYPE_DEFAULT, true, true, true, VOL_DEFAULT };
 
-static struct {
+static const struct {
     const char *option;
     const char *desc;
     int *pValue;
@@ -238,18 +238,10 @@ void MAIN_ReinitOPL( void )
 ///////////////////////////
 {
 	if( gvars.opl3 ) {
-		uint8_t buffer[200];
-#ifdef DJGPP
-		asm("fsave %0"::"m"(buffer));
-#else
-		_asm fsave [buffer]
-#endif
+		uint8_t buffer[108];
+		fpu_save(buffer);
 		VOPL3_Reinit( AU_getfreq( hAU ) );
-#ifdef DJGPP
-		asm("frstor %0"::"m"(buffer));
-#else
-        _asm frstor [buffer]
-#endif
+		fpu_restore(buffer);
 	}
 }
 #endif
@@ -374,7 +366,7 @@ int main(int argc, char* argv[])
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf(("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF));
         if(bcd < 0x703) {
-            printf("Jemm/Qemm not installed, or version below 7.03: %x.%02x - disable real mode support.\n", bcd >> 8, bcd & 0xFF);
+            printf("Jemm+QPIEmu/Qemm not found [or version (%x.%02x) below 7.03]; no real mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
         }
     }
@@ -401,12 +393,13 @@ int main(int argc, char* argv[])
         return 1;
     }
     AU_setmixer_init( hAU );
-    //MAIN_GLB_VOL = gvars.vol;
+
 #if SETABSVOL
-    MAIN_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
+    SNDISR_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
 #endif
     AU_setmixer_outs( hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     //AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+
     AU_setrate( hAU, freq, HW_CHANNELS, HW_BITS );
 
     if( gvars.rm ) {
@@ -464,11 +457,12 @@ int main(int argc, char* argv[])
     }
 #endif
 #if SB16
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, Type=%d\n",
-           gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type );
-#else
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%u, DMA=%u, Type=%d\n", gvars.base, gvars.irq, gvars.dma, gvars.type );
+    gvars.hdma ?
+        printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, Type=%d\n",
+               gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type ) :
 #endif
+        printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, Type=%d\n",
+               gvars.base, gvars.irq, gvars.dma, gvars.type );
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 

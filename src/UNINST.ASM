@@ -3,11 +3,7 @@
 ;--- b) detect if vsbhda is already installed
 
 	.386
-ifdef ?FLAT
-	.MODEL flat
-else
-	.MODEL small
-endif
+	.MODEL ?MODEL
 	option casemap:none
 	option proc:private
 

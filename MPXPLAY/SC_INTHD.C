@@ -40,6 +40,29 @@
 #define AZX_PERIOD_SIZE 4096
 #endif
 
+typedef uint16_t hda_nid_t;
+
+struct hda_gnode {
+ hda_nid_t nid;        /* NID of this widget */
+ unsigned short nconns;    /* number of input connections */
+ hda_nid_t conn_list[HDA_MAX_CONNECTIONS];
+ unsigned int  wid_caps;    /* widget capabilities */
+ unsigned char type;    /* widget type */
+ unsigned char pin_ctl;    /* pin controls */
+ unsigned char checked;    /* the flag indicates that the node is already parsed */
+ unsigned int  pin_caps;    /* pin widget capabilities */
+ unsigned int  def_cfg;    /* default configuration */
+ unsigned int  amp_out_caps;    /* AMP out capabilities */
+ unsigned int  amp_in_caps;    /* AMP in capabilities */
+ unsigned long supported_formats; // format_val
+};
+
+struct pcm_vol_s {
+ struct hda_gnode *node;  /* Node for PCM volume */
+ unsigned int index;      /* connection of PCM volume */
+};
+
+
 struct intelhd_card_s
 {
  unsigned long  iobase;
@@ -114,10 +137,10 @@ static const struct hda_rate_tbl rate_bits[] = {
 };
 
 static struct aucards_mixerchan_s hda_master_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),MAX_PCM_VOLS,{
-  {0,0x00,0,0}, // card->pcm_vols[0]
-  {0,0x00,0,0}, // card->pcm_vols[1]
- }
+	AU_MIXCHANFUNCS_PACK( AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME), MAX_PCM_VOLS, {
+		{0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[0] register, max, shift, infobits
+		{0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
+	}
 };
 
 //Intel HDA codec has memory mapping only (by specification)
@@ -213,7 +236,12 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
     for ( ; timeout && (corbrp == ( azx_readw( chip, CORBRP ) & 0xFF ) ); timeout--, pds_delay_10us(100) );
 }
 
-/* argument "direct" is always zero */
+/* argument "direct" is always zero.
+ * 12-bit verbs have a 8-bit "payload" (=parm);
+ * 4-bits verb may have a 16-bit "payload";
+ * since the 4-bit verbs are defined so that the lower 8bits are zero,
+ * it's no problem.
+ */
 
 static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t direct, unsigned int verb, unsigned int parm)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,57 +391,47 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 {
 	int nconns = 0;
 
-	//dbgprintf(("hda_add_node: ms 0\n"));
 	node->nid = nid;
 	node->wid_caps = codec_param_read( card, nid, AC_PAR_AUDIO_WIDGET_CAP );
 	node->type = (node->wid_caps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
 
-	//dbgprintf(("hda_add_node: ms 1\n"));
+	//dbgprintf(("hda_add_node: nid=%u, caps=%X\n", node->nid, node->wid_caps ));
 	if( node->wid_caps & AC_WCAP_CONN_LIST )
 		nconns = hda_get_connections(card, nid,&node->conn_list[0],HDA_MAX_CONNECTIONS);
 
-	//dbgprintf(("hda_add_node: ms 2, nconns=%u\n", nconns ));
-	if( nconns >= 0 ){
+	//dbgprintf(("hda_add_node: conns=%u\n", nconns ));
+	if( nconns >= 0 ) {
 		node->nconns = nconns;
 
 		if( node->type == AC_WID_PIN ){
-			//dbgprintf(("hda_add_node: ms 3, AC_WID_PIN\n" ));
 			node->pin_caps = codec_param_read(card, node->nid, AC_PAR_PIN_CAP);
 			node->pin_ctl = hda_codec_read(card, node->nid, 0, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
 			node->def_cfg = hda_codec_read(card, node->nid, 0, AC_VERB_GET_CONFIG_DEFAULT, 0);
-			/* dbgprintf(("hda_add_node: id:%d type:PIN caps:%X conn:%d ctl:%X caps:%X def:%X amp-in:%X amp-out:%X\n",
-				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg,
-				  node->amp_in_caps, node->amp_out_caps)); */
+			/* dbgprintf(("hda_add_node: PIN id:%d caps:%X conn:%d ctl:%X caps:%X def:%X\n",
+				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg, */
 		}
 
 		if( node->wid_caps & AC_WCAP_OUT_AMP ) {
-			//dbgprintf(("hda_add_node: ms 4, AC_WCAP_OUT_AMP\n" ));
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_out_caps = codec_param_read(card, node->nid, AC_PAR_AMP_OUT_CAP);
 			if(!node->amp_out_caps)
 				node->amp_out_caps = card->def_amp_out_caps;
+			dbgprintf(("hda_add_node: caps & OUT_AMP, amp_out_caps=%X\n", node->amp_out_caps ));
 		}
 
 		if( node->wid_caps & AC_WCAP_IN_AMP ) {
-			//dbgprintf(("hda_add_node: ms 5, AC_WCAP_IN_AMP\n" ));
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
 				node->amp_in_caps = codec_param_read(card, node->nid, AC_PAR_AMP_IN_CAP);
 			if(!node->amp_in_caps)
 				node->amp_in_caps = card->def_amp_in_caps;
+			//dbgprintf(("hda_add_node: caps & IN_AMP, amp_in_caps=%X\n", node->amp_in_caps ));
 		}
 
 		if( node->wid_caps & AC_WCAP_FORMAT_OVRD ) {
-			//dbgprintf(("hda_add_node: ms 6, AC_WCAP_FORMAT_OVRD\n" ));
 			node->supported_formats = codec_param_read(card, node->nid, AC_PAR_PCM);
 		}
 	}
 
-	/*
-	 dbgprintf(("hda_add_node:%2d cons:%2d wc:%8X t:%2d aoc:%8X ot:%2d sf:%8X st:%2d of:%2d\n", (int)nid,nconns,node->wid_caps,
-	 node->type,node->amp_out_caps,(node->wid_caps&AC_WCAP_OUT_AMP),
-	 node->supported_formats,((node->amp_out_caps>>8)&0x7f),
-	 (node->amp_out_caps&AC_AMPCAP_OFFSET)));
-	*/
 	return nconns;
 }
 
@@ -430,63 +448,66 @@ static struct hda_gnode *hda_get_node(struct intelhd_card_s *card, hda_nid_t nid
 	return NULL;
 }
 
-static void hda_put_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int ch, int direction, int index,int val)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/* called by hda_codec_amp_stereo() and hda_writeMIXER() */
+
+static void hda_set_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int ch, int direction, int index, uint8_t val)
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t parm;
 
-	parm  = (ch) ? AC_AMP_SET_RIGHT : AC_AMP_SET_LEFT;
-	parm |= (direction == HDA_OUTPUT) ? AC_AMP_SET_OUTPUT : AC_AMP_SET_INPUT;
-	parm |= index << AC_AMP_SET_INDEX_SHIFT;
-	parm |= val;
+	parm  = (ch) ? AC_AMP_SET_RIGHT : AC_AMP_SET_LEFT; /* bits 12/13 */
+	parm |= (direction == HDA_OUTPUT) ? AC_AMP_SET_OUTPUT : AC_AMP_SET_INPUT; /* bits 14/15 */
+	parm |= index << AC_AMP_SET_INDEX_SHIFT; /* bits 8-11 */
+	/* bit 7=1 is mute! */
+	parm |= val; /* bits 0-6 */
+	dbgprintf(("hda_set_vol_mute(chnl=%u, dir=%u, idx=%u val=%X): write_codec( %u, %X, %X)\n", ch, direction, index, val, nid, AC_VERB_SET_AMP_GAIN_MUTE, parm ));
 	hda_codec_write(card, nid, 0, AC_VERB_SET_AMP_GAIN_MUTE, parm);
 }
 
-static unsigned int hda_get_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int ch, int direction, int index)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/* called by hda_codec_amp_stereo() and hda_readMIXER() */
+
+static uint8_t hda_get_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int ch, int direction, int index)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	uint32_t val, parm;
+	uint32_t parm;
+	uint8_t val;
 
 	parm  = (ch) ? AC_AMP_GET_RIGHT : AC_AMP_GET_LEFT;
 	parm |= ( direction == HDA_OUTPUT ) ? AC_AMP_GET_OUTPUT : AC_AMP_GET_INPUT;
 	parm |= index;
-	val = hda_codec_read(card, nid, 0, AC_VERB_GET_AMP_GAIN_MUTE, parm);
-	return ( val & 0xff);
+	val = (uint8_t)hda_codec_read(card, nid, 0, AC_VERB_GET_AMP_GAIN_MUTE, parm);
+	return ( val ); /* bit 7: mute, 0-6: gain */
 }
 
-static int hda_codec_amp_update(struct intelhd_card_s *card, hda_nid_t nid, int ch, int direction, int idx, int mask, int val)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/* called by hda_unmute_output() and hda_unmute_input() */
+
+static int hda_codec_amp_stereo(struct intelhd_card_s *card, hda_nid_t nid, int direction, int idx, uint8_t val)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	val &= mask;
-	val |= hda_get_vol_mute(card, nid, ch, direction, idx) & ~mask;
-	hda_put_vol_mute(card, nid, ch, direction, idx, val);
+	int ch;
+	for ( ch = 0; ch < 2; ch++ ) {
+		val |= hda_get_vol_mute( card, nid, ch, direction, idx );
+		hda_set_vol_mute( card, nid, ch, direction, idx, val & 0x7f );
+	}
 	return 1;
 }
 
-static int hda_codec_amp_stereo(struct intelhd_card_s *card, hda_nid_t nid, int direction, int idx, int mask, int val)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-{
-	int ch, ret = 0;
-	for (ch = 0; ch < 2; ch++)
-		ret |= hda_codec_amp_update(card, nid, ch, direction,idx, mask, val);
-	return ret;
-}
-
 /* unmute an output widget ( headphone, speaker,... )
+ * called by parse_output_path() & parse_output_jack()
  */
 
 static void hda_unmute_output(struct intelhd_card_s *card, struct hda_gnode *node)
 //////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int val = (node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
-	hda_codec_amp_stereo(card, node->nid, HDA_OUTPUT, 0, 0xff, val);
+	uint8_t val = ((node->amp_out_caps >> AC_AMPCAP_NUM_STEPS_SHIFT) & AC_AMPCAP_NUM_STEPS_MASK);
+	hda_codec_amp_stereo(card, node->nid, HDA_OUTPUT, 0, val);
 }
 
 static void hda_unmute_input(struct intelhd_card_s *card, struct hda_gnode *node, unsigned int index)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int val = (node->amp_in_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
-	hda_codec_amp_stereo(card, node->nid, HDA_INPUT, index, 0xff, val);
+	uint8_t val = ((node->amp_in_caps >> AC_AMPCAP_NUM_STEPS_SHIFT) & AC_AMPCAP_NUM_STEPS_MASK);
+	hda_codec_amp_stereo(card, node->nid, HDA_INPUT, index, val);
 }
 
 static void select_input_connection(struct intelhd_card_s *card, struct hda_gnode *node, unsigned int index)
@@ -536,23 +557,20 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 		return 1;
 	}
 
-	for( i = 0; i < node->nconns; i++ ){
+	for( i = 0; i < node->nconns; i++ ) {
 		child = hda_get_node(card, node->conn_list[i]);
 		if(!child)
 			continue;
 		err = parse_output_path(card, child, dac_idx);
 		if(err < 0)
 			return err;
-		else if(err > 0){
-			if(node->nconns > 1)
+		else if( err > 0 ) {
+			if( node->nconns > 1 )
 				select_input_connection(card, node, i);
 			hda_unmute_input(card, node, i);
 			hda_unmute_output(card, node);
-			if(card->dac_node[dac_idx] &&
-			   (card->pcm_num_vols < MAX_PCM_VOLS) &&
-			   !(card->dac_node[dac_idx]->wid_caps & AC_WCAP_OUT_AMP))
-			{
-				if((node->wid_caps & AC_WCAP_IN_AMP) || (node->wid_caps & AC_WCAP_OUT_AMP)){
+			if( card->dac_node[dac_idx] && ( card->pcm_num_vols < MAX_PCM_VOLS ) && !( card->dac_node[dac_idx]->wid_caps & AC_WCAP_OUT_AMP ) ) {
+				if((node->wid_caps & AC_WCAP_IN_AMP) || (node->wid_caps & AC_WCAP_OUT_AMP)) {
 					int n = card->pcm_num_vols;
 					card->pcm_vols[n].node = node;
 					card->pcm_vols[n].index = i;
@@ -913,19 +931,25 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 		dbgprintf(("hda_mixer_init: supp formats=%X, max freq=%u, max bits=%u\n", card->supported_formats, card->supported_max_freq, card->supported_max_bits ));
 	}
 
+	/* set the card_mixerchans values */
+	/* vsbhda: AU_getmixer expects submixch_max to be 2^n-1!
+	 * IOW, it is used as both a mask and a max value - not a very good design;
+	 * for HDA it's simply not usable. So a new bit has been introduced that causes
+	 * the mixer code in AU_cards to NOT use submixch_max ( or submixch_shift ).
+	 */
 	for( i = 0; i < MAX_PCM_VOLS; i++)
 		if( card->pcm_vols[i].node ) {
 			hda_master_vol.submixerchans[i].submixch_register = card->pcm_vols[i].node->nid;
-			hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps & AC_AMPCAP_NUM_STEPS) >> AC_AMPCAP_NUM_STEPS_SHIFT;
+			//hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps >> AC_AMPCAP_NUM_STEPS_SHIFT ) & AC_AMPCAP_NUM_STEPS_MASK;
 		}
 
-	dbgprintf(("hda_mixer_init: dac0=%d dac1=%d out0=%d out1=%d vol0=%d vol1=%d\n",
-				   (int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
-				   (int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
-				   (int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
-				   (int)((card->out_pin_node[1]) ? card->out_pin_node[1]->nid: 0),
-				   (int)((card->pcm_vols[0].node) ? card->pcm_vols[0].node->nid: 0),
-				   (int)((card->pcm_vols[1].node) ? card->pcm_vols[1].node->nid: 0)));
+	dbgprintf(("hda_mixer_init: dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
+				(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
+				(int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
+				(int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
+				(int)((card->out_pin_node[1]) ? card->out_pin_node[1]->nid: 0),
+				(int)((card->pcm_vols[0].node) ? card->pcm_vols[0].node->nid: 0),
+				(int)((card->pcm_vols[1].node) ? card->pcm_vols[1].node->nid: 0)));
 
 	dbgprintf(("hda_mixer_init: done\n"));
 
@@ -1548,19 +1572,36 @@ static long HDA_getbufpos( struct audioout_info_s *aui )
 
 //mixer
 
+/* vsbhda: the card is supposed to handle the volume setting on its own;
+ * the "val" argument just gives the percentage (0-100) of the volume to set.
+ */
+
 static void HDA_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	hda_put_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val); /* left channel */
-	hda_put_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val); /* right channel */
+	int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	val = maxstep * val / 100;
+	hda_set_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val ); /* left channel */
+	hda_set_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val ); /* right channel */
 }
+
+/* called by AU_setmixer_one();
+ * for HDA just return a percentage value.
+ */
 
 static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long reg )
 ////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	return hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0);
+	uint32_t val;
+	int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	val = hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0 );
+	if ( maxstep )
+		val = val * 100 / maxstep;
+	else
+		val = 100;
+	return val;
 }
 
 #if 1 /* vsbhda */
@@ -1606,12 +1647,12 @@ const struct sndcard_info_s HDA_sndcard_info = {
  &HDA_close,
  &HDA_setrate,
 
- &MDma_writedata,
- &HDA_getbufpos,
- &MDma_clearbuf,
+ &MDma_writedata, /* =cardbuf_writedata() */
+ &HDA_getbufpos,  /* =cardbuf_pos() */
+ &MDma_clearbuf,  /* =cardbuf_clear() */
  //&MDma_interrupt_monitor,
  &HDA_IRQRoutine, /* vsbhda */
- &HDA_writeMIXER,
- &HDA_readMIXER,
- hda_mixerset
+ &HDA_writeMIXER, /* =card_writemixer() */
+ &HDA_readMIXER,  /* =card_readmixer() */
+ hda_mixerset     /* =card_mixerchans */
 };

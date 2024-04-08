@@ -27,7 +27,7 @@ static const struct aucards_mixerchan_s aucards_ac97chan_master_vol = {
 		{ AC97_MASTER_VOL_STEREO,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE }, // left
 		{ AC97_MASTER_VOL_STEREO,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }, // right
 #if MASTERSUBMIXCHAN==4
-		{ AC97_SURROUND_MASTER,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_SURROUND_MASTER,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE }, // AC97 v2.0
 		{ AC97_SURROUND_MASTER,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
 #endif
 	}};
@@ -68,7 +68,7 @@ static const struct aucards_mixerchan_s aucards_ac97chan_auxin_vol = {
 	}};
 
 /* vsbhda: todo: check if this definition is correct; the order in AU_CARDS.H is:
- * MASTER, PCM, HP, SPDIF!!!, SYNTH!!!, MICIN, LINEIN, CDIN, AUXIN, ...
+ * MASTER, PCM, HP, SPDIFOUT!!!, SYNTH!!!, MICIN, LINEIN, CDIN, AUXIN, ...
  */
 
 const struct aucards_mixerchan_s *aucards_ac97chan_mixerset[] = {

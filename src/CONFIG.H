@@ -15,6 +15,7 @@
 #endif
 #define PREMAPDMA 0   /* 1=map full 16MB ISA address range */
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
+#define VMPU 0        /* 1=virtualize MPU at port 0x330-0x331 */
 
 struct globalvars {
 	int base;

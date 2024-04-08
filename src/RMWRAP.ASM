@@ -3,11 +3,7 @@
 ;--- problems with a linker's 16-bit fixup handling for 32-bit binaries.
 
 	.386
-ifdef ?FLAT
-	.model flat
-else
-	.model small
-endif
+	.model ?MODEL
 
 	.code
 

@@ -54,7 +54,7 @@ enum {
 };
 
 /*
- * GET verbs
+ * GET verbs (0F=12 bit verb ID)
  */
 #define AC_VERB_GET_STREAM_FORMAT        0x0a00
 #define AC_VERB_GET_AMP_GAIN_MUTE        0x0b00
@@ -67,7 +67,7 @@ enum {
 #define AC_VERB_GET_SDI_SELECT           0x0f04
 #define AC_VERB_GET_POWER_STATE          0x0f05
 #define AC_VERB_GET_CONV                 0x0f06 /* converter stream, channel */
-#define AC_VERB_GET_PIN_WIDGET_CONTROL   0x0f07
+#define AC_VERB_GET_PIN_WIDGET_CONTROL   0x0f07 /* see AC_PINCTL_ */
 #define AC_VERB_GET_UNSOLICITED_RESPONSE 0x0f08
 #define AC_VERB_GET_PIN_SENSE            0x0f09
 #define AC_VERB_GET_BEEP_CONTROL         0x0f0a
@@ -83,7 +83,7 @@ enum {
 #define AC_VERB_GET_SUBSYSTEM_ID         0x0f20
 
 /*
- * SET verbs
+ * SET verbs (07=12 bit verb ID)
  */
 #define AC_VERB_SET_STREAM_FORMAT        0x200 /* */
 #define AC_VERB_SET_AMP_GAIN_MUTE        0x300 /* */
@@ -112,7 +112,7 @@ enum {
 #define AC_VERB_SET_CODEC_RESET          0x7ff
 
 /*
- * Parameter IDs
+ * Parameter IDs ( for verb ID 0F00 )
  */
 #define AC_PAR_VENDOR_ID         0x00
 #define AC_PAR_SUBSYSTEM_ID      0x01
@@ -198,8 +198,8 @@ enum {
 /* Amplifier capabilities */
 #define AC_AMPCAP_OFFSET          (0x7f<<0)  /* 0dB offset */
 #define AC_AMPCAP_OFFSET_SHIFT     0
-#define AC_AMPCAP_NUM_STEPS       (0x7f<<8)  /* number of steps */
 #define AC_AMPCAP_NUM_STEPS_SHIFT  8
+#define AC_AMPCAP_NUM_STEPS_MASK   0x7f      /* number of steps */
 #define AC_AMPCAP_STEP_SIZE       (0x7f<<16) /* step size 0-32dB, in 0.25dB  */
 #define AC_AMPCAP_STEP_SIZE_SHIFT  16
 #define AC_AMPCAP_MUTE            (1<<31)    /* mute capable */
@@ -566,27 +566,5 @@ enum {
                    AC_DEFCFG_LOCATION_SHIFT)
 #define defcfg_port_conn(node) (((node)->def_cfg & AC_DEFCFG_PORT_CONN) >> \
                 AC_DEFCFG_PORT_CONN_SHIFT)
-
-typedef uint16_t hda_nid_t;
-
-struct hda_gnode {
- hda_nid_t nid;        /* NID of this widget */
- unsigned short nconns;    /* number of input connections */
- hda_nid_t conn_list[HDA_MAX_CONNECTIONS];
- unsigned int  wid_caps;    /* widget capabilities */
- unsigned char type;    /* widget type */
- unsigned char pin_ctl;    /* pin controls */
- unsigned char checked;    /* the flag indicates that the node is already parsed */
- unsigned int  pin_caps;    /* pin widget capabilities */
- unsigned int  def_cfg;    /* default configuration */
- unsigned int  amp_out_caps;    /* AMP out capabilities */
- unsigned int  amp_in_caps;    /* AMP in capabilities */
- unsigned long supported_formats; // format_val
-};
-
-struct pcm_vol_s {
- struct hda_gnode *node;  /* Node for PCM volume */
- unsigned int index;      /* connection of PCM volume */
-};
 
 #endif /* __SOUND_HDA_CODEC_H */

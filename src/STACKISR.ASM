@@ -2,16 +2,14 @@
 ;--- handle sound hardware interrupt
 
 	.386
-ifdef ?FLAT
-	.MODEL flat, c
-else
-	.MODEL small, c
-endif
+	.MODEL ?MODEL, c
 	option casemap:none
 	option proc:private
 
 	public dfOldISR
 	public dwDS
+
+	include debug.inc
 
 externdef c __djgpp_stack_top:dword
 
@@ -109,6 +107,7 @@ SwitchStackISR endp
 
 _hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
+	@dprintf CStr("hdpmi_InstallISR enter",10)
 	mov bl, interrupt
 	mov ax, 204h
 	int 31h
@@ -142,6 +141,8 @@ error:
 _hdpmi_InstallISR endp
 
 _hdpmi_UninstallISR proc public uses ebx
+
+	@dprintf CStr("hdpmi_UninstallISR enter",10)
 	mov edx, dword ptr dfOldISR
 	mov cx, word ptr dfOldISR+SEGOFS
 	mov bl, intno
@@ -153,6 +154,7 @@ _hdpmi_UninstallISR proc public uses ebx
 error:
 	xor eax, eax
 	ret
+
 _hdpmi_UninstallISR endp
 
 	END

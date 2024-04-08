@@ -1,9 +1,9 @@
 
 # create vsbhda16.exe with Open Watcom v2.0 and JWasm.
 # to create the binary, enter
-#   wmake -f watcom16.mak
+#   wmake -f ow16.mak
 # optionally, for a debug version, enter
-#   wmake -f watcom16.mak DEBUG=1
+#   wmake -f ow16.mak debug=1
 
 !ifndef DEBUG
 DEBUG=0
@@ -26,7 +26,7 @@ NAME2=sndcard
 !if $(DEBUG)
 OUTD=ow16d
 C_DEBUG_FLAGS=-D_DEBUG
-A_DEBUG_FLAGS=-D_DEBUG
+A_DEBUG_FLAGS=-D_DEBUG -Fl=$*
 !else
 OUTD=ow16
 C_DEBUG_FLAGS=
@@ -35,7 +35,7 @@ A_DEBUG_FLAGS=
 
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
-	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj &
+	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
@@ -50,8 +50,8 @@ OBJFILES2 = &
 	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/libmain.obj   
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
-# OW's wpp386 doesn't like the -ecc option
-CPP_OPT_FLAGS=-q -ms -bc -5s -fp5 -fpi87 
+# OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
+CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
 C_EXTRA_FLAGS=-DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
@@ -61,22 +61,22 @@ INCLUDES=-I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
-	$(ASM) -q -DNOTFLAT $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -DNOTFLAT -Istartup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
-	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {src}.cpp{$(OUTD)}.obj
-	$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {mpxplay}.c{$(OUTD)}.obj
-	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
 
 {startup}.asm{$(OUTD)}.obj
-	jwasm.exe -q -zcw -DNOTFLAT $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {startup}.c{$(OUTD)}.obj
-	$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD)\$(NAME2).drv
 
@@ -141,12 +141,13 @@ $(OUTD)/uninst.obj:    src\uninst.asm
 $(OUTD)/vdma.obj:      src\vdma.c
 $(OUTD)/vioout.obj:    src\vioout.asm
 $(OUTD)/virq.obj:      src\virq.c
+$(OUTD)/vmpu.obj:      src\vmpu.c
 $(OUTD)/vsb.obj:       src\vsb.c
 !ifndef NOFM
 $(OUTD)/dbopl.obj:     src\dbopl.cpp
 
 $(OUTD)/vopl3.obj:     src\vopl3.cpp
-	$(CPP) $(C_DEBUG_FLAGS) -q -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
+	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -ms -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
 
 $(OUTD)/cstrt16x.obj:  startup\cstrt16x.asm
@@ -160,8 +161,8 @@ $(OUTD)/libmain.obj:   startup\libmain.c
 # the 16-bit code is included in binary format into rmwrap.asm.
 
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
-	$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
-	$(ASM) -q -DNOTFLAT -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
+	@$(ASM) -q -DNOTFLAT -D?MODEL=small -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).lib

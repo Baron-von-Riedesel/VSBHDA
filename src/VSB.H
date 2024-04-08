@@ -34,8 +34,8 @@ uint32_t VSB_DSP_ReadINT16BitACK(uint32_t port, uint32_t val, uint32_t out);
 
 void VSB_Init(int irq, int dma, int hdma, int DSPVer );
 uint8_t VSB_GetIRQ( void );
-uint8_t VSB_GetDMA( void );
-uint8_t VSB_GetHDMA( void );
+int VSB_GetDMA( void );
+//int VSB_GetHDMA( void );
 int VSB_Running( void );
 void VSB_Stop( void );
 

@@ -53,10 +53,19 @@ local lpproc:dword
 
     mov psp, es
 
+if 1
+;--- we don't need this 16-bit startup code in extended memory;
+;--- this code assumes that _TEXT16 is "between" _TEXT and DGROUP!
+    mov cx, cs
+endif
     mov ax, es
     add ax, 10h				; skip PSP -> start para of segment _TEXT
     sub cx, ax
-    mov codesize, cx		; must be <= 1000h
+if 0 ; we know for sure that _TEXT is < 64k
+    cmp cx, 1000h			; must be <= 1000h
+    ja codetoobig
+endif
+    mov codesize, cx
     mov ds, ax              ; set ds to start of _TEXT so we get a csalias
 
     mov ax, 1687h           ; DPMI host installed?

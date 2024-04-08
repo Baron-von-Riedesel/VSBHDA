@@ -4,13 +4,11 @@
 ;--- 2. clear ISR_DMA_MappedAddr at DOS exit, since it will be released by hdpmi
 
 	.386
-ifdef ?FLAT
-	.MODEL flat, c
-else
-	.MODEL small, c
-endif
+	.MODEL ?MODEL, c
 	option casemap:none
 	option proc:private
+
+	include debug.inc
 
 externdef c ISR_DMA_MappedAddr:dword
 
@@ -191,6 +189,7 @@ myint21 endp
 
 _hdpmi_InstallInt31 proc public uses ebx interrupt:byte
 
+	@dprintf CStr("hdpmi_InstallInt31 enter",10)
 ifdef NOTFLAT
 	call InstallExc00
 	push ds
@@ -246,6 +245,7 @@ _hdpmi_InstallInt31 endp
 
 _hdpmi_UninstallInt31 proc public uses ebx
 
+	@dprintf CStr("hdpmi_UninstallInt31 enter",10)
 	mov edx, dword ptr [oldint21+0]
 	mov cx, word ptr [oldint21+SEGOFS]
 	mov bl, 21h

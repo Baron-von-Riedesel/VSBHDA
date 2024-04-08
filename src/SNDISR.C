@@ -33,7 +33,7 @@ extern void fatal_error( int );
 extern int hAU;
 extern struct globalvars gvars;
 #if SETABSVOL
-extern uint16_t MAIN_SB_VOL;
+uint16_t SNDISR_SB_VOL;
 #endif
 #if PREMAPDMA
 extern uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
@@ -77,7 +77,12 @@ static int16_t *pPCM = NULL;
 //static int16_t ISR_OPLPCM[ISR_PCM_SAMPLESIZE+256];
 //static int16_t ISR_PCM[ISR_PCM_SAMPLESIZE+256];
 
+#ifndef DJGPP
+/* here malloc/free is superfast since it's a very simple "stack" */
+#define MALLOCSTATIC 0
+#else
 #define MALLOCSTATIC 1
+#endif
 
 #if ADPCM
 
@@ -140,8 +145,8 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
  * src & dst are 16-bit
  */
 
-static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int samplerate, unsigned int newrate)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int samplerate, unsigned int newrate)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	const unsigned int instep = ((samplerate / newrate) << 12) | (((4096 * (samplerate % newrate) + newrate - 1 ) / newrate) & 0xFFF);
 	const unsigned int inend = (samplenum / channels) << 12;
@@ -152,7 +157,10 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 #if MALLOCSTATIC
 	static int maxsample = 0;
 	static PCM_CV_TYPE_S* buff = NULL;
+#else
+	PCM_CV_TYPE_S* buff;
 #endif
+
 	if(!samplenum)
 		return 0;
 
@@ -164,11 +172,11 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 		maxsample = samplenum;
 	}
 #else
-	PCM_CV_TYPE_S* buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
+	buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
 #endif
 	memcpy( buff, pcmsrc, samplenum * sizeof(PCM_CV_TYPE_S) );
 
-	dbgprintf(("mixer_speed_lq: srcrate=%u dstrate=%u chn=%u smpl=%u step=%x end=%x\n", samplerate, newrate, channels, samplenum, instep, inend ));
+	dbgprintf(("cv_rate: srcrate=%u dstrate=%u chn=%u smpl=%u step=%x end=%x\n", samplerate, newrate, channels, samplenum, instep, inend ));
 
 	pcmdst = pcmsrc;
 	total = samplenum/channels;
@@ -201,22 +209,11 @@ static unsigned int mixer_speed_lq( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenu
 static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum )
 /////////////////////////////////////////////////////////////////////////
 {
-	PCM_CV_TYPE_C *inptr = (PCM_CV_TYPE_C *)pcm;
-	PCM_CV_TYPE_C *outptr = (PCM_CV_TYPE_C *)pcm;
-
-	dbgprintf(("cv_bits_8_to_16( pcm=%X, smpls=%u\n", pcm, samplenum ));
-
-	inptr += samplenum;
-	outptr += samplenum * 2;
+	PCM_CV_TYPE_UC *src = (PCM_CV_TYPE_UC *)pcm + samplenum - 1;
+	PCM_CV_TYPE_S *dst = pcm + samplenum - 1;
 
 	for ( ; samplenum; samplenum-- ) {
-		/* copy upper bits (bytes) to the right/correct place */
-		inptr--;
-		outptr--;
-		*outptr = *inptr ^ 0x80; /* convert unsigned to signed */
-		/* fill lower bits (bytes) with zeroes */
-		outptr--;
-		*outptr = 0;
+		*dst-- = (PCM_CV_TYPE_S)((*src-- ^ 0x80) << 8);
 	}
 }
 
@@ -258,7 +255,7 @@ static void SNDISR_Interrupt( void )
     uint32_t midivol;
     int samples;
     bool digital;
-    int dma;
+    int dmachannel;
     int32_t DMA_Count;
     int i;
 
@@ -281,13 +278,13 @@ static void SNDISR_Interrupt( void )
         midivol   = VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO)   & 0xF0;
     }
 #if SETABSVOL
-    if( MAIN_SB_VOL != mastervol * gvars.vol / 9) {
-        MAIN_SB_VOL =  mastervol * gvars.vol / 9;
+    if( SNDISR_SB_VOL != mastervol * gvars.vol / 9) {
+        SNDISR_SB_VOL =  mastervol * gvars.vol / 9;
         //uint8_t buffer[200];
-        //asm("fsave %0": "m"(buffer)); /* needed if AU_setmixer_one() uses floats */
+        //fpu_save(buffer); /* needed if AU_setmixer_one() uses floats */
         AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
-        //asm("frstor %0": "m"(buffer));
-        //dbgprintf(("ISR: set master volume=%u\n", MAIN_SB_VOL ));
+        //fpu_restore(buffer);
+        //dbgprintf(("isr: set master volume=%u\n", SNDISR_SB_VOL ));
     }
 #else
     /* min: 10*10-1=ff ; ff >> 8 = 0, max: 100*100-1=ffff ; ffff >> 8 = ff */
@@ -298,19 +295,19 @@ static void SNDISR_Interrupt( void )
 #endif
     AU_setoutbytes( hAU ); //aui.card_outbytes = aui.card_dmasize;
     samples = AU_cardbuf_space( hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
-    //dbgprintf(("samples:%u ",samples));
+    //dbgprintf(("isr: samples:%u ",samples));
 
     if(samples == 0) /* no free space in DMA buffer? */
         return;
 
     digital = VSB_Running();
-    dma = VSB_GetDMA();
-    DMA_Count = VDMA_GetCounter(dma);
+    dmachannel = VSB_GetDMA();
+    DMA_Count = VDMA_GetCount(dmachannel);
 
     if( digital ) {
         int i,j;
-        uint32_t DMA_Addr = VDMA_GetAddress(dma);
-        int32_t DMA_Index = VDMA_GetIndex(dma);
+        uint32_t DMA_Base = VDMA_GetBase(dmachannel);
+        int32_t DMA_Index = VDMA_GetIndex(dmachannel);
         uint32_t SB_Bytes = VSB_GetSampleBytes();
         uint32_t SB_Pos = VSB_GetPos();
         uint32_t SB_Rate = VSB_GetSampleRate();
@@ -322,14 +319,13 @@ static void SNDISR_Interrupt( void )
         bool resample; //don't resample if sample rates are close
         int bytes;
 
-        //dbgprintf(("dsp: pos=%X bytes=%d rate=%d smpsize=%u chn=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels ));
-        //dbgprintf(("DMA index: %x\n", DMA_Index));
+        //dbgprintf(("isr: pos=%X bytes=%d rate=%d smpsize=%u chn=%u DMAidx=%u\n", SB_Pos, SB_Bytes, SB_Rate, samplesize, channels, DMA_Index ));
         do {
 #if !PREMAPDMA
             /* check if the current DMA address is within the mapped region.
              * if no, release current mapping region.
              */
-            if( ISR_DMA_MappedAddr && !(DMA_Addr >= ISR_DMA_Addr && DMA_Addr + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size )) {
+            if( ISR_DMA_MappedAddr && !(DMA_Base >= ISR_DMA_Addr && DMA_Base + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size )) {
                 if( ISR_DMA_MappedAddr >= 0x100000 ) {
                     __dpmi_meminfo info;
                     info.address = ISR_DMA_MappedAddr;
@@ -340,10 +336,10 @@ static void SNDISR_Interrupt( void )
             /* if there's no mapped region, create one that covers current DMA op
              */
             if( ISR_DMA_MappedAddr == 0) {
-                ISR_DMA_Addr = DMA_Addr;
+                ISR_DMA_Addr = DMA_Base;
                 ISR_DMA_Size = max( min(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
-                if ( DMA_Addr < 0x100000 )
-                    ISR_DMA_MappedAddr = DMA_Addr;
+                if ( DMA_Base < 0x100000 )
+                    ISR_DMA_MappedAddr = DMA_Base;
                 else {
                     __dpmi_meminfo info;
                     info.address = ISR_DMA_Addr;
@@ -352,34 +348,33 @@ static void SNDISR_Interrupt( void )
                         fatal_error( 2 );
                     ISR_DMA_MappedAddr = info.address;
                 }
-                // dbgprintf(("ISR: chn=%d DMA_Addr/Index/Count=%x/%x/%x ISR_DMA_Addr/Size/MappedAddr=%x/%x/%x\n", dma, DMA_Addr, DMA_Index, DMA_Count, ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr ));
+                dbgprintf(("isr, ISR_DMA address (re)mapped: DMA_Base=%x, DMA_Size=%x, DMA_MappedAddr=%x\n", ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr ));
             }
 #endif
             count = samples - pos;
             resample = true; //don't resample if sample rates are close
             if( SB_Rate < freq )
-                //count = max(channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
-                count = max(1, count * SB_Rate / freq );
-            else if(SB_Rate > freq )
+                //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
+                count = max( 1, count * SB_Rate / freq );
+            else if( SB_Rate > freq )
                 //count *= (SB_Rate + aui.freq_card/2)/aui.freq_card;
                 count = count * SB_Rate / freq;
             else
                 resample = false;
             count = min(count, max(1,(DMA_Count) / samplesize / channels)); //stereo initial 1 byte
             count = min(count, max(1,(SB_Bytes - SB_Pos) / samplesize / channels )); //stereo initial 1 byte. 1 /2channel = 0, make it 1
-            if(VSB_GetBits() < 8) //ADPCM 8bit
+            if( VSB_GetBits() < 8 ) //ADPCM 8bit
                 count = max(1, count / (9 / VSB_GetBits()));
             bytes = count * samplesize * channels;
 
-            /* copy samples to our PCM buffer
-             */
+            /* copy samples to our PCM buffer */
 #if PREMAPDMA
-            memcpy( pPCM + pos * 2, NearPtr(MAIN_MappedBase + DMA_Addr + DMA_Index, bytes));
+            memcpy( pPCM + pos * 2, NearPtr(MAIN_MappedBase + DMA_Base + DMA_Index, bytes));
 #else
             if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
                 memset( pPCM + pos * 2, 0, bytes);
             } else
-                memcpy( pPCM + pos * 2, NearPtr(ISR_DMA_MappedAddr+(DMA_Addr - ISR_DMA_Addr) + DMA_Index ), bytes);
+                memcpy( pPCM + pos * 2, NearPtr(ISR_DMA_MappedAddr + ( DMA_Base - ISR_DMA_Addr) + DMA_Index ), bytes );
 #endif
 
             /* format conversion needed? */
@@ -394,33 +389,32 @@ static void SNDISR_Interrupt( void )
                 for ( i = pos * 2, j = i + count * channels; i < j; *(pPCM+i) ^= 0x8000, i++ );
 #endif
             if( resample ) /* SB_Rate != freq */
-                count = mixer_speed_lq( pPCM + pos * 2, count * channels, channels, SB_Rate, freq ) / channels;
+                count = cv_rate( pPCM + pos * 2, count * channels, channels, SB_Rate, freq ) / channels;
             if( channels == 1) //should be the last step
                 cv_channels_1_to_2( pPCM + pos * 2, count);
             pos += count;
-            //dbgprintf(("samples:%d %d %d\n", count, pos, samples));
-            DMA_Index = VDMA_SetIndexCounter(dma, DMA_Index + bytes, DMA_Count - bytes);
+            //dbgprintf(("isr: samples:%d %d %d\n", count, pos, samples));
+            DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
             //int LastDMACount = DMA_Count;
-            DMA_Count = VDMA_GetCounter( dma );
-            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status! (register 0x82) */
-            if(SB_Pos >= SB_Bytes)
-            {
-                //dbgprintf(("SNDISR_Interrupt: SB_Pos >= SB_Bytes: %u/%u, bytes/count=%u/%u, dma=%X/%u\n", SB_Pos, SB_Bytes, bytes, count, VDMA_GetAddress(dma), VDMA_GetCounter(dma) ));
+            DMA_Count = VDMA_GetCount( dmachannel );
+            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
+            if( SB_Pos >= SB_Bytes ) {
+                dbgprintf(("isr: SB_Pos>=SB_Bytes: %u/%u samples=%u bytes/cnt=%u/%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_Bytes, samples, bytes, count, VDMA_GetIndex(dmachannel), VDMA_GetCount(dmachannel) ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
-                VSB_SetPos(0);
+                VSB_SetPos(0); /* */
                 VIRQ_Invoke();
                 SB_Bytes = VSB_GetSampleBytes();
                 SB_Pos = VSB_GetPos();
                 SB_Rate = VSB_GetSampleRate();
                 //incase IRQ handler re-programs DMA
-                DMA_Index = VDMA_GetIndex(dma);
-                DMA_Count = VDMA_GetCounter(dma);
-                DMA_Addr = VDMA_GetAddress(dma);
+                DMA_Index = VDMA_GetIndex(dmachannel);
+                DMA_Count = VDMA_GetCount(dmachannel);
+                DMA_Base = VDMA_GetBase(dmachannel);
             }
-        } while(VDMA_GetAuto(dma) && (pos < samples) && VSB_Running());
+        } while(VDMA_GetAuto(dmachannel) && (pos < samples) && VSB_Running());
 
-        //dbgprintf(("SNDISR_Interrupt: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() ));
+        //dbgprintf(("isr: pos/samples=%u/%u, running=%u\n", pos, samples, VSB_Running() ));
 #if 1
         for( i = pos; i < samples; i++ )
             *(pPCM + i*2+1) = *(pPCM + i*2) = 0;
@@ -433,14 +427,14 @@ static void SNDISR_Interrupt( void )
 
     //if( gvars.opl3 ) {
 #ifndef NOFM
-	if( VOPL3_IsActive() ) {
-        int16_t* pcm = digital ? pOPLPCM : pPCM;
+    if( VOPL3_IsActive() ) {
+        int16_t* pPCMTmp = digital ? pOPLPCM : pPCM;
         int channels;
-        VOPL3_GenSamples(pcm, samples); //will generate samples*2 if stereo
+        VOPL3_GenSamples( pPCMTmp, samples ); //will generate samples*2 if stereo
         //always use 2 channels
         channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
-            cv_channels_1_to_2( pcm, samples );
+            cv_channels_1_to_2( pPCMTmp, samples );
 
         if( digital ) {
 #if MIXERROUTINE==0
@@ -458,12 +452,13 @@ static void SNDISR_Interrupt( void )
             SNDISR_Mixer( pPCM, pOPLPCM, samples * 2, voicevol, midivol );
 #endif
         } else
-            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * midivol ) >> 8;
+            for( i = 0; i < samples * 2; i++, pPCMTmp++ ) *pPCMTmp = ( *pPCMTmp * midivol ) >> 8;
     } else {
 #endif
-        if( digital )
-            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * voicevol ) >> 8;
-        else
+        int16_t* pPCMTmp;
+        if( digital ) {
+            for( i = 0, pPCMTmp = pPCM; i < samples * 2; i++, pPCMTmp++ ) *pPCMTmp = ( *pPCMTmp * voicevol ) >> 8;
+        } else
             memset( pPCM, 0, samples * sizeof(int16_t) * 2 );
 #ifndef NOFM
     }

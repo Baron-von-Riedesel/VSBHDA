@@ -1,9 +1,9 @@
 
-;--- __brk for 16-bit
+;--- simple __brk()
 ;--- assemble with -zcw
 
 	.386
-	.model small
+	.model ?MODEL
 	option casemap:none
 
 ENOMEM equ 5
@@ -15,20 +15,13 @@ MINCHUNK equ 8000h
 externdef errno:dword
 externdef _curbrk:dword
 externdef _dynend:dword
+if @Model ne 7
 externdef _DSBase:dword
-
-	.code
-
-ifdef _DEBUG
-CStr macro text:vararg
-local sym
-	.const
-sym db text,0
-	.code
-	exitm <offset sym>
-endm
-__dprintf proto c :ptr, :vararg
 endif
+
+	include debug.inc
+
+	.code
 
 ;--- updates _curbrk, _dynend
 
@@ -57,18 +50,16 @@ local seg_size:dword
 	push bx
 	push cx
 	pop eax
+if @Model ne 7
 	sub eax, _DSBase
+endif
 	mov [_dynend], eax
 	add eax, seg_size
 	xchg eax, _curbrk	; return old value of _curbrk
-ifdef _DEBUG
-	invoke __dprintf, CStr("%X, brk(%X): new/old _curbrk %X/%X, _dynend=%X",10), cs, brk_value, _curbrk, eax, _dynend
-endif
+	@dprintf CStr("%X, brk(%X): new/old _curbrk %X/%X, _dynend=%X",10), cs, brk_value, _curbrk, eax, _dynend
 	ret
 error:
-ifdef _DEBUG
-	invoke __dprintf, CStr("%X, brk(%X): int 31h, ax=501 failed, bx:cx=%X",10), cs, brk_value, bx::cx
-endif
+	@dprintf CStr("%X, brk(%X): int 31h, ax=501 failed, bx:cx=%X",10), cs, brk_value, bx::cx
 	mov errno, ENOMEM
 	xor eax, eax
 	ret

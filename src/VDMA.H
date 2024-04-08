@@ -13,14 +13,14 @@ uint32_t VDMA_DMA(uint32_t port, uint32_t val, uint32_t out);
 //uint8_t VDMA_Read(uint16_t port);
 
 void VDMA_Virtualize(int channel, int enable);
-uint32_t VDMA_GetAddress(int channel);
-int32_t VDMA_GetCounter(int channel);
+uint32_t VDMA_GetBase(int channel);
 uint32_t VDMA_GetIndex(int channel);
-uint32_t VDMA_SetIndexCounter(int channel, uint32_t index, int32_t counter);
+int32_t VDMA_GetCount(int channel);
+uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count);
 int VDMA_GetAuto(int channel);
 int VDMA_GetWriteMode(int channel);
 void VDMA_WriteData(int channel, unsigned char data );
-//void VDMA_ToggleComplete(int channel);
+//void VDMA_SetComplete(int channel, unsigned char value );
 
 #ifdef __cplusplus
 }

@@ -37,6 +37,7 @@
 #include <math.h>
 
 #include "DBOPL.H"
+#include "CONFIG.HPP"
 
 #ifndef PI
 #define PI 3.14159265358979323846
@@ -1363,6 +1364,7 @@ void Chip::Setup( uint32_t rate )
 //	double original = rate;
 	double scale = original / (double)rate;
 
+	dbgprintf(("Chip::Setup(%u)\n", rate ));
 	//Noise counter is run at the same precision as general waves
 	noiseAdd = (uint32_t)( 0.5 + scale * ( 1 << LFO_SH ) );
 	noiseCounter = 0;
@@ -1481,6 +1483,7 @@ void Chip::Setup( uint32_t rate )
 		WriteReg( i, 0xff );
 		WriteReg( i, 0x0 );
 	}
+	dbgprintf(("Chip::Setup exit\n" ));
 }
 
 static bool doneTables = false;
@@ -1490,6 +1493,7 @@ void InitTables( void )
 {
 	if ( doneTables )
 		return;
+	dbgprintf(("OPL: InitTables\n" ));
 	doneTables = true;
 #if ( DBOPL_WAVE == WAVE_HANDLER ) || ( DBOPL_WAVE == WAVE_TABLELOG )
 	//Exponential volume table, same as the real adlib

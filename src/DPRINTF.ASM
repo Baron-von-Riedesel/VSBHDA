@@ -3,11 +3,7 @@
 ;--- for OW, assemble with -zcw
 
 	.386
-ifdef ?FLAT
-	.model flat
-else
-	.model small
-endif
+	.model ?MODEL
 	option casemap:none
 	option proc:private
 
@@ -242,6 +238,9 @@ handle_char:
 vprintf endp
 
 ifdef _DEBUG
+
+	alias <___dprintf> = <_dprintf>
+
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
 	cmp bInit, 1

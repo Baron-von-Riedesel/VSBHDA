@@ -9,9 +9,13 @@
 	option casemap:none
 	option proc:private
 
+	include debug.inc
+
 externdef c psp:dword
 externdef c DSBase:dword
 externdef c _linear_rmstack:dword
+
+printf proto syscall :ptr, :vararg
 
 LoadMod16 proto c :ptr, :ptr
 
@@ -119,7 +123,7 @@ AU_init proc c public uses ebx esi edi a1:dword, a2:dword
 ;--- load the sndcard.drv binary.
 	invoke LoadMod16, addr szDrv, addr scd
 	cmp eax, 0
-	jz exit
+	jz error
 	mov bx, scd.wSS
 	mov ax, 6
 	int 31h
@@ -130,6 +134,7 @@ AU_init proc c public uses ebx esi edi a1:dword, a2:dword
 ;--- call structure is:
 ;---  void *DllStart( word psp_sel, uint32_t heapsize, uint32_t rmstack );
 
+	@dprintf CStr("AUhlp16: calling sndcard.drv's entry",10)
 	movzx eax, [scd.wIP]
 	mov vec.DllStart, eax
 	push _linear_rmstack
@@ -150,9 +155,12 @@ AU_init proc c public uses ebx esi edi a1:dword, a2:dword
 		mov esi, eax
 		rep movsd
 ;--- and finally call AU_init().
+		@dprintf CStr("AUhlp16: calling exported function AU_Init",10)
 		@callexp AU_init, 2
 	.endif
-exit:
+	ret
+error:
+	invoke printf, CStr("failed to load %s, code=%u",10), addr szDrv, dx
 	ret
 
 AU_init endp

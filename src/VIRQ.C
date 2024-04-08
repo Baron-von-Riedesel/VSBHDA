@@ -10,7 +10,7 @@
 #include "VIRQ.H"
 #include "VSB.H"
 
-#define CHANGEPICMASK 1 /* 1=mask all IRQs during irq 5/7 */
+#define CHANGEPICMASK 0 /* 1=mask all IRQs during irq 5/7 */
 
 static int VIRQ_Irq = -1;
 static uint8_t VPIC_ISR[2];
@@ -29,13 +29,17 @@ static void VPIC_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
     if( IRQ_IS_VIRTUALIZED() ) {
-        dbgprintf(("VPIC_Write:%x,%x\n",port,value));
+        //dbgprintf(("VPIC_Write:%x,%x\n",port,value));
         if((port & 0x0F) == 0x00) {
             int index = ((port==0x20) ? 0 : 1);
             VPIC_OCW[index] = value;
 
             if(value == 0x20) { //EOI: clear ISR
                 VPIC_ISR[index] = 0;
+#if !CHANGEPICMASK
+                VIRQ_Irq = -1; /* virtualize just once */
+                PTRAP_SetPICPortTrap( 0 );
+#endif
                 return; //don't send to real PIC. it's virtualized
             }
 
@@ -52,7 +56,7 @@ static uint8_t VPIC_Read(uint16_t port)
 ///////////////////////////////////////
 {
     if( IRQ_IS_VIRTUALIZED() ) {
-        dbgprintf(("VPIC_Read:%x\n",port));
+        //dbgprintf(("VPIC_Read:%x\n",port));
         if( (port & 0x0F) == 0x00) {
             int index = ((port == 0x20) ? 0 : 1);
             if (VPIC_OCW[index] == 0x0B) { //ISR
@@ -136,11 +140,13 @@ void VIRQ_Invoke( void )
     
     VIRQ_Irq = irq;
     CallIRQ(irq);
-    VIRQ_Irq = -1;
 #if !SETIF
     _disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
 #endif
-    PTRAP_SetPICPortTrap( 0 );
+    if( IRQ_IS_VIRTUALIZED() ) {
+        VIRQ_Irq = -1;
+        PTRAP_SetPICPortTrap( 0 );
+    }
 #if CHANGEPICMASK
     PIC_SetIRQMask(mask);  /* restore masks */
 #endif
@@ -164,6 +170,7 @@ void VIRQ_Init( void )
     int n = PIC_IRQ2VEC( VSB_GetIRQ() );
     if ( n < 0x100 )
         OrgCS = ReadLinearW(n*4+2);
+    dbgprintf(("VIRQ_Init: int=%X, OrgCS=%X\n", n, OrgCS ));
 }
 
 uint32_t VPIC_PIC(uint32_t port, uint32_t val, uint32_t out)

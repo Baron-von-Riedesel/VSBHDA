@@ -2,11 +2,7 @@
 ;--- HDPMI API interface, C compatible
 
 	.386
-ifdef ?FLAT
-	.MODEL flat
-else
-	.MODEL small
-endif
+	.MODEL ?MODEL
 	option casemap:none
 	option proc:private
 

@@ -1,125 +1,175 @@
 
-# create vsbhdad.exe with DJGPP and JWasm.
-# to create a debug version, enter: make DEBUG=1
-# note that JWasm v2.17+ is needed ( understands -djgpp option )
+# create vsbhda.exe with Open Watcom v2.0 and JWasm.
+# to create the binary, enter
+#   wmake
+# optionally, for a debug version, enter
+#   wmake debug=1
 
-ifndef DEBUG
+# the HX DOS extender is used; that means, a few
+# things from the HXDEV package are required:
+#
+# - loadpero.bin     pe loader stub attached to binary
+# - cstrtdhx.obj     startup module linked into binary
+# - patchpe.exe      patches PE signature to PX
+#
+# patchpe is a Win32 application; to run it in DOS, the
+# HXRT package will be needed; cstrtdx.obj should be copied
+# to the Open Watcom lib386\dos directory; and loadpero.bin
+# will be searched by the linker in the current directory
+# or in any directory contained in the PATH environment var.
+
+!ifndef DEBUG
 DEBUG=0
-endif
+!endif
+
+WATCOM=\ow20
+# activate next line if FM synth should be deactivated
+#NOFM=1
+
+# use jwlink (1) or wlink (0)
+USEJWL=1
+
+CC=$(WATCOM)\binnt\wcc386.exe
+CPP=$(WATCOM)\binnt\wpp386.exe
+!if $(USEJWL)
+LINK=jwlink.exe
+!else
+LINK=$(WATCOM)\binnt\wlink.exe
+!endif
+LIB=$(WATCOM)\binnt\wlib.exe
+ASM=jwasm.exe
 
 NAME=vsbhda
 
-ifeq ($(DEBUG),1)
-OUTD=djgppd
+!if $(DEBUG)
+OUTD=owd
+OUTD16=ow16d
 C_DEBUG_FLAGS=-D_DEBUG
-else
-OUTD=djgpp
+A_DEBUG_FLAGS=-D_DEBUG -Fl$*
+!else
+OUTD=ow
+OUTD16=ow16
 C_DEBUG_FLAGS=
-endif
+A_DEBUG_FLAGS=
+!endif
 
-vpath_src=src mpxplay
-vpath %.c $(vpath_src)
-vpath %.cpp $(vpath_src)
-vpath %.asm $(vpath_src)
-vpath_header=src mpxplay
-vpath %.h $(vpath_header)
-vpath_obj=./$(OUTD)/
-vpath %.o $(vpath_obj)
+OBJFILES = &
+	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
+	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj &
+!ifndef NOFM
+	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
+!endif
+	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
+	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
+	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
+	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
+	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj
+	
+C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
+# OW's wpp386 doesn't like the -ecc option
+CPP_OPT_FLAGS=-q -oxa -mf -bc -5s -fp5 -fpi87 
+C_EXTRA_FLAGS=
+!ifdef NOFM
+C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
+!endif
+LD_FLAGS=
+LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
 
-OBJFILES=\
-	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
-	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o\
-	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
-	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
-	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
-	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o	$(OUTD)/uninst.o
+INCLUDES=-I$(WATCOM)\h
+LIBS=
 
-INCLUDE_DIRS=src mpxplay
-SRC_DIRS=src mpxplay
+{src}.asm{$(OUTD)}.obj
+	@$(ASM) -q -D?MODEL=flat -Istartup $(A_DEBUG_FLAGS) -Fo$@ $<
 
-C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
-C_EXTRA_FLAGS=-march=i386
-LD_FLAGS=$(addprefix -Xlinker ,$(LD_EXTRA_FLAGS))
-LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
+{src}.c{$(OUTD)}.obj
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))
-LIBS=$(addprefix -l,stdcxx m)
+{src}.cpp{$(OUTD)}.obj
+	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-COMPILE.asm.o=jwasm.exe -q -djgpp -DDJGPP -Fo$@ $<
-COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
-COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+{mpxplay}.c{$(OUTD)}.obj
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.o: src/%.c
-	$(COMPILE.c.o)
+{startup}.asm{$(OUTD)}.obj
+	@$(ASM) -q -zcw -D?MODEL=flat $(A_DEBUG_FLAGS) -Fo$@ $<
 
-$(OUTD)/%.o: src/%.cpp
-	$(COMPILE.cpp.o)
-
-$(OUTD)/%.o: src/%.asm
-	$(COMPILE.asm.o)
-
-$(OUTD)/%.o: mpxplay/%.c
-	$(COMPILE.c.o)
-
-all:: $(OUTD) $(OUTD)/$(NAME)d.exe
+all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD16)\$(NAME)16.exe
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)/$(NAME)d.exe:: $(OUTD)/$(NAME).ar
-	gcc -o $@ $(OUTD)/main.o $(OUTD)/$(NAME).ar $(LD_FLAGS) $(LIBS)
-	strip -s $@
-	exe2coff $@
-	copy /b res\stub.bin + $(OUTD)\$(NAME)d $(OUTD)\$(NAME)d.exe
+$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib
+	@$(LINK) @<<
+format win pe runtime console
+file $(OUTD)\main.obj, $(OUTD)\linear.obj
+name $@
+libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
+libfile cstrtdhx.obj
+lib $(OUTD)\$(NAME).lib
+op q,m=$(OUTD)\$(NAME).map,stub=loadpero.bin,stack=0x10000,heap=0x1000
+!if $(USEJWL)
+segment CONST readonly
+segment CONST2 readonly
+!endif
+<<
+	@patchpe $*.exe
 
-$(OUTD)/$(NAME).ar:: $(OBJFILES)
-	ar --target=coff-go32 r $(OUTD)/$(NAME).ar $(OBJFILES)
+$(OUTD16)\$(NAME)16.exe: .always
+	@wmake -h -f OW16.mak debug=$(DEBUG)
 
-# to avoid problems with 16-bit relocations, the 16-bit code
-# is included in binary format into rmwrap.asm.
+$(OUTD)\$(NAME).lib: $(OBJFILES)
+	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
-$(OUTD)/rmwrap.o:: rmwrap.asm rmcode.asm
-	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode.bin src/rmcode.asm
-	jwasm.exe -q -djgpp -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
+$(OUTD)/ac97mix.obj:   mpxplay\ac97mix.c
+$(OUTD)/au_cards.obj:  mpxplay\au_cards.c
+$(OUTD)/dmairq.obj:    mpxplay\dmairq.c
+$(OUTD)/physmem.obj:   mpxplay\physmem.c
+$(OUTD)/memory.obj:    mpxplay\memory.c
+$(OUTD)/pcibios.obj:   mpxplay\pcibios.c
+$(OUTD)/sc_e1371.obj:  mpxplay\sc_e1371.c
+$(OUTD)/sc_ich.obj:    mpxplay\sc_ich.c
+$(OUTD)/sc_inthd.obj:  mpxplay\sc_inthd.c
+$(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
+$(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
+$(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
+$(OUTD)/timer.obj:     mpxplay\timer.c
+$(OUTD)/djdpmi.obj:    src\djdpmi.asm
+$(OUTD)/dprintf.obj:   src\dprintf.asm
+$(OUTD)/hapi.obj:      src\hapi.asm
+$(OUTD)/int31.obj:     src\int31.asm
+$(OUTD)/linear.obj:    src\linear.c
+$(OUTD)/main.obj:      src\main.c
+$(OUTD)/mixer.obj:     src\mixer.asm
+$(OUTD)/pic.obj:       src\pic.c
+$(OUTD)/ptrap.obj:     src\ptrap.c
+$(OUTD)/sndisr.obj:    src\sndisr.c
+$(OUTD)/stackio.obj:   src\stackio.asm
+$(OUTD)/stackisr.obj:  src\stackisr.asm
+$(OUTD)/uninst.obj:    src\uninst.asm
+$(OUTD)/vdma.obj:      src\vdma.c
+$(OUTD)/vioout.obj:    src\vioout.asm
+$(OUTD)/virq.obj:      src\virq.c
+$(OUTD)/vmpu.obj:      src\vmpu.c
+$(OUTD)/vsb.obj:       src\vsb.c
+!ifndef NOFM
+$(OUTD)/dbopl.obj:     src\dbopl.cpp
+$(OUTD)/vopl3.obj:     src\vopl3.cpp
+	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
+!endif
+$(OUTD)/malloc.obj:    startup\malloc.asm
+$(OUTD)/sbrk.obj:      startup\sbrk.asm
 
-$(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h ac97mix.h
-$(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h dmairq.h config.h
-$(OUTD)/dmairq.o::   dmairq.c    mpxplay.h au_cards.h dmairq.h
-$(OUTD)/memory.o::   memory.c
-$(OUTD)/pcibios.o::  pcibios.c   pcibios.h
-$(OUTD)/physmem.o::  physmem.c
-$(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h
-$(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmairq.h pcibios.h sc_inthd.h
-$(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
-$(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
-$(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmairq.h pcibios.h ac97.h
-$(OUTD)/timer.o::    timer.c     mpxplay.h au_cards.h timer.h
 
-$(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
-$(OUTD)/linear.o::   linear.c    linear.h platform.h
-$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au.h
-$(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
-$(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h ports.h
-$(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h ctadpcm.h au.h
-$(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
-$(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
-$(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h
-$(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
+# to avoid any issues with 16-bit relocations in PE binaries,
+# the 16-bit code is included in binary format into rmwrap.asm.
 
-$(OUTD)/djdpmi.o::   djdpmi.asm
-$(OUTD)/dprintf.o::  dprintf.asm
-$(OUTD)/hapi.o::     hapi.asm
-$(OUTD)/int31.o::    int31.asm
-$(OUTD)/mixer.o::    mixer.asm
-$(OUTD)/stackio.o::  stackio.asm
-$(OUTD)/stackisr.o:: stackisr.asm
-$(OUTD)/uninst.o::   uninst.asm
-$(OUTD)/vioout.o::   vioout.asm
+$(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
+	@$(ASM) -q -D?MODEL=flat -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
-clean::
-	del $(OUTD)\$(NAME)d.exe
-	del $(OUTD)\$(NAME).ar
-	del $(OUTD)\*.o
-
+clean: .SYMBOLIC
+	@wmake -h -f OW16.mak debug=$(DEBUG) clean
+	@del $(OUTD)\$(NAME).exe
+	@del $(OUTD)\$(NAME).lib
+	@del $(OUTD)\*.obj

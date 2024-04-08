@@ -19,7 +19,6 @@ DOS_PSP_ENV_SEG equ 2Ch
 FLG_NO87        equ 1
 FLG_LFN         equ 1
 
-ifdef _DEBUG
 CStr macro text:vararg
 local sym
 CONST segment
@@ -27,8 +26,8 @@ sym db text,0
 CONST ends
 	exitm <offset sym>
 endm
-__dprintf proto c :ptr, :vararg
-endif
+
+        include debug.inc
 
         externdef c _DSBase          : dword
         extrn   __CMain              : near
@@ -123,7 +122,12 @@ YIE segment word public 'DATA'
 YIE ends
 
 	.data?
-	.stack 4000h
+
+;--- .stack won't align to para in 32-bit
+;	.stack 4000h
+STACK segment para stack 'STACK'
+	org 4000h
+STACK ends
 
 DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
 
@@ -144,9 +148,7 @@ _cstart_ proc near public
 __csalias dw 0
 
 around:
-ifdef _DEBUG
-	invoke __dprintf, CStr("vsbhda16: entry, esp=%X",10), esp
-endif
+	@dprintf CStr("vsbhda16: entry, esp=%X",10), esp
 	mov _psp, es
 	mov _STACKTOP, esp
 	mov _STACKLOW, offset _end
