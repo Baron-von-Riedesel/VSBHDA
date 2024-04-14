@@ -81,6 +81,9 @@ static int freq = 22050; /* default value for AU_setrate() */
 
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
+#ifdef _LOG
+extern uint32_t dwMaxBytes;
+#endif
 
 #if PREMAPDMA
 uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
@@ -98,13 +101,13 @@ struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT,
 #if SB16
 HDMA_DEFAULT,
 #endif
-TYPE_DEFAULT, true, true, true, VOL_DEFAULT };
+TYPE_DEFAULT, true, true, true, VOL_DEFAULT, 16 };
 
 static const struct {
     const char *option;
     const char *desc;
     int *pValue;
-} MAIN_Options[] = {
+} GOptions[] = {
     "/?", "Show help", &bHelp,
     "/A", "Set IO base address [220|240, def 220]", &gvars.base,
     "/I", "Set IRQ number [5|7, def 7]", &gvars.irq,
@@ -118,29 +121,12 @@ static const struct {
     "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "/F", "Set frequency [22050|44100, def 22050]", (int *)&freq,
+    "/F",  "Set frequency [22050|44100, def 22050]", (int *)&freq,
     "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
-    "/O", "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
+    "/BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
+    "/O",  "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
     NULL, NULL, 0,
-};
-enum EOption
-{
-    OPT_Help,
-    OPT_ADDR,
-    OPT_IRQ,
-    OPT_DMA,
-#if SB16
-    OPT_HDMA,
-#endif
-    OPT_TYPE,
-    OPT_OPL,
-    OPT_PM,
-    OPT_RM,
-    OPT_VOL,
-    OPT_OUTPUT,
-    OPT_DEVIDX,
-    OPT_COUNT,
 };
 
 static const char* MAIN_SBTypeString[] =
@@ -215,7 +201,11 @@ static void ReleaseRes( void )
 	if( gvars.pm ) {
 		PTRAP_Uninstall_PM_PortTraps();
 	}
-    return;
+#ifdef _LOG
+	printf("max PCM buffer usage: %u\n", dwMaxBytes );
+#endif
+
+	return;
 }
 
 /* uninstall.
@@ -286,19 +276,19 @@ int main(int argc, char* argv[])
     /* check cmdline arguments */
     for( i = 1; i < argc; ++i ) {
         int j;
-        for( j = 0; j < OPT_COUNT; ++j ) {
-            int len = strlen(MAIN_Options[j].option);
-            if( memicmp(argv[i], MAIN_Options[j].option, len) == 0 ) {
+        for( j = 0; GOptions[j].option; ++j ) {
+            int len = strlen( GOptions[j].option);
+            if( memicmp(argv[i], GOptions[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
-                    *MAIN_Options[j].pValue = strtol(&argv[i][len], NULL, (j == OPT_ADDR) ? 16 : 10 );
+                    *GOptions[j].pValue = strtol(&argv[i][len], NULL, (GOptions[j].pValue == &gvars.base) ? 16 : 10 );
                     break;
-                } else if ( argv[i][len] == 0 && *MAIN_Options[j].pValue == false ) {
-                    *MAIN_Options[j].pValue = true;
+                } else if ( argv[i][len] == 0 && *GOptions[j].pValue == false ) {
+                    *GOptions[j].pValue = true;
                     break;
                 }
             }
         }
-        if ( j == OPT_COUNT )
+        if ( GOptions[j].option == NULL )
             bHelp = true;
     }
 
@@ -307,8 +297,8 @@ int main(int argc, char* argv[])
         bHelp = false;
         printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Usage:\n");
 
-        for( i = 0; MAIN_Options[i].option; i++ )
-            printf( " %-8s: %s\n", MAIN_Options[i].option, MAIN_Options[i].desc );
+        for( i = 0; GOptions[i].option; i++ )
+            printf( " %-8s: %s\n", GOptions[i].option, GOptions[i].desc );
 
         printf("\nNote: the BLASTER environment variable may change the default settings; " HELPNOTE );
         printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
@@ -316,20 +306,20 @@ int main(int argc, char* argv[])
     }
 
     if( gvars.base != 0x220 && gvars.base != 0x240 ) {
-        printf("Error: invalid IO base address: %x.\n", gvars.base );
+        printf("Error: invalid IO base address: %x\n", gvars.base );
         return 1;
     }
     if( gvars.irq != 0x5 && gvars.irq != 0x7 ) {
-        printf("Error: invalid IRQ: %d.\n", gvars.irq );
+        printf("Error: invalid IRQ %d\n", gvars.irq );
         return 1;
     }
     if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 ) {
-        printf("Error: invalid DMA channel.\n");
+        printf("Error: invalid DMA channel %d\n", gvars.dma );
         return 1;
     }
 #if SB16
     if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
-        printf("Error: invalid HDMA channel: %u\n", gvars.hdma );
+        printf("Error: invalid HDMA channel: %d\n", gvars.hdma );
         return 1;
     }
 #endif
@@ -338,15 +328,19 @@ int main(int argc, char* argv[])
         return 1;
     }
     if( gvars.pin < 0 || gvars.pin > 2) {
-        printf("Error: Invalid output: %d\n", gvars.pin );
+        printf("Error: Invalid output device %d\n", gvars.pin );
         return 1;
     }
-     if( gvars.vol < 0 || gvars.vol > 9) {
-        printf("Error: Invalid volume.\n");
+    if( gvars.vol < 0 || gvars.vol > 9) {
+        printf("Error: Invalid volume %d\n", gvars.vol );
         return 1;
     }
-     if( freq != 22050 && freq != 44100 ) {
-        printf("Error: Invalid frequency.\n");
+    if( gvars.buffsize < 1) {
+        printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
+        return 1;
+    }
+    if( freq != 22050 && freq != 44100 ) {
+        printf("Error: Invalid frequency %d\n", freq );
         return 1;
     }
 #if defined(DJGPP)
@@ -380,7 +374,6 @@ int main(int argc, char* argv[])
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
-    VIRQ_Init();
     //aui.card_select_config = gvars.pin;
     //aui.card_select_devicenum = gvars.device;
     if ( (hAU = AU_init( gvars.device, gvars.pin ) ) == 0 ) {
@@ -392,6 +385,8 @@ int main(int argc, char* argv[])
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
+    VIRQ_Init( AU_getirq( hAU ) );
+
     AU_setmixer_init( hAU );
 
 #if SETABSVOL
@@ -466,15 +461,14 @@ int main(int argc, char* argv[])
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 
-    bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_InterruptPM );
-
     /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
      * while another client is active will result in problems, since that memory is released when
-     * the client exits. It's important that this is done AFTER SNDISR_InstallISR(), because that
-     * function does now alloc the PCM buffers ( which in total are > 64 kB).
+     * the client exits. This is best done before SNDISR_InstallISR() is called.
      */
     if (p = malloc( 0x10000 ) )
         free( p );
+
+    bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );
 
     PIC_UnmaskIRQ( AU_getirq( hAU ) );
 

@@ -253,8 +253,8 @@ static void snd_intel_chip_close(struct intel_card_s *card)
 		snd_intel_write_8(card,ICH_PO_CR_REG,ICH_PO_CR_RESET); // reset codec
 }
 
-static void snd_intel_ac97_init(struct intel_card_s *card,unsigned int freq_set)
-////////////////////////////////////////////////////////////////////////////////
+static void snd_intel_ac97_init(struct intel_card_s *card, unsigned int freq_set)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	// initial ac97 volumes (and clear mute flag)
 	snd_intel_codec_write(card, AC97_MASTER_VOL_STEREO, 0x0202);
@@ -263,7 +263,7 @@ static void snd_intel_ac97_init(struct intel_card_s *card,unsigned int freq_set)
 	snd_intel_codec_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
 
 	// set/check variable bit rate bit
-	if(freq_set!=48000){
+	if( freq_set != 48000 ){
 		snd_intel_codec_write(card,AC97_EXTENDED_STATUS,AC97_EA_VRA);
 		if(snd_intel_codec_read(card,AC97_EXTENDED_STATUS) & AC97_EA_VRA)
 			card->vra = 1;

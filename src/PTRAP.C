@@ -107,30 +107,28 @@ static int portranges[] = {
 #undef tport
 #undef tportx
 
-
-
 static void RM_TrapHandler( __dpmi_regs * regs)
 ///////////////////////////////////////////////
 {
     uint16_t port = regs->x.dx;
-    uint8_t val = regs->h.al;
-    uint8_t out = regs->h.cl;
     int i;
 
+    /* regs.x.cl:
+     * bit[2]: 1=out, 0=in;
+     * bits 3,4 word/dword access, not used here
+     */
     for ( i = 0; i < maxports; i++ ) {
-        if( PDispTab[i].port == port) {
-            regs->x.flags &= ~CPU_CFLAG;
-            //uint8_t val2 = PDispTab[i].handler( port, val, out );
-            //regs->h.al = out ? regs->h.al : val2;
-            regs->h.al = PDispTab[i].handler( port, val, out );
+        if( PDispTab[i].port == port ) {
+            regs->h.al = PDispTab[i].handler( port, regs->h.al, regs->h.cl & 4 );
+            regs->x.flags &= ~CPU_CFLAG; /* clear carry flag, indicates that access was handled */
             return;
         }
     }
 
     /* this should never be reached. */
 
-    dbgprintf(("RM_TrapHandler: unhandled port=%x val=%x out=%x (OldCB=%x:%x)\n", port, val, out, QPI_OldCallbackCS, QPI_OldCallbackIP ));
-    //regs->w.flags |= CPU_CFLAG;
+    dbgprintf(("RM_TrapHandler: unhandled port=%x val=%x out=%x (OldCB=%x:%x)\n", regs->x.dx, regs->h.al, regs->h.cl, QPI_OldCallbackCS, QPI_OldCallbackIP ));
+#if 0
     if ( QPI_OldCallbackCS ) {
         __dpmi_regs r = *regs;
         r.x.cs = QPI_OldCallbackCS;
@@ -139,6 +137,14 @@ static void RM_TrapHandler( __dpmi_regs * regs)
         regs->x.flags |= r.x.flags & CPU_CFLAG;
         regs->h.al = r.h.al;
     }
+#else
+    if (regs->h.cl & 4)
+        UntrappedIO_OUT( regs->x.dx, regs->h.al );
+    else
+        regs->h.al = UntrappedIO_IN( regs->x.dx );
+    regs->x.flags &= ~CPU_CFLAG;
+#endif
+    return;
 }
 
 //https://www.cs.cmu.edu/~ralf/papers/qpi.txt
@@ -385,7 +391,7 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 
 /////////////////////////////////////////////////////////
 
-uint32_t PTRAP_PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
+uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
 //////////////////////////////////////////////////////////////////////////////
 {
     int i;
@@ -396,11 +402,7 @@ uint32_t PTRAP_PM_TrapHandler( uint32_t port, uint32_t flags, uint32_t value )
     /* ports that are trapped, but not handled; this may happen, since
      * hdpmi32i's support for port trapping is limited to 8 ranges.
      */
-    if ( flags & 1 )
-        UntrappedIO_OUT( port, value );
-    else
-        value = UntrappedIO_IN( port );
-    return value;
+    return (flags & 1) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
 }
 
 bool PTRAP_DetectHDPMI()

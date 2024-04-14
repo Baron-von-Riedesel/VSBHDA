@@ -280,7 +280,7 @@ void VDMA_WriteData(int channel, uint8_t data)
     }
 }
 
-uint32_t VDMA_DMA(uint32_t port, uint32_t val, uint32_t out)
+uint32_t VDMA_Acc(uint32_t port, uint32_t val, uint32_t out)
 ////////////////////////////////////////////////////////////
 {
     return out ? (VDMA_Write(port, val), val) : (val &= ~0xFF, val |= VDMA_Read(port));

@@ -1,7 +1,7 @@
 
 ;--- low-level output for dbgprintf()
-;--- may be used in ISR; however, it's
-;--- assumed selector of ds/es is data alias of cs.
+;--- may be used in ISR; works for flat, tiny and small
+;--- memory models.
 
 	.386
 	.model ?MODEL

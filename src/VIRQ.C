@@ -1,4 +1,6 @@
 
+/* VPIC & VIRQ */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <dos.h>
@@ -30,24 +32,22 @@ static void VPIC_Write(uint16_t port, uint8_t value)
 {
     if( IRQ_IS_VIRTUALIZED() ) {
         //dbgprintf(("VPIC_Write:%x,%x\n",port,value));
-        if((port & 0x0F) == 0x00) {
-            int index = ((port==0x20) ? 0 : 1);
-            VPIC_OCW[index] = value;
+		int index = ((port==0x20) ? 0 : 1);
+		VPIC_OCW[index] = value;
 
-            if(value == 0x20) { //EOI: clear ISR
-                VPIC_ISR[index] = 0;
+		if( value == 0x20 ) { //EOI: clear ISR
+			VPIC_ISR[index] = 0;
 #if !CHANGEPICMASK
-                VIRQ_Irq = -1; /* virtualize just once */
-                PTRAP_SetPICPortTrap( 0 );
+			VIRQ_Irq = -1; /* virtualize just once */
+			PTRAP_SetPICPortTrap( 0 );
 #endif
-                return; //don't send to real PIC. it's virtualized
-            }
-
-            if(value == 0x0B) //read ISR
-                return; //don't send to real PIC, will be handled in VIRQ_Read.
-        }
-        return;
-    }
+			return; //don't send to real PIC. it's virtualized
+		}
+#if 0
+		else if(value == 0x0B) //read ISR
+			return; //don't send to real PIC, will be handled in VIRQ_Read.
+#endif
+	}
 
     UntrappedIO_OUT(port, value);
 }
@@ -55,17 +55,21 @@ static void VPIC_Write(uint16_t port, uint8_t value)
 static uint8_t VPIC_Read(uint16_t port)
 ///////////////////////////////////////
 {
+    uint8_t rc = UntrappedIO_IN(port);
     if( IRQ_IS_VIRTUALIZED() ) {
-        //dbgprintf(("VPIC_Read:%x\n",port));
-        if( (port & 0x0F) == 0x00) {
-            int index = ((port == 0x20) ? 0 : 1);
-            if (VPIC_OCW[index] == 0x0B) { //ISR
-                return VPIC_ISR[index];
-            }
+        int index = ((port == 0x20) ? 0 : 1);
+        if (VPIC_OCW[index] == 0x0B) { //ISR
+            rc |= VPIC_ISR[index];
         }
-        return 0;
+        //dbgprintf(("VPIC_Read(%x)=%x\n",port,rc));
     }
-    return UntrappedIO_IN(port);
+    return rc;
+}
+
+uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out)
+////////////////////////////////////////////////////////////
+{
+    return out ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
 }
 
 /* SafeCall: this approach works so long as HDPMI=1 is NOT set.
@@ -117,15 +121,20 @@ void VIRQ_Invoke( void )
 ////////////////////////
 {
     uint8_t irq;
+#if CHANGEPICMASK
     int mask;
+#endif
 
-    dbgprintf(("VIRQ_Invoke\n"));
+    //dbgprintf(("VIRQ_Invoke\n"));
     irq = VSB_GetIRQ();
 
 #if CHANGEPICMASK
     mask = PIC_GetIRQMask();
     PIC_SetIRQMask(0xFFFF);
 #endif
+
+    VSB_ResetTriggeredIRQ();
+    VSB_SetIRQStatus();
 
     PTRAP_SetPICPortTrap( 1 );
 
@@ -156,25 +165,19 @@ void VIRQ_Invoke( void )
 /* set emulated IRQ call type depending on what's found at IVT 5/7
  */
 
-void VIRQ_SetCallType( void )
-/////////////////////////////
+void VIRQ_SetCallType( uint8_t irq )
+////////////////////////////////////
 {
     /* if IVT 5/7 has been modified, use SafeCall, else use FastCall */
-    int n = PIC_IRQ2VEC( VSB_GetIRQ() );
+    int n = PIC_IRQ2VEC( irq );
     CallIRQ = ( ReadLinearW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
 }
 
-void VIRQ_Init( void )
-//////////////////////
+void VIRQ_Init( uint8_t irq )
+/////////////////////////////
 {
-    int n = PIC_IRQ2VEC( VSB_GetIRQ() );
-    if ( n < 0x100 )
-        OrgCS = ReadLinearW(n*4+2);
-    dbgprintf(("VIRQ_Init: int=%X, OrgCS=%X\n", n, OrgCS ));
+    int n = PIC_IRQ2VEC( irq );
+    OrgCS = ReadLinearW(n*4+2);
+    dbgprintf(("VIRQ_Init(%u): int=%X, OrgCS=%X\n", irq, n, OrgCS ));
 }
 
-uint32_t VPIC_PIC(uint32_t port, uint32_t val, uint32_t out)
-////////////////////////////////////////////////////////////
-{
-    return out ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
-}

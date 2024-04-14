@@ -145,6 +145,8 @@ _cstart_ proc near public
 	align 4
 	dd ___begtext              ; make sure dead code elimination
 
+;--- since model is small, a csalias is needed
+;--- to store some variables in _TEXT.
 __csalias dw 0
 
 around:

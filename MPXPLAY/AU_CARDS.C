@@ -96,7 +96,8 @@ int FAREXP AU_init( int device, int pin )
 		dbgprintf(("AU_init: out of memory\n"));
 		return(0);
 	}
-	aui->card_dmasize = aui->card_dma_buffer_size = MDma_get_max_pcmoutbufsize( aui, 65535, 4608, 2, 0);
+    /* 65535=maxbufsize, 4608=pagesize? 2=samplesize */
+//	aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
 	aui->card_select_devicenum = device;
 	aui->card_select_config = pin;
 
@@ -227,28 +228,23 @@ void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, 
 
 {
 	unsigned int new_cardcontrolbits;
-	dbgprintf(("AU_setrate enter\n"));
-
-	//aui->chan_song = adi->outchannels;
-	//aui->bits_song = adi->bits;
+	dbgprintf(("AU_setrate(freq=%u, chan=%u, bits=%u) enter\n", freq, outchannels, bits ));
 
 	new_cardcontrolbits = aui->card_controlbits;
 
-	// We (stop and) reconfigure the card if the frequency has changed.
-	// The channel and bit differences are always handled by the AU_MIXER
+	// Reconfigure the card.
+	// The channel and bit differences are always handled by AU_MIXER
 
-	if( ( aui->freq_set && (aui->freq_set != aui->freq_card) )
-	   || ( !aui->freq_set && (aui->freq_song != freq ) )
-	   || ( aui->card_controlbits & AUINFOS_CARDCTRLBIT_UPDATEFREQ ) ) {
+	if( 1 ) {
+
 		if ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING )
 			AU_stop(aui);
 
 		dbgprintf(("AU_setrate: changing rate to %u\n", freq ));
-		aui->freq_song = freq;
 
-		aui->freq_card = (aui->freq_set) ? aui->freq_set : freq;
-		aui->chan_card = (aui->chan_set) ? aui->chan_set : outchannels;
-		aui->bits_card = (aui->bits_set) ? aui->bits_set : bits;
+		aui->freq_card = aui->freq_set = freq;
+		aui->chan_card = aui->chan_set = outchannels;
+		aui->bits_card = aui->bits_set = bits;
 		aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
 		aui->bytespersample_card = 0;
 		aui->card_controlbits = new_cardcontrolbits;
@@ -260,14 +256,10 @@ void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, 
 			aui->bytespersample_card = 4;
 		else
 			if(!aui->bytespersample_card) // card haven't set it (not implemented in the au_mixer yet!: bits/8 !=bytespersample_card)
-				aui->bytespersample_card = (aui->bits_card+7)/8;
+				aui->bytespersample_card = (aui->bits_card + 7) / 8;
 
 		aui->card_controlbits |= AUINFOS_CARDCTRLBIT_DMACLEAR;
 		aui->card_controlbits &= ~AUINFOS_CARDCTRLBIT_UPDATEFREQ;
-
-		if(aui->freq_set) aui->freq_set = aui->freq_card;
-		if(aui->chan_set) aui->chan_set = aui->chan_card;
-		if(aui->bits_set) aui->bits_set = aui->bits_card;
 
 		aui->card_bytespersign = aui->chan_card * aui->bytespersample_card;
 #ifdef SBEMU
@@ -276,7 +268,6 @@ void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, 
 		aui->card_outbytes = aui->card_dmasize/4; // ??? for interrupt_decoder
 #endif
 	}
-	aui->freq_song = freq;
 }
 
 void FAREXP AU_setmixer_init( struct audioout_info_s *aui )
@@ -370,11 +361,14 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 		const struct aucards_submixerchan_s *subchi = &(onechi->submixerchans[sch]); // one subchannel infos (left,right,etc.)
 		unsigned long currchval,newchval;
 
-		/* invalid subchannel infos? */
-		if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !subchi->submixch_max || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) {
-			dbgprintf(("AU_setmixer_one: setting mixer ignored due to invalid subchannel info (reg=%u, max=%u, shift=%u)\n",
-					subchi->submixch_register, subchi->submixch_max, subchi->submixch_shift ));
-			continue;
+		/* vsbhda: if card handles mixer setting alone don't check subchannel settings */
+		if( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
+			/* invalid subchannel infos? */
+			if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !subchi->submixch_max || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) {
+				dbgprintf(("AU_setmixer_one: setting mixer ignored due to invalid subchannel info (reg=%u, max=%u, shift=%u)\n",
+						   subchi->submixch_register, subchi->submixch_max, subchi->submixch_shift ));
+				continue;
+			}
 		}
 
 		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL==1, let the card handle the volume.
@@ -524,7 +518,9 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 
 #define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (required for PCI cards)
 
-/* this function is static in mpxplay */
+/* this function is static in mpxplay
+ * calculates and returns aui->card_dmaspace - in "sample"-units!
+ */
 
 unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////
@@ -538,7 +534,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	 * - card_dmalastput
 	 * - card_dmafilled
 	 * - card_infobits
-	 * its also the only function that calls cardbuf_pos(),
+	 * it's also the only function that calls cardbuf_pos(),
      * that sets and returns card_dma_lastgoodpos.
 	 */
 

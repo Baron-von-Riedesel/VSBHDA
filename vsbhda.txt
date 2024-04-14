@@ -72,6 +72,7 @@
      /RM     : Set real-mode support
      /F      : Set frequency
      /VOL    : Set master volume
+     /BS     : Set PCM buffer size
      /O      : Set output (HDA only)
      /DEV    : Set start index for device scan (HDA only)
 
@@ -79,7 +80,10 @@
    be used - that's also true for the default value ( 22050 Hz ). In such cases
    VSBHDA will use a frequency that is supported AND is at least the value set
    by /F ( or the default ).
-
+    The PCM buffer is used for temporary storage of PCM samples, needed for
+   format conversions. The default value of 64 kB should be ok for virtual all
+   cases, setting it too small will result in page faults.
+   
 
    4. Hints
 

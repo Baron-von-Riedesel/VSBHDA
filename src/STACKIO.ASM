@@ -1,5 +1,6 @@
 
-;--- switch stack, call port trap function, update client registers
+;--- switch stack, call port trap function, update client registers;
+;--- both from protected-mode and real-mode.
 
 	.386
 	.MODEL ?MODEL, c
@@ -14,7 +15,7 @@ COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that inst
 TRIGGERIRQ equ 1	; 1=run virtual SB IRQ triggered by port access
 IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" problem (16-bit)
 
-PTRAP_PM_TrapHandler proto :dword, :dword, :dword
+PTRAP_PM_TrapHandler proto :word, :dword, :dword
 
 PUSHADS struct
 _edi	dd ?
@@ -30,9 +31,13 @@ PUSHADS ends
 ;--- stack frame for StackSwitch()
 
 ifdef NOTFLAT
+
 STACKCORR equ 2048
 ASSUMEDS textequ <DGROUP>
-insIRET textequ <IRET>
+insIRET textequ <iret>
+insRETF textequ <retw>
+PRFXDS  textequ <cs:>
+
 EXCFRAME struct
 		dd ?	; es
 		dd ?	; ds
@@ -47,10 +52,15 @@ dwEfl	dw ?
 dwEsp	dw ?
 wSS		dw ?
 EXCFRAME ends
+
 else
+
 STACKCORR equ 4096
 ASSUMEDS textequ <_DATA>
-insIRET textequ <IRETD>
+insIRET textequ <iretd>
+insRETF textequ <retd>
+PRFXDS  textequ <>
+
 EXCFRAME struct
 		dd ?	; es
 		dd ?	; ds
@@ -74,7 +84,6 @@ externdef dwDS:dword	; it's in _TEXT
 if TRIGGERIRQ
 externdef VSB_TriggerIRQ:dword
 VIRQ_Invoke proto c
-VSB_SetIRQStatus proto c
 endif
 
 ;	comm c __djgpp_stack_top:dword
@@ -138,15 +147,10 @@ endif
 
 	mov ebx, ss
 	sub [__djgpp_stack_top], STACKCORR
-ifdef NOTFLAT
-	mov ss, cs:[dwDS]
-else
-	mov ss, [dwDS]
-endif
+	mov ss, PRFXDS[dwDS]
 	mov esp, [__djgpp_stack_top]
 	push ds
 	pop es
-	movzx edx, dx
 	push eax
 	push ecx
 	push edx
@@ -176,17 +180,11 @@ done:
 if TRIGGERIRQ
 	cmp [VSB_TriggerIRQ], 0
 	jz @F
-	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2
+	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2		; interrupts enabled?
 	jz @F
-	mov [VSB_TriggerIRQ], 0
 	sub [__djgpp_stack_top], STACKCORR
-ifdef NOTFLAT
-	mov ss, cs:[dwDS]
-else
-	mov ss, [dwDS]
-endif
+	mov ss, PRFXDS[dwDS]
 	mov esp, [__djgpp_stack_top]
-	call VSB_SetIRQStatus
 	call VIRQ_Invoke
 	mov ss, ebx
 	mov esp, ebp
@@ -197,11 +195,7 @@ endif
 	pop ds
 	popad
 	add esp, 4	; skip mode
-ifdef NOTFLAT
-	retw
-else
-	retd	; return to DPMI host
-endif
+	insRETF		; return to DPMI host
 	align 4
 
 SwitchStackIO endp
@@ -251,7 +245,7 @@ SwitchStackIOrmcb proc
 
 	assume ds:ASSUMEDS
 
-	sub [__djgpp_stack_top], 4096
+	sub [__djgpp_stack_top], STACKCORR
 	mov ebx, ss
 	mov ebp, esp
 	mov eax, ds
@@ -278,14 +272,12 @@ endif
 if TRIGGERIRQ
 	cmp [VSB_TriggerIRQ], 0
 	jz @F
-	test es:[edi].RMCS.rFlags+1, 2
+	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
 	jz @F
-	mov [VSB_TriggerIRQ], 0
-	call VSB_SetIRQStatus
 	call VIRQ_Invoke
 @@:
 endif
-	add [__djgpp_stack_top], 4096
+	add [__djgpp_stack_top], STACKCORR
 ife COPYRMCS
 	add esp, 4
 	pop es

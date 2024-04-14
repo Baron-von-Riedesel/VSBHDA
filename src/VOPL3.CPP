@@ -77,9 +77,9 @@ static uint32_t VOPL3_PrimaryRead(uint32_t val)
 ///////////////////////////////////////////////
 {
     val &= ~0xFF;
-    if ((VOPL3_TimerCtrlReg[0] & (VOPL3_TIMER1_MASK | VOPL3_TIMER1_START)) == VOPL3_TIMER1_START)
+    if ( ( VOPL3_TimerCtrlReg[0] & (VOPL3_TIMER1_MASK | VOPL3_TIMER1_START ) ) == VOPL3_TIMER1_START )
         val |= VOPL3_TIMER1_TIMEOUT;
-    if ((VOPL3_TimerCtrlReg[1] & (VOPL3_TIMER2_MASK | VOPL3_TIMER2_START)) == VOPL3_TIMER2_START)
+    if ( ( VOPL3_TimerCtrlReg[1] & (VOPL3_TIMER2_MASK | VOPL3_TIMER2_START ) ) == VOPL3_TIMER2_START )
         val |= VOPL3_TIMER2_TIMEOUT;
     return val;
 }

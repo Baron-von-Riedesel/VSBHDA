@@ -222,7 +222,9 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	sub esi,esi 			; offset 0 for environment strings
 	mov edi,81H 			; DOS command buffer es:edi
 
-;--- get code alias
+;--- get code alias - to allow DGROUP access for interrupt procs.
+;--- if needed, it may be stored in a _csalias variable.
+;--- currently it's released after usage.
 	mov ebx, cs
 	mov ax, 000AH
 	int 31h

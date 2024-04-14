@@ -6,35 +6,35 @@ tportx( 0x388, &VOPL3_388, OPL3 )
 tport( 0x389, &VOPL3_389 )
 tport( 0x38A, &VOPL3_38A )
 tport( 0x38B, &VOPL3_38B )
-tportx(  0x20, &VPIC_PIC, PIC )
-//tport(  0x21, &VPIC_PIC )
-//tportx(  0xA0, &VPIC_PIC, PICH )   /* no need to trap SPIC, since currently just IRQ 5/7 are accepted */
-//tport(  0xA1, &VPIC_PIC )
-tportx(  0x02, &VDMA_DMA, DMA )      /* ch 1; will be modified if LDMA != 1 */
-tport(  0x03, &VDMA_DMA )            /* ch 1; will be modified if LDMA != 1 */
-tport(  0x08, &VDMA_DMA )
-tport(  0x09, &VDMA_DMA )
-tport(  0x0A, &VDMA_DMA )
-tport(  0x0B, &VDMA_DMA )
-tport(  0x0C, &VDMA_DMA )
-tport(  0x0D, &VDMA_DMA )
-tport(  0x0E, &VDMA_DMA )
-tport(  0x0F, &VDMA_DMA )
-tportx( 0x83, &VDMA_DMA, DMAPG )     /* ch 1; will be modified if LDMA != 1 */
+tportx(  0x20, &VPIC_Acc, PIC )
+//tport(  0x21, &VPIC_Acc )
+//tportx(  0xA0, &VPIC_Acc, PICH )   /* no need to trap SPIC, since currently just IRQ 5/7 are accepted */
+//tport(  0xA1, &VPIC_Acc )
+tportx(  0x02, &VDMA_Acc, DMA )      /* ch 1; will be modified if LDMA != 1 */
+tport(  0x03, &VDMA_Acc )            /* ch 1; will be modified if LDMA != 1 */
+tport(  0x08, &VDMA_Acc )
+tport(  0x09, &VDMA_Acc )
+tport(  0x0A, &VDMA_Acc )
+tport(  0x0B, &VDMA_Acc )
+tport(  0x0C, &VDMA_Acc )
+tport(  0x0D, &VDMA_Acc )
+tport(  0x0E, &VDMA_Acc )
+tport(  0x0F, &VDMA_Acc )
+tportx( 0x83, &VDMA_Acc, DMAPG )     /* ch 1; will be modified if LDMA != 1 */
 #if SB16
-tport(  0x8B, &VDMA_DMA )            /* ch 5; will be modified if HDMA != 5 */
+tport(  0x8B, &VDMA_Acc )            /* ch 5; will be modified if HDMA != 5 */
 #endif
 #if SB16
-tportx( 0xC4, &VDMA_DMA, HDMA )      /* ch 5; will be modified if HDMA != 5 */
-tport(  0xC6, &VDMA_DMA )            /* ch 5; will be modified if HDMA != 5 */
-tport(  0xD0, &VDMA_DMA )
-tport(  0xD2, &VDMA_DMA )
-tport(  0xD4, &VDMA_DMA )
-tport(  0xD6, &VDMA_DMA )
-tport(  0xD8, &VDMA_DMA )
-tport(  0xDA, &VDMA_DMA )
-tport(  0xDC, &VDMA_DMA )
-tport(  0xDE, &VDMA_DMA )
+tportx( 0xC4, &VDMA_Acc, HDMA )      /* ch 5; will be modified if HDMA != 5 */
+tport(  0xC6, &VDMA_Acc )            /* ch 5; will be modified if HDMA != 5 */
+tport(  0xD0, &VDMA_Acc )
+tport(  0xD2, &VDMA_Acc )
+tport(  0xD4, &VDMA_Acc )
+tport(  0xD6, &VDMA_Acc )
+tport(  0xD8, &VDMA_Acc )
+tport(  0xDA, &VDMA_Acc )
+tport(  0xDC, &VDMA_Acc )
+tport(  0xDE, &VDMA_Acc )
 #endif
 tportx( 0x220, &VOPL3_388, SB )
 tport(  0x221, &VOPL3_389 )

@@ -46,7 +46,7 @@ LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))
 LIBS=$(addprefix -l,stdcxx m)
 
-COMPILE.asm.o=jwasm.exe -q -djgpp -D?MODEL=small -DDJGPP -Fo$@ $<
+COMPILE.asm.o=jwasm.exe -q -djgpp -Istartup -D?MODEL=small -DDJGPP -Fo$@ $<
 COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 

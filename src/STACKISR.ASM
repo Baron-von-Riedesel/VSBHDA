@@ -20,7 +20,8 @@ STACKCORR equ 2048
 externdef c _csalias:dword
 
 SEGOFS equ 2
-insIRET textequ <IRET>
+insIRET textequ <iret>
+insPUSHF textequ <pushf>
 PF16 typedef ptr far16
 
 	.code
@@ -36,7 +37,8 @@ STACKCORR equ 4096
 
 	assume ds:_DATA
 SEGOFS equ 4
-insIRET textequ <IRETD>
+insIRET textequ <iretd>
+insPUSHF textequ <pushfd>
 
 	.data
 
@@ -85,15 +87,11 @@ endif
 	popad
 	jz @F
 if 0
-	sti		; use DPMI func 901h instead?
+	sti
 else
 	push eax
 	mov ax, 901h
- ifdef NOTFLAT
-	pushf
- else
-	pushfd
- endif
+	insPUSHF
 	call cs:[oldint31]
 	pop eax
 endif

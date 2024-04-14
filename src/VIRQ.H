@@ -9,13 +9,11 @@ extern "C"
 {
 #endif
 
-uint32_t VPIC_PIC(uint32_t port, uint32_t val, uint32_t out);
-//void VPIC_Write(uint16_t port, uint8_t value);
-//uint8_t VPIC_Read(uint16_t port);
+uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out);
 
 void VIRQ_Invoke( void );
-void VIRQ_Init( void );
-void VIRQ_SetCallType( void );
+void VIRQ_Init( uint8_t );
+void VIRQ_SetCallType( uint8_t );
 
 #ifdef __cplusplus
 }

@@ -54,5 +54,5 @@ static uint8_t VMPU_Read(uint16_t port)
 uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out)
 ////////////////////////////////////////////////////////////
 {
-    return out ? (VMPU_Write(port, val), val) : (uint32_t)VMPU_Read(port);
+    return out ? (VMPU_Write(port, val), val) : ( val &= ~0xff, val |= VMPU_Read(port) );
 }

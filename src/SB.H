@@ -46,7 +46,7 @@
 //register index through mixer port
 #define SB_MIXERREG_RESET        0x00 /* write only */
 #define SB_MIXERREG_STATUS       0x01 /* read only: previously selected index */
-#define SB_MIXERREG_MASTERVOL    0x02 /* SB, 3 bits[1-3]; SBPro: bits[4-6], L & R */
+#define SB_MIXERREG_MASTERVOL    0x02 /* SB, bits[1-3]; SBPro: bits[1-3/5-7], R/L */
 #define SB_MIXERREG_MIDIVOL      0x06 /* SB, FM Level, 3 bits [1-3]; SBPro: bits 5+6: L/R on/off */
 #define SB_MIXERREG_VOICEVOL     0x0A /* SB, Voice Level, 2 bits [1-2]; SBPro+ - Microphone level, 2/3 bits */
 

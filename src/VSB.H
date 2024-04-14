@@ -45,14 +45,16 @@ int VSB_IsSigned( void );
 int VSB_IsSilent( void );
 int VSB_GetChannels( void );
 int VSB_GetSampleRate( void );
-int VSB_GetSampleBytes( void );
+uint32_t VSB_GetSampleBufferSize( void );
+uint32_t VSB_GetPos( void ); //get pos in bytes
+uint32_t VSB_SetPos(uint32_t pos); //set pos in bytes
 int VSB_GetAuto( void );
-int VSB_GetPos( void ); //get pos in bytes
-int VSB_SetPos(int pos); //set pos in bytes
 void VSB_SetIRQStatus( void );
 //int VSB_IRQTriggered( void );
-//void VSB_ResetTriggeredIRQ( void );
+void VSB_ResetTriggeredIRQ( void );
 uint8_t VSB_GetMixerReg(uint8_t index);
+int VSB_GetDirectCount(uint8_t * *);
+void VSB_ResetDirectCount( void );
 
 #ifdef __cplusplus
 }

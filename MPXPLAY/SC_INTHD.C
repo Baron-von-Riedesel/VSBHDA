@@ -273,7 +273,7 @@ static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, u
 
 	hda_codec_write( chip, nid, direct, verb, parm );
 
-	dbgprintf(( "hda_codec_read: waiting for response\n" ));
+	//dbgprintf(( "hda_codec_read: waiting for response\n" ));
 	for( ; timeout && ( rirbwp == azx_readw( chip, RIRBWP ) ); timeout--, pds_delay_10us(100) );
 	if (!timeout) {
 		dbgprintf(( "hda_codec_read: timeout waiting for codec response\n" ));
@@ -725,7 +725,7 @@ static unsigned int hda_get_max_bits(struct intelhd_card_s *card)
 	return bits;
 }
 
-// init & close
+/* called by HDA_adetect() */
 
 static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd_card_s *card )
 ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -733,6 +733,8 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
 	unsigned long allbufsize = BDL_SIZE + 1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
 	unsigned int beginmem_aligned;
+
+	dbgprintf(("hda_buffer_init: HDA data struct size=0x%X\n", allbufsize ));
 
 	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, AZX_PERIOD_SIZE, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
 	card->dm = MDma_alloc_cardmem( allbufsize );
@@ -781,7 +783,6 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
 
-	;
 	if ( !(azx_readl(chip, GCTL ) & HDA_GCTL_RESET )) {
 		azx_writel(chip, GCTL, azx_readl(chip, GCTL) | HDA_GCTL_RESET );
 
@@ -1081,13 +1082,8 @@ static unsigned int hda_calc_stream_format( struct audioout_info_s *aui, struct 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int i,val = 0;
-#ifndef SBEMU
-	if((aui->freq_card < 44100) && !aui->freq_set) // under 44100 it sounds terrible on my ALC888, rather we use the freq converter of Mpxplay
-		aui->freq_card = 44100;
-	else
-#endif
-		if(card->supported_max_freq && (aui->freq_card > card->supported_max_freq))
-			aui->freq_card = card->supported_max_freq;
+	if(card->supported_max_freq && (aui->freq_card > card->supported_max_freq))
+		aui->freq_card = card->supported_max_freq;
 
 	for(i = 0; rate_bits[i].hz; i++)
 		/* update freq_card with the first supported value thats >= current freq_card */

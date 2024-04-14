@@ -8,9 +8,7 @@ extern "C"
 {
 #endif
 
-uint32_t VDMA_DMA(uint32_t port, uint32_t val, uint32_t out);
-//void VDMA_Write(uint16_t port, uint8_t byte);
-//uint8_t VDMA_Read(uint16_t port);
+uint32_t VDMA_Acc(uint32_t port, uint32_t val, uint32_t out);
 
 void VDMA_Virtualize(int channel, int enable);
 uint32_t VDMA_GetBase(int channel);

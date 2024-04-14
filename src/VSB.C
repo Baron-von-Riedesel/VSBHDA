@@ -50,15 +50,16 @@ static int VSB_HDMA = 5;
 static int VSB_DACSpeaker = 1;
 static unsigned int VSB_Bits = 8;
 static int VSB_SampleRate = 22050;
-static int VSB_Samples = 0;  /* the length argument after a play command (samples - 1) */
+static unsigned int VSB_Samples = 0;  /* the length argument after a play command (samples - 1) */
 static int VSB_Auto = false; /* auto-initialize mode active */
 static int VSB_HighSpeed = 0;
 static int VSB_Signed = false;
 static int VSB_Silent = false;
 static int VSB_DSPCMD = -1;
 static int VSB_DSPCMD_Subindex = 0;
-int VSB_TriggerIRQ = 0;
-static int VSB_Pos = 0; /* position in sample buffer? modified by VSB_SetPos() */
+       int VSB_TriggerIRQ = false;
+static int VSB_DirectIdx = 0;
+static unsigned int VSB_Pos = 0; /* position in sample buffer? modified by VSB_SetPos() */
 static const uint8_t VSB_IRQMap[4] = {2,5,7,10};
 static uint8_t VSB_MixerRegIndex = 0;
 static uint8_t VSB_TestReg;
@@ -83,6 +84,10 @@ static uint8_t bSpeaker;
 static uint8_t bTimeConst = 0;
 #endif
 static uint8_t VSB_MixerRegs[256];
+
+#define VSB_DIRECTBUFFER_SIZE 1024
+
+static uint8_t VSB_DirectBuffer[VSB_DIRECTBUFFER_SIZE];
 
 static int VSB_Indexof(const uint8_t* array, int count, uint8_t  val)
 /////////////////////////////////////////////////////////////////////
@@ -206,12 +211,12 @@ static void DSP_Reset( uint8_t value )
 //////////////////////////////////////
 {
     dbgprintf(("DSP_Reset: %u\n",value));
-	if(value == 1) {
+    if(value == 1) {
         VSB_ResetState = VSB_RESET_START;
-        VSB_MixerRegs[SB_MIXERREG_INT_SETUP] = 1 << VSB_Indexof(VSB_IRQMap, countof(VSB_IRQMap), VSB_IRQ);
+        VSB_MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << VSB_Indexof(VSB_IRQMap, countof(VSB_IRQMap), VSB_IRQ));
         //VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << VSB_DMA) & 0xEB;
 #if SB16
-        VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << VSB_DMA) | ( VSB_HDMA ? (1<<VSB_HDMA) : 0)) & 0xEB;
+        VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << VSB_DMA) | ( VSB_HDMA ? (1 << VSB_HDMA) : 0)) & 0xEB;
 #else
         VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << VSB_DMA) & 0xB;
 #endif
@@ -230,11 +235,12 @@ static void DSP_Reset( uint8_t value )
         VSB_HighSpeed = 0;
         VSB_DMAID_A = 0xAA;
         VSB_DMAID_X = 0x96;
-        VSB_TriggerIRQ = 0;
+        VSB_TriggerIRQ = false;
+        VSB_DirectIdx = 0;
 #if LATERATE
         bTimeConst = 0xD2; /* = 22050 */
 #endif
-        VIRQ_SetCallType();
+        VIRQ_SetCallType( VSB_IRQ );
         VSB_Mixer_WriteAddr( SB_MIXERREG_RESET );
         VSB_Mixer_Write( 1 );
 #if REINITOPL
@@ -261,7 +267,11 @@ static void DSP_Write( uint8_t value )
 //////////////////////////////////////
 {
     int OldStarted;
-    dbgprintf(("DSP_Write %02x, DSPCMD=%02x\n", value, VSB_DSPCMD));
+#ifdef _DEBUG
+    /* suppress direct cmd */
+    if ( !((VSB_DSPCMD == -1 && value == SB_DSP_8BIT_DIRECT) || (VSB_DSPCMD == SB_DSP_8BIT_DIRECT ) ) )
+        dbgprintf(("DSP_Write %02x, DSPCMD=%02x\n", value, VSB_DSPCMD));
+#endif
     if(VSB_HighSpeed) //highspeed won't accept further commands, need reset
         return;
     OldStarted = VSB_Started;
@@ -270,13 +280,13 @@ static void DSP_Write( uint8_t value )
         //VSB_DSPCMD = value;
         switch( value ) { /* handle 1-byte cmds here */
         case SB_DSP_TRIGGER_IRQ: /* F2 */
-            VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x1;
-            VSB_TriggerIRQ = 1;
+            VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= SB_MIXERREG_IRQ_STAT8BIT;
+            VSB_TriggerIRQ = true;
             break;
 #if SB16
         case SB_DSP_TRIGGER_IRQ16: /* F3 */
-            VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x2;
-            VSB_TriggerIRQ = 1;
+            VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= SB_MIXERREG_IRQ_STAT16BIT;
+            VSB_TriggerIRQ = true;
             break;
 #endif
         case SB_DSP_SPEAKER_ON: /* D1 */
@@ -304,9 +314,9 @@ static void DSP_Write( uint8_t value )
         case SB_DSP_8BIT_OUT_1_HS: /* 91 */
         case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 */
         case SB_DSP_8BIT_OUT_AUTO: /* 1C */
-            VSB_Auto = ( value != SB_DSP_8BIT_OUT_1_HS );
+            VSB_Auto = ( value == SB_DSP_8BIT_OUT_AUTO || value == SB_DSP_8BIT_OUT_AUTO_HS );
             VSB_Bits = 8;
-            VSB_HighSpeed = ( value != SB_DSP_8BIT_OUT_AUTO );
+            VSB_HighSpeed = ( value == SB_DSP_8BIT_OUT_1_HS || value == SB_DSP_8BIT_OUT_AUTO_HS );
             VSB_Signed = false;
             VSB_Silent = false;
             VSB_Started = true; //start transfer
@@ -374,7 +384,10 @@ static void DSP_Write( uint8_t value )
             DSPDataBytes = 0;
             break;
 		default:
-			dbgprintf(("DSP_Write: generic cmd %X\n", value ));
+#ifdef _DEBUG
+            if ( value != SB_DSP_8BIT_DIRECT )
+                dbgprintf(("DSP_Write: generic cmd %X\n", value ));
+#endif
             VSB_DSPCMD = value;
             VSB_DSPCMD_Subindex = 0;
             DSPDataBytes = 0;
@@ -429,8 +442,14 @@ static void DSP_Write( uint8_t value )
             dbgprintf(("DSP_Write: time constant=%X\n", value ));
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
+        case SB_DSP_8BIT_DIRECT: /* 10 */
+            VSB_DirectBuffer[VSB_DirectIdx++] = value;
+            VSB_DirectIdx %= VSB_DIRECTBUFFER_SIZE;
+            VSB_DSPCMD_Subindex = 2; //only 1byte
+            break;
         case SB_DSP_SET_SIZE: /* 48 - used for auto command */
         case SB_DSP_8BIT_OUT_1: /* 14 */
+        case SB_DSP_8BIT_OUT_1_HS: /* 91 */
             if(VSB_DSPCMD_Subindex++ == 0)
                 VSB_Samples = value;
             else {
@@ -624,13 +643,9 @@ void VSB_Init(int irq, int dma, int hdma, int type )
 uint8_t VSB_GetIRQ()
 ////////////////////
 {
-    int bit;
-    if(VSB_MixerRegs[SB_MIXERREG_INT_SETUP] == 0)
+    if( !( VSB_MixerRegs[SB_MIXERREG_INT_SETUP] & 0xF ) )
         return 0xFF;
-    bit = BSF(VSB_MixerRegs[SB_MIXERREG_INT_SETUP]);
-    if(bit >= 4)
-        return 0xFF;
-    return VSB_IRQMap[bit];
+    return VSB_IRQMap[BSF(VSB_MixerRegs[SB_MIXERREG_INT_SETUP])];
 }
 
 /* get current DMA channel */
@@ -726,8 +741,8 @@ int VSB_GetSampleRate()
 
 /* returns size of sample buffer in bytes */
 
-int VSB_GetSampleBytes()
-////////////////////////
+uint32_t VSB_GetSampleBufferSize()
+//////////////////////////////////
 {
 	//   return VSB_Samples + 1;
 	//   return(( VSB_Samples + 1 ) * VSB_Bits / 8 );
@@ -742,19 +757,19 @@ int VSB_GetAuto()
     return VSB_Auto;
 }
 
-int VSB_GetPos()
-////////////////
+uint32_t VSB_GetPos()
+/////////////////////
 {
     return VSB_Pos;
 }
 
 /* set pos (and IRQ status if pos beyond sample buffer) */
 
-int VSB_SetPos(int pos)
-///////////////////////
+uint32_t VSB_SetPos(uint32_t pos)
+/////////////////////////////////
 {
     /* new pos above size of sample buffer? */
-    if(pos >= VSB_GetSampleBytes() )
+    if( pos >= VSB_GetSampleBufferSize() )
         VSB_MixerRegs[SB_MIXERREG_IRQ_STATUS] |= ((VSB_GetBits() <= 8 ) ? 0x01 : 0x02);
     return VSB_Pos = pos;
 }
@@ -771,13 +786,26 @@ int VSB_IRQTriggered()
 {
     return VSB_TriggerIRQ;
 }
+#endif
 
 void VSB_ResetTriggeredIRQ()
 ////////////////////////////
 {
-    VSB_TriggerIRQ = 0;
+    VSB_TriggerIRQ = false;
 }
-#endif
+
+int VSB_GetDirectCount( uint8_t * *pBuffer )
+////////////////////////////////////////////
+{
+    *pBuffer = VSB_DirectBuffer;
+    return VSB_DirectIdx;
+}
+void VSB_ResetDirectCount( void )
+/////////////////////////////////
+{
+    VSB_DirectIdx = 0;
+    return;
+}
 
 uint8_t VSB_GetMixerReg(uint8_t index)
 //////////////////////////////////////

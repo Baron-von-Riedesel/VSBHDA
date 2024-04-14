@@ -113,6 +113,8 @@ __dpmi_free_memory proc c public uses esi edi dwHandle:dword
 	align 4
 __dpmi_free_memory endp
 
+endif
+
 __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:dword
 	mov edi, pInfo
 	mov ebx, [edi].MEMINFO.dwAddress
@@ -122,14 +124,32 @@ __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:d
 	int 31h
 	sbb eax, eax
 	jnz @F
-	mov [edi].MEMINFO.dwHandle, esi
+	mov [edi].MEMINFO.dwHdl, esi
 	mov [edi].MEMINFO.dwAddress, ebx
 @@:
 	ret
 	align 4
 __dpmi_allocate_linear_memory endp
 
-endif
+__dpmi_set_page_attr proc c public uses ebx edi esi handle:ptr, ofs:dword, pages:dword, attr:word
+	mov esi, handle
+	mov ebx, ofs
+	mov ecx, pages
+	mov edi, esp
+	mov ax, attr
+@@:
+	push ax
+	loop @B
+	mov ecx, pages
+	mov edx, esp
+	and esp, -4
+	mov ax, 507h
+	int 31h
+	mov esp, edi
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_set_page_attr endp
 
 __dpmi_physical_address_mapping proc c public uses ebx esi edi pInfo:ptr
 	mov eax, pInfo

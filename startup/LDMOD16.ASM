@@ -53,7 +53,7 @@ local mzhdr:IMAGE_DOS_HEADER
 
 	@dprintf CStr("LoadMod16(%s) enter",10), pName
 	mov edx, pName
-	mov ah, 3Dh
+	mov ax, 3D00h
 	int 21h
 	jc open_err
 	mov wFile, ax

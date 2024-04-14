@@ -7,7 +7,7 @@ extern "C" {
 
 //au_infos->card_controlbits
 #define AUINFOS_CARDCTRLBIT_TESTCARD         1
-#define AUINFOS_CARDCTRLBIT_DOUBLEDMA        2
+//#define AUINFOS_CARDCTRLBIT_DOUBLEDMA        2
 //#define AUINFOS_CARDCTRLBIT_MIDASMANUALCFG   4
 #define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
 #define AUINFOS_CARDCTRLBIT_DMADONTWAIT     16 // don't wait for card-buffer space (at seeking)
@@ -87,43 +87,30 @@ struct audioout_info_s {
  short *pcm_sample;
  unsigned int  samplenum;
  unsigned char bytespersample_card;
- unsigned int  freq_set;
- unsigned int  freq_song;
- unsigned int  freq_card; /* */
- unsigned int  chan_set;
- //unsigned char chan_song;
- unsigned char chan_card;
- unsigned int  bits_set;
- //unsigned char bits_song;
- unsigned char bits_card;
+ unsigned int  freq_set;  /* ??? */
+ unsigned int  freq_card; /* set in AU_setrate */
+ unsigned int  chan_set;  /* ??? */
+ unsigned char chan_card; /* set in AU_setrate */
+ unsigned int  bits_set;  /* ??? */
+ unsigned char bits_card; /* set in AU_setrate */
 
  unsigned int   card_wave_id;    // 0x0001,0x0003,0x0055,0x2000,etc.
- char          *card_wave_name;  // currently file extension for -obs ("MP3","AC3")
- unsigned char *card_channelmap; // multichannel output mapping (WDS,WAV)
  unsigned long  card_select_devicenum; /* inp: for HDA to select one among multiples */
  long           card_select_config;
  unsigned long  card_controlbits;  // card control flags
  unsigned long  card_infobits;     // card info flags
- unsigned long  card_outbytes;     // samplenum*bytespersample_card
- unsigned long  card_dma_buffer_size;
- unsigned long  card_dmasize;      /* set in dmairq.c */
+ unsigned long  card_outbytes;     // samplenum * bytespersample_card
+ unsigned long  card_dmasize;      /* card's dma buffer size in bytes; set in dmairq.c */
  unsigned long  card_dmalastput;
- unsigned long  card_dmaspace;
- unsigned long  card_dmafilled;
+ unsigned long  card_dmaspace;     /* should be "free" dma buffer size in bytes, but changed for sbemu... */
+ unsigned long  card_dmafilled;    /* ??? */
  unsigned long  card_dma_lastgoodpos;
  unsigned int   card_bytespersign; // bytespersample_card * chan_card
  char *card_DMABUFF;
 
- //char *card_selectname;          // select card by name
  const struct sndcard_info_s *card_handler; // function structure of the card
  void *card_private_data;        // extra private datas can be pointed here (with malloc)
- //unsigned short card_type;
- //unsigned short card_port;
  unsigned char  card_irq;
- //unsigned char  card_isa_dma;
- //unsigned char  card_isa_hidma;
-
- //struct playlist_entry_info *pei; // for encoders
  int card_master_volume;
  int card_mixer_values[AU_MIXCHANS_NUM]; // -1, 0-100
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
