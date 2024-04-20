@@ -49,7 +49,7 @@ static int VSB_HDMA = 5;
 #endif
 static int VSB_DACSpeaker = 1;
 static unsigned int VSB_Bits = 8;
-static int VSB_SampleRate = 22050;
+static int VSB_SampleRate;
 static unsigned int VSB_Samples = 0;  /* the length argument after a play command (samples - 1) */
 static int VSB_Auto = false; /* auto-initialize mode active */
 static int VSB_HighSpeed = 0;
@@ -220,12 +220,13 @@ static void DSP_Reset( uint8_t value )
 #else
         VSB_MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << VSB_DMA) & 0xB;
 #endif
-        VSB_MixerRegs[SB_MIXERREG_MODEFILTER] = 0xFD; //mask out stereo
+        VSB_MixerRegs[SB_MIXERREG_MODEFILTER] = 0x11; //SB Pro: mono, no filter
         VSB_MixerRegIndex = 0;
         VSB_DSPCMD = -1;
         VSB_DSPCMD_Subindex = 0;
         DSPDataBytes = 0;
         VSB_Started = 0;
+        VSB_SampleRate = 0;
         VSB_Samples = 0;
         VSB_Auto = false;
         VSB_Signed = false;
@@ -259,6 +260,24 @@ static void DSP_Reset( uint8_t value )
             break;
         }
     }
+}
+
+int VSB_CalcSampleRate( uint8_t value )
+///////////////////////////////////////
+{
+	int rc = 0;
+	int i;
+	for( i = 0; i < 3; ++i ) {
+		if(value >= VSB_TimeConstantMapMono[i][0] - 3 && value <= VSB_TimeConstantMapMono[i][0] + 3 ) {
+			rc  = VSB_TimeConstantMapMono[i][1] / VSB_GetChannels();
+			break;
+		}
+	}
+	if(!rc) {
+		//rc = 1000000 / ( 256 - value ) / VSB_GetChannels();
+		rc = 256000000/( 65536 - (value << 8) ) / VSB_GetChannels();
+	}
+	return rc;
 }
 
 /* write port 2xC */
@@ -330,7 +349,7 @@ static void DSP_Write( uint8_t value )
             ISR_adpcm_state.useRef = true;
             ISR_adpcm_state.step = 0;
             VSB_Bits = (value == SB_DSP_2BIT_OUT_AUTO) ? 2 : (value == SB_DSP_3BIT_OUT_AUTO) ? 3 : 4;
-            VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~0x2;
+            VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO;
             VSB_Silent = false;
             VSB_Started = true; //start transfer here
             VSB_Pos = 0;
@@ -405,8 +424,10 @@ static void DSP_Write( uint8_t value )
             /* bit 4 of value: 1=signed */
             VSB_Signed = ( ( value & 0x10 ) ? true : false );
             /* bit 5 of value: 1=stereo */
-            VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~2;
-            VSB_MixerRegs[SB_MIXERREG_MODEFILTER] |= ( ( value & 0x20 ) ? 2 : 0 );
+            if ( value & 0x20 )
+                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] |= SB_MIXERREG_MODEFILTER_STEREO;
+            else
+                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO;
             VSB_DSPCMD_Subindex++;
             break;
         case 1:
@@ -425,21 +446,14 @@ static void DSP_Write( uint8_t value )
         int i;
         switch( VSB_DSPCMD ) {
         case SB_DSP_SET_TIMECONST: /* 40 */
-            VSB_SampleRate = 0;
 #if !LATERATE
-            for( i = 0; i < 3; ++i ) {
-                if(value >= VSB_TimeConstantMapMono[i][0]-3 && value <= VSB_TimeConstantMapMono[i][0]+3) {
-                    VSB_SampleRate = VSB_TimeConstantMapMono[i][1] / VSB_GetChannels();
-                    break;
-                }
-            }
-            if(VSB_SampleRate == 0)
-                VSB_SampleRate = 256000000/( 65536 - (value << 8) ) / VSB_GetChannels();
-                //VSB_SampleRate = 1000000 / ( 256 - value ) / VSB_GetChannels();
+            VSB_SampleRate = VSB_CalcSampleRate( value );
+            dbgprintf(("DSP_Write: time constant=%X, rate=%u\n", value, VSB_SampleRate ));
 #else
+            VSB_SampleRate = 0;
             bTimeConst = value;
-#endif
             dbgprintf(("DSP_Write: time constant=%X\n", value ));
+#endif
             VSB_DSPCMD_Subindex = 2; //only 1byte
             break;
         case SB_DSP_8BIT_DIRECT: /* 10 */
@@ -480,8 +494,8 @@ static void DSP_Write( uint8_t value )
                 ISR_adpcm_state.useRef = (VSB_DSPCMD & 1 );
                 ISR_adpcm_state.step = 0;
                 VSB_Bits = (VSB_DSPCMD <= SB_DSP_2BIT_OUT_1) ? 2 : (VSB_DSPCMD >= SB_DSP_3BIT_OUT_1_NREF) ? 3 : 4;
-                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~0x2; /* reset stereo */
-                VSB_Started = true; //start transfer here
+                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
+                VSB_Started = true;
                 VSB_Silent = false;
                 VSB_Signed = false;
                 VSB_Pos = 0;
@@ -505,7 +519,7 @@ static void DSP_Write( uint8_t value )
                 VSB_Samples = value;
             else {
                 VSB_Samples |= value << 8; /* the value is #samples-1! */
-                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~0x2; /* reset stereo */
+                VSB_MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
                 VSB_Signed = false;
                 VSB_Bits = 8;
                 VSB_Pos = 0;
@@ -717,24 +731,16 @@ int VSB_IsSigned()
 int VSB_GetChannels()
 /////////////////////
 {
-    return (VSB_MixerRegs[SB_MIXERREG_MODEFILTER] & 0x2) ? 2 : 1;
+    /* MIXERREG_MODEFILTER is for SB Pro only, but in vsbhda also set for sb16 */
+    return (VSB_MixerRegs[SB_MIXERREG_MODEFILTER] & SB_MIXERREG_MODEFILTER_STEREO) ? 2 : 1;
 }
 
 int VSB_GetSampleRate()
 ///////////////////////
 {
 #if LATERATE
-	if ( !VSB_SampleRate ) {
-		for(int i = 0; i < 3; ++i) {
-			if( bTimeConst >= VSB_TimeConstantMapMono[i][0]-3 && bTimeConst <= VSB_TimeConstantMapMono[i][0]+3) {
-				VSB_SampleRate = VSB_TimeConstantMapMono[i][1] / VSB_GetChannels();
-				break;
-			}
-		}
-		if( VSB_SampleRate == 0 )
-			VSB_SampleRate = 256000000/( 65536 - ( bTimeConst << 8) ) / VSB_GetChannels();
-		//VSB_SampleRate = 1000000 / ( 256 - bTimeConst ) / VSB_GetChannels();
-	}
+    if ( !VSB_SampleRate )
+        VSB_SampleRate = VSB_CalcSampleRate( bTimeConst );
 #endif
     return VSB_SampleRate;
 }

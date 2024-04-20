@@ -52,6 +52,7 @@
 
 #define SB_MIXERREG_INPUTFILTER  0x0C /* SBPro only */
 #define SB_MIXERREG_MODEFILTER   0x0E /* SBPro only - bit 1:Stereo select, bit 5: Filter output */
+#define SB_MIXERREG_MODEFILTER_STEREO 2
 
 /* the following regs are 3 bits for SBPro [1-3, 5-7], 4 bit [0-3, 4-7] for SB16 */
 #define SB_MIXERREG_VOICESTEREO  0x04 /* SBPro+, DAC level, 3/4 bit L & R */

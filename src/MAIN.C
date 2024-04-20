@@ -81,10 +81,6 @@ static int freq = 22050; /* default value for AU_setrate() */
 
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
-#ifdef _LOG
-extern uint32_t dwMaxBytes;
-#endif
-
 #if PREMAPDMA
 uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
 #endif
@@ -201,9 +197,6 @@ static void ReleaseRes( void )
 	if( gvars.pm ) {
 		PTRAP_Uninstall_PM_PortTraps();
 	}
-#ifdef _LOG
-	printf("max PCM buffer usage: %u\n", dwMaxBytes );
-#endif
 
 	return;
 }
@@ -461,11 +454,12 @@ int main(int argc, char* argv[])
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 
-    /* temp alloc a 64 kB buffer so it will belong to THIS client. Any dpmi memory allocation
-     * while another client is active will result in problems, since that memory is released when
-     * the client exits. This is best done before SNDISR_InstallISR() is called.
+    /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
+     * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
+     * result in problems, since that memory is released when that client exits.
+     * This temp alloc is best done before SNDISR_InstallISR() is called.
      */
-    if (p = malloc( 0x10000 ) )
+    if (p = malloc( 0x20000 ) ) /* 64 kB seems not enough for open cube player */
         free( p );
 
     bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );

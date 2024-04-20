@@ -1,6 +1,7 @@
 
 ;--- simple __brk()
 ;--- assemble with -zcw
+;--- DPMI memory allocation must be done while program is current client!
 
 	.386
 	.model ?MODEL

@@ -50,7 +50,7 @@ static uint32_t ISR_DMA_Size = 0;
  */
 uint32_t ISR_DMA_MappedAddr = 0;
 
-#ifdef _LOG
+#ifdef _LOGBUFFMAX
 uint32_t dwMaxBytes = 0;
 #endif
 
@@ -418,17 +418,23 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
         /* in case there weren't enough samples copied, fill the rest with silence */
         for( i = pos; i < samples; i++ )
             *(pPCM + i*2+1) = *(pPCM + i*2) = 0;
+
 	} else if ( i = VSB_GetDirectCount( &pDirect ) ) {
+
 		int count = i;
 		uint32_t freq = AU_getfreq( hAU );
-		//uint32_t SB_Rate = VSB_GetSampleRate();
-		uint32_t SB_Rate = count * freq / 128; /* just a "guess" */
 
-		dbgprintf(("isr, direct samples: cnt=%d, samples=%d \n", count, samples ));
+		/* calc the src frequency by formula:
+		 * x / dst-freq = src-smpls / dst-smpls
+		 * x = src-smpl * dst-freq / dst-smpls
+		 */
+		uint32_t SB_Rate = count * freq / samples;
+
+		//dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
 		memcpy( pPCM, pDirect, count );
-		cv_bits_8_to_16( pPCM, count ); /* converts unsigned 8-bit to signed 16-bit */
+		cv_bits_8_to_16( pPCM, count );
 		count = cv_rate( pPCM, count, 1, SB_Rate, freq );
-		cv_channels_1_to_2( pPCM, count);
+		cv_channels_1_to_2( pPCM, count );
 		for( i = count; i < samples; i++ )
 			*(pPCM + i*2+1) = *(pPCM + i*2) = 0;
 		VSB_ResetDirectCount();
@@ -463,7 +469,7 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
             /* in assembly it's probably easier to handle signed/unsigned shifts */
             SNDISR_Mixer( pPCM, pPCMOPL, samples * 2, voicevol, midivol );
 #endif
-#ifdef _LOG
+#ifdef _LOGBUFFMAX
             if ( (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t) > dwMaxBytes )
                 dwMaxBytes = (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t);
 #endif
@@ -474,7 +480,7 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
         if( digital ) {
             for( i = 0, pPCMOPL = pPCM; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
             //dbgprintf(("+"));
-#ifdef _LOG
+#ifdef _LOGBUFFMAX
             if ( (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t) > dwMaxBytes )
                 dwMaxBytes = (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t);
 #endif
@@ -514,6 +520,9 @@ bool SNDISR_UninstallISR( void )
 ////////////////////////////////
 {
     /* first uninstall int 31h, then ISR! */
+#ifdef _LOGBUFFMAX
+    printf("max PCM buffer usage: %u\n", dwMaxBytes );
+#endif
     _hdpmi_UninstallInt31();
     return ( _hdpmi_UninstallISR() );
 }
