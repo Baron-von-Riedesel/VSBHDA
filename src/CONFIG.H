@@ -13,23 +13,30 @@
 #else
 #define REINITOPL 0
 #endif
-#define PREMAPDMA 0   /* 1=map full 16MB ISA address range */
+#define PREMAPDMA 0   /* 1=map full 16MB ISA address range (not recommended) */
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
-#define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 */
+#define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 if BLASTER contains P=xxx */
+#define SLOWDOWN 1    /* 1=support /SD option */
 
 struct globalvars {
-	int base;
-	int irq;
-	int dma;
+	int base; /* /A value, default 220 */
+	int irq;  /* /I value, default 7 */
+	int dma;  /* /D value */
 #if SB16
-	int hdma;
+	int hdma; /* /H value */
 #endif
-	int type;
+	int type; /* /T value */
+#if VMPU
+	int mpu;  /* /P value, default 330 */
+#endif
 	int opl3;
 	int rm;
 	int pm;
 	int vol;
 	int buffsize;
+#if SLOWDOWN
+    int slowdown;
+#endif
 	int pin;
 	int device;
 };

@@ -6,14 +6,14 @@ extern "C" {
 #endif
 
 //au_infos->card_controlbits
-#define AUINFOS_CARDCTRLBIT_TESTCARD         1
+//#define AUINFOS_CARDCTRLBIT_TESTCARD         1
 //#define AUINFOS_CARDCTRLBIT_DOUBLEDMA        2
 //#define AUINFOS_CARDCTRLBIT_MIDASMANUALCFG   4
 #define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
-#define AUINFOS_CARDCTRLBIT_DMADONTWAIT     16 // don't wait for card-buffer space (at seeking)
+//#define AUINFOS_CARDCTRLBIT_DMADONTWAIT     16 // don't wait for card-buffer space (at seeking)
 //#define AUINFOS_CARDCTRLBIT_AUTOTAGGING    256 // copy tags (id3infos) from infile to outfile (if possible)
 //#define AUINFOS_CARDCTRLBIT_AUTOTAGLFN     512 // create filename from id3infos (usually "NN. Artist - Title.ext"
-#define AUINFOS_CARDCTRLBIT_UPDATEFREQ    1024 // change/update soundcard freq
+//#define AUINFOS_CARDCTRLBIT_UPDATEFREQ    1024 // change/update soundcard freq
 
 //au_infos->card_infobits
 #define AUINFOS_CARDINFOBIT_PLAYING          1
@@ -21,15 +21,15 @@ extern "C" {
 //#define AUINFOS_CARDINFOBIT_IRQSTACKBUSY     4
 #define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 // dma buffer is empty (set by dma-monitor)
 #define AUINFOS_CARDINFOBIT_DMAFULL         16 // dma buffer is full (set by AU_writedata)
-#define AUINFOS_CARDINFOBIT_HWTONE          32
+//#define AUINFOS_CARDINFOBIT_HWTONE          32 // ???
 
 //struct sndcard_info_s->infobits
-#define SNDCARD_SELECT_ONLY     1 // program doesn't try to use automatically (ie: wav output)
+//#define SNDCARD_SELECT_ONLY     1 // program doesn't try to use automatically (ie: wav output)
 //#define SNDCARD_INT08_ALLOWED   2 // use of INT08 (and interrupt decoder) is allowed
 #define SNDCARD_CARDBUF_SPACE   4 // routine gives back the cardbuf space, not the bufpos
 //#define SNDCARD_SPECIAL_IRQ     8 // card has a special (long) irq routine (requires stack & irq protection)
 //#define SNDCARD_SETRATE        16 // always call setrate before each song (special wav-out and test-out flag!)
-#define SNDCARD_LOWLEVELHAND   32 // native soundcard handling (PCI)
+//#define SNDCARD_LOWLEVELHAND   32 // native soundcard handling (PCI)
 //#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
 //#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
 
@@ -118,7 +118,7 @@ struct audioout_info_s {
 
 //aucards_submixerchan_s->infobits
 #define SUBMIXCH_INFOBIT_REVERSEDVALUE  1 // reversed value
-#define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
+//#define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
 //new for vsbhda
 #define SUBMIXCH_INFOBIT_CARD_SETVOL    4 // let the card software handle volume settings
 
@@ -145,16 +145,16 @@ struct sndcard_info_s {
  unsigned long infobits;
 
  int  (*card_config)(struct audioout_info_s *); // not used yet
- int  (*card_init)(struct audioout_info_s *);   // read the environment variable and try to init the card
+ int  (*card_init)(struct audioout_info_s *);   // always NULL here
  int  (*card_detect)(struct audioout_info_s *); // try to autodetect the card
- void (*card_info)(struct audioout_info_s *);   // show card infos
+ void (*card_shinfo)(struct audioout_info_s *); // show card infos
  void (*card_start)(struct audioout_info_s *);  // start playing
  void (*card_stop)(struct audioout_info_s *);   // stop playing (immediately)
  void (*card_close)(struct audioout_info_s *);  // close soundcard
  void (*card_setrate)(struct audioout_info_s *);// set freqency,channels,bits
 
  void (*cardbuf_writedata)(struct audioout_info_s *,char *buffer,unsigned long bytes); // write output data into the card's buffer
- long (*cardbuf_pos)(struct audioout_info_s *);  // get the buffer (playing) position (usually the DMA buffer get-position)(returns negative number on error)
+ long (*cardbuf_getpos)(struct audioout_info_s *);  // get the buffer (playing) position (usually the DMA buffer get-position)(returns negative number on error)
  void (*cardbuf_clear)(struct audioout_info_s *);// clear the soundcard buffer (usually the DMA buffer)
  //void (*cardbuf_int_monitor)(struct audioout_info_s *); // interrupt (DMA) monitor function
  int (*irq_routine)(struct audioout_info_s *);  // vsbhda: check if IRQ is caused by card and acknowledge

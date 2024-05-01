@@ -1633,9 +1633,9 @@ static const struct aucards_mixerchan_s *hda_mixerset[] = {
 
 const struct sndcard_info_s HDA_sndcard_info = {
  "Intel HDA",
- SNDCARD_LOWLEVELHAND,
- NULL,                  // card_config
- NULL,                  // no init
+ 0,
+ NULL,              // card_config
+ NULL,              // no init
  &HDA_adetect,      // only autodetect
  &HDA_card_info,
  &HDA_start,
@@ -1646,7 +1646,6 @@ const struct sndcard_info_s HDA_sndcard_info = {
  &MDma_writedata, /* =cardbuf_writedata() */
  &HDA_getbufpos,  /* =cardbuf_pos() */
  &MDma_clearbuf,  /* =cardbuf_clear() */
- //&MDma_interrupt_monitor,
  &HDA_IRQRoutine, /* vsbhda */
  &HDA_writeMIXER, /* =card_writemixer() */
  &HDA_readMIXER,  /* =card_readmixer() */

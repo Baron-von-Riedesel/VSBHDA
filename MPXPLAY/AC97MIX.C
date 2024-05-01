@@ -12,7 +12,7 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: common AC97 mixer definitions (for SB Live, ES1371, ICH)
+//function: common AC97 mixer definitions (for SB Live/Audigy, ES1371, ICH)
 
 #include <stdint.h>
 #include <stddef.h>

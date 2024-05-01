@@ -268,7 +268,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	if(!card->pci_dev)
 		goto err_adetect;
 
-	if(pcibios_search_devices(via_devices,card->pci_dev)!=PCI_SUCCESSFUL)
+	if(pcibios_search_devices(via_devices,card->pci_dev) != PCI_SUCCESSFUL)
 		goto err_adetect;
 	pcibios_enable_BM_IO(card->pci_dev);
 
@@ -652,8 +652,7 @@ static const struct aucards_mixerchan_s *via82xx_mixerset[] = {
 
 const struct sndcard_info_s VIA82XX_sndcard_info = {
  "VIA VT82XX AC97",
- SNDCARD_LOWLEVELHAND,
-
+ 0,
  NULL,
  NULL,                  // no init
  &VIA82XX_adetect,      // only autodetect
@@ -666,7 +665,6 @@ const struct sndcard_info_s VIA82XX_sndcard_info = {
  &MDma_writedata,
  &VIA82XX_getbufpos,
  &VIA82XX_clearbuf,
- //&MDma_interrupt_monitor,
  &VIA82XX_IRQRoutine, /* vsbhda */
 
  &VIA82XX_writeMIXER,

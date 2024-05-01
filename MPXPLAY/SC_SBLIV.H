@@ -4,13 +4,14 @@
 
 #define EMU_CHIPS_10K1  1 // SB Live 5.1
 #define EMU_CHIPS_10K2  2 // SB Audigy
-#define EMU_CHIPS_10KX  (EMU_CHIPS_10K1|EMU_CHIPS_10K2)
+#define EMU_CHIPS_10KX  (EMU_CHIPS_10K1 | EMU_CHIPS_10K2)
+
 #define EMU_CHIPS_0102  4 // Audigy 1,2,4
 #define EMU_CHIPS_0106  8 // Live 24, Audigy LS
 #define EMU_CHIPS_0108 16 // Audigy2 Value
 #define EMU_CHIPS_0151 32 // P16V (Audigy 2,4)
 
-#define EMU_CHIPS_24BIT (EMU_CHIPS_0106|EMU_CHIPS_0151)
+#define EMU_CHIPS_24BIT (EMU_CHIPS_0106 | EMU_CHIPS_0151)
 
 struct emu_card_version_s {
  char *longname;
@@ -33,9 +34,9 @@ struct emu_driver_func_s{
  void         (*stop_playback) ( struct emu10k1_card *card);
  unsigned int (*pcm_pointer_playback)( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*clear_cache)( struct emu10k1_card *card);
+ int          (*interrupt_isr)( struct emu10k1_card *card); /* vsbhda */
  unsigned int (*mixer_read) ( struct emu10k1_card *card, unsigned int reg);
  void         (*mixer_write)( struct emu10k1_card *card, unsigned int reg, unsigned int value);
- int          (*interrupt_isr)( struct emu10k1_card *card); /* vsbhda */
  const struct aucards_mixerchan_s **mixerset;
 };
 

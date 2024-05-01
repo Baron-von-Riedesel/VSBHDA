@@ -16,8 +16,12 @@
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
 
 #include <stdint.h>
+#include <stdio.h>
 #include <time.h>
 #include <string.h>
+#if defined(__GNUC__)
+#include <sys/time.h>
+#endif
 #ifndef DJGPP
 #include <conio.h> /* for outb/outw/outd */
 #endif
@@ -81,9 +85,9 @@
 #define ICH_DMABUF_PERIODS  32
 #define ICH_MAX_CHANNELS     2
 #define ICH_MAX_BYTES        4
-#define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS*ICH_MAX_CHANNELS*ICH_MAX_BYTES) // 256
+#define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS * ICH_MAX_CHANNELS * ICH_MAX_BYTES) // 256
 #if 1 //def SBEMU
-#define ICH_INT_INTERVAL     1 //interrupt interval in periods //long interval won't work for doom/doom2
+#define ICH_INT_INTERVAL     1 //interrupt interval in periods
 #endif
 
 #define ICH_DEFAULT_RETRY 1000
@@ -140,6 +144,9 @@ static unsigned int snd_intel_codec_ready(struct intel_card_s *card,unsigned int
 			break;
 		pds_delay_10us(10);
 	}while(--retry);
+	if (!retry) {
+		dbgprintf(("snd_intel_codec_ready: timeout\n" ));
+	}
 	return retry;
 }
 
@@ -156,9 +163,10 @@ static void snd_intel_codec_semaphore(struct intel_card_s *card,unsigned int cod
 		if(!(snd_intel_read_8(card,ICH_ACC_SEMA_REG)&ICH_CODEC_BUSY))
 			break;
 		pds_delay_10us(10);
-	}while(--retry);
-
-	dbgprintf(("semaphore timeout: %d\n",retry));
+	} while (--retry);
+	if (!retry) {
+		dbgprintf(("snd_intel_codec_semaphore: timeout\n" ));
+	}
 	// clear semaphore flag
 	//inw(card->baseport_codec); // (removed for ICH0)
 }
@@ -178,11 +186,14 @@ static unsigned int snd_intel_codec_read( struct intel_card_s *card, unsigned in
 
 	retry = ICH_DEFAULT_RETRY;
 	do{
-		data = inw(card->baseport_codec + reg);
-		if(!(snd_intel_read_32(card,ICH_GLOB_STAT_REG)&ICH_GLOB_STAT_RCS))
+		data = inw( card->baseport_codec + reg );
+		if(!(snd_intel_read_32( card, ICH_GLOB_STAT_REG) & ICH_GLOB_STAT_RCS ) )
 			break;
 		pds_delay_10us(10);
-	}while(--retry);
+	} while (--retry);
+	if ( !retry ) {
+		dbgprintf(("snd_intel_codec_read: timeout\n" ));
+	}
 	return data;
 }
 
@@ -191,7 +202,7 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,ICH_DMABUF_ALIGN,bytes_per_sample,0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
 	if (!card->dm)
         return 0;
@@ -201,9 +212,13 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 #ifdef SBEMU
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
-	dbgprintf(("buffer init: pagetable:%X pcmoutbuf:%X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
+	dbgprintf(("snd_intel_buffer init: pagetable:%X pcmoutbuf:%X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
+
+/*
+ * called by ICH_adetect()
+ */
 
 static void snd_intel_chip_init(struct intel_card_s *card)
 //////////////////////////////////////////////////////////
@@ -211,17 +226,16 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 	unsigned int cmd,retry;
 
 	dbgprintf(("intel_chip_init: enter\n"));
-	cmd = snd_intel_read_32(card,ICH_GLOB_STAT_REG);
+	cmd = snd_intel_read_32( card, ICH_GLOB_STAT_REG);
 	cmd &= ICH_GLOB_STAT_RCS; // ???
-	snd_intel_write_32(card,ICH_GLOB_STAT_REG,cmd);
+	snd_intel_write_32( card, ICH_GLOB_STAT_REG, cmd);
 
-	dbgprintf(("ACLink ON, set 2 channels\n"));
 	cmd = snd_intel_read_32(card, ICH_GLOB_CNT_REG);
-	cmd&= ~(ICH_GLOB_CNT_ACLINKOFF | ICH_PCM_246_MASK);
+	cmd &= ~(ICH_GLOB_CNT_ACLINKOFF | ICH_PCM_246_MASK);
 	// finish cold or do warm reset
-	cmd |= ((cmd&ICH_GLOB_CNT_AC97COLD)==0)? ICH_GLOB_CNT_AC97COLD : ICH_GLOB_CNT_AC97WARM;
+	cmd |= ((cmd & ICH_GLOB_CNT_AC97COLD) == 0) ? ICH_GLOB_CNT_AC97COLD : ICH_GLOB_CNT_AC97WARM;
 	snd_intel_write_32(card, ICH_GLOB_CNT_REG, cmd);
-	dbgprintf(("iintel_chip_init: AC97 reset type: %s\n",((cmd&ICH_GLOB_CNT_AC97COLD)? "cold":"warm")));
+	dbgprintf(("snd_intel_chip_init: AC97 reset type: %s\n",((cmd & ICH_GLOB_CNT_AC97COLD) ? "cold":"warm")));
 
 	retry = ICH_DEFAULT_RETRY;
 	do{
@@ -229,21 +243,23 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 		if(!(cntreg & ICH_GLOB_CNT_AC97WARM))
 			break;
 		pds_delay_10us(10);
-	}while(--retry);
-	dbgprintf(("AC97 reset timeout:%d\n",retry));
+	} while (--retry);
+	if ( !retry ) {
+		dbgprintf(("snd_intel_chip_init: reset timeout\n" ));
+	}
 
 	// wait for primary codec ready status
 	retry = snd_intel_codec_ready(card,ICH_GLOB_STAT_PCR);
-	dbgprintf(("intel_chip_init: primary codec reset timeout:%d\n",retry));
+	dbgprintf(("snd_intel_chip_init: primary codec reset timeout:%d\n",retry));
 
-	//snd_intel_codec_read(card,0); // clear semaphore flag (removed for ICH0)
-	snd_intel_write_8(card,ICH_PO_CR_REG,ICH_PO_CR_RESET); // reset channels
+	//snd_intel_codec_read( card, 0); // clear semaphore flag (removed for ICH0)
+	snd_intel_write_8( card, ICH_PO_CR_REG, ICH_PO_CR_RESET); // reset channels
 #ifdef SBEMU
-	pds_mdelay(50);
-	snd_intel_write_8(card,ICH_PO_CR_REG,/*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE);
+	pds_delay_10us(2000);
+	snd_intel_write_8( card, ICH_PO_CR_REG, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
 #endif
 
-	dbgprintf(("intel_chip_init: end\n"));
+	dbgprintf(("snd_intel_chip_init: exit\n"));
 }
 
 static void snd_intel_chip_close(struct intel_card_s *card)
@@ -264,13 +280,16 @@ static void snd_intel_ac97_init(struct intel_card_s *card, unsigned int freq_set
 
 	// set/check variable bit rate bit
 	if( freq_set != 48000 ){
-		snd_intel_codec_write(card,AC97_EXTENDED_STATUS,AC97_EA_VRA);
-		if(snd_intel_codec_read(card,AC97_EXTENDED_STATUS) & AC97_EA_VRA)
+		snd_intel_codec_write( card, AC97_EXTENDED_STATUS, AC97_EA_VRA);
+		if(snd_intel_codec_read( card, AC97_EXTENDED_STATUS) & AC97_EA_VRA)
 			card->vra = 1;
 	}
 	dbgprintf(("intel_ac97_init: end (vra:%d)\n",card->vra));
 }
 
+/*
+ * called by ICH_setrate()
+ */
 static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -279,22 +298,25 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 
 	dbgprintf(("intel_prepare playback: period_size_bytes:%d\n",card->period_size_bytes));
 	// wait until DMA stopped ???
-	retry = ICH_DEFAULT_RETRY;
+	retry = ICH_DEFAULT_RETRY; /* =1000 */
 	do{
 		if(snd_intel_read_8(card,ICH_PO_SR_REG) & ICH_PO_SR_DCH)
 			break;
 		pds_delay_10us(1);
-	}while(--retry);
-	dbgprintf(("intel_prepare_playback: dma stop timeout: %d\n",retry));
+	} while (--retry);
+
+	if (!retry) {
+		dbgprintf(("intel_prepare_playback: dma stop timeout: %d\n",retry));
+	}
 
 	// reset codec
 	snd_intel_write_8(card,ICH_PO_CR_REG, snd_intel_read_8(card, ICH_PO_CR_REG) | ICH_PO_CR_RESET);
 
 	// set channels (2) and bits (16/32)
-	cmd = snd_intel_read_32(card,ICH_GLOB_CNT_REG);
+	cmd = snd_intel_read_32( card, ICH_GLOB_CNT_REG );
 	cmd &= ~(ICH_PCM_246_MASK | ICH_PCM_20BIT);
-	if(aui->bits_set > 16){
-		if((card->device_type == DEVICE_INTEL_ICH4) && ((snd_intel_read_32(card,ICH_GLOB_STAT_REG)&ICH_SAMPLE_CAP)==ICH_SAMPLE_16_20)){
+	if( aui->bits_set > 16 ) {
+		if((card->device_type == DEVICE_INTEL_ICH4) && ((snd_intel_read_32(card,ICH_GLOB_STAT_REG) & ICH_SAMPLE_CAP) == ICH_SAMPLE_16_20 )) {
 			aui->bits_card = 32;
 			cmd |= ICH_PCM_20BIT;
 		}
@@ -307,21 +329,21 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 	case 44100:spdif_rate = AC97_SC_SPSR_44K;break;
 	default:spdif_rate = AC97_SC_SPSR_48K;break;
 	}
-	cmd = snd_intel_codec_read(card,AC97_SPDIF_CONTROL);
+	cmd = snd_intel_codec_read( card, AC97_SPDIF_CONTROL );
 	cmd &= AC97_SC_SPSR_MASK;
 	cmd |= spdif_rate;
-	snd_intel_codec_write(card,AC97_SPDIF_CONTROL,cmd);
+	snd_intel_codec_write( card, AC97_SPDIF_CONTROL, cmd);
 	pds_delay_10us(10);
 
 	//set analog ac97 freq
 	dbgprintf(("intel_prepare_playback: AC97 front dac freq:%d\n",aui->freq_card));
-	if(card->ac97_clock_corrector){
-		if(card->vra)
-			snd_intel_codec_write(card,AC97_PCM_FRONT_DAC_RATE,(long)((float)aui->freq_card*card->ac97_clock_corrector));
-		else // !!! not good (AU_setrate will be called at every songs?) (maybe -of 48000 helps)
-			aui->freq_card = (long)((float)aui->freq_card/card->ac97_clock_corrector);
-	}else
-		snd_intel_codec_write(card,AC97_PCM_FRONT_DAC_RATE,aui->freq_card);
+	if( card->ac97_clock_corrector ){
+		if( card->vra )
+			snd_intel_codec_write(card,AC97_PCM_FRONT_DAC_RATE,(long)((float)aui->freq_card * card->ac97_clock_corrector));
+		else
+			aui->freq_card = (long)((float)aui->freq_card / card->ac97_clock_corrector);
+	} else
+		snd_intel_codec_write( card, AC97_PCM_FRONT_DAC_RATE, aui->freq_card);
 	pds_delay_10us(1600);
 
 	//set period table
@@ -370,19 +392,21 @@ static const struct pci_device_s ich_devices[] = {
  {NULL,0,0,0}
 };
 
-static void INTELICH_close( struct audioout_info_s *aui );
+static void ICH_close( struct audioout_info_s *aui );
 
-static void INTELICH_card_info( struct audioout_info_s *aui )
+static void ICH_show_card_info( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////////
 {
+#if 0
 	struct intel_card_s *card = aui->card_private_data;
-	dbgprintf(("ICH : Intel %s found on port:4X irq:%d (type:%s, bits:16%s)\n",
+	dbgprintf(("ICH : Intel %s found on port:X irq:%d (type:%s, bits:16%s)\n",
 			card->pci_dev->device_name,card->baseport_bm,card->irq,
-			ich_devnames[card->device_type],((card->device_type==DEVICE_INTEL_ICH4)? ",20":"")));
+			ich_devnames[card->device_type],((card->device_type == DEVICE_INTEL_ICH4) ? ",20":"")));
+#endif
 }
 
-static int INTELICH_adetect( struct audioout_info_s *aui )
-//////////////////////////////////////////////////////////
+static int ICH_adetect( struct audioout_info_s *aui )
+/////////////////////////////////////////////////////
 {
 	struct intel_card_s *card;
 
@@ -421,7 +445,7 @@ static int INTELICH_adetect( struct audioout_info_s *aui )
 #if 0//def SBEMU
 	/* Some BIOSes don't set NAMBAR/NABMBAR at all. assign manually.
 	 * Probably a bad idea - we don't know what port ranges are free to use -
-     * so if this is done, it should be done by an external tool...
+	 * so if this is done, it should be done by an external tool...
 	 */
 	int iobase = 0xF000;
 	if( card->baseport_bm == 0 ) {
@@ -452,9 +476,9 @@ static int INTELICH_adetect( struct audioout_info_s *aui )
 
 	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 #ifdef SBEMU
-	/* if no interrupt assigned, assign #11 */
+	/* if no interrupt assigned, assign #11??? A pretty doubtful action - BIOS should know a lot better what IRQs are to be used */
 	if( aui->card_irq == 0xFF ) {
-		dbgprintf(("ICH_adetect: no IRQ set, setting to 11\n"));
+		printf(("Intel ICH detection: no IRQ set in PCI config space, try to set it to 11\n"));
 		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_INTR_LN, 11);
 		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	}
@@ -462,22 +486,22 @@ static int INTELICH_adetect( struct audioout_info_s *aui )
  
 	card->device_type = card->pci_dev->device_type;
 
-	dbgprintf(("vend_id:%4X dev_id:%4X devtype:%s bmport:%4X mixport:%4X irq:%d\n",
-			  card->pci_dev->vendor_id,card->pci_dev->device_id,ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
+	dbgprintf(("vend/dev_id=%X/%X devtype:%s bmport:%4X mixport:%4X irq:%d\n",
+			  card->pci_dev->vendor_id, card->pci_dev->device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
 
-	if(!snd_intel_buffer_init(card,aui))
+	if( !snd_intel_buffer_init( card, aui ) )
 		goto err_adetect;
-	snd_intel_chip_init(card);
-	snd_intel_ac97_init(card,aui->freq_set);
+	snd_intel_chip_init( card );
+	snd_intel_ac97_init( card, aui->freq_set );
 	return 1;
 
 err_adetect:
-	INTELICH_close(aui);
+	ICH_close(aui);
 	return 0;
 }
 
-static void INTELICH_close( struct audioout_info_s *aui )
-/////////////////////////////////////////////////////////
+static void ICH_close( struct audioout_info_s *aui )
+////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	if(card){
@@ -490,12 +514,12 @@ static void INTELICH_close( struct audioout_info_s *aui )
 	}
 }
 
-static void INTELICH_setrate( struct audioout_info_s *aui )
-///////////////////////////////////////////////////////////
+static void ICH_setrate( struct audioout_info_s *aui )
+//////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int dmabufsize;
-	if((card->device_type == DEVICE_INTEL) && !card->ac97_clock_detected)
+	if((card->device_type == DEVICE_INTEL) && !card->ac97_clock_detected )
 		snd_intel_measure_ac97_clock(aui); // called from here because pds_gettimeu() needs int08
 
 	aui->card_wave_id = WAVEID_PCM_SLE;
@@ -512,14 +536,14 @@ static void INTELICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,ICH_DMABUF_ALIGN,0);
+	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, ICH_DMABUF_ALIGN, 0);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
 
 	snd_intel_prepare_playback(card,aui);
 }
 
-static void INTELICH_start( struct audioout_info_s *aui )
-/////////////////////////////////////////////////////////
+static void ICH_start( struct audioout_info_s *aui )
+////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
@@ -531,8 +555,8 @@ static void INTELICH_start( struct audioout_info_s *aui )
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
 }
 
-static void INTELICH_stop( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
+static void ICH_stop( struct audioout_info_s *aui )
+///////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
@@ -542,8 +566,19 @@ static void INTELICH_stop( struct audioout_info_s *aui )
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
 }
 
-/* called by INTELICH_setrate()
+/* get time in microsecs */
+
+static int64_t gettimeu(void)
+/////////////////////////////
+{
+	int64_t time_ms;
+	time_ms = (int64_t)clock() * (int64_t)1000000 / (int64_t)CLOCKS_PER_SEC;
+	return time_ms;
+}
+
+/* called by ICH_setrate() if device_type == DEVICE_INTEL
  * uses floats!
+ * sets ac97_clock_corrector
  */
 
 static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
@@ -558,38 +593,38 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	aui->chan_card = 2;
 	aui->bits_card = 16;
 
-	dmabufsize = min(card->pcmout_bufsize,AUCARDS_DMABUFSIZE_NORMAL); // to avoid longer test at -ddma, -ob 24
-	dmabufsize = MDma_init_pcmoutbuf(aui,dmabufsize,ICH_DMABUF_ALIGN,0);
+	dmabufsize = min( card->pcmout_bufsize, AUCARDS_DMABUFSIZE_NORMAL ); // to avoid longer test at -ddma, -ob 24
+	dmabufsize = MDma_init_pcmoutbuf( aui, dmabufsize, ICH_DMABUF_ALIGN, 0);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
-	snd_intel_prepare_playback(card,aui);
+	snd_intel_prepare_playback( card, aui);
 	MDma_clearbuf(aui);
 
 #ifdef SBEMU
-	cr = snd_intel_read_8(card,ICH_PO_CR_REG);
-	snd_intel_write_8(card,ICH_PO_CR_REG, 0); //disable LVBIE/IOCE
+	cr = snd_intel_read_8( card, ICH_PO_CR_REG);
+	snd_intel_write_8( card, ICH_PO_CR_REG, 0); //disable LVBIE/IOCE
 #endif
-	INTELICH_start(aui);
-	starttime = pds_gettimeu();
+	ICH_start(aui);
+	starttime = gettimeu();
 	do{
 		if(snd_intel_read_8(card,ICH_PO_CIV_REG) >= (ICH_DMABUF_PERIODS - 1)) // current index has reached last index
 			if(snd_intel_read_8(card,ICH_PO_CIV_REG) >= (ICH_DMABUF_PERIODS - 1)) // verifying
 				break;
-	}while(pds_gettimeu() <= (starttime + 1000000)); // abort after 1 sec (btw. the test should run less than 0.2 sec only)
-	endtime = pds_gettimeu();
+	} while (gettimeu() <= (starttime + 1000000)); // abort after 1 sec (btw. the test should run less than 0.2 sec only)
+	endtime = gettimeu();
 	if(endtime > starttime)
-		timelen = endtime-starttime;
+		timelen = endtime - starttime;
 	else
 		timelen = 0;
-	INTELICH_stop(aui);
+	ICH_stop(aui);
 #ifdef SBEMU
 	snd_intel_write_8(card,ICH_PO_CR_REG, cr);
 #endif
 
 	if(timelen && (timelen < 1000000)){
 		dmabufsize = card->period_size_bytes * (ICH_DMABUF_PERIODS - 1); // the test buflen
-		card->ac97_clock_corrector=
+		card->ac97_clock_corrector =
 			((float)aui->freq_card*aui->chan_card * (aui->bits_card / 8)) // dataspeed (have to be)
-			/((float)dmabufsize*1000000.0/(float)timelen);             // sentspeed (the measured) (bytes/sec)
+			/((float)dmabufsize * 1000000.0 / (float)timelen);            // sentspeed (the measured) (bytes/sec)
 		if((card->ac97_clock_corrector > 0.99) && (card->ac97_clock_corrector < 1.01)) // dataspeed==sentspeed
 			card->ac97_clock_corrector = 0.0;
 		if((card->ac97_clock_corrector < 0.60) || (card->ac97_clock_corrector > 1.5)) // we assume that the result is false
@@ -597,13 +632,13 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	}
 	aui->freq_card = freq_save;
 	card->ac97_clock_detected = 1;
-	//dbgprintf(("ac97_clock_corrector: %1.4f timelen:%d us\n",card->ac97_clock_corrector,(long)timelen));
+	//dbgprintf(("snd_intel_measure_ac97_clock: corrector=%1.4f timelen:%d us\n",card->ac97_clock_corrector,(long)timelen));
 }
 
 //------------------------------------------------------------------------
 
-static void INTELICH_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
-////////////////////////////////////////////////////////////////////////////////////////////
+static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
+///////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int index;
@@ -619,23 +654,23 @@ static void INTELICH_writedata( struct audioout_info_s *aui, char *src, unsigned
 	//dbgprintf(("ICH_writedata: index=%d\n",index));
 }
 
-static long INTELICH_getbufpos( struct audioout_info_s *aui )
-/////////////////////////////////////////////////////////////
+static long ICH_getbufpos( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned long bufpos = 0;
 	unsigned int index,pcmpos,retry = 3;
 
 	do{
-		index=snd_intel_read_8(card,ICH_PO_CIV_REG);    // number of current period
+		index = snd_intel_read_8( card, ICH_PO_CIV_REG );  // number of current period
 #ifndef SBEMU
 		//dbgprintf(("index1: %d\n",index));
 		if(index >= ICH_DMABUF_PERIODS){
 			if(retry > 1)
 				continue;
 			MDma_clearbuf(aui);
-			snd_intel_write_8(card,ICH_PO_LVI_REG,(ICH_DMABUF_PERIODS-1));
-			snd_intel_write_8(card,ICH_PO_CIV_REG,0);
+			snd_intel_write_8( card, ICH_PO_LVI_REG, (ICH_DMABUF_PERIODS - 1) );
+			snd_intel_write_8( card, ICH_PO_CIV_REG, 0);
 			aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			continue;
 		}
@@ -647,9 +682,9 @@ static long INTELICH_getbufpos( struct audioout_info_s *aui )
 		//printf("%d %d %d %d\n",aui->bits_card, aui->chan_card, pcmpos, card->period_size_bytes);
 		//dbgprintf(("ICH_getbufpos: pcmpos=%d\n",pcmpos));
 		if(!pcmpos || pcmpos > card->period_size_bytes){
-			if(snd_intel_read_8(card,ICH_PO_LVI_REG) == index){
+			if( snd_intel_read_8(card,ICH_PO_LVI_REG) == index ) {
 				MDma_clearbuf(aui);
-				snd_intel_write_8(card,ICH_PO_LVI_REG,(index-1)%ICH_DMABUF_PERIODS); // to keep playing in an endless loop
+				snd_intel_write_8(card,ICH_PO_LVI_REG,(index-1) % ICH_DMABUF_PERIODS); // to keep playing in an endless loop
 				//snd_intel_write_8(card,ICH_PO_CIV_REG,index); // ??? -RO
 				aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			}
@@ -663,16 +698,16 @@ static long INTELICH_getbufpos( struct audioout_info_s *aui )
 #endif
 
 		pcmpos = card->period_size_bytes - pcmpos;
-		bufpos = index*card->period_size_bytes + pcmpos;
+		bufpos = index * card->period_size_bytes + pcmpos;
 
-		if(bufpos < aui->card_dmasize){
+		if( bufpos < aui->card_dmasize ) {
 			aui->card_dma_lastgoodpos = bufpos;
 			break;
 		}
 
 	}while(--retry);
 
-	dbgprintf(("ICH_getbufpos: pos=%d dmasize=%d\n",bufpos,aui->card_dmasize));
+	dbgprintf(("ICH_getbufpos: pos=%d dmasize=%d, dma_lastgoodpos=%d\n", bufpos, aui->card_dmasize, aui->card_dma_lastgoodpos ));
 
 	return aui->card_dma_lastgoodpos;
 }
@@ -680,23 +715,23 @@ static long INTELICH_getbufpos( struct audioout_info_s *aui )
 //--------------------------------------------------------------------------
 //mixer
 
-static void INTELICH_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
-////////////////////////////////////////////////////////////////////////////////////////////////////
+static void ICH_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
+///////////////////////////////////////////////////////////////////////////////////////////////
 {
-	struct intel_card_s *card=aui->card_private_data;
+	struct intel_card_s *card = aui->card_private_data;
 	snd_intel_codec_write(card,reg,val);
 }
 
-static unsigned long INTELICH_readMIXER( struct audioout_info_s *aui, unsigned long reg )
-/////////////////////////////////////////////////////////////////////////////////////////
+static unsigned long ICH_readMIXER( struct audioout_info_s *aui, unsigned long reg )
+////////////////////////////////////////////////////////////////////////////////////
 {
-	struct intel_card_s *card=aui->card_private_data;
+	struct intel_card_s *card = aui->card_private_data;
 	return snd_intel_codec_read(card,reg);
 }
 
 #if 1 /* vsbhda */
-static int INTELICH_IRQRoutine( struct audioout_info_s* aui )
-/////////////////////////////////////////////////////////////
+static int ICH_IRQRoutine( struct audioout_info_s* aui )
+////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	int status = snd_intel_read_8(card,ICH_PO_SR_REG);
@@ -709,23 +744,21 @@ static int INTELICH_IRQRoutine( struct audioout_info_s* aui )
 
 const struct sndcard_info_s ICH_sndcard_info = {
  "ICH AC97",
- SNDCARD_LOWLEVELHAND,
-
+ 0,
  NULL,
- NULL,                   // no init
- &INTELICH_adetect,      // only autodetect
- &INTELICH_card_info,
- &INTELICH_start,
- &INTELICH_stop,
- &INTELICH_close,
- &INTELICH_setrate,
+ NULL,              // no init
+ &ICH_adetect,      // only autodetect
+ &ICH_show_card_info,
+ &ICH_start,
+ &ICH_stop,
+ &ICH_close,
+ &ICH_setrate,
 
- &INTELICH_writedata,
- &INTELICH_getbufpos,
+ &ICH_writedata,
+ &ICH_getbufpos,
  &MDma_clearbuf,
- //NULL, // ICH doesn't need dma-monitor (LVI handles it)
- &INTELICH_IRQRoutine, /* vsbhda */
- &INTELICH_writeMIXER,
- &INTELICH_readMIXER,
+ &ICH_IRQRoutine, /* vsbhda */
+ &ICH_writeMIXER,
+ &ICH_readMIXER,
  aucards_ac97chan_mixerset
 };

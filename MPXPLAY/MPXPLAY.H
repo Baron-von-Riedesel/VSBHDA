@@ -24,6 +24,7 @@ extern "C" {
 #define SBEMU
 
 // out pcm defs
+// 1152 * 4 = 4608 = 0x1200
 #define PCM_OUTSAMPLES    1152     // at 44100Hz ( see PIT_DIVISOR_NEW )
 //#define PCM_MIN_CHANNELS     1
 //#define PCM_MAX_CHANNELS     2     // au_mixer output (au_card input) limit
@@ -38,7 +39,7 @@ extern "C" {
 //#define PCM_BUFFER_SIZE   (2 * PCM_MAX_BYTES) // *2 : speed control expansion
 
 //intsoundconfig function bits
-#define INTSOUND_NOBUSYWAIT 32
+//#define INTSOUND_NOBUSYWAIT 32
 
 //timer settings
 #define PIT_DIVISOR_DEFAULT  65536

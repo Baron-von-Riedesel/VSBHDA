@@ -55,12 +55,12 @@
 #define  ES_1371_PCICLKDIS   (1<<0)        /* PCI clock disable */
 
 #define ES_REG_STATUS    0x04     /* R/O: Interrupt/Chip select status register */
-#define  ES_1371_ST_INTR        (1<<31)        /* 1=interrupt pending */
-#define  ES_1371_ST_AC97_RST    (1<<29)        /* CT5880 AC'97 Reset bit */
-#define  ES_1371_ST_UART        (1<<3)         /* 1=UART interrupt pending */
-#define  ES_1371_ST_DAC1        (1<<2)         /* 1=DAC1 channel interrupt pending */
-#define  ES_1371_ST_DAC2        (1<<1)         /* 1=DAC2 channel interrupt pending */
-#define  ES_1371_ST_ADC         (1<<0)         /* 1=ADC channel interrupt pending */
+#define  ES_1371_ST_INTR        (1<<31)    /* 1=interrupt pending */
+#define  ES_1371_ST_AC97_RST    (1<<29)    /* CT5880 AC'97 Reset bit */
+#define  ES_1371_ST_UART        (1<<3)     /* 1=UART interrupt pending */
+#define  ES_1371_ST_DAC1        (1<<2)     /* 1=DAC1 channel interrupt pending */
+#define  ES_1371_ST_DAC2        (1<<1)     /* 1=DAC2 channel interrupt pending */
+#define  ES_1371_ST_ADC         (1<<0)     /* 1=ADC channel interrupt pending */
 
 
 #define ES_REG_UART_DATA    0x08    /* R/W: UART data in/out */
@@ -112,7 +112,6 @@
 #define  ES_ADC_MODEO(o)    (((o)&0x03)<<4)    /* ADC mode; -- '' -- */
 #define  ES_DAC2_MODEO(o)   (((o)&0x03)<<2)    /* DAC2 mode; -- '' -- */
 #define  ES_P1_MODEO(o)     (((o)&0x03)<<0)    /* DAC1 mode; -- '' -- */
-
 
 #define ES_REG_DAC1_COUNT 0x24    /* R/W: DAC1 sample count register; 00-0F=size-1, 10-1F)=curr */
 #define ES_REG_DAC2_COUNT 0x28    /* R/W: DAC2 sample count register; 00-0F=size-1, 10-1F)=curr */
@@ -636,7 +635,8 @@ static void ES1371_start( struct audioout_info_s *aui )
 	outl(card->port + ES_REG_CONTROL, card->ctrl);
 	card->sctrl &= ~ES_P1_PAUSE;
 #if 1 /* vsbhda */
-	card->sctrl |= ES_DAC1_INT_EN;
+	//card->sctrl |= ES_DAC1_INT_EN;
+	card->sctrl |= ES_DAC1_INT_EN | ES_DAC2_INT_EN;
 #endif
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
@@ -687,19 +687,22 @@ static int ES1371_IRQRoutine( struct audioout_info_s *aui )
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
 	//dbgprintf(("ES1371_IRQRoutine\n"));
-	int intmask = inl(card->port + ES_REG_STATUS );
-	if ( intmask & ES_1371_ST_INTR ) {
-		outl(card->port + ES_REG_STATUS , intmask ); //ack???
-		return intmask;
+	int status = inl(card->port + ES_REG_STATUS );
+	if ( status & ES_1371_ST_DAC1 ) {
+		outl(card->port + ES_REG_SERIAL , card->sctrl & (~ES_DAC1_INT_EN) );
+		outl(card->port + ES_REG_SERIAL , card->sctrl );
 	}
-    return 0;
+	if ( status & ES_1371_ST_DAC2 ) {
+		outl(card->port + ES_REG_SERIAL , card->sctrl & (~ES_DAC2_INT_EN) );
+		outl(card->port + ES_REG_SERIAL , card->sctrl );
+	}
+	return status & ES_1371_ST_INTR;
 }
 #endif
 
 const struct sndcard_info_s ES1371_sndcard_info = {
  "ENS",
- SNDCARD_LOWLEVELHAND,
-
+ 0,
  NULL,
  NULL,                 // no init
  &ES1371_adetect,      // only autodetect

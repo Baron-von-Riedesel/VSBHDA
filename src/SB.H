@@ -97,61 +97,60 @@
 /* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */
 
 //DSP commands
+//time constant used
+#define SB_DSP_NOCMD                0
+#define SB_DSP_8BIT_DIRECT       0x10
+#define SB_DSP_8BIT_OUT_1        0x14 //single cycle
+#define SB_DSP_2BIT_OUT_1_NREF   0x16 //2bit ADPCM
+#define SB_DSP_2BIT_OUT_1        0x17 //2bit ADPCM
+#define SB_DSP_8BIT_OUT_AUTO     0x1C
+#define SB_DSP_2BIT_OUT_AUTO     0x1F
+
 #define SB_DSP_SET_TIMECONST     0x40
-#define SB_DSP_SET_SIZE          0x48 //size-1
 #define SB_DSP_SET_SAMPLERATE    0x41 /* SB16 set sample rate */
-#define SB_DSP_SET_SAMPLERATE_I  0x42 //intput sample rate
-#if SB16
+#define SB_DSP_SET_SAMPLERATE_I  0x42 //input sample rate
+#if 1 //SB16
 #define SB_DSP_CONT_8BIT_AUTO    0x45 /* SB16 */
 #define SB_DSP_CONT_16BIT_AUTO   0x47 /* SB16 */
 #endif
+#define SB_DSP_SET_SIZE          0x48 //size-1
+
+#define SB_DSP_4BIT_OUT_1_NREF   0x74 //4bit ADPCM
+#define SB_DSP_4BIT_OUT_1        0x75 //4bit ADPCM
+#define SB_DSP_4BIT_OUT_AUTO     0x7D //4bit ADPCM
+#define SB_DSP_3BIT_OUT_1_NREF   0x76 //3bit ADPCM
+#define SB_DSP_3BIT_OUT_1        0x77 //3bit ADPCM
+#define SB_DSP_3BIT_OUT_AUTO     0x7F //3bit ADPCM
+
 #define SB_DSP_SILENCE_DAC       0x80 /* SB; output silent samples */
+#define SB_DSP_8BIT_OUT_AUTO_HS  0x90
+#define SB_DSP_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(actually restore to previous) to exit hs mode
 #define SB_DSP_HALT_DMA          0xD0
 #define SB_DSP_SPEAKER_ON        0xD1
 #define SB_DSP_SPEAKER_OFF       0xD3
 #define SB_DSP_SPEAKER_STATUS    0xD8
 #define SB_DSP_CONTINUE_DMA      0xD4
-#if SB16
+#if 1 //SB16
 #define SB_DSP_HALT_DMA16        0xD5 /* SB16 */
 #define SB_DSP_CONTINUE_DMA16    0xD6 /* SB16 */
 #define SB_DSP_EXIT_16BIT_AUTO   0xD9 /* SB16 */
 #endif
 #define SB_DSP_EXIT_8BIT_AUTO    0xDA
 #define SB_DSP_ID                0xE0 /* SB: DSP identification */
-#define SB_DSP_GETVER            0xE1 //1st byte major, 2nd byte minor
-#define SB_DSP_DMA_ID            0xE2 /* */
+#define SB_DSP_GETVER            0xE1 /* 1st byte major, 2nd byte minor */
+#define SB_DSP_DMA_ID            0xE2 /* ??? */
 #define SB_DSP_COPYRIGHT         0xE3
 #define SB_DSP_WRITE_TESTREG     0xE4 /* SB 2.0 */
 #define SB_DSP_READ_TESTREG      0xE8 /* SB 2.0 */
 #define SB_DSP_TRIGGER_IRQ       0xF2
-#if SB16
+#if 1 //SB16
 #define SB_DSP_TRIGGER_IRQ16     0xF3 /* SB16 trigger interrupt */
 #define SB_DSP_STATUS            0xFB /* SB16 DSP status */
 #define SB_DSP_DSP_AUX_STATUS    0xFC /* SB16 DSP aux status */
 #define SB_DSP_DSP_CMD_STATUS    0xFD /* SB16 DSP cmd status */
 #endif
 
-//time constant used
-#define SB_DSP_8BIT_DIRECT       0x10
-#define SB_DSP_8BIT_OUT_1        0x14 //single cycle
-#define SB_DSP_8BIT_OUT_AUTO     0x1C
-#define SB_DSP_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(actually restore to previous) to exit hs mode
-#define SB_DSP_8BIT_OUT_AUTO_HS  0x90
 
-#if ADPCM
-#define SB_DSP_4BIT_OUT_1        0x75 //4bit ADPCM
-#define SB_DSP_4BIT_OUT_1_NREF   0x74
-#define SB_DSP_4BIT_OUT_AUTO     0x7D
-#define SB_DSP_3BIT_OUT_1        0x77 //3bit ADPCM
-#define SB_DSP_3BIT_OUT_1_NREF   0x76
-#define SB_DSP_3BIT_OUT_AUTO     0x7F
-#define SB_DSP_2BIT_OUT_1        0x17 //2bit ADPCM
-#define SB_DSP_2BIT_OUT_1_NREF   0x16
-#define SB_DSP_2BIT_OUT_AUTO     0x1F
-#endif
-
-//sample rate used
-//#define SB_DSP_8OR16_OUT_1       0x41
 //following commands
 // SB16: 0Bxh=16-bit, 0Cxh=8-bit
 // bits 0-3: bit0=0, bit1=FIFO mode, bit2=DMA mode (single, auto), bit3=DAC/ADC (0/1)

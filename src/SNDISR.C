@@ -81,6 +81,10 @@ static int16_t *pPCM = NULL;
 #define MALLOCSTATIC 1
 #endif
 
+#if SLOWDOWN
+#include "TIMER.H"
+#endif
+
 #if ADPCM
 
 ADPCM_STATE ISR_adpcm_state;
@@ -298,16 +302,10 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     if( digital ) {
         int i,j;
         int dmachannel = VSB_GetDMA();
-        uint32_t DMA_Base = VDMA_GetBase(dmachannel);
-        int32_t DMA_Index = VDMA_GetIndex(dmachannel);
-        int32_t DMA_Count = VDMA_GetCount(dmachannel);
-        uint32_t SB_BuffSize = VSB_GetSampleBufferSize();
-        uint32_t SB_Pos = VSB_GetPos();
-        uint32_t SB_Rate = VSB_GetSampleRate();
         uint32_t freq = AU_getfreq( hAU );
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int channels = VSB_GetChannels();
-        int pos = 0; /* sample index in 16bit PCM buffer */
+        int IdxSm = 0; /* sample index in 16bit PCM buffer */
         int count; /* samples to handle in this turn */
         bool resample; //don't resample if sample rates are close
         int bytes;
@@ -315,6 +313,12 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
         //dbgprintf(("isr: pos=%X bytes=%d rate=%d smpsize=%u chn=%u DMAidx=%u\n", SB_Pos, SB_BuffSize, SB_Rate, samplesize, channels, DMA_Index ));
         /* a while loop that may run 2 times if a SB buffer overrun occured */
         do {
+            uint32_t DMA_Base = VDMA_GetBase(dmachannel);
+            uint32_t DMA_Index = VDMA_GetIndex(dmachannel);
+            int32_t DMA_Count = VDMA_GetCount(dmachannel);
+            uint32_t SB_BuffSize = VSB_GetSampleBufferSize();
+            uint32_t SB_Pos = VSB_GetPos();
+            uint32_t SB_Rate = VSB_GetSampleRate();
 #if !PREMAPDMA
             /* check if the current DMA address is within the mapped region.
              * if no, release current mapping region.
@@ -345,7 +349,7 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
                 dbgprintf(("isr, ISR_DMA address (re)mapped: DMA_Base=%x, DMA_Size=%x, DMA_MappedAddr=%x\n", ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr ));
             }
 #endif
-            count = samples - pos;
+            count = samples - IdxSm;
             resample = true; //don't resample if sample rates are close
             if( SB_Rate < freq )
                 //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
@@ -366,57 +370,50 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
 
             /* copy samples to our PCM buffer */
 #if PREMAPDMA
-            memcpy( pPCM + pos * 2, NearPtr( SNDISR_MappedBase + DMA_Base + DMA_Index, bytes ));
+            memcpy( pPCM + IdxSm * 2, NearPtr( SNDISR_MappedBase + DMA_Base + DMA_Index, bytes ));
 #else
             if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
-                memset( pPCM + pos * 2, 0, bytes);
+                memset( pPCM + IdxSm * 2, 0, bytes);
             } else
-                memcpy( pPCM + pos * 2, NearPtr(ISR_DMA_MappedAddr + ( DMA_Base - ISR_DMA_Addr) + DMA_Index ), bytes );
+                memcpy( pPCM + IdxSm * 2, NearPtr(ISR_DMA_MappedAddr + ( DMA_Base - ISR_DMA_Addr) + DMA_Index ), bytes );
 #endif
 
             /* format conversion needed? */
 #if ADPCM
             if( VSB_GetBits() < 8)
-                count = DecodeADPCM((uint8_t*)(pPCM + pos * 2), bytes);
+                count = DecodeADPCM((uint8_t*)(pPCM + IdxSm * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_8_to_16( pPCM + pos * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
+                cv_bits_8_to_16( pPCM + IdxSm * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
-                for ( i = pos * 2, j = i + count * channels; i < j; *(pPCM+i) ^= 0x8000, i++ );
+                for ( i = IdxSm * 2, j = i + count * channels; i < j; *(pPCM+i) ^= 0x8000, i++ );
 #endif
             if( resample ) /* SB_Rate != freq */
-                count = cv_rate( pPCM + pos * 2, count * channels, channels, SB_Rate, freq ) / channels;
+                count = cv_rate( pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
             if( channels == 1) //should be the last step
-                cv_channels_1_to_2( pPCM + pos * 2, count);
+                cv_channels_1_to_2( pPCM + IdxSm * 2, count);
 
             /* conversion done; now set new values for DMA and SB buffer;
              * in case the end of SB buffer is reached, emulate an interrupt
              * and run this loop a second time.
              */
-            pos += count;
-            //dbgprintf(("isr: samples:%d %d %d\n", count, pos, samples));
+            IdxSm += count;
+            //dbgprintf(("isr: samples:%d %d %d\n", count, IdxSm, samples));
             DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
             DMA_Count = VDMA_GetCount( dmachannel );
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
             if( SB_Pos >= SB_BuffSize ) {
-                //dbgprintf(("isr: SB_Pos>=SB_BuffSize: %u/%u samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_BuffSize, samples, count, bytes, VDMA_GetIndex(dmachannel), VDMA_GetCount(dmachannel) ));
+                dbgprintf(("isr: Pos/BuffSize=%u/%u samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_BuffSize, samples, count, bytes, VDMA_GetIndex(dmachannel), VDMA_GetCount(dmachannel) ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0); /* */
                 VIRQ_Invoke();
-                SB_BuffSize = VSB_GetSampleBufferSize();
-                SB_Pos = VSB_GetPos();
-                SB_Rate = VSB_GetSampleRate();
-                //incase IRQ handler re-programs DMA
-                DMA_Index = VDMA_GetIndex(dmachannel);
-                DMA_Count = VDMA_GetCount(dmachannel);
-                DMA_Base = VDMA_GetBase(dmachannel);
             }
-        } while(VDMA_GetAuto(dmachannel) && (pos < samples) && VSB_Running());
+        } while(VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running());
 
         /* in case there weren't enough samples copied, fill the rest with silence */
-        for( i = pos; i < samples; i++ )
+        for( i = IdxSm; i < samples; i++ )
             *(pPCM + i*2+1) = *(pPCM + i*2) = 0;
 
 	} else if ( i = VSB_GetDirectCount( &pDirect ) ) {
@@ -492,6 +489,12 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     //aui.samplenum = samples * 2;
     //aui.pcm_sample = ISR_PCM;
     AU_writedata( hAU, samples * 2, pPCM );
+
+#if SLOWDOWN
+    if ( gvars.slowdown)
+        delay_10us(gvars.slowdown);
+#endif
+
     PIC_SendEOI( AU_getirq( hAU ) );
     return(1);
 }

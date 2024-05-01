@@ -20,11 +20,7 @@
 extern "C" {
 #endif
 
-extern unsigned long pds_gettimeh(void); // clock time in hsec
-extern int64_t pds_gettimem(void);  // clock time in msec
-extern int64_t pds_gettimeu(void);  // clock time in usec
 extern void pds_delay_10us(unsigned int ticks);
-extern void pds_mdelay(unsigned long msec);
 
 #ifdef __cplusplus
 }

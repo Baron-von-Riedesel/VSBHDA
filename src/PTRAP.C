@@ -34,6 +34,7 @@
 #define HANDLE_IN_388H_DIRECTLY 1
 #define RMPICTRAPDYN 0 /* 1=trap PIC for v86-mode dynamically when needed */
 
+extern struct globalvars gvars;
 uint32_t _hdpmi_rmcbIO( void(*Fn)( __dpmi_regs *), __dpmi_regs *reg, __dpmi_raddr * );
 void _hdpmi_CliHandler( void );
 void SwitchStackIOIn(  void );
@@ -453,6 +454,8 @@ bool PTRAP_Install_PM_PortTraps( void )
     return true;
 }
 
+/* delete 1-x entries in PDispTab[], adjust port ranges */
+
 static void PDT_DelEntries( int start, int end, int entries )
 /////////////////////////////////////////////////////////////
 {
@@ -489,6 +492,14 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
         /* if no SB16 emulation, remove all HDMA ports */
         PDT_DelEntries( portranges[DMAPG_PDT]+1, portranges[END_PDT], 1 );
         PDT_DelEntries( portranges[HDMA_PDT], portranges[END_PDT], portranges[HDMA_PDT+1] - portranges[HDMA_PDT] );
+    }
+#endif
+#if VMPU
+    if ( gvars.mpu ) {
+        PDispTab[portranges[MPU_PDT]].port   = gvars.mpu;
+        PDispTab[portranges[MPU_PDT]+1].port = gvars.mpu+1;
+    } else {
+        PDT_DelEntries( portranges[MPU_PDT], portranges[END_PDT], 2 );
     }
 #endif
     /* adjust the SB ports to the selected base */

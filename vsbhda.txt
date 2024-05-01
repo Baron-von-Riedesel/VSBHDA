@@ -28,10 +28,12 @@
    3. Usage
 
     VSBHDA consists of two programs: vsbhda.exe and vsbhda16.exe. Due to the
-   nature of DPMI one cannot mix 32-bit and 16-bit clients in an address
-   space. Hence vsbhda.exe can only communicate with 32-bit protected-mode
-   games, while vsbhda16 is limited to 16-bit protected-mode ones. Both
-   variants support real-mode games, though.
+   nature of DPMI, 16-bit and 32-bit DPMI clients must at least have separate
+   interrupt tables. This implies that - at least for DPMI v0.9 - there's no
+   good way for a 32-bit client to provide services for a 16-bit client - and
+   vice versa. Hence vsbhda.exe can only support 32-bit protected-mode games,
+   while vsbhda16 is limited to 16-bit protected-mode ones. Both variants
+   support real-mode games, though.
 
    The steps to load the VSBHDA emulation layer are
    
@@ -63,9 +65,9 @@
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
 
-    VSBHDA will understand a few commandline options. Some, like /A, /I, /D, /H
-   or /T, are similar to the settings of the BLASTER environment variable ( this
-   variable is NOT altered by VSBHDA ). The others are:
+    VSBHDA will understand a few commandline options. Some, like /A, /I, /D, /H,
+   /P or /T, are similar to the settings of the BLASTER environment variable
+   ( this variable is NOT altered by VSBHDA ). The others are:
 
      /OPL    : Set OPL3 emulation
      /PM     : Set protected-mode support

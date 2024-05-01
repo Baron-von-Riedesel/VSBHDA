@@ -97,7 +97,11 @@ struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT,
 #if SB16
 HDMA_DEFAULT,
 #endif
-TYPE_DEFAULT, true, true, true, VOL_DEFAULT, 16 };
+TYPE_DEFAULT,
+#if VMPU
+0, /* no default for Midi port */
+#endif
+true, true, true, VOL_DEFAULT, 16 };
 
 static const struct {
     const char *option;
@@ -114,12 +118,18 @@ static const struct {
 #else
     "/T", "Set SB Type [0-5, def 5]", &gvars.type,
 #endif
+#if VMPU
+    "/P", "Set Midi port [330|300, no def]", &gvars.mpu,
+#endif
     "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
     "/F",  "Set frequency [22050|44100, def 22050]", (int *)&freq,
     "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "/BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
+#if SLOWDOWN
+    "/SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
+#endif
     "/O",  "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
     NULL, NULL, 0,
@@ -230,11 +240,25 @@ void MAIN_ReinitOPL( void )
 #endif
 
 #if SB16
+
 #define MAXTYPE 6
-#define HELPNOTE "\nOptions /A /I /D /H /T have precedence.\n"
+#if VMPU
+#define HELPNOTE "\nOptions /A /I /D /H /P /T have precedence.\n"
 #else
+#define HELPNOTE "\nOptions /A /I /D /H /T have precedence.\n"
+#endif
+
+#else
+
 #define MAXTYPE 5
 #define HELPNOTE "\nOptions /A /I /D /T have precedence.\n"
+
+#endif
+
+#if VMPU
+#define IsHexOption(x) (GOptions[x].pValue == &gvars.base || GOptions[x].pValue == &gvars.mpu )
+#else
+#define IsHexOption(x) (GOptions[x].pValue == &gvars.base )
 #endif
 
 int main(int argc, char* argv[])
@@ -257,23 +281,36 @@ int main(int argc, char* argv[])
             else if(c == 'A') {
                 gvars.base = strtol(blaster, &blaster, 16);
                 while(*blaster >= '0') blaster++;
-            } else if(c =='T')
+#if VMPU
+            } else if(c == 'P') {
+                gvars.mpu = strtol(blaster, &blaster, 16);
+                while(*blaster >= '0') blaster++;
+#endif
+            } else if(c == 'T')
                 gvars.type = *(blaster++) - '0';
 #if SB16
-            else if(c =='H')
+            else if(c == 'H')
                 gvars.hdma = *(blaster++) - '0';
 #endif
         }
     }
+    dbgprintf(("A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
+#if SB16
+    dbgprintf((" H=%u", gvars.hdma ));
+#endif
+#if VMPU
+    dbgprintf((" P=%x", gvars.mpu ));
+#endif
+    dbgprintf(("\n" ));
 
     /* check cmdline arguments */
     for( i = 1; i < argc; ++i ) {
         int j;
-        for( j = 0; GOptions[j].option; ++j ) {
+        for( j = 1; GOptions[j].option; ++j ) {
             int len = strlen( GOptions[j].option);
             if( memicmp(argv[i], GOptions[j].option, len) == 0 ) {
                 if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
-                    *GOptions[j].pValue = strtol(&argv[i][len], NULL, (GOptions[j].pValue == &gvars.base) ? 16 : 10 );
+                    *GOptions[j].pValue = strtol(&argv[i][len], NULL, IsHexOption(j) ? 16 : 10 );
                     break;
                 } else if ( argv[i][len] == 0 && *GOptions[j].pValue == false ) {
                     *GOptions[j].pValue = true;
@@ -320,6 +357,12 @@ int main(int argc, char* argv[])
         printf("Error: invalid SB Type: %d\n", gvars.type );
         return 1;
     }
+#if VMPU
+    if( gvars.mpu && ( gvars.mpu != 0x330 && gvars.mpu != 0x300 )) {
+        printf("Error: invalid Midi port address: %x\n", gvars.mpu );
+        return 1;
+    }
+#endif
     if( gvars.pin < 0 || gvars.pin > 2) {
         printf("Error: Invalid output device %d\n", gvars.pin );
         return 1;
@@ -414,8 +457,11 @@ int main(int argc, char* argv[])
 #ifdef NOFM
     gvars.opl3 = 0;
 #endif
+#if SB16
 	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
-
+#else
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0 );
+#endif
 #if SB16
     VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
 #else
@@ -459,7 +505,11 @@ int main(int argc, char* argv[])
      * result in problems, since that memory is released when that client exits.
      * This temp alloc is best done before SNDISR_InstallISR() is called.
      */
-    if (p = malloc( 0x20000 ) ) /* 64 kB seems not enough for open cube player */
+    /* open cube player may crash on exit with 64 kb (page fault); that's quite strange, since
+     * any amount that exceeeds the size of the PCM buffer (64kB) is virtually wasted. Must be
+     * a strange side effect...
+     */
+    if (p = malloc( 0x10000 ) )
         free( p );
 
     bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );

@@ -163,60 +163,60 @@
                         /* NOTE: Each channel takes 1/64th of a sample    */
                         /* period to be serviced.            */
 
-#define HCFG            0x14        /* Hardware config register            */
-                        /* NOTE: There is no reason to use the legacy    */
-                        /* SoundBlaster emulation stuff described below    */
-                        /* under Linux, and all kinds of weird hardware    */
-                        /* behavior can result if you try.  Don't.    */
-#define HCFG_LEGACYFUNC_MASK    0xe0000000    /* Legacy function number             */
-#define HCFG_LEGACYFUNC_MPU    0x00000000    /* Legacy MPU                     */
-#define HCFG_LEGACYFUNC_SB    0x40000000    /* Legacy SB                    */
-#define HCFG_LEGACYFUNC_AD    0x60000000    /* Legacy AD                    */
-#define HCFG_LEGACYFUNC_MPIC    0x80000000    /* Legacy MPIC                    */
-#define HCFG_LEGACYFUNC_MDMA    0xa0000000    /* Legacy MDMA                    */
-#define HCFG_LEGACYFUNC_SPCI    0xc0000000    /* Legacy SPCI                    */
-#define HCFG_LEGACYFUNC_SDMA    0xe0000000    /* Legacy SDMA                    */
-#define HCFG_IOCAPTUREADDR    0x1f000000    /* The 4 LSBs of the captured I/O address.    */
-#define HCFG_LEGACYWRITE    0x00800000    /* 1 = write, 0 = read                 */
-#define HCFG_LEGACYWORD        0x00400000    /* 1 = word, 0 = byte                 */
-#define HCFG_LEGACYINT        0x00200000    /* 1 = legacy event captured. Write 1 to clear.    */
-                        /* NOTE: The rest of the bits in this register    */
-                        /* _are_ relevant under Linux.            */
-#define HCFG_CODECFORMAT_MASK    0x00070000    /* CODEC format                    */
-#define HCFG_CODECFORMAT_AC97    0x00000000    /* AC97 CODEC format -- Primary Output        */
-#define HCFG_CODECFORMAT_I2S    0x00010000    /* I2S CODEC format -- Secondary (Rear) Output    */
-#define HCFG_GPINPUT0        0x00004000    /* External pin112                */
-#define HCFG_GPINPUT1        0x00002000    /* External pin110                */
-#define HCFG_GPOUTPUT_MASK    0x00001c00    /* External pins which may be controlled    */
-#define HCFG_GPOUT0        0x00001000    /* External pin? (spdif enable on 5.1)        */
-#define HCFG_GPOUT1        0x00000800    /* External pin? (IR)                */
-#define HCFG_GPOUT2        0x00000400    /* External pin? (IR)                */
-#define HCFG_JOYENABLE          0x00000200    /* Internal joystick enable                */
-#define HCFG_PHASETRACKENABLE    0x00000100    /* Phase tracking enable            */
-                        /* 1 = Force all 3 async digital inputs to use    */
-                        /* the same async sample rate tracker (ZVIDEO)    */
-#define HCFG_AC3ENABLE_MASK    0x000000e0    /* AC3 async input control - Not implemented    */
-#define HCFG_AC3ENABLE_ZVIDEO    0x00000080    /* Channels 0 and 1 replace ZVIDEO        */
-#define HCFG_AC3ENABLE_CDSPDIF    0x00000040    /* Channels 0 and 1 replace CDSPDIF        */
-#define HCFG_AC3ENABLE_GPSPDIF  0x00000020      /* Channels 0 and 1 replace GPSPDIF             */
-#define HCFG_AUTOMUTE        0x00000010    /* When set, the async sample rate convertors    */
-                        /* will automatically mute their output when    */
-                        /* they are not rate-locked to the external    */
-                        /* async audio source                  */
-#define HCFG_LOCKSOUNDCACHE    0x00000008    /* 1 = Cancel bustmaster accesses to soundcache */
-                        /* NOTE: This should generally never be used.      */
-#define HCFG_LOCKTANKCACHE_MASK    0x00000004    /* 1 = Cancel bustmaster accesses to tankcache    */
-                        /* NOTE: This should generally never be used.      */
-#define HCFG_LOCKTANKCACHE    0x01020014
-#define HCFG_MUTEBUTTONENABLE    0x00000002    /* 1 = Master mute button sets AUDIOENABLE = 0.    */
-                        /* NOTE: This is a 'cheap' way to implement a    */
-                        /* master mute function on the mute button, and    */
-                        /* in general should not be used unless a more    */
-                        /* sophisticated master mute function has not    */
-                        /* been written.                       */
-#define HCFG_AUDIOENABLE    0x00000001    /* 0 = CODECs transmit zero-valued samples    */
-                        /* Should be set to 1 when the EMU10K1 is    */
-                        /* completely initialized.            */
+#define HCFG            0x14        /* Hardware config register */
+                        /* NOTE: There is no reason to use the legacy */
+                        /* SoundBlaster emulation stuff described below */
+                        /* under Linux, and all kinds of weird hardware */
+                        /* behavior can result if you try.  Don't. */
+#define HCFG_LEGACYFUNC_MASK    0xe0000000    /* Legacy function number */
+#define HCFG_LEGACYFUNC_MPU     0x00000000    /* Legacy MPU */
+#define HCFG_LEGACYFUNC_SB      0x40000000    /* Legacy SB */
+#define HCFG_LEGACYFUNC_AD      0x60000000    /* Legacy AD */
+#define HCFG_LEGACYFUNC_MPIC    0x80000000    /* Legacy MPIC */
+#define HCFG_LEGACYFUNC_MDMA    0xa0000000    /* Legacy MDMA */
+#define HCFG_LEGACYFUNC_SPCI    0xc0000000    /* Legacy SPCI */
+#define HCFG_LEGACYFUNC_SDMA    0xe0000000    /* Legacy SDMA */
+#define HCFG_IOCAPTUREADDR      0x1f000000    /* The 4 LSBs of the captured I/O address. */
+#define HCFG_LEGACYWRITE        0x00800000    /* 1 = write, 0 = read */
+#define HCFG_LEGACYWORD         0x00400000    /* 1 = word, 0 = byte */
+#define HCFG_LEGACYINT          0x00200000    /* 1 = legacy event captured. Write 1 to clear. */
+
+/* NOTE: The rest of the bits in this register _are_ relevant under Linux. */
+#define HCFG_CODECFORMAT_MASK   0x00070000    /* CODEC format */
+#define HCFG_CODECFORMAT_AC97   0x00000000    /* AC97 CODEC format -- Primary Output */
+#define HCFG_CODECFORMAT_I2S    0x00010000    /* I2S CODEC format -- Secondary (Rear) Output */
+#define HCFG_GPINPUT0           0x00004000    /* External pin112 */
+#define HCFG_GPINPUT1           0x00002000    /* External pin110 */
+#define HCFG_GPOUTPUT_MASK      0x00001c00    /* External pins which may be controlled */
+#define HCFG_GPOUT0             0x00001000    /* External pin? (spdif enable on 5.1) */
+#define HCFG_GPOUT1             0x00000800    /* External pin? (IR) */
+#define HCFG_GPOUT2             0x00000400    /* External pin? (IR) */
+#define HCFG_JOYENABLE          0x00000200    /* Internal joystick enable */
+#define HCFG_PHASETRACKENABLE   0x00000100    /* Phase tracking enable */
+                                              /* 1 = Force all 3 async digital inputs to use */
+                                              /* the same async sample rate tracker (ZVIDEO) */
+#define HCFG_AC3ENABLE_MASK     0x000000e0    /* AC3 async input control - Not implemented */
+#define HCFG_AC3ENABLE_ZVIDEO   0x00000080    /* Channels 0 and 1 replace ZVIDEO */
+#define HCFG_AC3ENABLE_CDSPDIF  0x00000040    /* Channels 0 and 1 replace CDSPDIF */
+#define HCFG_AC3ENABLE_GPSPDIF  0x00000020    /* Channels 0 and 1 replace GPSPDIF */
+#define HCFG_AUTOMUTE           0x00000010    /* When set, the async sample rate convertors */
+                                              /* will automatically mute their output when */
+                                              /* they are not rate-locked to the external */
+                                              /* async audio source */
+#define HCFG_LOCKSOUNDCACHE     0x00000008    /* 1 = Cancel bustmaster accesses to soundcache */
+                                              /* NOTE: This should generally never be used. */
+#define HCFG_LOCKTANKCACHE_MASK 0x00000004    /* 1 = Cancel bustmaster accesses to tankcache */
+                                              /* NOTE: This should generally never be used. */
+#define HCFG_LOCKTANKCACHE      0x01020014
+#define HCFG_MUTEBUTTONENABLE   0x00000002    /* 1 = Master mute button sets AUDIOENABLE = 0. */
+                                              /* NOTE: This is a 'cheap' way to implement a */
+                                              /* master mute function on the mute button, and */
+                                              /* in general should not be used unless a more */
+                                              /* sophisticated master mute function has not */
+                                              /* been written. */
+#define HCFG_AUDIOENABLE        0x00000001    /* 0 = CODECs transmit zero-valued samples */
+                                              /* Should be set to 1 when the EMU10K1 is */
+                                              /* completely initialized. */
 
 //For Audigy, MPU port move to 0x70-0x74 ptr register
 

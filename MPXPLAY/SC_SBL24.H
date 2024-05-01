@@ -34,72 +34,72 @@
 #define DATA            0x04        /* Indexed register set data register        */
                         /* DATA[31:0]                    */
 
-#define IPR            0x08        /* Global interrupt pending register        */
-                        /* Clear pending interrupts by writing a 1 to    */
-                        /* the relevant bits and zero to the other bits    */
-#define IPR_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty        */
-#define IPR_MIDI_TX_B        0x00010000    /* MIDI UART-B Transmit buffer empty        */
-#define IPR_SPDIF_IN_USER    0x00004000      /* SPDIF input user data has 16 more bits    */
-#define IPR_SPDIF_OUT_USER    0x00002000      /* SPDIF output user data needs 16 more bits    */
-#define IPR_SPDIF_OUT_FRAME    0x00001000      /* SPDIF frame about to start            */
-#define IPR_SPI            0x00000800      /* SPI transaction completed            */
-#define IPR_I2C_EEPROM        0x00000400      /* I2C EEPROM transaction completed        */
-#define IPR_I2C_DAC        0x00000200      /* I2C DAC transaction completed        */
-#define IPR_AI            0x00000100      /* Audio pending register changed. See PTR reg 0x76    */
-#define IPR_GPI            0x00000080      /* General Purpose input changed        */
-#define IPR_SRC_LOCKED          0x00000040      /* SRC lock status changed            */
-#define IPR_SPDIF_STATUS        0x00000020      /* SPDIF status changed                */
-#define IPR_TIMER2              0x00000010      /* 192000Hz Timer                */
-#define IPR_TIMER1              0x00000008      /* 44100Hz Timer                */
-#define IPR_MIDI_RX_A        0x00000004    /* MIDI UART-A Receive buffer non-empty        */
-#define IPR_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty        */
-#define IPR_PCI            0x00000001    /* PCI Bus error                */
+#define IPR                  0x08          /* Global interrupt pending register */
+                                           /* Clear pending interrupts by writing a 1 to */
+                                           /* the relevant bits and zero to the other bits */
+#define IPR_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty */
+#define IPR_MIDI_TX_B        0x00010000    /* MIDI UART-B Transmit buffer empty */
+#define IPR_SPDIF_IN_USER    0x00004000    /* SPDIF input user data has 16 more bits */
+#define IPR_SPDIF_OUT_USER   0x00002000    /* SPDIF output user data needs 16 more bits */
+#define IPR_SPDIF_OUT_FRAME  0x00001000    /* SPDIF frame about to start */
+#define IPR_SPI              0x00000800    /* SPI transaction completed */
+#define IPR_I2C_EEPROM       0x00000400    /* I2C EEPROM transaction completed */
+#define IPR_I2C_DAC          0x00000200    /* I2C DAC transaction completed */
+#define IPR_AI               0x00000100    /* Audio pending register changed. See PTR reg 0x76 */
+#define IPR_GPI              0x00000080    /* General Purpose input changed */
+#define IPR_SRC_LOCKED       0x00000040    /* SRC lock status changed */
+#define IPR_SPDIF_STATUS     0x00000020    /* SPDIF status changed */
+#define IPR_TIMER2           0x00000010    /* 192000Hz Timer */
+#define IPR_TIMER1           0x00000008    /* 44100Hz Timer */
+#define IPR_MIDI_RX_A        0x00000004    /* MIDI UART-A Receive buffer non-empty */
+#define IPR_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty */
+#define IPR_PCI              0x00000001    /* PCI Bus error */
 
-#define INTE            0x0c        /* Interrupt enable register            */
-
-#define INTE_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty        */
-#define INTE_MIDI_TX_B        0x00010000    /* MIDI UART-B Transmit buffer empty        */
-#define INTE_SPDIF_IN_USER    0x00004000      /* SPDIF input user data has 16 more bits    */
-#define INTE_SPDIF_OUT_USER    0x00002000      /* SPDIF output user data needs 16 more bits    */
-#define INTE_SPDIF_OUT_FRAME    0x00001000      /* SPDIF frame about to start            */
-#define INTE_SPI        0x00000800      /* SPI transaction completed            */
-#define INTE_I2C_EEPROM        0x00000400      /* I2C EEPROM transaction completed        */
-#define INTE_I2C_DAC        0x00000200      /* I2C DAC transaction completed        */
-#define INTE_AI            0x00000100      /* Audio pending register changed. See PTR reg 0x75 */
-#define INTE_GPI        0x00000080      /* General Purpose input changed        */
-#define INTE_SRC_LOCKED         0x00000040      /* SRC lock status changed            */
-#define INTE_SPDIF_STATUS       0x00000020      /* SPDIF status changed                */
-#define INTE_TIMER2             0x00000010      /* 192000Hz Timer                */
-#define INTE_TIMER1             0x00000008      /* 44100Hz Timer                */
-#define INTE_MIDI_RX_A        0x00000004    /* MIDI UART-A Receive buffer non-empty        */
-#define INTE_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty        */
-#define INTE_PCI        0x00000001    /* PCI Bus error                */
+#define INTE                  0x0c          /* Interrupt enable register */
+#define INTE_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty */
+#define INTE_MIDI_TX_B        0x00010000    /* MIDI UART-B Transmit buffer empty */
+#define INTE_SPDIF_IN_USER    0x00004000    /* SPDIF input user data has 16 more bits */
+#define INTE_SPDIF_OUT_USER   0x00002000    /* SPDIF output user data needs 16 more bits */
+#define INTE_SPDIF_OUT_FRAME  0x00001000    /* SPDIF frame about to start */
+#define INTE_SPI              0x00000800    /* SPI transaction completed */
+#define INTE_I2C_EEPROM       0x00000400    /* I2C EEPROM transaction completed */
+#define INTE_I2C_DAC          0x00000200    /* I2C DAC transaction completed */
+#define INTE_AI               0x00000100    /* Audio pending register changed. See PTR reg 0x75 */
+#define INTE_GPI              0x00000080    /* General Purpose input changed */
+#define INTE_SRC_LOCKED       0x00000040    /* SRC lock status changed */
+#define INTE_SPDIF_STATUS     0x00000020    /* SPDIF status changed */
+#define INTE_TIMER2           0x00000010    /* 192000Hz Timer */
+#define INTE_TIMER1           0x00000008    /* 44100Hz Timer */
+#define INTE_MIDI_RX_A        0x00000004    /* MIDI UART-A Receive buffer non-empty */
+#define INTE_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty */
+#define INTE_PCI              0x00000001    /* PCI Bus error */
 
 #define UNKNOWN10        0x10        /* Unknown ??. Defaults to 0 */
-#define HCFG            0x14        /* Hardware config register            */
-                        /* 0x1000 causes AC3 to fails. It adds a dither bit. */
 
-#define HCFG_STAC        0x10000000    /* Special mode for STAC9460 Codec. */
+#define HCFG                       0x14          /* Hardware config register */
+                                                 /* 0x1000 causes AC3 to fails. It adds a dither bit. */
+#define HCFG_STAC                  0x10000000    /* Special mode for STAC9460 Codec. */
 #define HCFG_CAPTURE_I2S_BYPASS    0x08000000    /* 1 = bypass I2S input async SRC. */
-#define HCFG_CAPTURE_SPDIF_BYPASS 0x04000000    /* 1 = bypass SPDIF input async SRC. */
-#define HCFG_PLAYBACK_I2S_BYPASS 0x02000000    /* 0 = I2S IN mixer output, 1 = I2S IN1. */
-#define HCFG_FORCE_LOCK        0x01000000    /* For test only. Force input SRC tracker to lock. */
-#define HCFG_PLAYBACK_ATTENUATION 0x00006000    /* Playback attenuation mask. 0 = 0dB, 1 = 6dB, 2 = 12dB, 3 = Mute. */
-#define HCFG_PLAYBACK_DITHER    0x00001000    /* 1 = Add dither bit to all playback channels. */
-#define HCFG_PLAYBACK_S32_LE    0x00000800    /* 1 = S32_LE, 0 = S16_LE                       */
-#define HCFG_CAPTURE_S32_LE    0x00000400    /* 1 = S32_LE, 0 = S16_LE (S32_LE current not working)    */
-#define HCFG_8_CHANNEL_PLAY    0x00000200    /* 1 = 8 channels, 0 = 2 channels per substream.*/
-#define HCFG_8_CHANNEL_CAPTURE    0x00000100    /* 1 = 8 channels, 0 = 2 channels per substream.*/
-#define HCFG_MONO        0x00000080    /* 1 = I2S Input mono                           */
-#define HCFG_I2S_OUTPUT        0x00000010    /* 1 = I2S Output disabled                      */
-#define HCFG_AC97        0x00000008    /* 0 = AC97 1.0, 1 = AC97 2.0                   */
-#define HCFG_LOCK_PLAYBACK_CACHE 0x00000004    /* 1 = Cancel bustmaster accesses to soundcache */
-                        /* NOTE: This should generally never be used.      */
+#define HCFG_CAPTURE_SPDIF_BYPASS  0x04000000    /* 1 = bypass SPDIF input async SRC. */
+#define HCFG_PLAYBACK_I2S_BYPASS   0x02000000    /* 0 = I2S IN mixer output, 1 = I2S IN1. */
+#define HCFG_FORCE_LOCK            0x01000000    /* For test only. Force input SRC tracker to lock. */
+#define HCFG_PLAYBACK_ATTENUATION  0x00006000    /* Playback attenuation mask. 0 = 0dB, 1 = 6dB, 2 = 12dB, 3 = Mute. */
+#define HCFG_PLAYBACK_DITHER       0x00001000    /* 1 = Add dither bit to all playback channels. */
+#define HCFG_PLAYBACK_S32_LE       0x00000800    /* 1 = S32_LE, 0 = S16_LE                       */
+#define HCFG_CAPTURE_S32_LE        0x00000400    /* 1 = S32_LE, 0 = S16_LE (S32_LE current not working) */
+#define HCFG_8_CHANNEL_PLAY        0x00000200    /* 1 = 8 channels, 0 = 2 channels per substream.*/
+#define HCFG_8_CHANNEL_CAPTURE     0x00000100    /* 1 = 8 channels, 0 = 2 channels per substream.*/
+#define HCFG_MONO                  0x00000080    /* 1 = I2S Input mono                           */
+#define HCFG_I2S_OUTPUT            0x00000010    /* 1 = I2S Output disabled                      */
+#define HCFG_AC97                  0x00000008    /* 0 = AC97 1.0, 1 = AC97 2.0                   */
+#define HCFG_LOCK_PLAYBACK_CACHE   0x00000004    /* 1 = Cancel bustmaster accesses to soundcache */
+                                                 /* NOTE: This should generally never be used. */
 #define HCFG_LOCK_CAPTURE_CACHE    0x00000002    /* 1 = Cancel bustmaster accesses to soundcache */
-                        /* NOTE: This should generally never be used.      */
-#define HCFG_AUDIOENABLE    0x00000001    /* 0 = CODECs transmit zero-valued samples    */
-                        /* Should be set to 1 when the EMU10K1 is    */
-                        /* completely initialized.            */
+                                                 /* NOTE: This should generally never be used. */
+#define HCFG_AUDIOENABLE           0x00000001    /* 0 = CODECs transmit zero-valued samples */
+                                                 /* Should be set to 1 when the EMU10K1 is */
+                                                 /* completely initialized. */
+
 #define GPIO            0x18        /* Defaults: 005f03a3-Analog, 005f02a2-SPDIF.   */
                         /* Here pins 0,1,2,3,4,,6 are output. 5,7 are input */
                         /* For the Audigy LS, pin 0 (or bit 8) controls the SPDIF/Analog jack. */
@@ -190,61 +190,61 @@
 #define SPCS1            0x42        /* SPDIF output Channel Status 1 register. For Front */
 #define SPCS2            0x43        /* SPDIF output Channel Status 2 register. For Center/LFE */
 #define SPCS3            0x44        /* SPDIF output Channel Status 3 register. Unknown */
-                        /* When Channel set to 0: */
-#define SPCS_CLKACCYMASK    0x30000000    /* Clock accuracy                */
-#define SPCS_CLKACCY_1000PPM    0x00000000    /* 1000 parts per million            */
-#define SPCS_CLKACCY_50PPM    0x10000000    /* 50 parts per million                */
-#define SPCS_CLKACCY_VARIABLE    0x20000000    /* Variable accuracy                */
-#define SPCS_SAMPLERATEMASK    0x0f000000    /* Sample rate                    */
-#define SPCS_SAMPLERATE_44    0x00000000    /* 44.1kHz sample rate                */
-#define SPCS_SAMPLERATE_48    0x02000000    /* 48kHz sample rate                */
-#define SPCS_SAMPLERATE_32    0x03000000    /* 32kHz sample rate                */
-#define SPCS_CHANNELNUMMASK    0x00f00000    /* Channel number                */
-#define SPCS_CHANNELNUM_UNSPEC    0x00000000    /* Unspecified channel number            */
-#define SPCS_CHANNELNUM_LEFT    0x00100000    /* Left channel                    */
-#define SPCS_CHANNELNUM_RIGHT    0x00200000    /* Right channel                */
-#define SPCS_SOURCENUMMASK    0x000f0000    /* Source number                */
-#define SPCS_SOURCENUM_UNSPEC    0x00000000    /* Unspecified source number            */
-#define SPCS_GENERATIONSTATUS    0x00008000    /* Originality flag (see IEC-958 spec)        */
-#define SPCS_CATEGORYCODEMASK    0x00007f00    /* Category code (see IEC-958 spec)        */
-#define SPCS_MODEMASK        0x000000c0    /* Mode (see IEC-958 spec)            */
-#define SPCS_EMPHASISMASK    0x00000038    /* Emphasis                    */
-#define SPCS_EMPHASIS_NONE    0x00000000    /* No emphasis                    */
-#define SPCS_EMPHASIS_50_15    0x00000008    /* 50/15 usec 2 channel                */
-#define SPCS_COPYRIGHT        0x00000004    /* Copyright asserted flag -- do not modify    */
-#define SPCS_NOTAUDIODATA    0x00000002    /* 0 = Digital audio, 1 = not audio        */
-#define SPCS_PROFESSIONAL    0x00000001    /* 0 = Consumer (IEC-958), 1 = pro (AES3-1992)    */
+/* When Channel set to 0: */
+#define SPCS_CLKACCYMASK       0x30000000    /* Clock accuracy */
+#define SPCS_CLKACCY_1000PPM   0x00000000    /* 1000 parts per million */
+#define SPCS_CLKACCY_50PPM     0x10000000    /* 50 parts per million */
+#define SPCS_CLKACCY_VARIABLE  0x20000000    /* Variable accuracy */
+#define SPCS_SAMPLERATEMASK    0x0f000000    /* Sample rate */
+#define SPCS_SAMPLERATE_44     0x00000000    /* 44.1kHz sample rate */
+#define SPCS_SAMPLERATE_48     0x02000000    /* 48kHz sample rate */
+#define SPCS_SAMPLERATE_32     0x03000000    /* 32kHz sample rate */
+#define SPCS_CHANNELNUMMASK    0x00f00000    /* Channel number */
+#define SPCS_CHANNELNUM_UNSPEC 0x00000000    /* Unspecified channel number */
+#define SPCS_CHANNELNUM_LEFT   0x00100000    /* Left channel */
+#define SPCS_CHANNELNUM_RIGHT  0x00200000    /* Right channel */
+#define SPCS_SOURCENUMMASK     0x000f0000    /* Source number */
+#define SPCS_SOURCENUM_UNSPEC  0x00000000    /* Unspecified source number */
+#define SPCS_GENERATIONSTATUS  0x00008000    /* Originality flag (see IEC-958 spec) */
+#define SPCS_CATEGORYCODEMASK  0x00007f00    /* Category code (see IEC-958 spec) */
+#define SPCS_MODEMASK          0x000000c0    /* Mode (see IEC-958 spec) */
+#define SPCS_EMPHASISMASK      0x00000038    /* Emphasis */
+#define SPCS_EMPHASIS_NONE     0x00000000    /* No emphasis */
+#define SPCS_EMPHASIS_50_15    0x00000008    /* 50/15 usec 2 channel */
+#define SPCS_COPYRIGHT         0x00000004    /* Copyright asserted flag -- do not modify */
+#define SPCS_NOTAUDIODATA      0x00000002    /* 0 = Digital audio, 1 = not audio */
+#define SPCS_PROFESSIONAL      0x00000001    /* 0 = Consumer (IEC-958), 1 = pro (AES3-1992) */
 
-                        /* When Channel set to 1: */
-#define SPCS_WORD_LENGTH_MASK    0x0000000f    /* Word Length Mask                */
-#define SPCS_WORD_LENGTH_16    0x00000008    /* Word Length 16 bit                */
-#define SPCS_WORD_LENGTH_17    0x00000006    /* Word Length 17 bit                */
-#define SPCS_WORD_LENGTH_18    0x00000004    /* Word Length 18 bit                */
-#define SPCS_WORD_LENGTH_19    0x00000002    /* Word Length 19 bit                */
-#define SPCS_WORD_LENGTH_20A    0x0000000a    /* Word Length 20 bit                */
+/* When Channel set to 1: */
+#define SPCS_WORD_LENGTH_MASK  0x0000000f    /* Word Length Mask */
+#define SPCS_WORD_LENGTH_16    0x00000008    /* Word Length 16 bit */
+#define SPCS_WORD_LENGTH_17    0x00000006    /* Word Length 17 bit */
+#define SPCS_WORD_LENGTH_18    0x00000004    /* Word Length 18 bit */
+#define SPCS_WORD_LENGTH_19    0x00000002    /* Word Length 19 bit */
+#define SPCS_WORD_LENGTH_20A   0x0000000a    /* Word Length 20 bit */
 #define SPCS_WORD_LENGTH_20    0x00000009    /* Word Length 20 bit (both 0xa and 0x9 are 20 bit) */
-#define SPCS_WORD_LENGTH_21    0x00000007    /* Word Length 21 bit                */
-#define SPCS_WORD_LENGTH_21    0x00000007    /* Word Length 21 bit                */
-#define SPCS_WORD_LENGTH_22    0x00000005    /* Word Length 22 bit                */
-#define SPCS_WORD_LENGTH_23    0x00000003    /* Word Length 23 bit                */
-#define SPCS_WORD_LENGTH_24    0x0000000b    /* Word Length 24 bit                */
-#define SPCS_ORIGINAL_SAMPLE_RATE_MASK    0x000000f0 /* Original Sample rate            */
-#define SPCS_ORIGINAL_SAMPLE_RATE_NONE    0x00000000 /* Original Sample rate not indicated    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_16000    0x00000010 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_RES1    0x00000020 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_32000    0x00000030 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_12000    0x00000040 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_11025    0x00000050 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_8000    0x00000060 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_RES2    0x00000070 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_192000 0x00000080 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_24000    0x00000090 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_96000    0x000000a0 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_48000    0x000000b0 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_176400 0x000000c0 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_22050    0x000000d0 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_88200    0x000000e0 /* Original Sample rate    */
-#define SPCS_ORIGINAL_SAMPLE_RATE_44100    0x000000f0 /* Original Sample rate    */
+#define SPCS_WORD_LENGTH_21    0x00000007    /* Word Length 21 bit */
+#define SPCS_WORD_LENGTH_21    0x00000007    /* Word Length 21 bit */
+#define SPCS_WORD_LENGTH_22    0x00000005    /* Word Length 22 bit */
+#define SPCS_WORD_LENGTH_23    0x00000003    /* Word Length 23 bit */
+#define SPCS_WORD_LENGTH_24    0x0000000b    /* Word Length 24 bit */
+#define SPCS_ORIGINAL_SAMPLE_RATE_MASK    0x000000f0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_NONE    0x00000000 /* Original Sample rate not indicated */
+#define SPCS_ORIGINAL_SAMPLE_RATE_16000   0x00000010 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_RES1    0x00000020 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_32000   0x00000030 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_12000   0x00000040 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_11025   0x00000050 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_8000    0x00000060 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_RES2    0x00000070 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_192000  0x00000080 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_24000   0x00000090 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_96000   0x000000a0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_48000   0x000000b0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_176400  0x000000c0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_22050   0x000000d0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_88200   0x000000e0 /* Original Sample rate */
+#define SPCS_ORIGINAL_SAMPLE_RATE_44100   0x000000f0 /* Original Sample rate */
 
 #define SPDIF_SELECT1        0x45        /* Enables SPDIF or Analogue outputs 0-SPDIF, 0xf00-Analogue */
                         /* 0x100 - Front, 0x800 - Rear, 0x200 - Center/LFE.
@@ -422,14 +422,14 @@
                          * 0x40000000 = Half buffer Playback,Caputre xrun.
                          * 0x80000000 = Full buffer Playback,Caputre xrun.
                          */
-#define EXTENDED_INT            0x76            /* Used by both playback and capture interrupt handler */
+#define EXTENDED_INT            0x76        /* Used by both playback and capture interrupt handler */
                         /* Shows which interrupts are active at the moment. */
                         /* Same bit layout as EXTENDED_INT_MASK */
 #define COUNTER77               0x77        /* Counter range 0 to 0x3fffff, 192000 counts per second. */
 #define COUNTER78               0x78        /* Counter range 0 to 0x3fffff, 44100 counts per second. */
-#define EXTENDED_INT_TIMER      0x79            /* Channel_id 0 only. Used by both playback and capture interrupt handler */
+#define EXTENDED_INT_TIMER      0x79        /* Channel_id 0 only. Used by both playback and capture interrupt handler */
                         /* Causes interrupts based on timer intervals. */
-#define SPI            0x7a        /* SPI: Serial Interface Register */
+#define SPI              0x7a        /* SPI: Serial Interface Register */
 #define I2C_A            0x7b        /* I2C Address. 32 bit */
 #define I2C_0            0x7c        /* I2C Data Port 0. 32 bit */
 #define I2C_1            0x7d        /* I2C Data Port 1. 32 bit */
