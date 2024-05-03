@@ -1,4 +1,10 @@
 
+  v1.5, 
+  - MPU port emulation if BLASTER variable contains P=xxx.
+  - cmdline option /P added.
+  - cmdline option /SD added.
+  - fix: volume for SB Live/Audigy wasn't set correctly.
+
   v1.4, 20.4.2024
 
   - added 16-bit protected-mode variant vsbhda16.exe.

@@ -404,6 +404,7 @@ static void snd_emu_set_spdif_freq( struct emu10k1_card *card,unsigned long freq
 static unsigned int snd_emu_ac97_read( struct emu10k1_card *card, unsigned int reg)
 ///////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_emu_ac97_read\n"));
 	outb(card->iobase + AC97ADDRESS, reg);
 	return inw(card->iobase + AC97DATA);
 }
@@ -411,6 +412,7 @@ static unsigned int snd_emu_ac97_read( struct emu10k1_card *card, unsigned int r
 static void snd_emu_ac97_write( struct emu10k1_card *card,unsigned int reg, unsigned int value)
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_emu_ac97_write\n"));
 	outb(card->iobase + AC97ADDRESS, reg);
 	outw(card->iobase + AC97DATA, value);
 	//outb(iobase + AC97ADDRESS, AC97_EXTENDED_ID); // ???
@@ -437,6 +439,7 @@ static void snd_emu_ac97_unmute( struct emu10k1_card *card,unsigned int reg)
 static void snd_emu_ac97_init( struct emu10k1_card *card)
 /////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_emu_ac97_init\n"));
 	snd_emu_ac97_write(card, AC97_RESET, 0); // resets the volumes too
 	snd_emu_ac97_read(card, AC97_RESET);
 
@@ -465,6 +468,7 @@ static unsigned int snd_emu10kx_read_control_gpr( struct emu10k1_card *card, uns
 		retval = emu10k1_readptr(card, A_FXGPREGBASE + addr, 0);
 	else
 		retval = emu10k1_readptr(card, FXGPREGBASE + addr, 0);
+	dbgprintf(("snd_emu10kx_read_control_gpr(%X)=%X\n", addr, retval));
 	return retval;
 }
 #endif
@@ -472,6 +476,7 @@ static unsigned int snd_emu10kx_read_control_gpr( struct emu10k1_card *card, uns
 static void snd_emu10kx_set_control_gpr( struct emu10k1_card *card, unsigned int addr, unsigned int val)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_emu10kx_set_control_gpr(%X,%X)\n", addr, val ));
 	if( card->chips & EMU_CHIPS_10K2 )
 		emu10k1_writeptr(card, A_FXGPREGBASE + addr, 0, val);
 	else
@@ -483,6 +488,7 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card)
 {
 	unsigned int i, pc = 0;
 
+	dbgprintf(("snd_emu10kx_fx_init\n"));
 	if(card->chips & EMU_CHIPS_10K2){ // Audigy
 		emu10k1_writeptr(card, A_DBG, 0, A_DBG_SINGLE_STEP); // stop fx
 
@@ -1125,12 +1131,14 @@ static unsigned int snd_p16v_pcm_pointer_playback( struct emu10k1_card *card, st
 static unsigned int snd_p16v_mixer_read( struct emu10k1_card *card,unsigned int reg)
 ////////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_p16v_mixer_read\n"));
 	return emu10k1_ptr20_read(card,reg,0);
 }
 
 static void snd_p16v_mixer_write( struct emu10k1_card *card,unsigned int reg,unsigned int value)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 {
+	dbgprintf(("snd_p16v_mixer_write\n"));
 	emu10k1_ptr20_write(card,reg,0,value);
 }
 

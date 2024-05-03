@@ -351,11 +351,11 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 			cardi->card_writemixer( aui, subchi->submixch_register, newpercentval );
 		} else {
 			currchval = cardi->card_readmixer( aui, subchi->submixch_register);// read current value
-			dbgprintf(("AU_setmixer_one: called card_readmixer()=%X (max=%X, shift=%X)\n", currchval, subchi->submixch_max, subchi->submixch_shift ));
+			dbgprintf(("AU_setmixer_one: called card_readmixer(%X)=%X (max=%X, shift=%X)\n", subchi->submixch_register, currchval, subchi->submixch_max, subchi->submixch_shift ));
 
 			/* vsbhda: don't use floats here - function may be called during interrupt time */
 			//newchval=(long)(((float)newpercentval * (float)subchi->submixch_max + ((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
-			newchval = ((newpercentval * subchi->submixch_max + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
+			newchval = (((int64_t)newpercentval * subchi->submixch_max + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
 			if( newchval > subchi->submixch_max)
 				newchval = subchi->submixch_max;
 			if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)   // reverse value if required
@@ -366,7 +366,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 			currchval &= ~(subchi->submixch_max << subchi->submixch_shift);  // unmask
 			newchval = (currchval | newchval);                               // add new value
 
-			dbgprintf(("AU_setmixer_one: calling card_writemixer(0x%X)\n", newchval ));
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(%X, %X)\n", subchi->submixch_register, newchval ));
 			cardi->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
 		}
 	}

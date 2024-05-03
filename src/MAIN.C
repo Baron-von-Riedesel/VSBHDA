@@ -29,7 +29,7 @@
 #define BASE_DEFAULT 0x220
 #define IRQ_DEFAULT 7
 #define DMA_DEFAULT 1
-#define TYPE_DEFAULT 5
+#define TYPE_DEFAULT 4
 #if TYPE_DEFAULT < 6
 #define HDMA_DEFAULT 0
 #else
@@ -114,9 +114,9 @@ static const struct {
     "/D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
 #if SB16
     "/H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
-    "/T", "Set SB Type [0-6, def 5]", &gvars.type,
+    "/T", "Set SB Type [0-6, def 4]", &gvars.type,
 #else
-    "/T", "Set SB Type [0-5, def 5]", &gvars.type,
+    "/T", "Set SB Type [0-5, def 4]", &gvars.type,
 #endif
 #if VMPU
     "/P", "Set Midi port [330|300, no def]", &gvars.mpu,
@@ -490,13 +490,14 @@ int main(int argc, char* argv[])
         printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( hAU ) );
     }
 #endif
+    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, ", gvars.base, gvars.irq, gvars.dma );
 #if SB16
-    gvars.hdma ?
-        printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, HDMA=%d, Type=%d\n",
-               gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type ) :
+    if (gvars.hdma) printf("HDMA=%d, ", gvars.hdma );
 #endif
-        printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, Type=%d\n",
-               gvars.base, gvars.irq, gvars.dma, gvars.type );
+#if VMPU
+    if (gvars.mpu)  printf("P=%X, ", gvars.mpu );
+#endif
+    printf("Type=%d\n", gvars.type );
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
 

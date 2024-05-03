@@ -75,16 +75,22 @@
      /F      : Set frequency
      /VOL    : Set master volume
      /BS     : Set PCM buffer size
-     /O      : Set output (HDA only)
+     /SD     : Set slowdown factor
+     /O      : Set output widget (HDA only)
      /DEV    : Set start index for device scan (HDA only)
 
-    Note that if the frequency set by /F isn't supported by the codec, it can't
-   be used - that's also true for the default value ( 22050 Hz ). In such cases
-   VSBHDA will use a frequency that is supported AND is at least the value set
-   by /F ( or the default ).
-    The PCM buffer is used for temporary storage of PCM samples, needed for
-   format conversions. The default value of 64 kB should be ok for virtual all
-   cases, setting it too small will result in page faults.
+   - /F: note that if the frequency isn't supported by the codec, it can't be
+     used - that's also true for the default value ( 22050 Hz ). In such cases
+     VSBHDA will use a frequency that is supported AND is at least the value
+     set by /F ( or the default ).
+   - /VOL: needs a one-digit value ( /VOL0 - /VOL9 ). This option sets the
+     volume of the real sound hardware ( hda, ac97 ).
+   - /BS: the PCM buffer is used for temporary storage of PCM samples, needed
+     for format conversions. The argument is the number of 4kB pages used as
+     buffer; the default value of 16 (means 64 kB) should be ok for virtual
+     all cases, setting it too small will result in page faults.
+   - /SD: purpose is to slowdown games. Needs a numeric argument, for example
+     /SD100. If this argument is too high, the machine won't respond anymore.
    
 
    4. Hints

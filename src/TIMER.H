@@ -38,8 +38,8 @@ static  uint16_t gettimercnt(void);
     modify exact[ax dx]
 #endif
 
-void delay_10us(unsigned int ticks) //each tick is 10us
-///////////////////////////////////
+static void delay_10us(unsigned int ticks) //each tick is 10us
+//////////////////////////////////////////
 {
 	unsigned int divisor = PIT_DIVISOR_DEFAULT; // is 65536
 	unsigned int i;

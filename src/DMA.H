@@ -16,8 +16,8 @@
 #define DMA_REG_SINGLEMASK     0x0A
 #define DMA_REG_MODE           0x0B
 #define DMA_REG_FLIPFLOP       0x0C
-#define DMA_REG_IMM_RESET      0x0D //immediate (R) / master reset (W)
-#define DMA_REG_MASK_RESET     0x0E
+#define DMA_REG_IMM_RESET      0x0D //immediate (R) / master reset (W, masks all 4 channels))
+#define DMA_REG_MASK_RESET     0x0E //a write unmasks all 4 channels
 #define DMA_REG_MULTIMASK      0x0F
 
 /* bits in DMA_REG_MODE */

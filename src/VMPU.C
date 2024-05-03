@@ -50,6 +50,12 @@ static uint8_t VMPU_Read(uint16_t port)
 	}
 }
 
+/* SB-MIDI data written with DSP cmd 0x38 */
+
+void VMPU_SBMidi_RawWrite( uint8_t value )
+//////////////////////////////////////////
+{
+}
 
 uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out)
 ////////////////////////////////////////////////////////////

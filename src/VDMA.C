@@ -41,8 +41,8 @@ static const int8_t VDMA_PortChannelMap[16] =
     -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
 };
 
-void VDMA_Write(uint16_t port, uint8_t byte)
-////////////////////////////////////////////
+static void VDMA_Write(uint16_t port, uint8_t byte)
+///////////////////////////////////////////////////
 {
 
     int index = port;
@@ -106,8 +106,8 @@ void VDMA_Write(uint16_t port, uint8_t byte)
     UntrappedIO_OUT(port, byte);
 }
 
-uint8_t VDMA_Read(uint16_t port)
-////////////////////////////////
+static uint8_t VDMA_Read(uint16_t port)
+///////////////////////////////////////
 {
 	int channel = -1;
     uint8_t result;
