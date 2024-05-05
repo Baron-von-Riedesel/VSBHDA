@@ -14,17 +14,20 @@ static inline unsigned int BSF(unsigned int x)
 	asm("bsf %1, %0" : "=r" (i) : "rm" (x));
 	return i;
 }
+static inline uint64_t rdtsc(void)
+{
+	uint64_t tsc;
+	asm( "rdtsc" : =r(tsc) );
+	return tsc;
+}
+static inline void fpu_save(void * buffer) { asm("fsave %0":: "m"(buffer)); }
+static inline void fpu_restore(void * buffer) { asm("frstor %0":: "m"(buffer)); }
+static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
+static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
+
 #define _my_psp() _go32_info_block.linear_address_of_original_psp
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
 #define _my_rmstksiz() _go32_info_block.size_of_transfer_buffer
-
-static inline void fpu_save(void * buffer) {
-	asm("fsave %0":: "m"(buffer));
-}
-
-static inline void fpu_restore(void * buffer) {
-	asm("frstor %0":: "m"(buffer));
-}
 
 #else
 
@@ -32,19 +35,39 @@ unsigned int BSF(unsigned int);
 #pragma aux BSF = \
 	"bsf eax, edx" \
 	parm [edx] \
-    modify exact [eax edx]
+	modify exact [eax edx]
+
+static  uint64_t rdtsc(void);
+#pragma aux rdtsc = \
+	"rdtsc" \
+	parm[]  \
+	modify exact[eax edx]
 
 void fpu_save(void *buffer);
 #pragma aux fpu_save = \
 	"fsave [edx]" \
 	parm [edx] \
-    modify exact [edx]
+	modify exact [edx]
 
 void fpu_restore(void *buffer);
 #pragma aux fpu_restore = \
 	"frstor [edx]" \
 	parm [edx] \
-    modify exact [edx]
+	modify exact [edx]
+
+void _disable_ints(void);
+#pragma aux _disable_ints = \
+	"mov ax, 900h" \
+	"int 31h" \
+	parm[] \
+	modify exact [ax]
+
+void  _enable_ints(void);
+#pragma aux _enable_ints = \
+	"mov ax, 901h" \
+	"int 31h" \
+	parm[] \
+	modify exact [ax]
 
 unsigned int _my_ds();
 #pragma aux _my_ds = \

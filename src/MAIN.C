@@ -490,9 +490,9 @@ int main(int argc, char* argv[])
         printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( hAU ) );
     }
 #endif
-    printf("Sound Blaster emulation enabled at Address=%x, IRQ=%d, DMA=%d, ", gvars.base, gvars.irq, gvars.dma );
+    printf("SB emulation enabled at Addr=%x, Irq=%d, Dma=%d, ", gvars.base, gvars.irq, gvars.dma );
 #if SB16
-    if (gvars.hdma) printf("HDMA=%d, ", gvars.hdma );
+    if (gvars.hdma) printf("HDma=%d, ", gvars.hdma );
 #endif
 #if VMPU
     if (gvars.mpu)  printf("P=%X, ", gvars.mpu );
@@ -500,7 +500,10 @@ int main(int argc, char* argv[])
     printf("Type=%d\n", gvars.type );
     if ( gvars.vol != VOL_DEFAULT )
         printf("Volume=%u\n", gvars.vol );
-
+#if SLOWDOWN
+    if ( gvars.slowdown  )
+        printf("Slowdown factor=%u\n", gvars.slowdown );
+#endif
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
      * result in problems, since that memory is released when that client exits.

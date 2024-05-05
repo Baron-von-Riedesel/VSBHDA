@@ -432,7 +432,7 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 
 		/* vsbhda: no float usage here! */
 		//value=(long)((float)value * (float)maxpercentval / (float)subchi->submixch_max); // chval to percent
-		value = ( value * maxpercentval / subchi->submixch_max ); // chval to percent
+		value = value * maxpercentval / subchi->submixch_max; // chval to percent
 		if( value > maxpercentval )
 			value = maxpercentval;
 	}

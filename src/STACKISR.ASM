@@ -11,6 +11,8 @@
 
 	include debug.inc
 
+SETIF equ 1	;must match SETIF in config.h
+
 externdef c __djgpp_stack_top:dword
 
 ifdef NOTFLAT
@@ -86,14 +88,16 @@ endif
 	pop ds
 	popad
 	jz @F
-if 0
+ife SETIF
+ if 0
 	sti
-else
+ else
 	push eax
 	mov ax, 901h
 	insPUSHF
 	call cs:[oldint31]
 	pop eax
+ endif
 endif
 	insIRET
 @@:

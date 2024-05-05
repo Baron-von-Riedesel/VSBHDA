@@ -50,26 +50,8 @@ static uint32_t ISR_DMA_Size = 0;
  */
 uint32_t ISR_DMA_MappedAddr = 0;
 
-#ifdef _LOGBUFFMAX
+#ifdef _LOGBUFFMAX /* log the usage of the PCM buffer? */
 uint32_t dwMaxBytes = 0;
-#endif
-
-#ifdef DJGPP
-static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
-static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
-#else
-void _disable_ints(void);
-void  _enable_ints(void);
-#pragma aux _disable_ints = \
-    "mov ax, 900h" \
-    "int 31h" \
-    parm[] \
-    modify exact [ax]
-#pragma aux _enable_ints = \
-    "mov ax, 901h" \
-    "int 31h" \
-    parm[] \
-    modify exact [ax]
 #endif
 
 static int16_t *pPCM = NULL;
@@ -82,7 +64,18 @@ static int16_t *pPCM = NULL;
 #endif
 
 #if SLOWDOWN
-#include "TIMER.H"
+
+static void delay_10us(unsigned int ticks)
+//////////////////////////////////////////
+{
+	static uint64_t oldtsc = 0;
+	uint64_t newtsc;
+
+	do {
+		newtsc = rdtsc();
+	} while ( (newtsc - oldtsc) < ( ticks << 18 ) );
+	oldtsc = newtsc;
+}
 #endif
 
 #if ADPCM
@@ -490,12 +483,13 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     //aui.pcm_sample = ISR_PCM;
     AU_writedata( hAU, samples * 2, pPCM );
 
+    PIC_SendEOI( AU_getirq( hAU ) );
+
 #if SLOWDOWN
-    if ( gvars.slowdown)
+    if ( gvars.slowdown )
         delay_10us(gvars.slowdown);
 #endif
 
-    PIC_SendEOI( AU_getirq( hAU ) );
     return(1);
 }
 

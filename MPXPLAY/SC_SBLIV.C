@@ -536,7 +536,8 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card)
 #endif
 		{
 			//Master volume
-			i = ((float)AUDIGY_PCMVOLUME_DEFAULT * (float)0x7fffffff + 50.0) / 100.0;
+			//i = ((float)AUDIGY_PCMVOLUME_DEFAULT * (float)0x7fffffff + 50.0) / 100.0;
+			i = (uint64_t)AUDIGY_PCMVOLUME_DEFAULT * 0x7fffffff / 100;
 			if( i > 0x7fffffff )
 				i = 0x7fffffff;
 			snd_emu10kx_set_control_gpr( card, 8, i );
@@ -868,7 +869,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 		//pcmbufp+=EMUPAGESIZE*2;
 		pcmbufp+=EMUPAGESIZE;
 	}
-	for( ; pagecount<MAXPAGES; pagecount++)
+	for( ; pagecount < MAXPAGES; pagecount++)
 		//card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage) << 1;
 		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,card->silentpage)) << 1;
 
@@ -906,8 +907,8 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	card->voice_initial_pitch = emu10k1_srToPitch(aui->freq_card) >> 8;
 	card->voice_pitch_target  = emu10k1_samplerate_to_linearpitch(aui->freq_card);
 
-	emu10k1_pcm_init_voice(card,0,VOICE_FLAGS_MASTER|VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT,0,dmabufsize);
-	emu10k1_pcm_init_voice(card,1,VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT,0,dmabufsize);
+	emu10k1_pcm_init_voice(card,0,VOICE_FLAGS_MASTER | VOICE_FLAGS_STEREO | VOICE_FLAGS_16BIT,0,dmabufsize);
+	emu10k1_pcm_init_voice(card,1,VOICE_FLAGS_STEREO | VOICE_FLAGS_16BIT,0,dmabufsize);
 	dbgprintf(("snd_emu10kx_setrate exit, freq=%u\n", aui->freq_card ));
 }
 
