@@ -28,8 +28,11 @@
 #include "MEMORY.H"
 #include "PCIBIOS.H"
 
-/* PCIBIOSACCESS 1 requires the go32 transfer buffer to be present; that's
- * not true after the program has become a TSR. Currently no problem, though.
+/* PCIBIOSACCESS 1 requires a 1 kB real-mode stack ( it's either the go32
+ * transfer buffer [DJGPP] or a separately allocated DOS memory [OW] ).
+ * This buffer is no longer available once the program has become a TSR.
+ * Currently no problem, though, because PCI functions are called during init
+ * only.
  */
 #define PCIBIOSACCESS 1 /* 0=access PCI config space with I/O instructions */
 
@@ -64,8 +67,8 @@ static uint8_t pcibios_GetBus(void)
 	return 1;
 }
 
-uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
-/////////////////////////////////////////////////////////////////////////////////////////////
+uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
+//////////////////////////////////////////////////////////////////////////////////////////
 {
 	__dpmi_regs reg = {0};
 
@@ -97,8 +100,8 @@ uint8_t    pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_con
  * "device_type" is to be set.
  */
 
-uint8_t    pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+uint8_t pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
     int i;
 	__dpmi_regs reg = {0};

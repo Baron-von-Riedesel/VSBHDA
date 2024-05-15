@@ -37,7 +37,7 @@ unsigned int BSF(unsigned int);
 	parm [edx] \
 	modify exact [eax edx]
 
-static  uint64_t rdtsc(void);
+static  unsigned long long rdtsc(void);
 #pragma aux rdtsc = \
 	"rdtsc" \
 	parm[]  \

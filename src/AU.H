@@ -20,7 +20,7 @@ extern char *AU_getshortname( int );
 extern int  AU_isirq( int );
 extern void AU_setoutbytes( int );
 //extern void AU_setsamplenum( int );
-extern void AU_prestart( int );
+//extern void AU_prestart( int );
 extern void AU_start( int );
 extern void AU_stop( int );
 extern void AU_close( int );

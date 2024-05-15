@@ -155,9 +155,9 @@ void FAREXP AU_start( struct audioout_info_s *aui )
 		if( aui->card_handler->card_start )
 			aui->card_handler->card_start( aui );
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_PLAYING;
+		aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 	}
 	if ( bOMode & 1 ) bOMode = 2;  /* no DOS output anymore */
-	aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 }
 
 void FAREXP AU_stop( struct audioout_info_s *aui )
@@ -616,7 +616,9 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, int samples, void *pcm_sam
 	unsigned int outbytes_left;
 	int left;
 
-	/* this function is called during interrupt time! */
+	/* this function is called during interrupt time!
+     * samples are copied to the sound card's buffer.
+	 */
 
 	if( !samples )
 		return 0;

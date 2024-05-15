@@ -16,6 +16,10 @@
 #include "VSB.H"
 #include "CTADPCM.H"
 
+#if DISPSTAT
+#include <stdio.h>
+#endif
+
 #include "AU.H"
 
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
@@ -137,16 +141,20 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
 
 /* rate conversion.
  * src & dst are 16-bit
+ * out: new sample cnt
  */
 
-static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int samplerate, unsigned int newrate)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int srcrate, unsigned int dstrate)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	const unsigned int instep = ((samplerate / newrate) << 12) | (((4096 * (samplerate % newrate) + newrate - 1 ) / newrate) & 0xFFF);
+	/* todo: what algorithm for instep is best? */
+	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) - 1) / (dstrate - 1)) & 0xFFF);
+	const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) + dstrate - 1 ) / dstrate) & 0xFFF);
+
 	const unsigned int inend = (samplenum / channels) << 12;
 	PCM_CV_TYPE_S *pcmdst;
 	unsigned long ipi;
-	unsigned int inpos = 0;//(samplerate < newrate) ? instep/2 : 0;
+	unsigned int inpos = 0;//(srcrate < dstrate) ? instep/2 : 0;
 	int total;
 #if MALLOCSTATIC
 	static int maxsample = 0;
@@ -170,10 +178,8 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 #endif
 	memcpy( buff, pcmsrc, samplenum * sizeof(PCM_CV_TYPE_S) );
 
-	dbgprintf(("cv_rate: srcrate=%u dstrate=%u chn=%u smpl=%u step=%x end=%x\n", samplerate, newrate, channels, samplenum, instep, inend ));
-
 	pcmdst = pcmsrc;
-	total = samplenum/channels;
+	total = samplenum / channels;
 
 	do{
 		int m1,m2;
@@ -191,6 +197,8 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 		}while (--ch);
 		inpos += instep;
 	}while( inpos < inend );
+
+	dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, samplenum, instep, inend, pcmdst - pcmsrc ));
 
 #if !MALLOCSTATIC
 	free(buff);
@@ -250,10 +258,12 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     _enable_ints();
 #endif
 
-#if !TRIGGERATONCE
-    if ( VSB_TriggerIRQ )
+    /* since the client context is now restored when a SB IRQ is emulated,
+     * it's safe to call VIRQ_Invoke here.
+     */
+    if ( VSB_GetIRQStatus() )
         VIRQ_Invoke();
-#endif
+
     if( gvars.type < 4) { //SB2.0 and before
         mastervol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) & 0xF) << 4; /* 3 bits (1-3) */
         voicevol  = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL)  & 0x7) << 5; /* 2 bits (1-2) */
@@ -401,6 +411,7 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0); /* */
+                VSB_SetIRQStatus();
                 VIRQ_Invoke();
             }
         } while(VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running());
@@ -482,6 +493,10 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     //aui.samplenum = samples * 2;
     //aui.pcm_sample = ISR_PCM;
     AU_writedata( hAU, samples * 2, pPCM );
+
+#if DISPSTAT
+    if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, digital=%u\n", samples, digital );
+#endif
 
     PIC_SendEOI( AU_getirq( hAU ) );
 

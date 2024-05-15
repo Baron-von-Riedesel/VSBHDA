@@ -649,6 +649,8 @@ static void ES1371_stop( struct audioout_info_s *aui )
 	outl(card->port + ES_REG_SERIAL, card->sctrl);
 }
 
+/* ES1371 implementation of cardbuf_getpos() */
+
 static long ES1371_getbufpos( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////
 {

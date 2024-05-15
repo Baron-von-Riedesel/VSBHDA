@@ -4,6 +4,10 @@
   - cmdline option /P added.
   - cmdline option /SD added.
   - fix: volume for SB Live/Audigy wasn't set correctly.
+  - trap PIC port to reject attempts to mask the real sound hw interrupt
+    (Rational DOS extender).
+  - switch to client context for SB interrupt emulation.
+  - jhdpmi.dll added.
 
   v1.4, 20.4.2024
 

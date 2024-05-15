@@ -7,7 +7,6 @@
 #define SB16 1        /* 1=support SB16 */
 #define ADPCM 1       /* 1=support ADPCM */
 #define SETIF 1       /* 1=enable interrupts when ISR is entered */
-#define TRIGGERATONCE 1  /* 1=trigger IRQ from inside trap handler */
 #ifndef NOFM
 #define REINITOPL 1   /* 1=reinit OPL during RESET */
 #else
@@ -17,6 +16,13 @@
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
 #define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 if BLASTER contains P=xxx */
 #define SLOWDOWN 1    /* 1=support /SD option */
+#define JHDPMI 1      /* 1=check if JLM jhdpmi is loaded */
+#define DISPSTAT 1    /* 1=display VSB status */
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 struct globalvars {
 	int base; /* /A value, default 220 */
@@ -42,6 +48,11 @@ struct globalvars {
 };
 
 int _dprintf(const char *fmt, ... );
+
+#ifdef __cplusplus
+}
+#endif
+
 #ifdef _DEBUG
 #define dbgprintf(x) _dprintf x
 #else

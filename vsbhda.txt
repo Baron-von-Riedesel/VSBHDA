@@ -40,6 +40,7 @@
    - load JemmEx/Jemm386 in CONFIG.SYS
    - set environment variable BLASTER
    - run "JLoad QPIEMU.DLL"
+   - optionally run "JLoad JHDPMI.DLL" (see below)
 
    The rest depends on the game that is to run:
 
@@ -91,22 +92,38 @@
      all cases, setting it too small will result in page faults.
    - /SD: purpose is to slowdown games. Needs a numeric argument, for example
      /SD100. If this argument is too high, the machine won't respond anymore.
+     This option uses the RDTSC instruction - Although usually no problem, this
+     instruction is priviledged if bit TSD (bit 2) is set in register CR4; then
+     running this instruction in ring3 will cause a GPF.
    
 
-   4. Hints
+   4. Details/Hints
 
-   4.1 SETPVI/RESPVI
+   4.1 JHDPMI.DLL
 
-    A few protected-mode games may "freeze" with the default settings of VSBHDA.
-   Then there's a chance that running SETPVI may fix that. Note that SETPVI
-   won't work with Qemm.
+    This JLM is recommended to be loaded before the vsbhda binary. It doesn't
+   supply any features for vsbhda directly, but enhances DPMI compliance of
+   hdpmi. It ensures that the DPMI host will be the first to receive interrupt
+   requests that occur in v86-mode, without the need to modify IVT vectors.
+    The utility JHDSTAT.EXE makes JHDPMI display its status. One may see what
+   IVT vectors are hooked and how often the hook address has been called.
+
+
+   4.2 SETPVI/RESPVI
+
+    A few protected-mode games may "freeze" with the default settings of VSBHDA;
+   or, it the game uses the Rational DOS extender (DOS4/GW), a register dump may
+   be displayed, with the error message "Transfer buffer overflow". Then there's
+   a chance that running SETPVI may fix that. Note that SETPVI won't work with
+   Qemm.
 
     SETPVI will set the PVI flag in cpu register CR4, RESPVI will reset it. When
-   this bit is set, VSBHDA is unable to change the interrupt flag (IF), since
-   CLI/STI will modify the virtual interrupt flag (VIF) only.
+   this bit is set, any protected-mode program running in ring 3 is unable to
+   change the interrupt flag (IF), since CLI/STI will modify the virtual
+   interrupt flag (VIF) only.
 
 
-   4.2 Extended Memory
+   4.3 Extended Memory
 
     Some DOS games refuse to run if too much extended memory is available. There
    are some simple software workarounds for such issues:
@@ -124,7 +141,7 @@
      extended memory.
 
 
-   4.3 Jemm's NOVCPI Option
+   4.4 Jemm's NOVCPI Option
    
     If VSBHDA is to work for DOS protected-mode games, those games must use the
    HDPMI32i/HDPMI16i DPMI host. This is usually no problem, because there's an

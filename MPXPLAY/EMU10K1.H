@@ -307,236 +307,236 @@
                          * bit 14: Route SRC48 mixer output to fx engine.
                          * bit 15: Enable IEEE 1394 chip.
                          */
-#define IPR3            0x38        /* Cdif interrupt pending register        */
-#define INTE3            0x3c        /* Cdif interrupt enable register.     */
+#define IPR3             0x38        /* Cdif interrupt pending register */
+#define INTE3            0x3c        /* Cdif interrupt enable register. */
 /************************************************************************************************/
-/* PCI function 1 registers, address = <val> + PCIBASE1                        */
+/* PCI function 1 registers, address = <val> + PCIBASE1                                         */
 /************************************************************************************************/
 
-#define JOYSTICK1        0x00        /* Analog joystick port register        */
-#define JOYSTICK2        0x01        /* Analog joystick port register        */
-#define JOYSTICK3        0x02        /* Analog joystick port register        */
-#define JOYSTICK4        0x03        /* Analog joystick port register        */
-#define JOYSTICK5        0x04        /* Analog joystick port register        */
-#define JOYSTICK6        0x05        /* Analog joystick port register        */
-#define JOYSTICK7        0x06        /* Analog joystick port register        */
-#define JOYSTICK8        0x07        /* Analog joystick port register        */
+#define JOYSTICK1        0x00        /* Analog joystick port register */
+#define JOYSTICK2        0x01        /* Analog joystick port register */
+#define JOYSTICK3        0x02        /* Analog joystick port register */
+#define JOYSTICK4        0x03        /* Analog joystick port register */
+#define JOYSTICK5        0x04        /* Analog joystick port register */
+#define JOYSTICK6        0x05        /* Analog joystick port register */
+#define JOYSTICK7        0x06        /* Analog joystick port register */
+#define JOYSTICK8        0x07        /* Analog joystick port register */
 
-/* When writing, any write causes JOYSTICK_COMPARATOR output enable to be pulsed on write.    */
+/* When writing, any write causes JOYSTICK_COMPARATOR output enable to be pulsed on write. */
 /* When reading, use these bitfields: */
-#define JOYSTICK_BUTTONS    0x0f        /* Joystick button data                */
-#define JOYSTICK_COMPARATOR    0xf0        /* Joystick comparator data            */
+#define JOYSTICK_BUTTONS       0x0f   /* Joystick button data */
+#define JOYSTICK_COMPARATOR    0xf0   /* Joystick comparator data */
 
 
 /********************************************************************************************************/
 /* Emu10k1 pointer-offset register set, accessed through the PTR and DATA registers                     */
 /********************************************************************************************************/
 
-#define CPF            0x00        /* Current pitch and fraction register            */
-#define CPF_CURRENTPITCH_MASK    0xffff0000    /* Current pitch (linear, 0x4000 == unity pitch shift)     */
-#define CPF_CURRENTPITCH    0x10100000
-#define CPF_STEREO_MASK        0x00008000    /* 1 = Even channel interleave, odd channel locked    */
-#define CPF_STOP_MASK        0x00004000    /* 1 = Current pitch forced to 0            */
-#define CPF_FRACADDRESS_MASK    0x00003fff    /* Linear fractional address of the current channel    */
+#define CPF                    0x00          /* Current pitch and fraction register */
+#define CPF_CURRENTPITCH_MASK  0xffff0000    /* Current pitch (linear, 0x4000 == unity pitch shift) */
+#define CPF_CURRENTPITCH       0x10100000
+#define CPF_STEREO_MASK        0x00008000    /* 1 = Even channel interleave, odd channel locked */
+#define CPF_STOP_MASK          0x00004000    /* 1 = Current pitch forced to 0 */
+#define CPF_FRACADDRESS_MASK   0x00003fff    /* Linear fractional address of the current channel */
 
-#define PTRX            0x01        /* Pitch target and send A/B amounts register        */
-#define PTRX_PITCHTARGET_MASK    0xffff0000    /* Pitch target of specified channel            */
-#define PTRX_PITCHTARGET    0x10100001
-#define PTRX_FXSENDAMOUNT_A_MASK 0x0000ff00    /* Linear level of channel output sent to FX send bus A    */
+#define PTRX                   0x01          /* Pitch target and send A/B amounts register */
+#define PTRX_PITCHTARGET_MASK  0xffff0000    /* Pitch target of specified channel */
+#define PTRX_PITCHTARGET       0x10100001
+#define PTRX_FXSENDAMOUNT_A_MASK 0x0000ff00  /* Linear level of channel output sent to FX send bus A */
 #define PTRX_FXSENDAMOUNT_A    0x08080001
-#define PTRX_FXSENDAMOUNT_B_MASK 0x000000ff    /* Linear level of channel output sent to FX send bus B    */
+#define PTRX_FXSENDAMOUNT_B_MASK 0x000000ff  /* Linear level of channel output sent to FX send bus B */
 #define PTRX_FXSENDAMOUNT_B    0x08000001
 
-#define CVCF            0x02        /* Current volume and filter cutoff register        */
-#define CVCF_CURRENTVOL_MASK    0xffff0000    /* Current linear volume of specified channel        */
+#define CVCF                   0x02          /* Current volume and filter cutoff register */
+#define CVCF_CURRENTVOL_MASK   0xffff0000    /* Current linear volume of specified channel */
 #define CVCF_CURRENTVOL        0x10100002
-#define CVCF_CURRENTFILTER_MASK    0x0000ffff    /* Current filter cutoff frequency of specified channel    */
-#define CVCF_CURRENTFILTER    0x10000002
+#define CVCF_CURRENTFILTER_MASK 0x0000ffff   /* Current filter cutoff frequency of specified channel */
+#define CVCF_CURRENTFILTER     0x10000002
 
-#define VTFT            0x03        /* Volume target and filter cutoff target register    */
-#define VTFT_VOLUMETARGET_MASK    0xffff0000    /* Volume target of specified channel            */
-#define VTFT_VOLUMETARGET    0x10100003
-#define VTFT_FILTERTARGET_MASK    0x0000ffff    /* Filter cutoff target of specified channel        */
-#define VTFT_FILTERTARGET    0x10000003
+#define VTFT                   0x03          /* Volume target and filter cutoff target register */
+#define VTFT_VOLUMETARGET_MASK 0xffff0000    /* Volume target of specified channel */
+#define VTFT_VOLUMETARGET      0x10100003
+#define VTFT_FILTERTARGET_MASK 0x0000ffff    /* Filter cutoff target of specified channel */
+#define VTFT_FILTERTARGET      0x10000003
 
-#define Z1            0x05        /* Filter delay memory 1 register            */
+#define Z1                     0x05          /* Filter delay memory 1 register */
 
-#define Z2            0x04        /* Filter delay memory 2 register            */
+#define Z2                     0x04          /* Filter delay memory 2 register */
 
-#define PSST            0x06        /* Send C amount and loop start address register    */
-#define PSST_FXSENDAMOUNT_C_MASK 0xff000000    /* Linear level of channel output sent to FX send bus C    */
+#define PSST                   0x06          /* Send C amount and loop start address register */
+#define PSST_FXSENDAMOUNT_C_MASK 0xff000000  /* Linear level of channel output sent to FX send bus C */
 
 #define PSST_FXSENDAMOUNT_C    0x08180006
 
-#define PSST_LOOPSTARTADDR_MASK    0x00ffffff    /* Loop start address of the specified channel        */
-#define PSST_LOOPSTARTADDR    0x18000006
+#define PSST_LOOPSTARTADDR_MASK 0x00ffffff   /* Loop start address of the specified channel */
+#define PSST_LOOPSTARTADDR     0x18000006
 
-#define DSL            0x07        /* Send D amount and loop start address register    */
-#define DSL_FXSENDAMOUNT_D_MASK    0xff000000    /* Linear level of channel output sent to FX send bus D    */
+#define DSL                    0x07          /* Send D amount and loop start address register */
+#define DSL_FXSENDAMOUNT_D_MASK 0xff000000   /* Linear level of channel output sent to FX send bus D */
 
-#define DSL_FXSENDAMOUNT_D    0x08180007
+#define DSL_FXSENDAMOUNT_D     0x08180007
 
-#define DSL_LOOPENDADDR_MASK    0x00ffffff    /* Loop end address of the specified channel        */
+#define DSL_LOOPENDADDR_MASK   0x00ffffff    /* Loop end address of the specified channel */
 #define DSL_LOOPENDADDR        0x18000007
 
-#define CCCA            0x08        /* Filter Q, interp. ROM, byte size, cur. addr register */
-#define CCCA_RESONANCE        0xf0000000    /* Lowpass filter resonance (Q) height            */
-#define CCCA_INTERPROMMASK    0x0e000000    /* Selects passband of interpolation ROM        */
-                        /* 1 == full band, 7 == lowpass                */
-                        /* ROM 0 is used when pitch shifting downward or less    */
-                        /* then 3 semitones upward.  Increasingly higher ROM    */
-                        /* numbers are used, typically in steps of 3 semitones,    */
-                        /* as upward pitch shifting is performed.        */
-#define CCCA_INTERPROM_0    0x00000000    /* Select interpolation ROM 0                */
-#define CCCA_INTERPROM_1    0x02000000    /* Select interpolation ROM 1                */
-#define CCCA_INTERPROM_2    0x04000000    /* Select interpolation ROM 2                */
-#define CCCA_INTERPROM_3    0x06000000    /* Select interpolation ROM 3                */
-#define CCCA_INTERPROM_4    0x08000000    /* Select interpolation ROM 4                */
-#define CCCA_INTERPROM_5    0x0a000000    /* Select interpolation ROM 5                */
-#define CCCA_INTERPROM_6    0x0c000000    /* Select interpolation ROM 6                */
-#define CCCA_INTERPROM_7    0x0e000000    /* Select interpolation ROM 7                */
-#define CCCA_8BITSELECT        0x01000000    /* 1 = Sound memory for this channel uses 8-bit samples    */
-#define CCCA_CURRADDR_MASK    0x00ffffff    /* Current address of the selected channel        */
-#define CCCA_CURRADDR        0x18000008
+#define CCCA                   0x08          /* Filter Q, interp. ROM, byte size, cur. addr register */
+#define CCCA_RESONANCE         0xf0000000    /* Lowpass filter resonance (Q) height */
+#define CCCA_INTERPROMMASK     0x0e000000    /* Selects passband of interpolation ROM */
+                                             /* 1 == full band, 7 == lowpass */
+                                             /* ROM 0 is used when pitch shifting downward or less */
+                                             /* then 3 semitones upward.  Increasingly higher ROM */
+                                             /* numbers are used, typically in steps of 3 semitones, */
+                                             /* as upward pitch shifting is performed. */
+#define CCCA_INTERPROM_0       0x00000000    /* Select interpolation ROM 0 */
+#define CCCA_INTERPROM_1       0x02000000    /* Select interpolation ROM 1 */
+#define CCCA_INTERPROM_2       0x04000000    /* Select interpolation ROM 2 */
+#define CCCA_INTERPROM_3       0x06000000    /* Select interpolation ROM 3 */
+#define CCCA_INTERPROM_4       0x08000000    /* Select interpolation ROM 4 */
+#define CCCA_INTERPROM_5       0x0a000000    /* Select interpolation ROM 5 */
+#define CCCA_INTERPROM_6       0x0c000000    /* Select interpolation ROM 6 */
+#define CCCA_INTERPROM_7       0x0e000000    /* Select interpolation ROM 7 */
+#define CCCA_8BITSELECT        0x01000000    /* 1 = Sound memory for this channel uses 8-bit samples */
+#define CCCA_CURRADDR_MASK     0x00ffffff    /* Current address of the selected channel */
+#define CCCA_CURRADDR          0x18000008
 
-#define CCR            0x09        /* Cache control register                */
-#define CCR_CACHEINVALIDSIZE    0x07190009
-#define CCR_CACHEINVALIDSIZE_MASK    0xfe000000    /* Number of invalid samples cache for this channel        */
-#define CCR_CACHELOOPFLAG    0x01000000    /* 1 = Cache has a loop service pending            */
-#define CCR_INTERLEAVEDSAMPLES    0x00800000    /* 1 = A cache service will fetch interleaved samples    */
-#define CCR_WORDSIZEDSAMPLES    0x00400000    /* 1 = A cache service will fetch word sized samples    */
+#define CCR                    0x09          /* Cache control register */
+#define CCR_CACHEINVALIDSIZE   0x07190009
+#define CCR_CACHEINVALIDSIZE_MASK 0xfe000000 /* Number of invalid samples cache for this channel */
+#define CCR_CACHELOOPFLAG      0x01000000    /* 1 = Cache has a loop service pending */
+#define CCR_INTERLEAVEDSAMPLES 0x00800000    /* 1 = A cache service will fetch interleaved samples */
+#define CCR_WORDSIZEDSAMPLES   0x00400000    /* 1 = A cache service will fetch word sized samples */
 #define CCR_READADDRESS        0x06100009
-#define CCR_READADDRESS_MASK    0x003f0000    /* Location of cache just beyond current cache service    */
-#define CCR_LOOPINVALSIZE    0x0000fe00    /* Number of invalid samples in cache prior to loop    */
-                        /* NOTE: This is valid only if CACHELOOPFLAG is set    */
-#define CCR_LOOPFLAG        0x00000100    /* Set for a single sample period when a loop occurs    */
-#define CCR_CACHELOOPADDRHI    0x000000ff    /* DSL_LOOPSTARTADDR's hi byte if CACHELOOPFLAG is set    */
+#define CCR_READADDRESS_MASK   0x003f0000    /* Location of cache just beyond current cache service */
+#define CCR_LOOPINVALSIZE      0x0000fe00    /* Number of invalid samples in cache prior to loop */
+                                             /* NOTE: This is valid only if CACHELOOPFLAG is set */
+#define CCR_LOOPFLAG           0x00000100    /* Set for a single sample period when a loop occurs */
+#define CCR_CACHELOOPADDRHI    0x000000ff    /* DSL_LOOPSTARTADDR's hi byte if CACHELOOPFLAG is set */
 
-#define CLP            0x0a        /* Cache loop register (valid if CCR_CACHELOOPFLAG = 1) */
-                        /* NOTE: This register is normally not used        */
-#define CLP_CACHELOOPADDR    0x0000ffff    /* Cache loop address (DSL_LOOPSTARTADDR [0..15])    */
+#define CLP                    0x0a          /* Cache loop register (valid if CCR_CACHELOOPFLAG = 1) */
+                                             /* NOTE: This register is normally not used */
+#define CLP_CACHELOOPADDR      0x0000ffff    /* Cache loop address (DSL_LOOPSTARTADDR [0..15]) */
 
-#define FXRT            0x0b        /* Effects send routing register            */
-                        /* NOTE: It is illegal to assign the same routing to    */
-                        /* two effects sends.                    */
-#define FXRT_CHANNELA        0x000f0000    /* Effects send bus number for channel's effects send A    */
-#define FXRT_CHANNELB        0x00f00000    /* Effects send bus number for channel's effects send B    */
-#define FXRT_CHANNELC        0x0f000000    /* Effects send bus number for channel's effects send C    */
-#define FXRT_CHANNELD        0xf0000000    /* Effects send bus number for channel's effects send D    */
+#define FXRT                   0x0b          /* Effects send routing register */
+                                             /* NOTE: It is illegal to assign the same routing to */
+                                             /* two effects sends. */
+#define FXRT_CHANNELA          0x000f0000    /* Effects send bus number for channel's effects send A */
+#define FXRT_CHANNELB          0x00f00000    /* Effects send bus number for channel's effects send B */
+#define FXRT_CHANNELC          0x0f000000    /* Effects send bus number for channel's effects send C */
+#define FXRT_CHANNELD          0xf0000000    /* Effects send bus number for channel's effects send D */
 
-#define MAPA            0x0c        /* Cache map A                        */
+#define MAPA                   0x0c          /* Cache map A */
 
-#define MAPB            0x0d        /* Cache map B                        */
+#define MAPB                   0x0d          /* Cache map B */
 
-#define MAP_PTE_MASK        0xffffe000    /* The 19 MSBs of the PTE indexed by the PTI        */
-#define MAP_PTI_MASK        0x00001fff    /* The 13 bit index to one of the 8192 PTE dwords          */
+#define MAP_PTE_MASK           0xffffe000    /* The 19 MSBs of the PTE indexed by the PTI */
+#define MAP_PTI_MASK           0x00001fff    /* The 13 bit index to one of the 8192 PTE dwords */
 
-#define ENVVOL            0x10        /* Volume envelope register                */
-#define ENVVOL_MASK        0x0000ffff    /* Current value of volume envelope state variable    */  
-                        /* 0x8000-n == 666*n usec delay                       */
+#define ENVVOL                 0x10          /* Volume envelope register */
+#define ENVVOL_MASK            0x0000ffff    /* Current value of volume envelope state variable */
+                                             /* 0x8000-n == 666*n usec delay */
 
-#define ATKHLDV         0x11        /* Volume envelope hold and attack register        */
-#define ATKHLDV_PHASE0        0x00008000    /* 0 = Begin attack phase                */
-#define ATKHLDV_HOLDTIME_MASK    0x00007f00    /* Envelope hold time (127-n == n*88.2msec)        */
-#define ATKHLDV_ATTACKTIME_MASK    0x0000007f    /* Envelope attack time, log encoded            */
-                        /* 0 = infinite, 1 = 10.9msec, ... 0x7f = 5.5msec    */
+#define ATKHLDV                0x11          /* Volume envelope hold and attack register */
+#define ATKHLDV_PHASE0         0x00008000    /* 0 = Begin attack phase */
+#define ATKHLDV_HOLDTIME_MASK  0x00007f00    /* Envelope hold time (127-n == n*88.2msec) */
+#define ATKHLDV_ATTACKTIME_MASK 0x0000007f   /* Envelope attack time, log encoded */
+                                             /* 0 = infinite, 1 = 10.9msec, ... 0x7f = 5.5msec */
 
-#define DCYSUSV         0x12        /* Volume envelope sustain and decay register        */
-#define DCYSUSV_PHASE1_MASK    0x00008000    /* 0 = Begin attack phase, 1 = begin release phase    */
-#define DCYSUSV_SUSTAINLEVEL_MASK 0x00007f00    /* 127 = full, 0 = off, 0.75dB increments        */
-#define DCYSUSV_CHANNELENABLE_MASK 0x00000080    /* 1 = Inhibit envelope engine from writing values in    */
-                        /* this channel and from writing to pitch, filter and    */
-                        /* volume targets.                    */
-#define DCYSUSV_DECAYTIME_MASK    0x0000007f    /* Volume envelope decay time, log encoded             */
-                        /* 0 = 43.7msec, 1 = 21.8msec, 0x7f = 22msec        */
+#define DCYSUSV                0x12          /* Volume envelope sustain and decay register */
+#define DCYSUSV_PHASE1_MASK    0x00008000    /* 0 = Begin attack phase, 1 = begin release phase */
+#define DCYSUSV_SUSTAINLEVEL_MASK 0x00007f00 /* 127 = full, 0 = off, 0.75dB increments */
+#define DCYSUSV_CHANNELENABLE_MASK 0x00000080  /* 1 = Inhibit envelope engine from writing values in */
+                                             /* this channel and from writing to pitch, filter and */
+                                             /* volume targets. */
+#define DCYSUSV_DECAYTIME_MASK 0x0000007f    /* Volume envelope decay time, log encoded */
+                                             /* 0 = 43.7msec, 1 = 21.8msec, 0x7f = 22msec */
 
-#define LFOVAL1         0x13        /* Modulation LFO value                    */
-#define LFOVAL_MASK        0x0000ffff    /* Current value of modulation LFO state variable    */
-                        /* 0x8000-n == 666*n usec delay                */
+#define LFOVAL1                0x13          /* Modulation LFO value */
+#define LFOVAL_MASK            0x0000ffff    /* Current value of modulation LFO state variable */
+                                             /* 0x8000-n == 666*n usec delay */
 
-#define ENVVAL            0x14        /* Modulation envelope register                */
-#define ENVVAL_MASK        0x0000ffff    /* Current value of modulation envelope state variable     */
-                        /* 0x8000-n == 666*n usec delay                */
+#define ENVVAL                 0x14          /* Modulation envelope register */
+#define ENVVAL_MASK            0x0000ffff    /* Current value of modulation envelope state variable */
+                                             /* 0x8000-n == 666*n usec delay */
 
-#define ATKHLDM            0x15        /* Modulation envelope hold and attack register        */
-#define ATKHLDM_PHASE0        0x00008000    /* 0 = Begin attack phase                */
-#define ATKHLDM_HOLDTIME    0x00007f00    /* Envelope hold time (127-n == n*42msec)        */
-#define ATKHLDM_ATTACKTIME    0x0000007f    /* Envelope attack time, log encoded            */
-                        /* 0 = infinite, 1 = 11msec, ... 0x7f = 5.5msec        */
+#define ATKHLDM                0x15          /* Modulation envelope hold and attack register */
+#define ATKHLDM_PHASE0         0x00008000    /* 0 = Begin attack phase */
+#define ATKHLDM_HOLDTIME       0x00007f00    /* Envelope hold time (127-n == n*42msec) */
+#define ATKHLDM_ATTACKTIME     0x0000007f    /* Envelope attack time, log encoded */
+                                             /* 0 = infinite, 1 = 11msec, ... 0x7f = 5.5msec */
 
-#define DCYSUSM            0x16        /* Modulation envelope decay and sustain register    */
-#define DCYSUSM_PHASE1_MASK    0x00008000    /* 0 = Begin attack phase, 1 = begin release phase    */
-#define DCYSUSM_SUSTAINLEVEL_MASK 0x00007f00    /* 127 = full, 0 = off, 0.75dB increments        */
-#define DCYSUSM_DECAYTIME_MASK    0x0000007f    /* Envelope decay time, log encoded            */
-                        /* 0 = 43.7msec, 1 = 21.8msec, 0x7f = 22msec        */
+#define DCYSUSM                0x16          /* Modulation envelope decay and sustain register */
+#define DCYSUSM_PHASE1_MASK    0x00008000    /* 0 = Begin attack phase, 1 = begin release phase */
+#define DCYSUSM_SUSTAINLEVEL_MASK 0x00007f00 /* 127 = full, 0 = off, 0.75dB increments */
+#define DCYSUSM_DECAYTIME_MASK 0x0000007f    /* Envelope decay time, log encoded */
+                                             /* 0 = 43.7msec, 1 = 21.8msec, 0x7f = 22msec */
 
-#define LFOVAL2         0x17        /* Vibrato LFO register                    */
-#define LFOVAL2_MASK        0x0000ffff    /* Current value of vibrato LFO state variable         */
-                        /* 0x8000-n == 666*n usec delay                */
+#define LFOVAL2                0x17          /* Vibrato LFO register */
+#define LFOVAL2_MASK           0x0000ffff    /* Current value of vibrato LFO state variable */
+                                             /* 0x8000-n == 666*n usec delay */
 
-#define IP            0x18        /* Initial pitch register                */
-#define IP_MASK            0x0000ffff    /* Exponential initial pitch shift            */
-                        /* 4 bits of octave, 12 bits of fractional octave    */
-#define IP_UNITY        0x0000e000    /* Unity pitch shift                    */
+#define IP                     0x18          /* Initial pitch register */
+#define IP_MASK                0x0000ffff    /* Exponential initial pitch shift */
+                                             /* 4 bits of octave, 12 bits of fractional octave */
+#define IP_UNITY               0x0000e000    /* Unity pitch shift */
 
-#define IFATN            0x19        /* Initial filter cutoff and attenuation register    */
-#define IFATN_FILTERCUTOFF_MASK    0x0000ff00    /* Initial filter cutoff frequency in exponential units    */
-                        /* 6 most significant bits are semitones        */
-                        /* 2 least significant bits are fractions        */
-#define IFATN_FILTERCUTOFF    0x08080019
-#define IFATN_ATTENUATION_MASK    0x000000ff    /* Initial attenuation in 0.375dB steps            */
-#define IFATN_ATTENUATION    0x08000019
-
-
-#define PEFE            0x1a        /* Pitch envelope and filter envelope amount register    */
-#define PEFE_PITCHAMOUNT_MASK    0x0000ff00    /* Pitch envlope amount                    */
-                        /* Signed 2's complement, +/- one octave peak extremes    */
-#define PEFE_PITCHAMOUNT    0x0808001a
-#define PEFE_FILTERAMOUNT_MASK    0x000000ff    /* Filter envlope amount                */
-                        /* Signed 2's complement, +/- six octaves peak extremes */
-#define PEFE_FILTERAMOUNT    0x0800001a
-#define FMMOD            0x1b        /* Vibrato/filter modulation from LFO register        */
-#define FMMOD_MODVIBRATO    0x0000ff00    /* Vibrato LFO modulation depth                */
-                        /* Signed 2's complement, +/- one octave extremes    */
-#define FMMOD_MOFILTER        0x000000ff    /* Filter LFO modulation depth                */
-                        /* Signed 2's complement, +/- three octave extremes    */
+#define IFATN                  0x19          /* Initial filter cutoff and attenuation register */
+#define IFATN_FILTERCUTOFF_MASK 0x0000ff00   /* Initial filter cutoff frequency in exponential units */
+                                             /* 6 most significant bits are semitones */
+                                             /* 2 least significant bits are fractions */
+#define IFATN_FILTERCUTOFF     0x08080019
+#define IFATN_ATTENUATION_MASK 0x000000ff    /* Initial attenuation in 0.375dB steps */
+#define IFATN_ATTENUATION      0x08000019
 
 
-#define TREMFRQ         0x1c        /* Tremolo amount and modulation LFO frequency register    */
-#define TREMFRQ_DEPTH        0x0000ff00    /* Tremolo depth                    */
-                        /* Signed 2's complement, with +/- 12dB extremes    */
+#define PEFE                   0x1a          /* Pitch envelope and filter envelope amount register */
+#define PEFE_PITCHAMOUNT_MASK  0x0000ff00    /* Pitch envlope amount */
+                                             /* Signed 2's complement, +/- one octave peak extremes */
+#define PEFE_PITCHAMOUNT       0x0808001a
+#define PEFE_FILTERAMOUNT_MASK 0x000000ff    /* Filter envlope amount */
+                                             /* Signed 2's complement, +/- six octaves peak extremes */
+#define PEFE_FILTERAMOUNT      0x0800001a
+#define FMMOD                  0x1b          /* Vibrato/filter modulation from LFO register */
+#define FMMOD_MODVIBRATO       0x0000ff00    /* Vibrato LFO modulation depth */
+                                             /* Signed 2's complement, +/- one octave extremes */
+#define FMMOD_MOFILTER         0x000000ff    /* Filter LFO modulation depth */
+                                             /* Signed 2's complement, +/- three octave extremes */
 
-#define TREMFRQ_FREQUENCY    0x000000ff    /* Tremolo LFO frequency                */
-                        /* ??Hz steps, maximum of ?? Hz.            */
-#define FM2FRQ2         0x1d        /* Vibrato amount and vibrato LFO frequency register    */
-#define FM2FRQ2_DEPTH        0x0000ff00    /* Vibrato LFO vibrato depth                */
-                        /* Signed 2's complement, +/- one octave extremes    */
-#define FM2FRQ2_FREQUENCY    0x000000ff    /* Vibrato LFO frequency                */
-                        /* 0.039Hz steps, maximum of 9.85 Hz.            */
 
-#define TEMPENV         0x1e        /* Tempory envelope register                */
-#define TEMPENV_MASK        0x0000ffff    /* 16-bit value                        */
-                        /* NOTE: All channels contain internal variables; do    */
-                        /* not write to these locations.            */
+#define TREMFRQ                0x1c          /* Tremolo amount and modulation LFO frequency register */
+#define TREMFRQ_DEPTH          0x0000ff00    /* Tremolo depth */
+                                             /* Signed 2's complement, with +/- 12dB extremes */
+
+#define TREMFRQ_FREQUENCY      0x000000ff    /* Tremolo LFO frequency */
+                                             /* ??Hz steps, maximum of ?? Hz. */
+#define FM2FRQ2                0x1d          /* Vibrato amount and vibrato LFO frequency register */
+#define FM2FRQ2_DEPTH          0x0000ff00    /* Vibrato LFO vibrato depth */
+                                             /* Signed 2's complement, +/- one octave extremes */
+#define FM2FRQ2_FREQUENCY      0x000000ff    /* Vibrato LFO frequency */
+                                             /* 0.039Hz steps, maximum of 9.85 Hz. */
+
+#define TEMPENV                0x1e          /* Tempory envelope register */
+#define TEMPENV_MASK           0x0000ffff    /* 16-bit value */
+                                             /* NOTE: All channels contain internal variables; do */
+                                             /* not write to these locations. */
 
 /* 1f something */
 
-#define CD0            0x20        /* Cache data 0 register                */
-#define CD1            0x21        /* Cache data 1 register                */
-#define CD2            0x22        /* Cache data 2 register                */
-#define CD3            0x23        /* Cache data 3 register                */
-#define CD4            0x24        /* Cache data 4 register                */
-#define CD5            0x25        /* Cache data 5 register                */
-#define CD6            0x26        /* Cache data 6 register                */
-#define CD7            0x27        /* Cache data 7 register                */
-#define CD8            0x28        /* Cache data 8 register                */
-#define CD9            0x29        /* Cache data 9 register                */
-#define CDA            0x2a        /* Cache data A register                */
-#define CDB            0x2b        /* Cache data B register                */
-#define CDC            0x2c        /* Cache data C register                */
-#define CDD            0x2d        /* Cache data D register                */
-#define CDE            0x2e        /* Cache data E register                */
-#define CDF            0x2f        /* Cache data F register                */
+#define CD0            0x20        /* Cache data 0 register */
+#define CD1            0x21        /* Cache data 1 register */
+#define CD2            0x22        /* Cache data 2 register */
+#define CD3            0x23        /* Cache data 3 register */
+#define CD4            0x24        /* Cache data 4 register */
+#define CD5            0x25        /* Cache data 5 register */
+#define CD6            0x26        /* Cache data 6 register */
+#define CD7            0x27        /* Cache data 7 register */
+#define CD8            0x28        /* Cache data 8 register */
+#define CD9            0x29        /* Cache data 9 register */
+#define CDA            0x2a        /* Cache data A register */
+#define CDB            0x2b        /* Cache data B register */
+#define CDC            0x2c        /* Cache data C register */
+#define CDD            0x2d        /* Cache data D register */
+#define CDE            0x2e        /* Cache data E register */
+#define CDF            0x2f        /* Cache data F register */
 
 /* 0x30-3f seem to be the same as 0x20-2f */
 
@@ -621,12 +621,12 @@
 
 /* The following mask values define the size of the ADC, MIX and FX buffers in bytes */
 #define ADCBS_BUFSIZE_NONE    0x00000000
-#define ADCBS_BUFSIZE_384    0x00000001
-#define ADCBS_BUFSIZE_448    0x00000002
-#define ADCBS_BUFSIZE_512    0x00000003
-#define ADCBS_BUFSIZE_640    0x00000004
-#define ADCBS_BUFSIZE_768    0x00000005
-#define ADCBS_BUFSIZE_896    0x00000006
+#define ADCBS_BUFSIZE_384     0x00000001
+#define ADCBS_BUFSIZE_448     0x00000002
+#define ADCBS_BUFSIZE_512     0x00000003
+#define ADCBS_BUFSIZE_640     0x00000004
+#define ADCBS_BUFSIZE_768     0x00000005
+#define ADCBS_BUFSIZE_896     0x00000006
 #define ADCBS_BUFSIZE_1024    0x00000007
 #define ADCBS_BUFSIZE_1280    0x00000008
 #define ADCBS_BUFSIZE_1536    0x00000009
@@ -640,18 +640,18 @@
 #define ADCBS_BUFSIZE_6144    0x00000011
 #define ADCBS_BUFSIZE_7168    0x00000012
 #define ADCBS_BUFSIZE_8192    0x00000013
-#define ADCBS_BUFSIZE_10240    0x00000014
-#define ADCBS_BUFSIZE_12288    0x00000015
-#define ADCBS_BUFSIZE_14366    0x00000016
-#define ADCBS_BUFSIZE_16384    0x00000017
-#define ADCBS_BUFSIZE_20480    0x00000018
-#define ADCBS_BUFSIZE_24576    0x00000019
-#define ADCBS_BUFSIZE_28672    0x0000001a
-#define ADCBS_BUFSIZE_32768    0x0000001b
-#define ADCBS_BUFSIZE_40960    0x0000001c
-#define ADCBS_BUFSIZE_49152    0x0000001d
-#define ADCBS_BUFSIZE_57344    0x0000001e
-#define ADCBS_BUFSIZE_65536    0x0000001f
+#define ADCBS_BUFSIZE_10240   0x00000014
+#define ADCBS_BUFSIZE_12288   0x00000015
+#define ADCBS_BUFSIZE_14366   0x00000016
+#define ADCBS_BUFSIZE_16384   0x00000017
+#define ADCBS_BUFSIZE_20480   0x00000018
+#define ADCBS_BUFSIZE_24576   0x00000019
+#define ADCBS_BUFSIZE_28672   0x0000001a
+#define ADCBS_BUFSIZE_32768   0x0000001b
+#define ADCBS_BUFSIZE_40960   0x0000001c
+#define ADCBS_BUFSIZE_49152   0x0000001d
+#define ADCBS_BUFSIZE_57344   0x0000001e
+#define ADCBS_BUFSIZE_65536   0x0000001f
 
 
 #define CDCS              0x50        /* CD-ROM digital channel status register    */
@@ -663,18 +663,16 @@
 #define REG53             0x53        /* DO NOT PROGRAM THIS REGISTER!!! MAY DESTROY CHIP */
 
 #define A_DBG             0x53
-#define A_DBG_SINGLE_STEP 0x00020000    /* Set to zero to start dsp */
-#define A_DBG_ZC          0x40000000    /* zero tram counter */
+#define A_DBG_SINGLE_STEP 0x00020000  /* Set to zero to start dsp */
+#define A_DBG_ZC          0x40000000  /* zero tram counter */
 #define A_DBG_STEP_ADDR   0x000003ff
 #define A_DBG_SATURATION_OCCURED 0x20000000
 #define A_DBG_SATURATION_ADDR    0x0ffc0000
 
 // NOTE: 0x54,55,56: 64-bit
-#define SPCS0            0x54        /* SPDIF output Channel Status 0 register    */
-
-#define SPCS1            0x55        /* SPDIF output Channel Status 1 register    */
-
-#define SPCS2            0x56        /* SPDIF output Channel Status 2 register    */
+#define SPCS0             0x54        /* SPDIF output Channel Status 0 register    */
+#define SPCS1             0x55        /* SPDIF output Channel Status 1 register    */
+#define SPCS2             0x56        /* SPDIF output Channel Status 2 register    */
 
 #define SPCS_CLKACCYMASK        0x30000000    /* Clock accuracy */
 #define SPCS_CLKACCY_1000PPM    0x00000000    /* 1000 parts per million */
@@ -1214,7 +1212,7 @@
  */
 
 /********************************************************************************************************/
-/* Audigy2 P16V pointer-offset register set, accessed through the PTR2 and DATA2 registers                     */
+/* Audigy2 P16V pointer-offset register set, accessed through the PTR2 and DATA2 registers              */
 /********************************************************************************************************/
                                                                                                                            
 /* The sample rate of the SPDIF outputs is set by modifying a register in the EMU10K2 PTR register A_SPDIF_SAMPLERATE.

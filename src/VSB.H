@@ -10,10 +10,6 @@ extern "C"
 {
 #endif
 
-#if !TRIGGERATONCE
-extern int VSB_TriggerIRQ;
-#endif
-
 #if ADPCM
 typedef struct 
 {
@@ -50,11 +46,13 @@ uint32_t VSB_GetPos( void ); //get pos in bytes
 uint32_t VSB_SetPos(uint32_t pos); //set pos in bytes
 int VSB_GetAuto( void );
 void VSB_SetIRQStatus( void );
-//int VSB_GetTriggeredIRQ( void );
-void VSB_ResetTriggeredIRQ( void );
+int VSB_GetIRQStatus( void );
 uint8_t VSB_GetMixerReg(uint8_t index);
 int VSB_GetDirectCount(uint8_t * *);
 void VSB_ResetDirectCount( void );
+#if DISPSTAT
+int VSB_GetDispStat( void );
+#endif
 
 #ifdef __cplusplus
 }

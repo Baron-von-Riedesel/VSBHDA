@@ -654,6 +654,8 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 	//dbgprintf(("ICH_writedata: index=%d\n",index));
 }
 
+/* ICH implementation of cardbuf_getpos() */
+
 static long ICH_getbufpos( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {

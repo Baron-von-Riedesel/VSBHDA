@@ -64,8 +64,8 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 	unsigned short oldtsc, tsctemp, tscdif;
 	unsigned short oldstate;
 
+	oldtsc = gettimercnt();
 	for( i = 0; i < ticks; i++ ){
-		oldtsc = gettimercnt();
 		do{
 			tsctemp = gettimercnt();
 			if(tsctemp <= oldtsc)
@@ -73,5 +73,6 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 			else
 				tscdif = divisor + oldtsc - tsctemp;
 		} while ( tscdif < 12); //wait for 10us  (12/(65536*18) sec)
+		oldtsc = tsctemp;
 	}
 }

@@ -67,7 +67,7 @@ uint32_t _get_stack_top( void );
 	"movzx eax, ax" \
 	"shl eax, 4" \
 	parm [ecx] \
-	modify exact [bx eax]
+	modify exact [bx dx eax]
 
 #pragma aux _get_stack_top = \
 	"mov eax, esp" \
@@ -78,6 +78,7 @@ uint32_t _get_stack_top( void );
 
 int hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
 static int freq = 22050; /* default value for AU_setrate() */
+int jhdpmi = 0; /* default: assume jhdpmi isn't loaded */
 
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
@@ -421,7 +422,8 @@ int main(int argc, char* argv[])
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
-    VIRQ_Init( AU_getirq( hAU ) );
+    VPIC_Init( AU_getirq( hAU ) );
+    VIRQ_Init( gvars.irq );
 
     AU_setmixer_init( hAU );
 
@@ -458,9 +460,9 @@ int main(int argc, char* argv[])
     gvars.opl3 = 0;
 #endif
 #if SB16
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma );
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma, AU_getirq( hAU ) );
 #else
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0 );
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0, AU_getirq( hAU ) );
 #endif
 #if SB16
     VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
@@ -520,7 +522,7 @@ int main(int argc, char* argv[])
 
     PIC_UnmaskIRQ( AU_getirq( hAU ) );
 
-    AU_prestart( hAU );
+    //AU_prestart( hAU );
     AU_start( hAU );
     if (bOMode & 1 ) bOMode = 2; /* switch to low-level i/o */
 

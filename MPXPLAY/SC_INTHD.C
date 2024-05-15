@@ -27,7 +27,7 @@
 #include "LINEAR.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
-#define RESETCODECONCLOSE 1
+#define RESETCODECONCLOSE 1 /* todo: explain the benefits! */
 
 /* config_select: bits 0-1: out device */
 #define AUCARDSCONFIG_IHD_OUT_DEV_MASK   0x3     /* 00=lineout, 01=speaker, 02=hp */
@@ -776,6 +776,8 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	return 1;
 }
 
+/* called by hda_hw_init() */
+
 static unsigned int azx_reset(struct intelhd_card_s *chip)
 //////////////////////////////////////////////////////////
 {
@@ -1314,10 +1316,14 @@ static char *hda_search_vendorname(unsigned int vendorid)
 }
 #endif
 
+/* display card status */
+
 static void HDA_card_info( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {
 }
+
+/* called by HDA_adetect() if card isn't selected */
 
 static void HDA_cardclose( struct intelhd_card_s *card )
 ////////////////////////////////////////////////////////
@@ -1490,7 +1496,8 @@ static void HDA_setrate( struct audioout_info_s *aui )
 	azx_setup_stream( card );
 }
 
-/* start the stream's DMA engine;
+/* HDA implementation of card_start().
+ * start the stream's DMA engine;
  * enable interrupts for this stream
  */
 
@@ -1520,15 +1527,16 @@ static void HDA_start( struct audioout_info_s *aui )
 	pds_delay_10us(100);
 }
 
-/* stop the stream's DMA engine;
- * disable interrupts for this stream.
- * currently, this function isn't called at all.
+/* HDA implementation of card_stop().
+ * stop the stream's DMA engine;
+ * disable interrupts for this stream?
  */
 static void HDA_stop( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
+	const unsigned int stream_index = (card->sd_addr - (card->iobase + 0x80)) / 0x20;
 
 	dbgprintf(("HDA_stop\n" ));
 
@@ -1540,11 +1548,12 @@ static void HDA_stop( struct audioout_info_s *aui )
 
 	pds_delay_10us(100);
 
-	//azx_sd_writeb( card, SD_STS, SD_INT_MASK); // to be sure
-
-	//const unsigned int stream_index = (card->sd_addr - (card->iobase + 0x80)) / 0x20;
-	//azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index));
+	/* clear pending interrupts, just to be sure */
+	azx_sd_writeb( card, SD_STS, SD_INT_MASK);
+	azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index)); // disable SIE
 }
+
+/* HDA implementation of cardbuf_getpos() */
 
 static long HDA_getbufpos( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
@@ -1602,7 +1611,10 @@ static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long r
 
 #if 1 /* vsbhda */
 
-/* check if the interrupt comes from the sound card's DMA engines */
+ /* check if the interrupt comes from the sound card's DMA engines.
+ * The CORB/RIRB DMA engines are minor, since communication
+ * was during init, while when playing there's nothing to communicate.
+ */
 
 static int HDA_IRQRoutine( struct audioout_info_s* aui )
 ////////////////////////////////////////////////////////
@@ -1617,12 +1629,12 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 
 	//ack CORB/RIRB status
 	corbsts = azx_readb(card, CORBSTS) & 0x1;
-	rirbsts = azx_readb(card, RIRBSTS) & RIRB_INT_MASK;
+	rirbsts = azx_readb(card, RIRBSTS) & RIRB_INT_MASK; /* bits 0 & 2 */
 	if(corbsts)
-		azx_writeb(card, CORBSTS, corbsts);
+		azx_writeb(card, CORBSTS, corbsts); /* by writing 0 the bits are cleared */
 	if(rirbsts)
-		azx_writeb(card, RIRBSTS, rirbsts);
-	return status || corbsts || rirbsts;
+		azx_writeb(card, RIRBSTS, rirbsts); /* by writing 0 the bits are cleared */
+	return status | corbsts | rirbsts;
 }
 #endif
 
@@ -1644,7 +1656,7 @@ const struct sndcard_info_s HDA_sndcard_info = {
  &HDA_setrate,
 
  &MDma_writedata, /* =cardbuf_writedata() */
- &HDA_getbufpos,  /* =cardbuf_pos() */
+ &HDA_getbufpos,  /* =cardbuf_getpos() */
  &MDma_clearbuf,  /* =cardbuf_clear() */
  &HDA_IRQRoutine, /* vsbhda */
  &HDA_writeMIXER, /* =card_writemixer() */

@@ -38,9 +38,8 @@ struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
 		free(dm);
 		return NULL;
 	}
-	/* convert linear address to near ptr */
-	dm->pMem = NearPtr( dm->dwLinear );
-	memset( dm->pMem, 0, buffsize);
+	dm->pMem = NearPtr( dm->dwLinear ); /* convert linear address to near ptr */
+	memset( dm->pMem, 0, buffsize );
 	dbgprintf(("MDma_alloc_cardmem: %X\n", dm->pMem));
 	return dm;
 }

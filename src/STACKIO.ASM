@@ -12,7 +12,7 @@
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
-TRIGGERIRQ equ 1	; 1=run virtual SB IRQ triggered by port access
+TRIGGERIRQ equ 0	; 1=run virtual SB IRQ triggered by port access
 IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" problem (16-bit)
 
 PTRAP_PM_TrapHandler proto :word, :dword, :dword
@@ -82,7 +82,7 @@ externdef dwDS:dword	; it's in _TEXT
 	.data
 
 if TRIGGERIRQ
-externdef VSB_TriggerIRQ:dword
+VSB_GetIRQStatus proto c
 VIRQ_Invoke proto c
 endif
 
@@ -178,13 +178,16 @@ isstring:
 	mov [ebp].EXCFRAME._ecx, 0
 done:
 if TRIGGERIRQ
-	cmp [VSB_TriggerIRQ], 0
+	call VSB_GetIRQStatus
+	and eax, eax
 	jz @F
 	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2		; interrupts enabled?
 	jz @F
 	sub [__djgpp_stack_top], STACKCORR
 	mov ss, PRFXDS[dwDS]
 	mov esp, [__djgpp_stack_top]
+	push ebx
+	push ebp
 	call VIRQ_Invoke
 	mov ss, ebx
 	mov esp, ebp
@@ -251,6 +254,8 @@ SwitchStackIOrmcb proc
 	mov eax, ds
 	mov ss, eax
 	mov esp, [__djgpp_stack_top]
+	push ebx
+	push ebp
 if COPYRMCS
 	mov esi, edi
 	push es
@@ -269,10 +274,14 @@ ife COPYRMCS
 endif
 	push edi
 	call [dwProc]
+
+;--- calling VIRQ_Invoke from inside real-mode callback is critical
+;--- we can restore the client stack, but client's protected-mode ds/es is unknown
 if TRIGGERIRQ
-	cmp [VSB_TriggerIRQ], 0
-	jz @F
 	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
+	jz @F
+	call VSB_GetIRQStatus
+	and eax, eax
 	jz @F
 	call VIRQ_Invoke
 @@:

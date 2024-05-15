@@ -250,7 +250,7 @@ static void VIA82XX_card_info(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////////
 {
 	struct via82xx_card *card = aui->card_private_data;
-	dbgprintf(("VIA : %s soundcard found on port:%4.4X irq:%d chiprev:%2.2X model:%4.4X\n",
+	dbgprintf(("VIA : %s soundcard found on port:%4X irq:%d chiprev:%2X model:%4X\n",
 		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model));
 }
 
@@ -440,6 +440,8 @@ static void VIA82XX_stop(struct audioout_info_s *aui)
 	outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_PAUSE);
 }
 
+/* VIA82 implementation of cardbuf_getpos() */
+
 static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////////
 {
@@ -458,7 +460,7 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 			idx = idx - 1;
 			idx = idx % card->pcmout_pages;
 		}
-	}else{ // VT8233/8235
+	} else { // VT8233/8235
 		count = inl(baseport + VIA_REG_PLAYBACK_CURR_COUNT);
 		idx   = count >> 24;
 	}

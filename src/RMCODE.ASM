@@ -6,7 +6,7 @@
 	option proc:private
 	option casemap:none
 
-HANDLE_IN_388H_DIRECTLY equ 1 ; std=1, must match #define in ptrap.c
+HANDLE_IN_388H_DIRECTLY equ 0 ; std=1, must match #define in ptrap.c
 RMPICTRAPDYN            equ 0 ; std=0, must match #define in ptrap.c
 
 ;--- if RMPICTRAPDYN is 0, the PIC port 0020h is permanently trapped.
@@ -37,7 +37,9 @@ if HANDLE_IN_388H_DIRECTLY
 	cmp dx, 389h
 	je is389
 normal:
+endif
 	jmp [wRmcb]
+if HANDLE_IN_388H_DIRECTLY
 is388:
 	test cl, 4			; OUT instr?
 	jnz is388out

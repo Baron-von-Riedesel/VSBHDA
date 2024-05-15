@@ -30,8 +30,12 @@
 #include "VMPU.H"
 #endif
 
+#if JHDPMI
+extern int jhdpmi;
+#endif
+
 // next 2 defines must match EQUs in rmwrap.asm!
-#define HANDLE_IN_388H_DIRECTLY 1
+#define HANDLE_IN_388H_DIRECTLY 0
 #define RMPICTRAPDYN 0 /* 1=trap PIC for v86-mode dynamically when needed */
 
 extern struct globalvars gvars;
@@ -47,6 +51,7 @@ static uint16_t QPI_OldCallbackCS;
 static __dpmi_raddr rmcb;
 
 static int maxports;
+static int maxranges;
 static int PICIndex;
 
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
@@ -57,7 +62,8 @@ extern void copyrmwrap( void * );
 #endif
 #endif
 
-static uint32_t traphdl[9] = {0}; /* hdpmi32i trap handles */
+static uint32_t traphdl[8+1] = {0}; /* hdpmi32i trap handles */
+
 
 struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
 
@@ -66,47 +72,80 @@ uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = (uint8_t (*)(uint16_t))&inp;
 
 static const uint8_t ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
 
-struct PortDispatchTable {
-    uint16_t    port;
-    uint16_t    flags;
-    PORT_TRAP_HANDLER handler;
+#define OPL3_PDT  0
+#define MPIC_PDT  1
+#define SPIC_PDT  2
+#define DMA_PDT   3
+#define DMAPG_PDT 4
+#if SB16
+#define HDMA_PDT  5
+#define SB_PDT    6
+#define MPU_PDT   7
+#else
+#define SB_PDT    5
+#define MPU_PDT   6
+#endif
+
+static uint16_t PortTable[] = {
+	0x388, 0x389, 0x38A, 0x38B | 0x8000,
+	0x20, 0x21 | 0x8000,
+	0xA1 | 0x8000,
+	0x02, 0x03,                   /* ch 1; will be modified if LDMA != 1 */
+	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F | 0x8000,
+#if SB16
+	0x83, 0x8B | 0x8000,          /* ch 1 & ch 5: page regs */
+#else
+	0x83 | 0x8000,
+#endif
+#if SB16
+	0xC4, 0xC6,                   /* ch 5; will be modified if HDMA != 5 */
+	0xD0, 0xD2, 0xD4, 0xD6, 0xD8, 0xDA, 0xDC, 0xDE | 0x8000,
+#endif
+	0x220, 0x221, 0x222, 0x223,
+	0x224, 0x225,
+	0x226, 0x228, 0x229,
+	0x22A, 0x22C,
+	0x22E, 0x22F | 0x8000,
+#if VMPU
+	0x330, 0x331 | 0x8000,
+#endif
+    0xffff
 };
 
-#define tport( port, proc ) TPORT_ ## port,
-#define tportx( port, proc, range ) TPORT_ ## port,
-enum TrappedPorts {
-#include "PORTS.H"
-#undef tport
-#undef tportx
-    NUM_TPORTS
+
+/* PortHandler array must match port array */
+static PORT_TRAP_HANDLER PortHandler[] = {
+	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B,
+	VPIC_Acc, VPIC_Acc,    /* 0x20, 0x21 */
+	VPIC_Acc,              /* 0xA1 */
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for ch 1; will be modified if LDMA != 1 */
+	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0x08-0x0F */
+	VDMA_Acc,              /* page reg for ch 1; will be modified if LDMA != 1 */
+#if SB16
+	VDMA_Acc,              /* page reg for ch 5; will be modified if HDMA != 5 */
+#endif
+#if SB16
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for ch 5; will be modified if HDMA != 5 */
+	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0xD0-0xDE */
+#endif
+	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B, /* 0x220-0x223 */
+	VSB_MixerAddr, VSB_MixerData,               /* 0x224-0x225 */
+	VSB_DSP_Reset, VOPL3_388, VOPL3_389,        /* 0x226, 0x228, 0x229 */
+	VSB_DSP_Read, VSB_DSP_Write,                /* 0x22A, 0x22C */
+	VSB_DSP_ReadStatus, VSB_DSP_ReadINT16BitACK, /* 0x22e, 0x22f */
+#if VMPU
+	VMPU_MPU, VMPU_MPU,
+#endif
 };
 
-#define tport( port, proc ) { port, 0, proc },
-#define tportx( port, proc, range ) { port, 0, proc },
-static struct PortDispatchTable PDispTab[] = {
-#include "PORTS.H"
-#undef tport
-#undef tportx
-};
+#if SB16
+static uint16_t PortState[4+2+1+2+8+1+1+2+8+4+2+3+2+2+2];
+#else
+static uint16_t PortState[4+2+1+2+8+1+4+2+3+2+2+2];
+#endif
 
-#define tport( port, proc )
-#define tportx( port, proc, range )  range ## _PDT,
-/* order of port ranges - must match order in ports.h */
-enum PortRangeStartIndex {
-#include "PORTS.H"
-    END_PDT
-};
-#undef tport
-#undef tportx
-
-#define tport( port, proc )
-#define tportx( port, proc, range ) TPORT_ ## port,
-static int portranges[] = {
-#include "PORTS.H"
-    NUM_TPORTS
-};
-#undef tport
-#undef tportx
+/* hdpmi is restricted to 8 port ranges */
+static int portranges[8+1];
 
 static void RM_TrapHandler( __dpmi_regs * regs)
 ///////////////////////////////////////////////
@@ -119,8 +158,8 @@ static void RM_TrapHandler( __dpmi_regs * regs)
      * bits 3,4 word/dword access, not used here
      */
     for ( i = 0; i < maxports; i++ ) {
-        if( PDispTab[i].port == port ) {
-            regs->h.al = PDispTab[i].handler( port, regs->h.al, regs->h.cl & 4 );
+        if( PortTable[i] == port ) {
+            regs->h.al = PortHandler[i]( port, regs->h.al, regs->h.cl & 4 );
             regs->x.flags &= ~CPU_CFLAG; /* clear carry flag, indicates that access was handled */
             return;
         }
@@ -215,12 +254,30 @@ uint16_t PTRAP_GetQEMMVersion(void)
 bool PTRAP_Prepare_RM_PortTrap()
 ////////////////////////////////
 {
+    int i, j;
     static __dpmi_regs TrapHandlerREG; /* static RMCS for RMCB */
     __dpmi_regs r = {0};
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
     uint32_t dosmem;
 #endif
 
+    /* setup port ranges */
+    for ( i = 0, j = 1, portranges[0] = 0; PortTable[i] != 0xffff; i++ ) {
+        if ( PortTable[i] & 0x8000 ) {
+            portranges[j] = i+1;
+            PortTable[i] &= 0x7fff;
+            j++;
+        }
+    }
+    maxports = i;
+    maxranges = j - 1;
+
+#ifdef _DEBUG
+    dbgprintf(("PTRAP_Prepare_RM_PortTrap: maxports=%u, maxranges=%u\n", maxports, maxranges ));
+    for( j = 0; j < maxranges; j++ ) {
+        dbgprintf(("PTRAP_Prepare_RM_PortTrap: range[%u]: ports %X-%X\n", j, PortTable[portranges[j]], PortTable[portranges[j+1]-1] ));
+    }
+#endif
     r.x.ip = QPI_Entry.offset16;
     r.x.cs = QPI_Entry.segment;
     r.x.ax = 0x1A06;
@@ -290,14 +347,14 @@ static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
              * untrap the port in any case!
              */
             r.x.ax = 0x1A08; /* get port status */
-            r.x.dx = PDispTab[i].port;
+            r.x.dx = PortTable[i] & 0x7fff;
             __dpmi_simulate_real_mode_procedure_retf(&r);
-            PDispTab[i].flags |= (r.h.bl) << 8; //previously trapped state
+            PortState[i] |= (r.h.bl) << 8; //previously trapped state
         }
         r.x.ax = 0x1A09; /* trap port */
-        r.x.dx = PDispTab[i].port;
+        r.x.dx = PortTable[i] & 0x7fff;
         __dpmi_simulate_real_mode_procedure_retf(&r); /* trap port */
-        PDispTab[i].flags |= PDT_FLGS_RMINST;
+        PortState[i] |= PDT_FLGS_RMINST;
     }
     return true;
 }
@@ -305,13 +362,11 @@ static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
 bool PTRAP_Install_RM_PortTraps( void )
 ///////////////////////////////////////
 {
-    int max = countof(portranges) - 1;
     int i;
-    maxports = portranges[max];
 
-    for ( i = 0; i < max; i++ ) {
+    for ( i = 0; i < maxranges; i++ ) {
 #if RMPICTRAPDYN
-        if ( PDispTab[portranges[i]].port == 0x20 ) {
+        if ( PortTable[portranges[i]] == 0x20 ) {
             PICIndex = portranges[i];
             continue;
         }
@@ -341,10 +396,10 @@ void PTRAP_SetPICPortTrap( int bSet )
         r.x.dx = PDispTab[PICIndex].port;
         if ( bSet ) {
             r.x.ax = 0x1A09; /* trap */
-            PDispTab[PICIndex].flags |= PDT_FLGS_RMINST;
+            PortState[PICIndex] |= PDT_FLGS_RMINST;
         } else {
             r.x.ax = 0x1A0A; /* untrap */
-            PDispTab[PICIndex].flags &= ~PDT_FLGS_RMINST;
+            PortState[PICIndex] &= ~PDT_FLGS_RMINST;
         }
         __dpmi_simulate_real_mode_procedure_retf(&r); /* trap port */
 #else
@@ -362,20 +417,19 @@ void PTRAP_SetPICPortTrap( int bSet )
 bool PTRAP_Uninstall_RM_PortTraps( void )
 /////////////////////////////////////////
 {
-    int max = portranges[END_PDT];
     int i;
     __dpmi_regs r = {0};
 
     r.x.ip = QPI_Entry.offset16;
     r.x.cs = QPI_Entry.segment;
-    for( i = 0; i < max; ++i ) {
-        if ( !( PDispTab[i].flags & 0xff00 )) {
-            if( PDispTab[i].flags & PDT_FLGS_RMINST ) {
+    for( i = 0; i < maxports; ++i ) {
+        if ( !( PortState[i] & 0xff00 )) {
+            if( PortState[i] & PDT_FLGS_RMINST ) {
                 r.x.ax = 0x1A0A; /* clear port trap */
-                r.x.dx = PDispTab[i].port;
+                r.x.dx = PortTable[i];
                 __dpmi_simulate_real_mode_procedure_retf(&r);
-                PDispTab[i].flags &= ~PDT_FLGS_RMINST;
-                //dbgprintf(("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PDispTab[i].port ));
+                PortState[i] &= ~PDT_FLGS_RMINST;
+                //dbgprintf(("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PortTable[i] ));
             }
         }
     }
@@ -397,8 +451,8 @@ uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
 {
     int i;
     for( i = 0; i < maxports; i++ )
-        if( PDispTab[i].port == port)
-            return PDispTab[i].handler(port, value, flags & 1);
+        if( PortTable[i] == port)
+            return PortHandler[i](port, value, flags & 1);
 
     /* ports that are trapped, but not handled; this may happen, since
      * hdpmi32i's support for port trapping is limited to 8 ranges.
@@ -410,7 +464,21 @@ bool PTRAP_DetectHDPMI()
 ////////////////////////
 {
     uint8_t result = _get_hdpmi_vendor_api(&HDPMIAPI_Entry);
-    return (result == 0 && HDPMIAPI_Entry.seg);
+
+#if JHDPMI
+	__dpmi_regs r = {0};
+	uint8_t int2frm[] = { 0xCD, 0x2F, 0xCB };
+	uint32_t dosmem = _my_psp() + 0x5C;
+	memcpy( NearPtr(dosmem), int2frm, 3 );
+	r.x.ax = 0x1684;
+	r.x.bx = 0x4858;
+	r.x.cs = _my_psp() >> 4;
+	r.x.ip = 0x5C;
+	if( __dpmi_simulate_real_mode_procedure_retf(&r) == 0 && r.h.al == 0 )
+		jhdpmi = 1;
+#endif
+
+	return (result == 0 && HDPMIAPI_Entry.seg);
 }
 
 static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(void), void(*handlerOut)(void) )
@@ -430,10 +498,8 @@ static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(
 bool PTRAP_Install_PM_PortTraps( void )
 ///////////////////////////////////////
 {
-    int max = countof(portranges) - 1;
     int i;
     int start, end;
-    maxports = portranges[max];
 
     /* reset hdpmi=32 option in case it is set */
     _hdpmi_set_context_mode( 0 );
@@ -442,10 +508,10 @@ bool PTRAP_Install_PM_PortTraps( void )
     /* install CLI handler */
     _hdpmi_set_cli_handler( _hdpmi_CliHandler );
 #endif
-    for ( i = 0; i < max; i++ ) {
+    for ( i = 0; i < maxranges; i++ ) {
         if ( portranges[i+1] > portranges[i] ) { /* skip if range is empty */
-            start = PDispTab[portranges[i]].port;
-            end = PDispTab[portranges[i+1]-1].port;
+            start = PortTable[portranges[i]];
+            end = PortTable[portranges[i+1] - 1];
             dbgprintf(("PTRAP_Install_PM_PortTraps: %X-%X\n", start, end ));
             if (!(traphdl[i] = PTRAP_Int_Install_PM_Trap( start, end, &SwitchStackIOIn, &SwitchStackIOOut)))
                 return false;
@@ -454,64 +520,92 @@ bool PTRAP_Install_PM_PortTraps( void )
     return true;
 }
 
-/* delete 1-x entries in PDispTab[], adjust port ranges */
+/* delete 1-x entries in PortTable[] and PortHandler[], adjust port ranges */
 
 static void PDT_DelEntries( int start, int end, int entries )
 /////////////////////////////////////////////////////////////
 {
     int i;
     for ( i = start; i < end - entries; i++ ) {
-        PDispTab[i].port = PDispTab[i+entries].port;
-        PDispTab[i].handler = PDispTab[i+entries].handler;
+        PortTable[i] = PortTable[i + entries];
+        PortHandler[i] = PortHandler[i + entries];
     }
-    for ( i = 0; i < countof(portranges); i++ ) {
-        if ( portranges[i] > start )
+    maxports -= entries;
+    for ( i = 0; i <= maxranges; i++ ) {
+        if ( portranges[i] > start ) {
             portranges[i] -= entries;
+        }
     }
 }
 
-/* adjust PDispTab[] to current settings of /D, /H, /A, /OPL */
+/* adjust PortTable[] and PortHandler[] to current settings of /D, /H, /A, /OPL
+ * note: sndirq is the irq of the real sound hardware!
+ */
 
-void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma )
-////////////////////////////////////////////////////////////
+void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndirq )
+////////////////////////////////////////////////////////////////////////
 {
     int i;
+    dbgprintf(("PTRAP_Prepare: opl=%X, sb=%X, dma=%X, hdma=%X)\n", opl, sbaddr, dma, hdma ));
     /* low dma: adjust the entry for DMA channel addr/count */
-    PDispTab[portranges[DMA_PDT]].port   = dma * 2;
-    PDispTab[portranges[DMA_PDT]+1].port = dma * 2 + 1;
+    PortTable[portranges[DMA_PDT] + 0] = dma * 2;
+    PortTable[portranges[DMA_PDT] + 1] = dma * 2 + 1;
     /* low dma: adjust the entry for DMA page reg */
-    PDispTab[portranges[DMAPG_PDT]].port = ChannelPageMap[ dma ];
+    PortTable[portranges[DMAPG_PDT]] = ChannelPageMap[ dma ];
+    /* if the sound hw IRQ is < 8, the slave PIC doesn't need to be trapped */
+    if ( sndirq < 8 ) {
+        PDT_DelEntries( portranges[SPIC_PDT], maxports, 1 );
+    }
 #if SB16
     if ( hdma ) {
         /* high dma: adjust the entry for DMA channel addr/count */
-        PDispTab[portranges[HDMA_PDT]].port    = hdma * 4 + (0xC0-0x10);
-        PDispTab[portranges[HDMA_PDT]+1].port  = hdma * 4 + 2 + (0xC0-0x10);
+        PortTable[portranges[HDMA_PDT] + 0] = hdma * 4 + (0xC0-0x10);
+        PortTable[portranges[HDMA_PDT] + 1] = hdma * 4 + 2 + (0xC0-0x10);
         /* high dma: adjust the entry for DMA page reg */
-        PDispTab[portranges[DMAPG_PDT]+1].port = ChannelPageMap[ hdma ];
+        PortTable[portranges[DMAPG_PDT] + 1] = ChannelPageMap[ hdma ];
     } else {
         /* if no SB16 emulation, remove all HDMA ports */
-        PDT_DelEntries( portranges[DMAPG_PDT]+1, portranges[END_PDT], 1 );
-        PDT_DelEntries( portranges[HDMA_PDT], portranges[END_PDT], portranges[HDMA_PDT+1] - portranges[HDMA_PDT] );
+        PDT_DelEntries( portranges[DMAPG_PDT] + 1, maxports, 1 );
+        PDT_DelEntries( portranges[HDMA_PDT], maxports, portranges[HDMA_PDT+1] - portranges[HDMA_PDT] );
     }
 #endif
 #if VMPU
     if ( gvars.mpu ) {
-        PDispTab[portranges[MPU_PDT]].port   = gvars.mpu;
-        PDispTab[portranges[MPU_PDT]+1].port = gvars.mpu+1;
-    } else {
-        PDT_DelEntries( portranges[MPU_PDT], portranges[END_PDT], 2 );
+        PortTable[portranges[MPU_PDT] + 0] = gvars.mpu;
+        PortTable[portranges[MPU_PDT] + 1] = gvars.mpu + 1;
+	} else {
+        PDT_DelEntries( portranges[MPU_PDT], maxports, 2 );
     }
 #endif
     /* adjust the SB ports to the selected base */
     if ( sbaddr != 0x220 )
         for( i = portranges[SB_PDT]; i < portranges[SB_PDT+1]; i++ )
-            PDispTab[i].port += sbaddr - 0x220;
+            PortTable[i] += sbaddr - 0x220;
 
     /* if no OPL3 emulation, skip ports 0x388-0x38b and 0x220-0x223 */
     if ( !opl ) {
-        PDT_DelEntries( portranges[OPL3_PDT], portranges[END_PDT], 4 );
-        PDT_DelEntries( portranges[SB_PDT], portranges[END_PDT], 4 );
+        PDT_DelEntries( portranges[OPL3_PDT], maxports, 4 );
+        PDT_DelEntries( portranges[SB_PDT], maxports, 4 );
     }
+
+    /* delete empty port ranges */
+    for ( i = 0; i < maxranges; i++ ) {
+        if ( 0 == portranges[i+1] - portranges[i] ) {
+            int j;
+            for ( j = i; j < maxranges; j++) {
+                portranges[j] = portranges[j+1];
+            }
+            maxranges--;
+        }
+    }
+
+#ifdef _DEBUG
+    dbgprintf(("PTRAP_Prepare: maxports=%u, maxranges=%u\n", maxports, maxranges ));
+    for( i = 0; i < maxranges; i++ ) {
+        dbgprintf(("PTRAP_Prepare_RM_PortTrap: range[%u]: ports %X-%X\n", i, PortTable[portranges[i]], PortTable[portranges[i+1]-1] ));
+    }
+#endif
+
 }
 
 bool PTRAP_Uninstall_PM_PortTraps( void )
@@ -550,11 +644,11 @@ void PTRAP_PrintPorts( void )
     int i;
     dbgprintf(( "ports:\n" ));
     for ( i = 0; i < maxports; i++ ) {
-        if ( i < (maxports -1) && ( PDispTab[i+1].port != PDispTab[i].port+1 || PDispTab[i+1].flags != PDispTab[i].flags )) {
+        if ( i < (maxports -1) && ( PortTable[i+1] != PortTable[i]+1 || PortState[i+1] != PortState[i] )) {
             if ( i == start )
-                dbgprintf(( "%X (%X)\n", PDispTab[start].port, PDispTab[start].flags ));
+                dbgprintf(( "%X (%X)\n", PortTable[start], PortState[start] ));
             else
-                dbgprintf(( "%X-%X (%X)\n", PDispTab[start].port, PDispTab[i].port, PDispTab[start].flags ));
+                dbgprintf(( "%X-%X (%X)\n", PortTable[start], PortTable[i], PortState[start] ));
             start = i + 1;
         }
     }

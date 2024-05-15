@@ -165,12 +165,12 @@ error:
 
 AU_init endp
 
+if 0
 AU_prestart proc c public a1:ptr
-
 	@callexp AU_prestart, 1
 	ret
-
 AU_prestart endp
+endif
 
 AU_start proc c public a1:ptr
 

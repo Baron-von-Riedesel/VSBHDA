@@ -30,8 +30,8 @@
 #include "EMU10K1.H"
 #include "SC_SBLIV.H"
 
-#define VOICE_FLAGS_MASTER      0x01
-#define VOICE_FLAGS_STEREO    0x02
+#define VOICE_FLAGS_MASTER   0x01
+#define VOICE_FLAGS_STEREO   0x02
 #define VOICE_FLAGS_16BIT    0x04
 
 //#define AUDIGY1_USE_AC97 1 // it's for testing only
@@ -1416,6 +1416,8 @@ static void SBLIVE_stop( struct audioout_info_s *aui )
 	if( card->driver_funcs->stop_playback )
 		card->driver_funcs->stop_playback( card );
 }
+
+/* SBLIVE implementation of cardbuf_getpos() */
 
 static long SBLIVE_getbufpos( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////

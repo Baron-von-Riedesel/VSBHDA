@@ -59,6 +59,52 @@ intno	db ?
 
 	.code
 
+PUSHADS struct
+_Edi	dd ?
+_Esi	dd ?
+_Ebp	dd ?
+		dd ?
+_Ebx	dd ?
+_Edx	dd ?
+_Ecx	dd ?
+_Eax	dd ?
+PUSHADS ends
+
+;--- this is supposed to be the status of the client stack
+;--- it's valid for SwitchStackISR and SwitchStackIO, but
+;--- not for SwitchStackIOrmcb!
+
+CLFRAME struct
+_Es     dd ?
+_Ds     dd ?
+        PUSHADS <>
+CLFRAME ends
+
+;--- this variant runs the SB IRQ emulation on the client stack.
+
+_FastCall proc syscall public uses ds es ebx esi edi bIrq:byte
+
+	movzx ecx, bIrq
+	mov ebx, [__djgpp_stack_top]
+	mov edi, ss
+	mov esi, esp
+	lss esp, [ebx-8]
+	pop es
+	pop ds
+	cmp cl,5
+	jz is5
+	int 0Fh
+	jmp exit
+is5:
+	int 0Dh
+exit:
+	push ds
+	push es
+	mov ss, edi
+	mov esp, esi
+	ret
+_FastCall endp
+
 ;--- ISR for sound hw interrupt occuring in protected-mode
 
 SwitchStackISR proc
@@ -71,6 +117,7 @@ SwitchStackISR proc
 	cld
 	mov edx, ss
 	mov ecx, esp
+
 	sub [__djgpp_stack_top], STACKCORR
 ifdef _DEBUG
 	mov eax, [__djgpp_stack_top]	; test if the new stack is writable before ss is changed
@@ -89,6 +136,9 @@ endif
 	popad
 	jz @F
 ife SETIF
+;--- if SETIF==1, interrupts were enabled inside SNDISR. But
+;--- it might still be a good idea to enable ints here, in case
+;--- VIRQ_Invoke() did disable interrupts.
  if 0
 	sti
  else
