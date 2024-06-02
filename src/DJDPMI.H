@@ -68,6 +68,7 @@ int __dpmi_free_real_mode_callback(__dpmi_raddr *_addr);
 int __dpmi_free_memory(unsigned long _handle);
 int __dpmi_allocate_linear_memory(__dpmi_meminfo *_info, int _commit);
 int __dpmi_set_page_attr( unsigned long handle, unsigned long ofs, unsigned long pages, short attr);
+int __dpmi_map_physical_device(unsigned long handle, unsigned long ofs, unsigned long pages, unsigned long physaddr);
 int __dpmi_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_free_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_set_coprocessor_emulation(int _flags);

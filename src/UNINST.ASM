@@ -7,23 +7,7 @@
 	option casemap:none
 	option proc:private
 
-RMCS struct
-rEDI    dd ?
-rESI    dd ?
-rEBP    dd ?
-        dd ?
-rEBX    dd ?
-rEDX    dd ?
-rECX    dd ?
-rEAX    dd ?
-rFlags  dw ?
-rES     dw ?
-rDS     dw ?
-rFS     dw ?
-rGS     dw ?
-rCSIP   dd ?
-rSSSP   dd ?
-RMCS    ends
+	include config.inc
 
 __dpmi_simulate_real_mode_interrupt proto c intno:byte, pRegs:ptr
 

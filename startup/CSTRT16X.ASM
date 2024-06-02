@@ -157,6 +157,13 @@ around:
 	mov _curbrk, esp
 	xor ebp, ebp
 
+	mov ax, 4Fh
+	int 41h
+	cmp ax, 0F386h
+	jnz @F
+	int 3
+@@:
+
 	mov ebx, cs
 	mov ax, 000Ah
 	int 31h

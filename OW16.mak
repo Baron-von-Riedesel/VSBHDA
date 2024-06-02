@@ -39,7 +39,7 @@ OBJFILES = &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
-	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
+	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
 	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj
 
@@ -134,6 +134,7 @@ $(OUTD)/mixer.obj:     src\mixer.asm
 $(OUTD)/pic.obj:       src\pic.c
 $(OUTD)/ptrap.obj:     src\ptrap.c
 $(OUTD)/rte200.obj:    src\rte200.asm
+$(OUTD)/sbisr.obj:     src\sbisr.asm
 $(OUTD)/sndisr.obj:    src\sndisr.c
 $(OUTD)/stackio.obj:   src\stackio.asm
 $(OUTD)/stackisr.obj:  src\stackisr.asm

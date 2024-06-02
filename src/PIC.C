@@ -29,31 +29,26 @@ void PIC_SendEOI(uint8_t irq)
     UntrappedIO_OUT(PIC_PORT1, 0x20);
 }
 
-void PIC_UnmaskIRQ(uint8_t irq)
-///////////////////////////////
-{
-    uint16_t port = PIC_DATA1;
-    if(irq >= 8)
-    {
-        uint8_t master = inp(port);
-        if(master & 0x4)
-            outp(port, (uint8_t)(master & ~0x4)); //unmask slave
-        port = PIC_DATA2;
-        irq = (uint8_t)(irq - 8);
-    }
-    outp(port, (uint8_t)(inp(port)&~( 1 << irq )));
-}
-
 uint16_t PIC_GetIRQMask(void)
 /////////////////////////////
 {
-    uint16_t mask = (uint16_t)((inp(PIC_DATA2) << 8) | inp(PIC_DATA1));
-    return mask;
+    return ( (uint16_t)( UntrappedIO_IN( PIC_DATA2 ) << 8) | UntrappedIO_IN( PIC_DATA1 ) );
 }
 
 void PIC_SetIRQMask(uint16_t mask)
 //////////////////////////////////
 {
-    outp(PIC_DATA1, (uint8_t)mask);
-    outp(PIC_DATA2, (uint8_t)(mask >> 8));
+    UntrappedIO_OUT( PIC_DATA1, (uint8_t)mask);
+    UntrappedIO_OUT( PIC_DATA2, (uint8_t)(mask >> 8));
 }
+
+void PIC_UnmaskIRQ(uint8_t irq)
+///////////////////////////////
+{
+    uint16_t mask = PIC_GetIRQMask();
+    mask &= ~(1 << irq);
+    if ( irq >= 8 )
+        mask &= ~(1 << 2);
+    PIC_SetIRQMask( mask );
+}
+

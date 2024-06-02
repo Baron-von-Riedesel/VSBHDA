@@ -95,7 +95,7 @@
      This option uses the RDTSC instruction - Although usually no problem, this
      instruction is priviledged if bit TSD (bit 2) is set in register CR4; then
      running this instruction in ring3 will cause a GPF.
-   
+
 
    4. Details/Hints
 
@@ -155,7 +155,7 @@
    5. Error Messages
    
    - "Sound card IRQ conflict": the sound hardware uses the very same IRQ number
-     than the emulated SB ( 5 or 7 ). This is currently rejected ( it may
+     than the emulated SB ( 2, 5 or 7 ). This is currently rejected ( it may
      confuse the emulator ).
 
    - "SB found - probably VSBHDA already installed": a SoundBlaster was
@@ -181,3 +181,10 @@
      expected output device type ( lineout|speaker|headphone ) wasn't found
      and hence another one had to be used.
 
+   6. Compatibility Issues
+
+    Here are some games listed that require special actions:
+
+    - Blood: setting SB IRQ to 2 or 5 may be required. Generally, on some
+      machines the DOS/4GW DOS extender has problems with IRQ 7.
+    - Jungle Book: needs SETPVI.EXE to be run before launched.

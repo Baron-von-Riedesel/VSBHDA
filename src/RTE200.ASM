@@ -3,29 +3,16 @@
 
 	.386
 	.MODEL small
-
 	option casemap:none
 	option proc:private
 
-EXCFRAME struct	;DPMI v0.9 exception frame
-_dpmiip    dw ?
-_dpmics    dw ?
-errorcode  dw ?
-_ip        dw ?
-_cs        dw ?
-_flags     dw ?
-_sp        dw ?
-_ss        dw ?
-EXCFRAME ends
-
-externdef c _csalias:dword
+	include config.inc
 
 	.code
 
-	public c oldexc00
+	public c dwOldexc00
 
-PF16 typedef ptr far16
-oldexc00 PF16 0
+dwOldexc00 PFAR 0
 
 myexc00 proc
 	push es
@@ -47,7 +34,7 @@ myexc00 proc
 oldexc:
 	pop ebx
 	pop es
-	jmp cs:[oldexc00]
+	jmp cs:[dwOldexc00]
 
 myexc00 endp
 
@@ -59,8 +46,8 @@ InstallExc00 proc c public uses ebx
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
-	mov word ptr oldexc00+0, dx
-	mov word ptr oldexc00+2, cx
+	mov word ptr dwOldexc00+0, dx
+	mov word ptr dwOldexc00+2, cx
 	pop ds
 	assume ds:DGROUP
 	mov edx, offset myexc00
@@ -72,8 +59,8 @@ InstallExc00 endp
 
 UninstallExc00 proc c public uses ebx
 
-	mov dx, word ptr oldexc00+0
-	mov cx, word ptr oldexc00+2
+	mov dx, word ptr dwOldexc00+0
+	mov cx, word ptr dwOldexc00+2
 	mov bl, 0
 	mov ax, 203h
 	int 31h

@@ -14,7 +14,7 @@ void VPIC_Init( uint8_t );
 
 void VIRQ_Invoke( void );
 void VIRQ_Init( uint8_t );
-void VIRQ_SetCallType( uint8_t );
+void VIRQ_Exit( uint8_t );
 
 #ifdef __cplusplus
 }

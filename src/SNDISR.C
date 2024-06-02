@@ -26,10 +26,8 @@
 
 #define MIXERROUTINE 0
 
-bool _hdpmi_InstallISR( uint8_t i, int(*ISR)(void) );
-bool _hdpmi_UninstallISR( void );
-bool _hdpmi_InstallInt31( uint8_t );
-bool _hdpmi_UninstallInt31( void );
+bool _SND_InstallISR( uint8_t, int(*ISR)(void) );
+bool _SND_UninstallISR( uint8_t );
 
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
 extern void fatal_error( int );
@@ -39,26 +37,20 @@ extern struct globalvars gvars;
 #if SETABSVOL
 uint16_t SNDISR_SB_VOL;
 #endif
-#if PREMAPDMA
-extern uint32_t SNDISR_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
-#endif
 
-static uint32_t ISR_DMA_Addr = 0;
-static uint32_t ISR_DMA_Size = 0;
-
-/* ISR_DMA_MappedAddr is dynamically set and contains the current SB DMA address;
- * it's usually in conventional memory, but might be anywhere in first 16M address space.
- * In the latter case, the address mapping will be released by HDPMI when a protected-mode
- * program exits.That's why this variable should be cleared by the int 21h handler when
- * a DOS exit occurs.
- */
-uint32_t ISR_DMA_MappedAddr = 0;
-
+struct SNDISR_s {
+	int16_t *pPCM;
+	uint32_t DMA_linearBase; /* linear start address of current DMA buffer */
+	uint32_t DMA_Base;       /* (physical) base address of DMA buffer at last remapping */
+	uint32_t DMA_Size;       /* size of DMA buffer at last remapping */
+	uint32_t Block_Handle;   /* handle of remapping block */
+	uint32_t Block_Addr;     /* linear base of remapping block ( page aligned ) */
 #ifdef _LOGBUFFMAX /* log the usage of the PCM buffer? */
-uint32_t dwMaxBytes = 0;
+	uint32_t dwMaxBytes;
 #endif
+};
 
-static int16_t *pPCM = NULL;
+static struct SNDISR_s isr = {NULL,-1,0,0};
 
 #ifndef DJGPP
 /* here malloc/free is superfast since it's a very simple "stack" */
@@ -198,7 +190,7 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 		inpos += instep;
 	}while( inpos < inend );
 
-	dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, samplenum, instep, inend, pcmdst - pcmsrc ));
+	//dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, samplenum, instep, inend, pcmdst - pcmsrc ));
 
 #if !MALLOCSTATIC
 	free(buff);
@@ -233,13 +225,8 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int samplenu
     return;
 }
 
-#ifdef DJGPP
-int SNDISR_Interrupt( uint32_t clstk_esp, uint32_t clstk_ss )
-/////////////////////////////////////////////////////////////
-#else
-int SNDISR_Interrupt( struct clientregs _far *clstat )
-//////////////////////////////////////////////////////
-#endif
+static int SNDISR_Interrupt( void )
+///////////////////////////////////
 {
     uint32_t mastervol;
     uint32_t voicevol;
@@ -313,47 +300,41 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
         bool resample; //don't resample if sample rates are close
         int bytes;
 
-        //dbgprintf(("isr: pos=%X bytes=%d rate=%d smpsize=%u chn=%u DMAidx=%u\n", SB_Pos, SB_BuffSize, SB_Rate, samplesize, channels, DMA_Index ));
         /* a while loop that may run 2 times if a SB buffer overrun occured */
         do {
             uint32_t DMA_Base = VDMA_GetBase(dmachannel);
             uint32_t DMA_Index = VDMA_GetIndex(dmachannel);
             int32_t DMA_Count = VDMA_GetCount(dmachannel);
-            uint32_t SB_BuffSize = VSB_GetSampleBufferSize();
+            uint32_t SB_BuffSize = VSB_GetSampleBufferSize(); /* buffer size in bytes */
             uint32_t SB_Pos = VSB_GetPos();
             uint32_t SB_Rate = VSB_GetSampleRate();
-#if !PREMAPDMA
-            /* check if the current DMA address is within the mapped region.
-             * if no, release current mapping region.
-             */
-            if( ISR_DMA_MappedAddr && !(DMA_Base >= ISR_DMA_Addr && DMA_Base + DMA_Index + DMA_Count <= ISR_DMA_Addr + ISR_DMA_Size )) {
-                if( ISR_DMA_MappedAddr >= 0x100000 ) {
-                    __dpmi_meminfo info;
-                    info.address = ISR_DMA_MappedAddr;
-                    __dpmi_free_physical_address_mapping(&info);
+            int IsSilent = VSB_IsSilent();
+            if ( IsSilent ) {
+                DMA_Count = SB_BuffSize;
+            } else {
+                /* check if the current DMA buffer is within the mapped region. */
+                if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
+                    isr.DMA_linearBase = -1;
                 }
-                ISR_DMA_MappedAddr = 0;
-            }
-            /* if there's no mapped region, create one that covers current DMA op
-             */
-            if( ISR_DMA_MappedAddr == 0) {
-                ISR_DMA_Addr = DMA_Base;
-                ISR_DMA_Size = max( min(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
-                if ( DMA_Base < 0x100000 )
-                    ISR_DMA_MappedAddr = DMA_Base;
-                else {
-                    __dpmi_meminfo info;
-                    info.address = ISR_DMA_Addr;
-                    info.size = ISR_DMA_Size;
-                    if( __dpmi_physical_address_mapping(&info) == -1 )
-                        fatal_error( 2 );
-                    ISR_DMA_MappedAddr = info.address;
+                /* if there's no mapped region, create one that covers current DMA op. */
+                if( isr.DMA_linearBase == -1 ) {
+                    isr.DMA_Base = DMA_Base;
+                    isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
+                    if ( DMA_Base < 0x100000 )
+                        isr.DMA_linearBase = DMA_Base;
+                    else {
+                        /* size is in pages, phys. address must have bits 0-11 cleared */
+                        if( __dpmi_map_physical_device(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
+                            fatal_error( 2 );
+                        isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
+                    }
+                    dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n", isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
                 }
-                dbgprintf(("isr, ISR_DMA address (re)mapped: DMA_Base=%x, DMA_Size=%x, DMA_MappedAddr=%x\n", ISR_DMA_Addr, ISR_DMA_Size, ISR_DMA_MappedAddr ));
             }
-#endif
             count = samples - IdxSm;
-            resample = true; //don't resample if sample rates are close
+            /* don't resample if sample rates are close.
+             */
+            resample = true;
             if( SB_Rate < freq )
                 //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
                 count = max( 1, count * SB_Rate / freq );
@@ -372,30 +353,26 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
             bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer */
-#if PREMAPDMA
-            memcpy( pPCM + IdxSm * 2, NearPtr( SNDISR_MappedBase + DMA_Base + DMA_Index, bytes ));
-#else
-            if( ISR_DMA_MappedAddr == 0 || VSB_IsSilent() ) {//map failed?
-                memset( pPCM + IdxSm * 2, 0, bytes);
+            if( isr.DMA_linearBase == -1 || IsSilent ) {//map failed?
+                memset( isr.pPCM + IdxSm * 2, 0, bytes);
             } else
-                memcpy( pPCM + IdxSm * 2, NearPtr(ISR_DMA_MappedAddr + ( DMA_Base - ISR_DMA_Addr) + DMA_Index ), bytes );
-#endif
+                memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
 
             /* format conversion needed? */
 #if ADPCM
             if( VSB_GetBits() < 8)
-                count = DecodeADPCM((uint8_t*)(pPCM + IdxSm * 2), bytes);
+                count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_8_to_16( pPCM + IdxSm * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
+                cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
-                for ( i = IdxSm * 2, j = i + count * channels; i < j; *(pPCM+i) ^= 0x8000, i++ );
+                for ( i = IdxSm * 2, j = i + count * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
 #endif
             if( resample ) /* SB_Rate != freq */
-                count = cv_rate( pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
+                count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
             if( channels == 1) //should be the last step
-                cv_channels_1_to_2( pPCM + IdxSm * 2, count);
+                cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
 
             /* conversion done; now set new values for DMA and SB buffer;
              * in case the end of SB buffer is reached, emulate an interrupt
@@ -403,44 +380,55 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
              */
             IdxSm += count;
             //dbgprintf(("isr: samples:%d %d %d\n", count, IdxSm, samples));
-            DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
-            DMA_Count = VDMA_GetCount( dmachannel );
+            if ( !IsSilent ) {
+                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
+                DMA_Count = VDMA_GetCount( dmachannel );
+            }
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
-            if( SB_Pos >= SB_BuffSize ) {
-                dbgprintf(("isr: Pos/BuffSize=%u/%u samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_BuffSize, samples, count, bytes, VDMA_GetIndex(dmachannel), VDMA_GetCount(dmachannel) ));
+            if( VSB_GetIRQStatus() ) {
+                dbgprintf(("isr: Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0); /* */
-                VSB_SetIRQStatus();
                 VIRQ_Invoke();
             }
+#ifdef _DEBUG
+            else dbgprintf(("isr: Pos/BuffSize=0x%X/0x%X bytes=%u silent=%u\n", SB_Pos, SB_BuffSize, bytes, IsSilent ));
+#endif
         } while(VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running());
 
-        /* in case there weren't enough samples copied, fill the rest with silence */
+        /* in case there weren't enough samples copied, fill the rest with silence.
+         * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,
+         * the program may want to instantly initiate another DSP play cmd.
+         */
+#if 0
         for( i = IdxSm; i < samples; i++ )
-            *(pPCM + i*2+1) = *(pPCM + i*2) = 0;
+            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+#else
+        samples = IdxSm;
+#endif
 
-	} else if ( i = VSB_GetDirectCount( &pDirect ) ) {
+    } else if ( i = VSB_GetDirectCount( &pDirect ) ) {
 
-		int count = i;
-		uint32_t freq = AU_getfreq( hAU );
+        int count = i;
+        uint32_t freq = AU_getfreq( hAU );
 
-		/* calc the src frequency by formula:
-		 * x / dst-freq = src-smpls / dst-smpls
-		 * x = src-smpl * dst-freq / dst-smpls
-		 */
-		uint32_t SB_Rate = count * freq / samples;
+        /* calc the src frequency by formula:
+         * x / dst-freq = src-smpls / dst-smpls
+         * x = src-smpl * dst-freq / dst-smpls
+         */
+        uint32_t SB_Rate = count * freq / samples;
 
-		//dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
-		memcpy( pPCM, pDirect, count );
-		cv_bits_8_to_16( pPCM, count );
-		count = cv_rate( pPCM, count, 1, SB_Rate, freq );
-		cv_channels_1_to_2( pPCM, count );
-		for( i = count; i < samples; i++ )
-			*(pPCM + i*2+1) = *(pPCM + i*2) = 0;
-		VSB_ResetDirectCount();
-		digital = true;
-	}
+        //dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
+        memcpy( isr.pPCM, pDirect, count );
+        cv_bits_8_to_16( isr.pPCM, count );
+        count = cv_rate( isr.pPCM, count, 1, SB_Rate, freq );
+        cv_channels_1_to_2( isr.pPCM, count );
+        for( i = count; i < samples; i++ )
+            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+        VSB_ResetDirectCount();
+        digital = true;
+    }
 
     /* software mixer: very simple implemented - but should work quite well */
 
@@ -448,7 +436,7 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
 #ifndef NOFM
     if( VOPL3_IsActive() ) {
         int channels;
-        pPCMOPL = digital ? pPCM + samples * 2 : pPCM;
+        pPCMOPL = digital ? isr.pPCM + samples * 2 : isr.pPCM;
         VOPL3_GenSamples( pPCMOPL, samples ); //will generate samples*2 if stereo
         //always use 2 channels
         channels = VOPL3_GetMode() ? 2 : 1;
@@ -458,41 +446,41 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
         if( digital ) {
 #if MIXERROUTINE==0
             for( i = 0; i < samples * 2; i++ ) {
-                int a = (*(pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
+                int a = (*(isr.pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (*(pPCMOPL+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
-                *(pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
+                *(isr.pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
             }
 #elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
-            for( i = 0; i < samples * 2; i++ ) *(pPCM+i) = ( *(pPCM+i) * voicevol + *(pPCMOPL+i) * midivol ) >> (8+1);
+            for( i = 0; i < samples * 2; i++ ) *(isr.pPCM+i) = ( *(isr.pPCM+i) * voicevol + *(pPCMOPL+i) * midivol ) >> (8+1);
 #else
             /* in assembly it's probably easier to handle signed/unsigned shifts */
-            SNDISR_Mixer( pPCM, pPCMOPL, samples * 2, voicevol, midivol );
+            SNDISR_Mixer( isr.pPCM, pPCMOPL, samples * 2, voicevol, midivol );
 #endif
 #ifdef _LOGBUFFMAX
-            if ( (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t) > dwMaxBytes )
-                dwMaxBytes = (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t);
+            if ( (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
+                isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
 #endif
         } else
             for( i = 0; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * midivol ) >> 8;
     } else {
 #endif
         if( digital ) {
-            for( i = 0, pPCMOPL = pPCM; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
+            for( i = 0, pPCMOPL = isr.pPCM; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
             //dbgprintf(("+"));
 #ifdef _LOGBUFFMAX
-            if ( (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t) > dwMaxBytes )
-                dwMaxBytes = (( pPCMOPL + samples * 2 ) - pPCM ) * sizeof(int16_t);
+            if ( (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
+                isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
 #endif
         } else
-            memset( pPCM, 0, samples * sizeof(int16_t) * 2 );
+            memset( isr.pPCM, 0, samples * sizeof(int16_t) * 2 );
 #ifndef NOFM
     }
 #endif
     //aui.samplenum = samples * 2;
     //aui.pcm_sample = ISR_PCM;
-    AU_writedata( hAU, samples * 2, pPCM );
+    AU_writedata( hAU, samples * 2, isr.pPCM );
 
 #if DISPSTAT
     if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, digital=%u\n", samples, digital );
@@ -508,8 +496,8 @@ int SNDISR_Interrupt( struct clientregs _far *clstat )
     return(1);
 }
 
-bool SNDISR_InstallISR( uint8_t intno, int(*ISR)(void) )
-////////////////////////////////////////////////////////
+bool SNDISR_Init( uint8_t intno )
+/////////////////////////////////
 {
     __dpmi_meminfo info;
     info.address = 0;
@@ -519,24 +507,27 @@ bool SNDISR_InstallISR( uint8_t intno, int(*ISR)(void) )
 
     /* uncommit the page behind the buffer so a buffer overflow will cause a page fault */
     __dpmi_set_page_attr( info.handle, gvars.buffsize * 4096, 1, 0);
-    pPCM = NearPtr( info.address );
-    dbgprintf(("SNDISR_InstallISR: pPCM=%X\n", pPCM ));
-    if ( _hdpmi_InstallISR( intno, ISR ) ) {
-        if ( _hdpmi_InstallInt31( intno ) ) {
-            return true;
-        }
-    }
-    return false;
+    isr.pPCM = NearPtr( info.address );
+    dbgprintf(("SNDISR_InstallISR: pPCM=%X\n", isr.pPCM ));
+
+    info.address = 0;
+    info.size = 0x20000 + 0x1000;
+    if ( __dpmi_allocate_linear_memory( &info, 0 ) == -1 )
+        return false;
+
+    isr.Block_Handle = info.handle;
+    isr.Block_Addr   = info.address;
+
+    return _SND_InstallISR( intno, &SNDISR_Interrupt );
 }
-bool SNDISR_UninstallISR( void )
-////////////////////////////////
+
+bool SNDISR_Exit( intno )
+/////////////////////////
 {
-    /* first uninstall int 31h, then ISR! */
 #ifdef _LOGBUFFMAX
-    printf("max PCM buffer usage: %u\n", dwMaxBytes );
+    printf("max PCM buffer usage: %u\n", isr.dwMaxBytes );
 #endif
-    _hdpmi_UninstallInt31();
-    return ( _hdpmi_UninstallISR() );
+    return ( _SND_UninstallISR( intno ) );
 }
 
 

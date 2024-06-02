@@ -40,6 +40,9 @@
 #define VERMAJOR "1"
 #define VERMINOR "4"
 
+bool _InstallInt31( void );
+bool _UninstallInt31( void );
+
 #ifndef DJGPP
 uint32_t    __djgpp_stack_top;
 uint32_t _linear_psp;
@@ -78,13 +81,9 @@ uint32_t _get_stack_top( void );
 
 int hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
 static int freq = 22050; /* default value for AU_setrate() */
-int jhdpmi = 0; /* default: assume jhdpmi isn't loaded */
 
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
-#if PREMAPDMA
-uint32_t MAIN_MappedBase; /* linear address mapped ISA DMA region (0x000000 - 0xffffff) */
-#endif
 #if SETABSVOL
 extern uint16_t SNDISR_SB_VOL = 0; //initial set volume will cause interrupt missing?
 #endif
@@ -102,7 +101,11 @@ TYPE_DEFAULT,
 #if VMPU
 0, /* no default for Midi port */
 #endif
-true, true, true, VOL_DEFAULT, 16 };
+true, true, true, VOL_DEFAULT, 16, /* OPL3, rm, pm, vol, buffsize */
+#if SLOWDOWN
+0,
+#endif
+};
 
 static const struct {
     const char *option;
@@ -111,7 +114,7 @@ static const struct {
 } GOptions[] = {
     "/?", "Show help", &bHelp,
     "/A", "Set IO base address [220|240, def 220]", &gvars.base,
-    "/I", "Set IRQ number [5|7, def 7]", &gvars.irq,
+    "/I", "Set IRQ number [2|5|7, def 7]", &gvars.irq,
     "/D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
 #if SB16
     "/H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
@@ -149,28 +152,6 @@ static const char* MAIN_SBTypeString[] =
 #endif
 };
 
-#if PREMAPDMA
-static uint32_t MapFirst16M( void )
-///////////////////////////////////
-{
-    /* ensure the mapping doesn't cover linear address 4M.
-     * to make this work, allocated uncommitted memory block of 63 MB.
-     */
-    uint16_t tmp;
-    uint32_t result;
-    __dpmi_meminfo info;
-
-    /* ensure the mapping returns linear address beyond 64M*/
-    info.address = 0;
-    info.size = 0x3F00000;
-    tmp = __dpmi_allocate_linear_memory( &info, 0 );
-    result = DPMI_MapMemory( 0, 0x1000000 ); /* map the whole region that may be used by ISA DMA */
-    if ( tmp != -1 )
-        __dpmi_free_memory( info.handle );
-    return( result );
-}
-#endif
-
 int _is_installed( void );
 
 static int IsInstalled( void )
@@ -200,7 +181,11 @@ void fatal_error( int nError )
 static void ReleaseRes( void )
 //////////////////////////////
 {
-	if (bISR) SNDISR_UninstallISR();
+	_UninstallInt31(); /* must be called before SNDISR_Exit() */
+	if (bISR) {
+		VIRQ_Exit( gvars.irq );
+		SNDISR_Exit( PIC_IRQ2VEC( AU_getirq( hAU ) ) );
+	}
 
 	if( gvars.rm )
 		PTRAP_Uninstall_RM_PortTraps();
@@ -340,17 +325,17 @@ int main(int argc, char* argv[])
         printf("Error: invalid IO base address: %x\n", gvars.base );
         return 1;
     }
-    if( gvars.irq != 0x5 && gvars.irq != 0x7 ) {
-        printf("Error: invalid IRQ %d\n", gvars.irq );
+    if( gvars.irq != 2 && gvars.irq != 5 && gvars.irq != 7 ) {
+        printf("Error: accepted as IRQ: 2, 5 or 7\n" );
         return 1;
     }
     if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 ) {
-        printf("Error: invalid DMA channel %d\n", gvars.dma );
+        printf("Error: accepted as DMA channel: 0, 1 or 3\n" );
         return 1;
     }
 #if SB16
     if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
-        printf("Error: invalid HDMA channel: %d\n", gvars.hdma );
+        printf("Error: acceoted as HDMA channel: 5, 6 or 7\n" );
         return 1;
     }
 #endif
@@ -422,9 +407,6 @@ int main(int argc, char* argv[])
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
-    VPIC_Init( AU_getirq( hAU ) );
-    VIRQ_Init( gvars.irq );
-
     AU_setmixer_init( hAU );
 
 #if SETABSVOL
@@ -442,7 +424,6 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
-
     printf("Real mode support: %s.\n", gvars.rm ? "enabled" : "disabled");
     printf("Protected mode support: %s.\n", gvars.pm ? "enabled" : "disabled");
 
@@ -455,6 +436,8 @@ int main(int argc, char* argv[])
     if ( gvars.type < 6 )
         gvars.hdma = 0;
 #endif
+
+    VPIC_Init( AU_getirq( hAU ) );
 
 #ifdef NOFM
     gvars.opl3 = 0;
@@ -509,7 +492,7 @@ int main(int argc, char* argv[])
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
      * result in problems, since that memory is released when that client exits.
-     * This temp alloc is best done before SNDISR_InstallISR() is called.
+     * This temp alloc is best done before SNDISR_Init() is called.
      */
     /* open cube player may crash on exit with 64 kb (page fault); that's quite strange, since
      * any amount that exceeeds the size of the PCM buffer (64kB) is virtually wasted. Must be
@@ -518,19 +501,18 @@ int main(int argc, char* argv[])
     if (p = malloc( 0x10000 ) )
         free( p );
 
-    bISR = SNDISR_InstallISR(PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );
+    bISR = SNDISR_Init(PIC_IRQ2VEC( AU_getirq( hAU ) ) );
+
+    if ( bISR ) {
+        VIRQ_Init( gvars.irq );
+        _InstallInt31();
+    }
 
     PIC_UnmaskIRQ( AU_getirq( hAU ) );
 
     //AU_prestart( hAU );
     AU_start( hAU );
     if (bOMode & 1 ) bOMode = 2; /* switch to low-level i/o */
-
-#if PREMAPDMA
-    /* Map the full first 16M to simplify DMA mem access */
-    MAIN_MappedBase = MapFirst16M();
-    dbgprintf(("MappedBase=%x\n", MAIN_MappedBase ));
-#endif
 
     if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;

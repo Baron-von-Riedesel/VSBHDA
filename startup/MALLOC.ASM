@@ -23,7 +23,7 @@ __brk proto c :dword
 
 malloc proc c public amnt:dword
 
-ifdef _DEBUG
+if 0;def _DEBUG
 	mov eax, _curbrk
 	sub eax, _dynend
 	@dprintf CStr("%X: malloc(%X) free=%X (dynend/curbrk=%X/%X",10), cs, amnt, eax, _dynend, _curbrk
@@ -64,7 +64,7 @@ free proc c public pMem:ptr
 	ret
 reset:
 	mov _dynend, ecx
-	@dprintf CStr("%X: free(%X) ok",10), cs, ecx
+;	@dprintf CStr("%X: free(%X) ok",10), cs, ecx
 	ret
 free endp
 

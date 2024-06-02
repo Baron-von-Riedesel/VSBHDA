@@ -6,104 +6,50 @@
 	option casemap:none
 	option proc:private
 
-	public dfOldISR
-	public dwDS
-
+	include config.inc
 	include debug.inc
 
-SETIF equ 1	;must match SETIF in config.h
+	public dwDS
 
 externdef c __djgpp_stack_top:dword
+externdef bIntSnd:byte
+
+STACKCHECK equ 0
 
 ifdef NOTFLAT
 
 STACKCORR equ 2048
 
-externdef c _csalias:dword
-
-SEGOFS equ 2
-insIRET textequ <iret>
-insPUSHF textequ <pushf>
-PF16 typedef ptr far16
-
 	.code
 
-externdef oldint31:PF16
-
-dfOldISR PF16 ?
+dfOldSndVec PFAR ?
+currSndvec  PFAR ?	; current vector for sound ISR
 dwDS    dd ?
+
+	.data
 
 else
 
 STACKCORR equ 4096
 
 	assume ds:_DATA
-SEGOFS equ 4
-insIRET textequ <iretd>
-insPUSHF textequ <pushfd>
 
 	.data
 
-externdef oldint31:FWORD
-
+dfOldSndVec PFAR ?
+	align 4
+currSndvec  PFAR ?	; current vector for sound ISR
+	align 4
 dwDS    dd ?
-dfOldISR df ?
 
 endif
 
-	.data
-
-	align 4
 dwISR	dd ?
-intno	db ?
+if STACKCHECK
+dwStackBottom dd ?
+endif
 
 	.code
-
-PUSHADS struct
-_Edi	dd ?
-_Esi	dd ?
-_Ebp	dd ?
-		dd ?
-_Ebx	dd ?
-_Edx	dd ?
-_Ecx	dd ?
-_Eax	dd ?
-PUSHADS ends
-
-;--- this is supposed to be the status of the client stack
-;--- it's valid for SwitchStackISR and SwitchStackIO, but
-;--- not for SwitchStackIOrmcb!
-
-CLFRAME struct
-_Es     dd ?
-_Ds     dd ?
-        PUSHADS <>
-CLFRAME ends
-
-;--- this variant runs the SB IRQ emulation on the client stack.
-
-_FastCall proc syscall public uses ds es ebx esi edi bIrq:byte
-
-	movzx ecx, bIrq
-	mov ebx, [__djgpp_stack_top]
-	mov edi, ss
-	mov esi, esp
-	lss esp, [ebx-8]
-	pop es
-	pop ds
-	cmp cl,5
-	jz is5
-	int 0Fh
-	jmp exit
-is5:
-	int 0Dh
-exit:
-	push ds
-	push es
-	mov ss, edi
-	mov esp, esi
-	ret
-_FastCall endp
 
 ;--- ISR for sound hw interrupt occuring in protected-mode
 
@@ -119,6 +65,11 @@ SwitchStackISR proc
 	mov ecx, esp
 
 	sub [__djgpp_stack_top], STACKCORR
+if STACKCHECK
+	mov eax, [__djgpp_stack_top]
+	cmp eax, [dwStackBottom]
+	jc failure
+endif
 ifdef _DEBUG
 	mov eax, [__djgpp_stack_top]	; test if the new stack is writable before ss is changed
 	mov [eax-4], eax
@@ -134,32 +85,102 @@ endif
 	pop es
 	pop ds
 	popad
-	jz @F
-ife SETIF
-;--- if SETIF==1, interrupts were enabled inside SNDISR. But
-;--- it might still be a good idea to enable ints here, in case
-;--- VIRQ_Invoke() did disable interrupts.
- if 0
-	sti
- else
-	push eax
-	mov ax, 901h
-	insPUSHF
-	call cs:[oldint31]
-	pop eax
- endif
-endif
+	jz prevhdlr
 	insIRET
-@@:
-	jmp cs:[dfOldISR]
+prevhdlr:
+	jmp cs:[dfOldSndVec]
+if STACKCHECK
+failure:
+externdef c fatal_error:near
+	push 3
+	call fatal_error
+endif
 SwitchStackISR endp
+
+if TRAPINT21
+
+;--- int 21h, ax=25xx,35xx called
+
+_Snd_Notify21 proc public
+	cmp ah, 25h
+	jz is_25
+ifdef NOTFLAT
+	mov bx, word ptr cs:[currSndvec+0]
+	mov es, word ptr cs:[currSndvec+SEGOFS]
+else
+	mov ebx, dword ptr cs:[currSndvec+0]
+	mov es,   word ptr cs:[currSndvec+SEGOFS]
+endif
+	clc
+	ret
+is_25:
+	push es
+ifdef NOTFLAT
+	mov es, cs:[_csalias]
+	assume es:_TEXT
+else
+	mov es, cs:[dwDS]
+endif
+	mov dword ptr es:[currSndvec+0], edx
+	mov word ptr es:[currSndvec+SEGOFS], ds
+	pop es
+ifdef NOTFLAT
+	assume es:DGROUP
+endif
+	clc
+	ret
+_Snd_Notify21 endp
+
+endif
+
+NOTFR struct
+	dd ?	;return
+	IRETS <>
+NOTFR ends
+
+;--- int 31h, ax=204/205 called with BL=snd interrupt
+
+_Snd_Notify31 proc public
+	and byte ptr [esp].NOTFR._fl, not 1
+	cmp al, 5
+	jz is_05
+ifdef NOTFLAT
+	mov dx, word ptr cs:[currSndvec+0]
+else
+	mov edx, dword ptr cs:[currSndvec+0]
+endif
+	mov cx, word ptr cs:[currSndvec+SEGOFS]
+	clc
+	ret
+
+is_05:
+	push ds
+ifdef NOTFLAT
+	mov ds, cs:[_csalias]
+	assume ds:_TEXT
+else
+	mov ds, cs:[dwDS]
+endif
+	mov dword ptr [currSndvec+0], edx
+	mov word ptr [currSndvec+SEGOFS], cx
+	pop ds
+ifdef NOTFLAT
+	assume ds:DGROUP
+endif
+	clc
+	ret
+_Snd_Notify31 endp
 
 ;--- install the sound ISR
 ;--- the idea is to hide this ISR from the ring3 DOS extender;
 
-_hdpmi_InstallISR proc public uses ebx interrupt:byte, isr:dword
+_SND_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
-	@dprintf CStr("hdpmi_InstallISR enter",10)
+	@dprintf CStr("SND_InstallISR enter",10)
+
+	mov eax, isr
+	mov dwISR, eax
+
 	mov bl, interrupt
 	mov ax, 204h
 	int 31h
@@ -169,35 +190,43 @@ ifdef NOTFLAT
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
 endif
-	mov dword ptr dfOldISR+0, edx
-	mov word ptr dfOldISR+SEGOFS, cx
+	mov dword ptr [dfOldSndVec + 0], edx
+	mov word ptr [dfOldSndVec + SEGOFS], cx
+	mov dword ptr [currSndvec + 0], edx
+	mov word ptr [currSndvec + SEGOFS], cx
+
 	mov dwDS, ss
+	mov [bIntSnd], bl	; activates notification by int 31h handler
+
 ifdef NOTFLAT
 	pop ds
 	assume ds:DGROUP
 endif
-	mov intno, bl
-	mov edx, isr
-	mov dwISR, edx
-
 	mov ecx, cs
 	mov edx, offset SwitchStackISR
 	mov ax, 205h
 	int 31h
 	jc error
+
+if STACKCHECK
+	mov eax, [__djgpp_stack_top]
+	sub eax, 10000h
+	mov [dwStackBottom], eax
+endif
+
 	mov eax, 1
 	ret
 error:
 	xor eax, eax
 	ret
-_hdpmi_InstallISR endp
+_SND_InstallISR endp
 
-_hdpmi_UninstallISR proc public uses ebx
+_SND_UninstallISR proc public uses ebx interrupt:byte
 
-	@dprintf CStr("hdpmi_UninstallISR enter",10)
-	mov edx, dword ptr dfOldISR
-	mov cx, word ptr dfOldISR+SEGOFS
-	mov bl, intno
+	@dprintf CStr("SND_UninstallISR enter",10)
+	mov edx, dword ptr dfOldSndVec
+	mov cx, word ptr dfOldSndVec+SEGOFS
+	mov bl, interrupt
 	mov ax, 205h
 	int 31h
 	jc error
@@ -207,6 +236,6 @@ error:
 	xor eax, eax
 	ret
 
-_hdpmi_UninstallISR endp
+_SND_UninstallISR endp
 
 	END

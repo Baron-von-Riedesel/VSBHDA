@@ -7,8 +7,6 @@
 	option casemap:none
 	option proc:private
 
-PREMAPDMA equ 0
-
 if 1	; it's optional
 
 MEMINFO struct
@@ -101,7 +99,7 @@ __dpmi_free_real_mode_callback proc c public pRMCB:ptr
 	align 4
 __dpmi_free_real_mode_callback endp
 
-if PREMAPDMA
+if 0
 
 __dpmi_free_memory proc c public uses esi edi dwHandle:dword
 	mov di, word ptr dwHandle+0
@@ -130,6 +128,20 @@ __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:d
 	ret
 	align 4
 __dpmi_allocate_linear_memory endp
+
+;--- ax=508h
+
+__dpmi_map_physical_device proc c public uses ebx esi handle:ptr, ofs:dword, pages:dword, physaddr:dword
+	mov esi, handle
+	mov ebx, ofs
+	mov ecx, pages
+	mov edx, physaddr
+	mov ax, 508h
+	int 31h
+	sbb eax, eax
+	ret
+	align 4
+__dpmi_map_physical_device endp
 
 __dpmi_set_page_attr proc c public uses ebx edi esi handle:ptr, ofs:dword, pages:dword, attr:word
 	mov esi, handle

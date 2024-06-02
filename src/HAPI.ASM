@@ -6,6 +6,8 @@
 	option casemap:none
 	option proc:private
 
+	include config.inc
+
 _hdpmi_traphandler struct
 ifdef NOTFLAT
 wOfsIn dw ?
@@ -20,21 +22,15 @@ wSegOut dw ?
 endif
 _hdpmi_traphandler ends
 
-ifdef NOTFLAT
-SEGOFS equ 2
-PF16 typedef ptr far16
-externdef c HDPMIAPI_Entry: PF16
-else
-	assume ds:_DATA
-SEGOFS equ 4
-externdef c HDPMIAPI_Entry: fword
-endif
+externdef c HDPMIAPI_Entry: PFAR
 
 @hdpmicall macro
 	call HDPMIAPI_Entry
 endm
 
-	.data
+ifndef NOTFLAT
+	assume ds:_DATA
+endif
 
 	.code
 

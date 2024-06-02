@@ -72,12 +72,15 @@ i64toa PROC stdcall uses esi edi number:qword, outb:ptr, base:dword
 
 i64toa ENDP
 
+	.data?
+szTmp db 24 dup (?)
+	.code
+
 vprintf proc c uses ebx esi edi fmt:ptr sbyte, pArgs:ptr
 local flag:byte
 local longarg:byte
 local size_:dword
 local fillchr:dword
-local szTmp[24]:byte
 
 	mov edi,pArgs
 @@L335:
@@ -91,7 +94,6 @@ nextchar:
 	call handle_char
 	jmp nextchar
 done:
-	xor eax,eax
 	ret 
 
 formatitem:
@@ -148,14 +150,14 @@ formatitem:
 	pop eax
 	jmp done
 handle_c:
-	mov eax,[edi]
+	mov eax,ss:[edi]
 	add edi, 4
 @@:
 	call handle_char
 	retn
 
 handle_s:
-	mov esi,[edi]
+	mov esi,ss:[edi]
 	add edi,4
 	jmp print_string
 handle_d:
@@ -169,11 +171,11 @@ handle_x:
 	mov ebx, 16
 @@:
 	xor edx,edx
-	mov eax,[edi]
+	mov eax,ss:[edi]
 	add edi,4
 	cmp longarg,1
 	jnz @F
-	mov edx,[edi]
+	mov edx,ss:[edi]
 	add edi,4
 	jmp printnum
 @@:
@@ -238,6 +240,10 @@ handle_char:
 vprintf endp
 
 ifdef _DEBUG
+
+;--- DS must be dgroup.
+;--- VioOut expects ES=dgroup.
+;--- SS is unknown.
 
 	alias <___dprintf> = <_dprintf>
 

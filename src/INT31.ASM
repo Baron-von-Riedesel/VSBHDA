@@ -1,42 +1,43 @@
 
 ;--- Int 31h/21h hook; purposes:
-;--- 1. to hide the sound hw IRQ from client
-;--- 2. clear ISR_DMA_MappedAddr at DOS exit, since it will be released by hdpmi
+;--- # hide the sound hw IRQ from client
 
 	.386
 	.MODEL ?MODEL, c
 	option casemap:none
 	option proc:private
 
+	include config.inc
 	include debug.inc
 
-externdef c ISR_DMA_MappedAddr:dword
+	public oldint21
+	public bIntSnd
+	public bIntSB
+
+externdef _SB_Notify31:near
+externdef _Snd_Notify31:near
+if TRAPINT21
+externdef _SB_Notify21:near
+externdef _Snd_Notify21:near
+endif
 
 ifdef NOTFLAT
 
 InstallExc00 proto 
 UninstallExc00 proto 
 
-externdef c _csalias:dword
-
 	.code
 
-SEGOFS equ 2
-IRETFLOFS equ 2*2
-insIRET textequ <IRET>
+externdef dwOldexc00:dword	; in _TEXT for 16-bit
 
-externdef dfOldISR:dword	; in _TEXT for 16-bit
-externdef oldexc00:dword	; in _TEXT for 16-bit
+oldint31 PFAR ?
+ if TRAPINT21
+oldint21 PFAR ?
+ endif
 
-	public oldint31
-
-PF16 typedef ptr far16
-oldint31 PF16 ?
-oldint21 PF16 ?
-currsndint dd ?	; current vector for sound ISR
-
-dsseg dw ?
-intno db ?
+bIntSnd db -1
+bIntSB  db -1
+	align 4
 
 else
 
@@ -44,23 +45,17 @@ else
 
 	.data
 
-SEGOFS equ 4
-IRETFLOFS equ 2*4
-insIRET textequ <IRETD>
+oldint31 PFAR ?
+	align 4
+ if TRAPINT21
+oldint21 PFAR ?
+	align 4
+ endif
+ 
+bIntSnd db -1
+bIntSB  db -1
 
-externdef dfOldISR:fword
-
-	public oldint31
-
-oldint31 df ?
-	dw ?
-oldint21 df ?
-	dw ?
-currsndint df ?	; current vector for sound ISR
-	dw ?
-
-dsseg dw ?
-intno db ?
+	align 4
 
 	.code
 
@@ -69,55 +64,41 @@ endif
 myint31 proc
 
 ifdef NOTFLAT
-	cmp ax, 202h
+	cmp ax, 202h	; get exc vector
 	jz is202
-	cmp ax, 203h
+	cmp ax, 203h	; set exc vector
 	jz is203
 endif
-	cmp ax, 204h
+	cmp ax, 204h	; get int vector
 	jz is204
-	cmp ax, 205h
+	cmp ax, 205h	; set int vector
 	jz is205
 prevint:
 	jmp cs:[oldint31]
 is204:
 is205:
-	cmp bl, cs:[intno]
-	jnz prevint
-	cmp al, 5
-	jz is05
-ifdef NOTFLAT
-	mov dx, word ptr cs:[currsndint+0]
-else
-	mov edx, dword ptr cs:[currsndint+0]
-endif
-	mov cx, word ptr cs:[currsndint+SEGOFS]
-	and byte ptr [esp+IRETFLOFS], 0feh
+	cmp bl, -1
+	jz prevint
+	cmp bl, cs:[bIntSnd]
+	jz is_snd
+	cmp bl, cs:[bIntSB]
+	jz is_SB
+	jmp prevint
+is_snd:
+	call _Snd_Notify31
+	jc prevint
 	insIRET
-is05:
-	push eax
-	push ds
-ifdef NOTFLAT
-	mov ds, cs:[_csalias]
-	assume ds:_TEXT
-else
-	mov ds, cs:[dsseg]
-endif
-	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+SEGOFS], cx
-	pop ds
-ifdef NOTFLAT
-	assume ds:DGROUP
-endif
-	pop eax
-	and byte ptr [esp+IRETFLOFS], 0feh
+is_SB:
+	call _SB_Notify31
+	jc prevint
 	insIRET
+
 ifdef NOTFLAT
 is202:
 	cmp bl,0
 	jnz prevint
-	mov dx, word ptr cs:[oldexc00+0]
-	mov cx, word ptr cs:[oldexc00+2]
+	mov dx, word ptr cs:[dwOldexc00+0]
+	mov cx, word ptr cs:[dwOldexc00+2]
 	insIRET
 is203:
 	cmp bl,0
@@ -125,14 +106,37 @@ is203:
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
-	mov word ptr [oldexc00+0], dx
-	mov word ptr [oldexc00+2], cx
+	mov word ptr [dwOldexc00+0], dx
+	mov word ptr [dwOldexc00+2], cx
 	pop ds
 	assume ds:DGROUP
+;--- this is a bit critical, stack may be 16-bit
+;--- but for HDPMI16 it should be ok.
+	and byte ptr [esp].IRETS._fl, not 1
 	insIRET
 endif
 	align 4
+
 myint31 endp
+
+if TRAPINT21
+
+;--- int 21h proc
+
+;--- a DOS/4GW bug has the strange effect that
+;--- protected-mode vector for Int 21h must have hiword(edx) cleared!
+;--- (because DOS/4GW, after reading this vector, sets exception vectors without
+;--- clearing hiword(edx).
+
+if @Model eq 7
+	.data
+	align 4
+int21tmp label byte
+	db 0EAh		; jmp far32 ssss:oooooooo
+	dd offset myint21
+int21tmpCS dw 0
+	.code
+endif
 
 myint21 proc
 
@@ -140,56 +144,37 @@ myint21 proc
 	jz is25
 	cmp ah, 35h
 	jz is35
-	cmp ah, 4Ch
-	jz is4C
 prevint:
 	jmp cs:[oldint21]
-is4C:
-	push ds
-	mov ds, cs:[dsseg]
-	mov [ISR_DMA_MappedAddr], 0
-	pop ds
-	jmp prevint
 is25:
 is35:
-	cmp al, cs:[intno]
-	jnz prevint
-	cmp ah, 25h
-	jz isset
-ifdef NOTFLAT
-	mov bx, word ptr cs:[currsndint+0]
-else
-	mov ebx, dword ptr cs:[currsndint+0]
-endif
-	mov es, word ptr cs:[currsndint+SEGOFS]
-	and byte ptr [esp+IRETFLOFS], 0feh
+	cmp al,-1
+	jz prevint
+	cmp al, cs:[bIntSnd]
+	jz isSnd
+	cmp al, cs:[bIntSB]
+	jz isSB
+	jmp prevint
+isSnd:
+	call _Snd_Notify21
+	jc prevint
 	insIRET
-isset:
-	push eax
-	push ds
-ifdef NOTFLAT
-	mov ds, cs:[_csalias]
-	assume ds:_TEXT
-else
-	mov ds, cs:[dsseg]
-endif
-	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+SEGOFS], cx
-	pop ds
-ifdef NOTFLAT
-	assume ds:DGROUP
-endif
-	pop eax
-	and byte ptr [esp+IRETFLOFS], 0feh
+isSB:
+	call _SB_Notify21
+	jc prevint
 	insIRET
+
 	align 4
+
 myint21 endp
 
-;--- install int 31h handler
+endif
 
-_hdpmi_InstallInt31 proc public uses ebx interrupt:byte
+;--- install int 31h handler; also int 21h, if TRAPINT21==1
 
-	@dprintf CStr("hdpmi_InstallInt31 enter",10)
+_InstallInt31 proc public uses ebx
+
+	@dprintf CStr("_InstallInt31 enter",10)
 ifdef NOTFLAT
 	call InstallExc00
 	push ds
@@ -210,25 +195,53 @@ endif
 	int 31h
 	jc error
 
+if TRAPINT21
 	mov bl, 21h
 	mov ax, 204h
 	int 31h
 	jc error
 	mov dword ptr oldint21+0, edx
 	mov word ptr oldint21+SEGOFS, cx
+ ifdef NOTFLAT
 	mov ecx, cs
 	mov edx, offset myint21
 	mov ax, 205h
 	int 31h
 	jc error
+ else
+;--- stuff to fix the DOS/4GW error described above.
+;--- setup a thunk for int 21h.
+	mov cx, 1
+	xor eax, eax
+	int 31h
+	jc error
+	mov ebx, eax
+;--- setup non-zerobased CS
+	mov [int21tmpCS], cs
+	push offset int21tmp
+	pop dx
+	pop cx
+	mov ax, 7
+	int 31h
+	mov dx,15
+	xor ecx, ecx
+	mov ax, 8
+	int 31h
+	mov ecx, cs
+	lar ecx, ecx
+	shr ecx, 8
+	mov ax, 9
+	int 31h
+;--- set interrupt vector 21h
+	mov ecx, ebx
+	xor edx, edx
+	mov bl, 21h
+	mov ax, 205h
+	int 31h
+	jc error
+ endif
+endif
 
-	mov bl, interrupt
-	mov edx, dword ptr dfOldISR+0
-	mov cx, word ptr dfOldISR+SEGOFS
-	mov dword ptr [currsndint+0], edx
-	mov word ptr [currsndint+SEGOFS], cx
-	mov [intno], bl
-	mov [dsseg], ds
 ifdef NOTFLAT
 	pop ds
 endif
@@ -241,17 +254,19 @@ ifdef NOTFLAT
 endif
 	xor eax, eax
 	ret
-_hdpmi_InstallInt31 endp
+_InstallInt31 endp
 
-_hdpmi_UninstallInt31 proc public uses ebx
+_UninstallInt31 proc public uses ebx
 
-	@dprintf CStr("hdpmi_UninstallInt31 enter",10)
+	@dprintf CStr("_UninstallInt31 enter",10)
+if TRAPINT21
 	mov edx, dword ptr [oldint21+0]
 	mov cx, word ptr [oldint21+SEGOFS]
 	mov bl, 21h
 	mov ax, 205h
 	int 31h
 	jc error
+endif
 
 	mov edx, dword ptr [oldint31+0]
 	mov cx, word ptr [oldint31+SEGOFS]
@@ -268,6 +283,6 @@ endif
 error:
 	xor eax, eax
 	ret
-_hdpmi_UninstallInt31 endp
+_UninstallInt31 endp
 
 	END

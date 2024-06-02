@@ -7,6 +7,7 @@
 	option casemap:none
 	option proc:private
 
+	include config.inc
 	include debug.inc
 
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
@@ -17,65 +18,33 @@ IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" pro
 
 PTRAP_PM_TrapHandler proto :word, :dword, :dword
 
-PUSHADS struct
-_edi	dd ?
-_esi	dd ?
-_ebp	dd ?
-		dd ?
-_ebx	dd ?
-_edx	dd ?
-_ecx	dd ?
-_eax	dd ?
-PUSHADS ends
-
-;--- stack frame for StackSwitch()
-
 ifdef NOTFLAT
 
 STACKCORR equ 2048
 ASSUMEDS textequ <DGROUP>
-insIRET textequ <iret>
-insRETF textequ <retw>
-PRFXDS  textequ <cs:>
-
-EXCFRAME struct
-		dd ?	; es
-		dd ?	; ds
-		PUSHADS <>
-dwMode  dd ?	; dwMode
-		dw ?	; DPMI ret 
-		dw ?	; DPMI ret
-dwErr	dw ?
-dwEip	dw ?
-wCS		dw ?
-dwEfl	dw ?
-dwEsp	dw ?
-wSS		dw ?
-EXCFRAME ends
+insRETF  textequ <retw>
+insLODSW textequ <lodsw [si]>
+PRFXDS   textequ <cs:>
 
 else
 
 STACKCORR equ 4096
 ASSUMEDS textequ <_DATA>
-insIRET textequ <iretd>
 insRETF textequ <retd>
+insLODSW textequ <lodsw>
 PRFXDS  textequ <>
 
-EXCFRAME struct
+endif
+
+;--- stack frame for StackSwitch()
+
+IOEXCFR struct
 		dd ?	; es
 		dd ?	; ds
 		PUSHADS <>
 dwMode  dd ?	; dwMode
-		dd ?	; DPMI ret 
-		dd ?	; DPMI ret
-dwErr	dd ?
-dwEip	dd ?
-wCS		dw ?,?
-dwEfl	dd ?
-dwEsp	dd ?
-wSS		dw ?,?
-EXCFRAME ends
-endif
+		EXCFRAME <>
+IOEXCFR ends
 
 externdef dwDS:dword	; it's in _TEXT
 
@@ -109,18 +78,18 @@ SwitchStackIO proc
 	push es
 	mov ebp, esp
 ifdef NOTFLAT
-	mov cx, [ebp].EXCFRAME.dwErr
+	mov cx, [ebp].IOEXCFR._errcode
 	and cx, 7
-	add [ebp].EXCFRAME.dwEip, cx
-	mov cx, [ebp].EXCFRAME.dwErr
+	add [ebp].IOEXCFR._ip, cx
+	mov cx, [ebp].IOEXCFR._errcode
 else
-	mov ecx, [ebp].EXCFRAME.dwErr
+	mov ecx, [ebp].IOEXCFR._errcode
 	and ecx, 7
-	add [ebp].EXCFRAME.dwEip, ecx
-	mov ecx, [ebp].EXCFRAME.dwErr
+	add [ebp].IOEXCFR._ip, ecx
+	mov ecx, [ebp].IOEXCFR._errcode
 endif
 	and cl, 0f8h
-	or cl, byte ptr [ebp].EXCFRAME.dwMode
+	or cl, byte ptr [ebp].IOEXCFR.dwMode
 	test cl, 8h	; string?
 	jnz @F
 	test cl, 40h; port in DX?
@@ -138,7 +107,7 @@ ifdef NOTFLAT
 	jnz @F
 	test cl, 1	; so it's an EOI sent to master PIC
 	jz @F
-	or byte ptr [ebp].EXCFRAME.dwEfl+1, 02
+	or byte ptr [ebp].IOEXCFR._fl+1, 2	; set IF=1
 @@:
  endif
 endif
@@ -158,30 +127,30 @@ endif
 	mov ss, ebx
 	mov esp, ebp
 	add [__djgpp_stack_top], STACKCORR
-	test byte ptr [ebp].EXCFRAME.dwErr, 8h	; string?
+	test byte ptr [ebp].IOEXCFR._errcode, 8h	; string?
 	jnz isstring
-	cmp [ebp].EXCFRAME.dwMode, 0			; IN?
+	cmp [ebp].IOEXCFR.dwMode, 0			; IN?
 	jnz done
-	mov byte ptr [ebp].EXCFRAME._eax, al
-	test byte ptr [ebp].EXCFRAME.dwErr, 30h	; word/dword?
+	mov byte ptr [ebp].IOEXCFR._eax, al
+	test byte ptr [ebp].IOEXCFR._errcode, 30h	; word/dword?
 	jz done
-	mov word ptr [ebp].EXCFRAME._eax, ax
-	test byte ptr [ebp].EXCFRAME.dwErr, 20h	; dword?
+	mov word ptr [ebp].IOEXCFR._eax, ax
+	test byte ptr [ebp].IOEXCFR._errcode, 20h	; dword?
 	jz done
-	mov [ebp].EXCFRAME._eax, eax
+	mov [ebp].IOEXCFR._eax, eax
 	jmp done
 isstring:
-	mov [ebp].EXCFRAME._edi, edi
-	mov [ebp].EXCFRAME._esi, esi
-	test byte ptr [ebp].EXCFRAME.dwMode, 80h	; REP prefix?
+	mov [ebp].IOEXCFR._edi, edi
+	mov [ebp].IOEXCFR._esi, esi
+	test byte ptr [ebp].IOEXCFR.dwMode, 80h	; REP prefix?
 	jz done
-	mov [ebp].EXCFRAME._ecx, 0
+	mov [ebp].IOEXCFR._ecx, 0
 done:
 if TRIGGERIRQ
 	call VSB_GetIRQStatus
 	and eax, eax
 	jz @F
-	test byte ptr [ebp].EXCFRAME.dwEfl+1, 2		; interrupts enabled?
+	test byte ptr [ebp].IOEXCFR._fl+1, 2		; interrupts enabled?
 	jz @F
 	sub [__djgpp_stack_top], STACKCORR
 	mov ss, PRFXDS[dwDS]
@@ -215,32 +184,15 @@ dwProc dd ?
 
 	.code
 
-RMCS    struct          ;real mode call structure
-rEDI    dd ?            ;+0
-rESI    dd ?            ;+4
-rEBP    dd ?            ;+8
-        dd ?            ;+12
-rEBX    dd ?            ;+16
-rEDX    dd ?            ;+20
-rECX    dd ?            ;+24
-rEAX    dd ?            ;+28
-rFlags  dw ?            ;+32
-rES     dw ?            ;+34
-rDS     dw ?            ;+36
-rFS     dw ?            ;+38    
-rGS     dw ?            ;+40  
-rIP     dw ?
-rCS     dw ?
-rSP     dw ?
-rSS     dw ?
-RMCS    ends
-
 SwitchStackIOrmcb proc
 
 	cld
-	lodsw
+ifdef NOTFLAT
+	movzx edi, di
+endif
+	insLODSW
 	mov es:[edi].RMCS.rIP, ax
-	lodsw
+	insLODSW
 	mov es:[edi].RMCS.rCS, ax
 	add es:[edi].RMCS.rSP, 2+2
 
@@ -276,7 +228,7 @@ endif
 	call [dwProc]
 
 ;--- calling VIRQ_Invoke from inside real-mode callback is critical
-;--- we can restore the client stack, but client's protected-mode ds/es is unknown
+;--- we could restore the client stack, but client's protected-mode ds/es is unknown
 if TRIGGERIRQ
 	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
 	jz @F

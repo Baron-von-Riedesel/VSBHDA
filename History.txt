@@ -7,7 +7,10 @@
   - trap PIC port to reject attempts to mask the real sound hw interrupt
     (Rational DOS extender).
   - switch to client context for SB interrupt emulation.
-  - jhdpmi.dll added.
+  - HDA: improved error msg if card init fails.
+  - IRQ 2 accepted.
+  - fix: SFX noise in tyrian2k, also may be in other games that use
+    non-autoinit DSP cmds.
 
   v1.4, 20.4.2024
 

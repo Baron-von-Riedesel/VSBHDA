@@ -109,8 +109,8 @@ extern ADPCM_STATE ISR_adpcm_state;
 
 struct VSB_Status {
     int SampleRate;        /* sample rate current op */
-    unsigned int Samples;  /* the length argument after a play command (samples - 1) */
-    unsigned int Pos;      /* position in sample buffer? modified by VSB_SetPos() */
+    unsigned int Samples;  /* the length argument after a play command, unmodified (samples - 1) */
+    unsigned int Position; /* byte position in sample buffer? modified by VSB_SetPos() */
     unsigned int Bits;     /* bits current op */
     uint16_t DSPVER;
 
@@ -289,7 +289,7 @@ static void VSB_DispStatus( void )
 //////////////////////////////////
 {
     vsb.bDispStat = true;
-	printf("VSB_Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Pos, vsb.Bits );
+	printf("VSB_Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
 	printf("VSB_Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
 }
 int VSB_GetDispStat( void )
@@ -324,7 +324,7 @@ static void DSP_Reset( uint8_t value )
         vsb.dsp_cmd = SB_DSP_NOCMD;
         vsb.DataBytes = 0;
         VSB_Stop();
-        vsb.SampleRate = 0;
+        vsb.SampleRate = 22050;
         vsb.Samples = 0;
         vsb.Auto = false;
         vsb.Signed = false;
@@ -338,7 +338,6 @@ static void DSP_Reset( uint8_t value )
 #if LATERATE
         vsb.bTimeConst = 0xD2; /* = 22050 */
 #endif
-        VIRQ_SetCallType( vsb.Irq );
         VSB_Mixer_WriteAddr( SB_MIXERREG_RESET );
         VSB_Mixer_Write( 1 );
 #if REINITOPL
@@ -368,12 +367,12 @@ int VSB_CalcSampleRate( uint8_t value )
     int rc = 0;
     int i;
 #if 0
-	for( i = 0; i < 3; ++i ) {
+    for( i = 0; i < 3; ++i ) {
         if(value >= VSB_TimeConstantMapMono[i][0] - 3 && value <= VSB_TimeConstantMapMono[i][0] + 3 ) {
             rc  = VSB_TimeConstantMapMono[i][1] / VSB_GetChannels();
             break;
         }
-	}
+    }
 #else
     uint8_t limit = 212; //23K Hz. limit time constant. reference: sblaster.cpp from DOSBox-X.
     if( vsb.DSPVER >= 0x0400 )
@@ -384,8 +383,8 @@ int VSB_CalcSampleRate( uint8_t value )
         limit = vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : (vsb.HighSpeed ? 234 : 212)));
 #endif
     value = min(value, limit);
-	//rc = 1000000 / ( 256 - value ) / VSB_GetChannels();
-	rc = 256000000/( 65536 - (value << 8) ) / VSB_GetChannels();
+    //rc = 1000000 / ( 256 - value ) / VSB_GetChannels();
+    rc = 256000000/( 65536 - (value << 8) ) / VSB_GetChannels();
     return rc;
 }
 
@@ -458,29 +457,32 @@ static void DSP_DoCommand( void )
         break;
     case SB_DSP_8BIT_OUT_1: /* 14 */
     case 0x15: /* 15 */
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* actually it's length (=samples-1) */
         vsb.Bits = 8;
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true;
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, length=%u started=%u\n", vsb.dsp_cmd, vsb.Samples, vsb.Started ));
         break;
     case SB_DSP_8BIT_OUT_1_HS: /* 91 */
     case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 */
     case SB_DSP_8BIT_OUT_AUTO: /* 1C */
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Auto = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Bits = 8;
         vsb.HighSpeed = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_1_HS || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true; //start transfer
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
         break;
     case SB_DSP_2BIT_OUT_AUTO: /* 1F; AUTO: bit 3=1 */
     case SB_DSP_3BIT_OUT_AUTO: /* 7F */
     case SB_DSP_4BIT_OUT_AUTO: /* 7D */
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Auto = true;
         ISR_adpcm_state.useRef = true;
         ISR_adpcm_state.step = 0;
@@ -488,7 +490,7 @@ static void DSP_DoCommand( void )
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO;
         vsb.Silent = false;
         vsb.Started = true; //start transfer here
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
         break;
     case 0xb0:  case 0xb1:  case 0xb2:  case 0xb3:  case 0xb4:  case 0xb5:  case 0xb6:  case 0xb7:
@@ -496,6 +498,7 @@ static void DSP_DoCommand( void )
     case 0xc0:  case 0xc1:  case 0xc2:  case 0xc3:  case 0xc4:  case 0xc5:  case 0xc6:  case 0xc7:
     case 0xc8:  case 0xc9:  case 0xca:  case 0xcb:  case 0xcc:  case 0xcd:  case 0xce:  case 0xcf:
         SB16_ONLY();
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         /* bit1=0: nofifo
         /* bit2=1: auto (B4, C4, B6, C6)
          */
@@ -513,7 +516,7 @@ static void DSP_DoCommand( void )
         vsb.Samples = vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 );
         vsb.Silent = false;
         vsb.Started = true;
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
         break;
     case SB_DSP_SET_TIMECONST: /* 40 */
@@ -544,6 +547,7 @@ static void DSP_DoCommand( void )
     case SB_DSP_4BIT_OUT_1:      /* 75 */
     case SB_DSP_3BIT_OUT_1_NREF: /* 76 */
     case SB_DSP_3BIT_OUT_1:      /* 77 */
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* the value is #samples-1! */
         vsb.Auto = false;
         /* useref is bit 0 */
@@ -554,17 +558,18 @@ static void DSP_DoCommand( void )
         vsb.Silent = false;
         vsb.Signed = false;
         vsb.Started = true;
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
         break;
     case SB_DSP_SILENCE_DAC: /* 80 - output silence samples */
+        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* the value is #samples-1! */
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
         vsb.Signed = false;
         vsb.Bits = 8;
         vsb.Silent = true;
         vsb.Started = true;
-        vsb.Pos = 0;
+        vsb.Position = 0;
         dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
         break;
     case 0x0E: /* SB16 "ASP set register" - used by diagnose.exe, expect 2 bytes */
@@ -615,12 +620,10 @@ static void DSP_DoCommand( void )
         dbgprintf(("DSP_DoCommand: cmd %X, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
     case SB_DSP_TRIGGER_IRQ: /* F2 */
-        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= SB_MIXERREG_IRQ_STAT8BIT;
-        VSB_SetIRQStatus();
+        VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT8BIT );
         break;
     case SB_DSP_TRIGGER_IRQ16: /* F3 */
-        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= SB_MIXERREG_IRQ_STAT16BIT;
-        VSB_SetIRQStatus();
+        VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT16BIT );
         break;
     case SB_DSP_STATUS: /* FB */
         DSP_AddData( vsb.Started ? (( vsb.Bits <= 8 ? 1 : 4 ) ) : 0 );
@@ -690,7 +693,7 @@ static uint8_t DSP_ReadStatus( void )
     if ( vsb.DataBytes )
         vsb.RS |= 0x80;
 
-    dbgprintf(("DSP_ReadStatus=%X\n", vsb.RS ));
+    //dbgprintf(("DSP_ReadStatus=%X\n", vsb.RS ));
     return vsb.RS;
 }
 
@@ -775,7 +778,7 @@ void VSB_Stop()
 {
     vsb.Started = false;
     vsb.HighSpeed = false;
-    vsb.Pos = 0;
+    vsb.Position = 0;
 }
 
 #if 0
@@ -836,7 +839,7 @@ int VSB_GetAuto()
 uint32_t VSB_GetPos()
 /////////////////////
 {
-    return vsb.Pos;
+    return vsb.Position;
 }
 
 /* set pos (and IRQ status if pos beyond sample buffer) */
@@ -846,20 +849,20 @@ uint32_t VSB_SetPos(uint32_t pos)
 {
     /* new pos above size of sample buffer? */
     if( pos >= VSB_GetSampleBufferSize() )
-        vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= ((VSB_GetBits() <= 8 ) ? 0x01 : 0x02);
-    return vsb.Pos = pos;
+        VSB_SetIRQStatus( (VSB_GetBits() <= 8 ) ? SB_MIXERREG_IRQ_STAT8BIT : SB_MIXERREG_IRQ_STAT16BIT );
+    return vsb.Position = pos;
 }
 
-void VSB_SetIRQStatus( void )
-/////////////////////////////
+void VSB_SetIRQStatus( uint8_t flag )
+/////////////////////////////////////
 {
-    vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= ((VSB_GetBits() <= 8 ) ? 0x01 : 0x02);
+    vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= flag;
 }
 
 int VSB_GetIRQStatus( void )
-/////////////////////////////
+////////////////////////////
 {
-    return( vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] & (( VSB_GetBits() <= 8 ) ? 0x01 : 0x02) );
+    return( vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] & ( SB_MIXERREG_IRQ_STAT8BIT | SB_MIXERREG_IRQ_STAT16BIT ) );
 }
 
 int VSB_GetDirectCount( uint8_t * *pBuffer )

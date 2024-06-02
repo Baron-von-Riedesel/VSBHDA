@@ -12,67 +12,62 @@
 #include "VIRQ.H"
 #include "VSB.H"
 
-#define CHANGEPICMASK 0 /* 1=mask all IRQs during irq 5/7 */
+#define MASKSBIRQ 1 /* 1=mask the IRQ that's used for SB Int emulation */
 
-#if JHDPMI
-extern int jhdpmi;
-#endif
-
-extern void FastCall( uint8_t irq );
+extern bool _SB_InstallISR( uint8_t );
+extern bool _SB_UninstallISR( uint8_t );
+extern void SBIsrCall( void );
 
 struct VPic_s {
-	int bIrq; /* real sound hw irq */
-	uint8_t ISR[2];
-	uint8_t OCW[2];
+    uint8_t ISR[2]; /* master, slave */
+    uint8_t OCW[2];
+    uint8_t Mask[2];
+    uint8_t bIrq; /* real sound hw irq */
 };
 
-static struct VPic_s pic;
+static struct VPic_s vpic;
 
-static int VIRQ_Irq = -1;
-
-static uint16_t OrgCS;
+int8_t VIRQ_Irq = -1;
 
 #define IRQ_IS_VIRTUALIZED() (VIRQ_Irq != -1)
-
-static void SafeCall( uint8_t irq );
-
-static void (* CallIRQ)(uint8_t) = &FastCall;
 
 static void VPIC_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
-	/* refuse to mask the real sound hw irq
-	 * if IRQ is >= 8, ports 0x21 and 0xA1 are trapped;
-	 * else, just 0x21 is trapped.
-	 */
-	if ( port & 1 ) {
-		if ( port == 0xA1 || ( pic.bIrq < 8 ) )
-			value &= ~(1 << (pic.bIrq & 7));
-		else {
-			value &= ~(1 << 2);  /* mask bit 2 of MPIC */
-		}
-		UntrappedIO_OUT(port, value);
-		return;
-	}
+    if ( port & 1 ) {
+        vpic.Mask[(port == 0xA1) ? 1 : 0] = value;
 
-    if( IRQ_IS_VIRTUALIZED() ) {
+        /* refuse to mask the real sound hw irq
+         * if that irq is >= 8, ports 0x21 and 0xA1 are trapped;
+         * else, just 0x21 is trapped.
+         */
+        if ( port == 0xA1 && vpic.bIrq >= 8 ) {
+            value &= ~(1 << (vpic.bIrq - 8) );
+        } else if ( port == 0x21 ) {
+            if ( vpic.bIrq < 8 )
+                value &= ~(1 << vpic.bIrq );
+            else
+                value &= ~(1 << 2);  /* unmask bit 2 of MPIC */
+        }
+
+#if MASKSBIRQ
+        /* ensure real Irq 5/7 remains masked while emulated Irq runs.
+         * this isn't really necessary if the SB interrupt is hooked, because
+         * then the SB emulated ISR isn't part of the irq hook chain.
+         */
+        if ( IRQ_IS_VIRTUALIZED() && port == 0x21 )
+            value |= ( 1 << VIRQ_Irq );
+#endif
+
+    } else if( IRQ_IS_VIRTUALIZED() ) {
         //dbgprintf(("VPIC_Write:%x,%x\n",port,value));
-		int index = ((port == 0x20) ? 0 : 1);
-		pic.OCW[index] = value;
-
-		if( value == 0x20 ) { //EOI: clear ISR
-			pic.ISR[index] = 0;
-#if !CHANGEPICMASK
-			VIRQ_Irq = -1; /* virtualize just once */
-			PTRAP_SetPICPortTrap( 0 );
-#endif
-			return; //don't send to real PIC. it's virtualized
-		}
-#if 0
-		else if(value == 0x0B) //read ISR
-			return; //don't send to real PIC, will be handled in VIRQ_Read.
-#endif
-	}
+        int index = (port == 0x20) ? 0 : 1; /* currently it's always port 0x20 */
+        vpic.OCW[index] = value;
+        if( value == 0x20 && vpic.ISR[index] ) { //EOI: clear ISR
+            vpic.ISR[index] = 0;
+            return; //don't send to real PIC if it's virtualized.
+        }
+    }
 
     UntrappedIO_OUT(port, value);
 }
@@ -80,14 +75,25 @@ static void VPIC_Write(uint16_t port, uint8_t value)
 static uint8_t VPIC_Read(uint16_t port)
 ///////////////////////////////////////
 {
-    uint8_t rc = UntrappedIO_IN(port);
-    if( IRQ_IS_VIRTUALIZED() ) {
-        int index = ((port == 0x20) ? 0 : 1);
-        if (pic.OCW[index] == 0x0B) { //ISR
-            rc |= pic.ISR[index];
-        }
-        //dbgprintf(("VPIC_Read(%x)=%x\n",port,rc));
-    }
+	uint8_t rc;
+	switch ( port ) {
+	case 0x21: rc = vpic.Mask[0]; break;
+	case 0xA1: rc = vpic.Mask[1]; break;
+	case 0x20:
+		rc = UntrappedIO_IN(port);
+		if( IRQ_IS_VIRTUALIZED() )
+			if (vpic.OCW[0] == 0x0B) //ISR
+				rc |= vpic.ISR[0];
+		break;
+#if 0 /* not needed if SB irq is < 8 */
+	case 0xA0:
+		rc = UntrappedIO_IN(port);
+		if( IRQ_IS_VIRTUALIZED() )
+			if (vpic.OCW[1] == 0x0B) //ISR
+				rc |= vpic.ISR[1];
+		break;
+#endif
+	}
     return rc;
 }
 
@@ -100,103 +106,65 @@ uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out)
 void VPIC_Init( uint8_t hwirq )
 ///////////////////////////////
 {
-    pic.bIrq = hwirq;
-}
+    vpic.bIrq = hwirq;
 
-/* SafeCall: this approach works so long as HDPMI=1 is NOT set.
- * Pro: it works if a protected-mode program has installed both a real-mode
- *      AND a protected-mode handler routine.
- * Con: - if a protected-mode handler is installed, 4 extra mode switches are
- *      triggered (PM->RM->RMCB->RM->PM).
- *      - the values of the real-mode segment registers (ds,es,fs,gs) are unknown.
- *
- * FastCall:
- * Pro: - fast, no unneeded mode switches for protected-mode handlers.
- *      - the real-mode segment registers (ss,ds,es,fs,gs) are restored automatically
- *        in case the interrupt is routed to real-mode.
- * Con: if JHDPMI is loaded, there are no cons, else:
- *      - may not work if both a real-mode and protected-mode handler have been set.
- * since v1.5, FastCall is implemented as assembly code. This allows to switch to
- * the client context (ss:esp, ds, es) when the IRQ is emulated.
- */
-
-static void SafeCall( uint8_t irq )
-///////////////////////////////////
-{
-    static __dpmi_regs r = {0};
-    int n = PIC_IRQ2VEC(irq);
-    r.x.flags = 0x0002;
-    r.x.ip = ReadLinearW(n*4+0);
-    r.x.cs = ReadLinearW(n*4+2);
-    __dpmi_simulate_real_mode_procedure_iret(&r);
+    vpic.Mask[0] = UntrappedIO_IN(0x21);
+    vpic.Mask[1] = UntrappedIO_IN(0xA1);
 }
 
 void VIRQ_Invoke( void )
 ////////////////////////
 {
     uint8_t irq;
-#if CHANGEPICMASK
-    int mask;
+#if MASKSBIRQ
+    uint16_t mask;
 #endif
 
     //dbgprintf(("VIRQ_Invoke\n"));
     irq = VSB_GetIRQ();
 
-#if CHANGEPICMASK
+#if MASKSBIRQ
+    /* mask the real irq 5/7. This is done so the SB interrupt won't interfere with a real device
+     * using IRQ 5/7. As for IRQ7: since this is the "spurious" irq, it's important that the IRQ7 mask bit
+     * read from port 0x21 is 0!
+     */
     mask = PIC_GetIRQMask();
-    PIC_SetIRQMask(0xFFFF);
+    PIC_SetIRQMask( mask | (1 << irq ) );
 #endif
-
-    PTRAP_SetPICPortTrap( 1 );
-
     /* set values for ports 0x0020/0x00a0 */
     if(irq < 8) {
-        pic.ISR[0] = 1 << irq;
-        pic.ISR[1] = 0;
+        vpic.ISR[0] = 1 << irq;
+        vpic.ISR[1] = 0;
     } else {
-        pic.ISR[0] = 0x04; //cascade
-        pic.ISR[1] = 1 << (irq - 8);
+        vpic.ISR[0] = 0x04; //cascade
+        vpic.ISR[1] = 1 << (irq - 8);
     }
-    
+    vpic.Mask[0] &= ~(1 << irq); /* unmask the emulated irq 5/7 */
+    vpic.OCW[0] = vpic.OCW[1] = 0;
+
+    PTRAP_SetPICPortTrap( 1 );
     VIRQ_Irq = irq;
-    CallIRQ(irq);
+    SBIsrCall();
+    VIRQ_Irq = -1;
+    PTRAP_SetPICPortTrap( 0 );
 #if !SETIF
     _disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
 #endif
-    if( IRQ_IS_VIRTUALIZED() ) {
-        VIRQ_Irq = -1;
-        PTRAP_SetPICPortTrap( 0 );
-    }
-#if CHANGEPICMASK
-    PIC_SetIRQMask(mask);  /* restore masks */
+#if MASKSBIRQ
+    PIC_SetIRQMask( mask ); /* restore the PIC mask */
 #endif
     return;
-}
-
-/* set emulated IRQ call type depending on what's found at IVT 5/7
- */
-
-void VIRQ_SetCallType( uint8_t irq )
-////////////////////////////////////
-{
-    /* if IVT 5/7 has been modified, use SafeCall, else use FastCall */
-    int n = PIC_IRQ2VEC( irq );
-#if JHDPMI
-    if (jhdpmi)
-        return;
-#endif
-    CallIRQ = ( ReadLinearW(n*4+2) == OrgCS ) ? &FastCall : &SafeCall;
 }
 
 void VIRQ_Init( uint8_t virq )
 //////////////////////////////
 {
-    int n = PIC_IRQ2VEC( virq );
-#if JHDPMI
-    if (jhdpmi)
-        return;
-#endif
-    OrgCS = ReadLinearW(n*4+2);
-    dbgprintf(("VIRQ_Init(%u): int=%X, OrgCS=%X\n", virq, n, OrgCS ));
+    _SB_InstallISR( PIC_IRQ2VEC( virq ) );
+}
+
+void VIRQ_Exit( uint8_t virq )
+//////////////////////////////
+{
+    _SB_UninstallISR( PIC_IRQ2VEC( virq ) );
 }
 

@@ -31,7 +31,7 @@
 #endif
 
 #if JHDPMI
-extern int jhdpmi;
+int jhdpmi = 0; /* default: assume jhdpmi isn't loaded */
 #endif
 
 // next 2 defines must match EQUs in rmwrap.asm!
@@ -138,14 +138,14 @@ static PORT_TRAP_HANDLER PortHandler[] = {
 #endif
 };
 
-#if SB16
-static uint16_t PortState[4+2+1+2+8+1+1+2+8+4+2+3+2+2+2];
-#else
-static uint16_t PortState[4+2+1+2+8+1+4+2+3+2+2+2];
-#endif
+static uint16_t PortState[countof(PortHandler)];
 
 /* hdpmi is restricted to 8 port ranges */
 static int portranges[8+1];
+
+/* real-mode port trap handler;
+ * called by SwitchStackIOrmcb().
+ */
 
 static void RM_TrapHandler( __dpmi_regs * regs)
 ///////////////////////////////////////////////
@@ -186,6 +186,25 @@ static void RM_TrapHandler( __dpmi_regs * regs)
 #endif
     return;
 }
+
+/* protected-mode port trap handler;
+ * called by SwitchStackIO();
+ */
+
+uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
+//////////////////////////////////////////////////////////////////////////////
+{
+    int i;
+    for( i = 0; i < maxports; i++ )
+        if( PortTable[i] == port)
+            return PortHandler[i](port, value, flags & 1);
+
+    /* ports that are trapped, but not handled; this may happen, since
+     * hdpmi32i's support for port trapping is limited to 8 ranges.
+     */
+    return (flags & 1) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
+}
+
 
 //https://www.cs.cmu.edu/~ralf/papers/qpi.txt
 //https://fd.lod.bz/rbil/interrup/memory/673f_cx5145.html
@@ -327,12 +346,13 @@ bool PTRAP_Prepare_RM_PortTrap()
     r.x.ax = 0x1A07; /* set trap handler */
     if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || (r.x.flags & CPU_CFLAG))
         return false;
-	return true;
+    return true;
 }
 
+/* install a range of port traps using QPI */
 
-static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
-///////////////////////////////////////////////////////////////
+static bool Install_RM_PortRangeTrap( uint16_t start, uint16_t end )
+////////////////////////////////////////////////////////////////////
 {
     __dpmi_regs r = {0};
     int i;
@@ -359,6 +379,8 @@ static bool Install_RM_PortTrap( uint16_t start, uint16_t end )
     return true;
 }
 
+/* install all real-mode port trap ranges */
+
 bool PTRAP_Install_RM_PortTraps( void )
 ///////////////////////////////////////
 {
@@ -371,7 +393,7 @@ bool PTRAP_Install_RM_PortTraps( void )
             continue;
         }
 #endif
-        Install_RM_PortTrap( portranges[i], portranges[i+1] );
+        Install_RM_PortRangeTrap( portranges[i], portranges[i+1] );
     }
     return true;
 }
@@ -442,22 +464,6 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
     __dpmi_free_real_mode_callback( &rmcb );
 
     return true;
-}
-
-/////////////////////////////////////////////////////////
-
-uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
-//////////////////////////////////////////////////////////////////////////////
-{
-    int i;
-    for( i = 0; i < maxports; i++ )
-        if( PortTable[i] == port)
-            return PortHandler[i](port, value, flags & 1);
-
-    /* ports that are trapped, but not handled; this may happen, since
-     * hdpmi32i's support for port trapping is limited to 8 ranges.
-     */
-    return (flags & 1) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
 }
 
 bool PTRAP_DetectHDPMI()

@@ -785,6 +785,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
 
+	/* wake up the HDA controller if it is in "reset" state */
 	if ( !(azx_readl(chip, GCTL ) & HDA_GCTL_RESET )) {
 		azx_writel(chip, GCTL, azx_readl(chip, GCTL) | HDA_GCTL_RESET );
 
@@ -805,6 +806,12 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	for( timeout = 100;
 		(azx_readw(chip, CORBCTL) & 2) && timeout;
 		 timeout--, pds_delay_10us(10));
+
+	/* STATESTS decides what codecs will be tried.
+	 * Since this fields is writeable ( write '1' to clear bits ),
+	 * it might be a good idea to reset the HDA if STATESTS is 0.
+	 */
+	chip->codec_mask = azx_readw(chip, STATESTS);
 
 	// set CORB command DMA buffer
 	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
@@ -839,8 +846,6 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	pds_delay_10us(100);
 
-	chip->codec_mask = azx_readw(chip, STATESTS);
-
 	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
 
 	return 1;
@@ -852,10 +857,12 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_init_pci(card);
 	azx_reset(card);
 
-	/* reset int errors by writing 1s in SD_STS */
+	/* reset int errors by writing '1's in SD_STS */
 	azx_sd_writeb(card, SD_STS, SD_INT_MASK);
 
-	/* should not be written */
+	/* should not be written - writing '1' clears bits.
+     * and STATESTS_INT_MASK is 0x7?
+	 */
 	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
 
 	azx_writeb(card, RIRBSTS, RIRB_INT_MASK);
@@ -1375,6 +1382,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	for ( ;; aui->card_select_devicenum++ ) {
 		__dpmi_meminfo info;
 		unsigned int timeout;
+		char *pReason;
 
 		card->pci_dev->device_type = AZX_DRIVER_GENERIC; /* set as default, will be changed if device is known */
 		if(pcibios_FindDeviceClass( 4, 3, 0, aui->card_select_devicenum, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
@@ -1413,7 +1421,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		}
 
 		aui->card_DMABUFF = card->pcmout_buffer;
-		aui->card_irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN); /* vsbhda */
+		aui->card_irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 
 		dbgprintf(("HDA_adetect, board type: %s (vendor/ID=%X/%X)\n",
 			  card->pci_dev->device_name ? card->pci_dev->device_name : "NULL",
@@ -1436,7 +1444,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 				}
 			}
 		}
-		printf("HDA: card %u skipped (mixer init error)\n", aui->card_select_devicenum );
+		pReason = ( card->codec_mask == 0 ) ? "no codecs attached" : "mixer init error";
+		printf("HDA: card %u skipped - %s\n", aui->card_select_devicenum, pReason );
 		HDA_cardclose( card );
 	}
 	HDA_close( aui );
