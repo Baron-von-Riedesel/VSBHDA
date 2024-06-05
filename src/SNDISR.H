@@ -9,8 +9,8 @@ extern "C"
 #endif
 
 //int  SNDISR_Interrupt( void );
-bool SNDISR_Init( uint8_t intno );
-bool SNDISR_Exit( uint8_t intno );
+bool SNDISR_Init( int hAudio, uint16_t vol );
+bool SNDISR_Exit( void );
 
 #ifdef __cplusplus
 }

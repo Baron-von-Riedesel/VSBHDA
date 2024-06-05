@@ -11,6 +11,7 @@
 #ifdef DJGPP
 #include <go32.h>
 #include <sys/exceptn.h>
+#include <crt0.h>
 #endif
 
 #include "CONFIG.H"
@@ -43,13 +44,20 @@
 bool _InstallInt31( void );
 bool _UninstallInt31( void );
 
-#ifndef DJGPP
+#ifdef DJGPP
+
+int _crt0_startup_flags = _CRT0_FLAG_PRESERVE_FILENAME_CASE | _CRT0_FLAG_KEEP_QUOTES | _CRT0_FLAG_NEARPTR;
+
+#else
+
 uint32_t    __djgpp_stack_top;
 uint32_t _linear_psp;
 uint32_t _linear_rmstack;
 uint32_t _get_linear_psp( void );
 uint32_t _get_linear_rmstack( int * );
 uint32_t _get_stack_top( void );
+
+extern uint32_t STACKTOP;
 
 /* don't assume hdpmi is loaded - get PSP selector from OW's _psp global var! */
 #pragma aux _get_linear_psp = \
@@ -73,25 +81,24 @@ uint32_t _get_stack_top( void );
 	modify exact [bx dx eax]
 
 #pragma aux _get_stack_top = \
-	"mov eax, esp" \
+	"mov eax, [STACKTOP]" \
 	parm [] \
 	modify exact[eax];
 
 #endif
 
-int hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
-static int freq = 22050; /* default value for AU_setrate() */
-
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
-#if SETABSVOL
-extern uint16_t SNDISR_SB_VOL = 0; //initial set volume will cause interrupt missing?
-#endif
+struct MAIN_s {
+	int hAU;    /* handle audioout_info; we don't want to know mpxplay internals */
+	int freq;   /* default value for AU_setrate() */
+	bool bISR;  /* 1=ISR installed */
+	bool bQemm; /* 1=QPI API found */
+	bool bHdpmi;/* 1=HDPMI found */
+	int bHelp;  /* 1=show help */
+};
 
-static bool bISR; /* 1=ISR installed */
-static bool bQemm = false;
-static bool bHdpmi = false;
-static int bHelp = false;
+static struct MAIN_s gm = { 0, 22050, false, false, false, false };
 
 struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT,
 #if SB16
@@ -112,7 +119,7 @@ static const struct {
     const char *desc;
     int *pValue;
 } GOptions[] = {
-    "/?", "Show help", &bHelp,
+    "/?", "Show help", &gm.bHelp,
     "/A", "Set IO base address [220|240, def 220]", &gvars.base,
     "/I", "Set IRQ number [2|5|7, def 7]", &gvars.irq,
     "/D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
@@ -128,7 +135,7 @@ static const struct {
     "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "/F",  "Set frequency [22050|44100, def 22050]", (int *)&freq,
+    "/F",  "Set frequency [22050|44100, def 22050]", &gm.freq,
     "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "/BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
 #if SLOWDOWN
@@ -182,9 +189,9 @@ static void ReleaseRes( void )
 //////////////////////////////
 {
 	_UninstallInt31(); /* must be called before SNDISR_Exit() */
-	if (bISR) {
+	if ( gm.bISR ) {
 		VIRQ_Exit( gvars.irq );
-		SNDISR_Exit( PIC_IRQ2VEC( AU_getirq( hAU ) ) );
+		SNDISR_Exit();
 	}
 
 	if( gvars.rm )
@@ -207,7 +214,7 @@ void MAIN_Uninstall( void )
 ///////////////////////////
 {
 	ReleaseRes();
-	AU_close( hAU );
+	AU_close( gm.hAU );
 	_uninstall_tsr( _my_psp() ); /* should not return */
 	return;
 }
@@ -219,7 +226,7 @@ void MAIN_ReinitOPL( void )
 	if( gvars.opl3 ) {
 		uint8_t buffer[108];
 		fpu_save(buffer);
-		VOPL3_Reinit( AU_getfreq( hAU ) );
+		VOPL3_Reinit( AU_getfreq( gm.hAU ) );
 		fpu_restore(buffer);
 	}
 }
@@ -305,12 +312,12 @@ int main(int argc, char* argv[])
             }
         }
         if ( GOptions[j].option == NULL )
-            bHelp = true;
+            gm.bHelp = true;
     }
 
     /* if -? or unrecognised option was entered, display help and exit */
-    if( bHelp ) {
-        bHelp = false;
+    if( gm.bHelp ) {
+        gm.bHelp = false;
         printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Usage:\n");
 
         for( i = 0; GOptions[i].option; i++ )
@@ -361,8 +368,8 @@ int main(int argc, char* argv[])
         printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
         return 1;
     }
-    if( freq != 22050 && freq != 44100 ) {
-        printf("Error: Invalid frequency %d\n", freq );
+    if( gm.freq != 22050 && gm.freq != 44100 ) {
+        printf("Error: Invalid frequency %d\n", gm.freq );
         return 1;
     }
 #if defined(DJGPP)
@@ -398,24 +405,21 @@ int main(int argc, char* argv[])
     }
     //aui.card_select_config = gvars.pin;
     //aui.card_select_devicenum = gvars.device;
-    if ( (hAU = AU_init( gvars.device, gvars.pin ) ) == 0 ) {
+    if ( (gm.hAU = AU_init( gvars.device, gvars.pin ) ) == 0 ) {
         printf("No soundcard found!\n");
         return 1;
     }
-    printf("Found sound card: %s\n", AU_getshortname( hAU ) );
-    if( AU_getirq( hAU ) == gvars.irq ) {
+    printf("Found sound card: %s\n", AU_getshortname( gm.hAU ) );
+    if( AU_getirq( gm.hAU ) == gvars.irq ) {
         printf("Sound card IRQ conflict, abort.\n");
         return 1;
     }
-    AU_setmixer_init( hAU );
+    AU_setmixer_init( gm.hAU );
 
-#if SETABSVOL
-    SNDISR_SB_VOL = gvars.vol * 256/9; /* translate 0-9 to 0-256 */
-#endif
-    AU_setmixer_outs( hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
-    //AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    AU_setmixer_outs( gm.hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
+    //AU_setmixer_one( gm.hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
 
-    AU_setrate( hAU, freq, HW_CHANNELS, HW_BITS );
+    AU_setrate( gm.hAU, gm.freq, HW_CHANNELS, HW_BITS );
 
     if( gvars.rm ) {
         gvars.rm = PTRAP_Prepare_RM_PortTrap();
@@ -437,15 +441,15 @@ int main(int argc, char* argv[])
         gvars.hdma = 0;
 #endif
 
-    VPIC_Init( AU_getirq( hAU ) );
+    VPIC_Init( AU_getirq( gm.hAU ) );
 
 #ifdef NOFM
     gvars.opl3 = 0;
 #endif
 #if SB16
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma, AU_getirq( hAU ) );
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma, AU_getirq( gm.hAU ) );
 #else
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0, AU_getirq( hAU ) );
+	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0, AU_getirq( gm.hAU ) );
 #endif
 #if SB16
     VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
@@ -459,11 +463,11 @@ int main(int argc, char* argv[])
 #endif
 
     if ( gvars.rm ) {
-        if ((bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
+        if ((gm.bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
             printf("Error: Failed installing IO port trap for real-mode.\n");
     }
     if ( gvars.pm ) {
-        if(( bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
+        if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
             printf("Error: Failed installing IO port trap for protected-mode.\n");
 #ifdef _DEBUG
         //PTRAP_PrintPorts(); /* for debugging */
@@ -471,8 +475,8 @@ int main(int argc, char* argv[])
     }
 #ifndef NOFM
     if( gvars.opl3 ) {
-        VOPL3_Init( AU_getfreq( hAU ) );
-        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( hAU ) );
+        VOPL3_Init( AU_getfreq( gm.hAU ) );
+        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( gm.hAU ) );
     }
 #endif
     printf("SB emulation enabled at Addr=%x, Irq=%d, Dma=%d, ", gvars.base, gvars.irq, gvars.dma );
@@ -501,20 +505,20 @@ int main(int argc, char* argv[])
     if (p = malloc( 0x10000 ) )
         free( p );
 
-    bISR = SNDISR_Init(PIC_IRQ2VEC( AU_getirq( hAU ) ) );
+    gm.bISR = SNDISR_Init( gm.hAU, gvars.vol * 256/9 ); /* vol: translate 0-9 to 0-256 */
 
-    if ( bISR ) {
+    if ( gm.bISR ) {
         VIRQ_Init( gvars.irq );
         _InstallInt31();
     }
 
-    PIC_UnmaskIRQ( AU_getirq( hAU ) );
+    PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 
-    //AU_prestart( hAU );
-    AU_start( hAU );
+    //AU_prestart( gm.hAU );
+    AU_start( gm.hAU );
     if (bOMode & 1 ) bOMode = 2; /* switch to low-level i/o */
 
-    if( bISR && ( bQemm || (!gvars.rm) ) && ( bHdpmi || (!gvars.pm) ) ) {
+    if( gm.bISR && ( gm.bQemm || (!gvars.rm) ) && ( gm.bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;
         __dpmi_regs r = {0};
         __dpmi_set_coprocessor_emulation( 0 );
@@ -539,7 +543,7 @@ int main(int argc, char* argv[])
         r.x.ax = 0x3100;
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }
-    dbgprintf(("main: bISR=%u, bQemm=%u, bHdpmi=%u\n", bISR, bQemm, bHdpmi ));
+    dbgprintf(("main: bISR=%u, bQemm=%u, bHdpmi=%u\n", gm.bISR, gm.bQemm, gm.bHdpmi ));
     ReleaseRes();
     printf("Error: Failed installing TSR.\n");
     return 1;

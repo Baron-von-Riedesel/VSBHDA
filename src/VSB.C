@@ -135,7 +135,7 @@ struct VSB_Status {
     uint8_t DMAID_A;
     uint8_t DMAID_X;
     uint8_t DataBytes; /* # of bytes to read from DataBuffer */
-    uint8_t DataBuffer[32];
+    uint8_t DataBuffer[48];
     uint8_t bSpeaker;
 #if DISPSTAT
     uint8_t bDispStat;

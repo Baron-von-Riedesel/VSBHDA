@@ -26,7 +26,8 @@
 
 static inline uint16_t gettimercnt(void)
 {
-    uint16_t tsc;
+	unsigned short oldstate;
+	uint16_t tsc;
 	_disableint();
 	outp( 0x43, 0x04 );
 	tsc = inp(0x40);
@@ -62,7 +63,6 @@ void pds_delay_10us(unsigned int ticks) //each tick is 10us
 	unsigned int divisor = PIT_DIVISOR_DEFAULT; // is 65536
 	unsigned int i;
 	unsigned short oldtsc, tsctemp, tscdif;
-	unsigned short oldstate;
 
 	oldtsc = gettimercnt();
 	for( i = 0; i < ticks; i++ ){

@@ -32,11 +32,7 @@ bool _SND_UninstallISR( uint8_t );
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
 extern void fatal_error( int );
 
-extern int hAU;
 extern struct globalvars gvars;
-#if SETABSVOL
-uint16_t SNDISR_SB_VOL;
-#endif
 
 struct SNDISR_s {
 	int16_t *pPCM;
@@ -45,6 +41,10 @@ struct SNDISR_s {
 	uint32_t DMA_Size;       /* size of DMA buffer at last remapping */
 	uint32_t Block_Handle;   /* handle of remapping block */
 	uint32_t Block_Addr;     /* linear base of remapping block ( page aligned ) */
+	int hAU;
+#if SETABSVOL
+	uint16_t SB_VOL;
+#endif
 #ifdef _LOGBUFFMAX /* log the usage of the PCM buffer? */
 	uint32_t dwMaxBytes;
 #endif
@@ -238,7 +238,7 @@ static int SNDISR_Interrupt( void )
     int i;
 
     /* check if the sound hw does request an interrupt. */
-    if( !AU_isirq( hAU ) )
+    if( !AU_isirq( isr.hAU ) )
         return(0);
 
 #if SETIF
@@ -263,11 +263,11 @@ static int SNDISR_Interrupt( void )
         midivol   = VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO)   & 0xF0;
     }
 #if SETABSVOL
-    if( SNDISR_SB_VOL != mastervol * gvars.vol / 9) {
-        SNDISR_SB_VOL =  mastervol * gvars.vol / 9;
-        //uint8_t buffer[200];
+    if( isr.SB_VOL != mastervol * gvars.vol / 9) {
+        isr.SB_VOL =  mastervol * gvars.vol / 9;
+        //uint8_t buffer[108];
         //fpu_save(buffer); /* needed if AU_setmixer_one() uses floats */
-        AU_setmixer_one( hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
+        AU_setmixer_one( isr.hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
         //fpu_restore(buffer);
         //dbgprintf(("isr: set master volume=%u\n", SNDISR_SB_VOL ));
     }
@@ -278,12 +278,12 @@ static int SNDISR_Interrupt( void )
     midivol  = ( (midivol  | 0xF + 1) * (mastervol | 0xF + 1) - 1) >> 8;
     if ( midivol == 0xff ) midivol = 0x100;
 #endif
-    AU_setoutbytes( hAU ); //aui.card_outbytes = aui.card_dmasize;
-    samples = AU_cardbuf_space( hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
+    samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
     //dbgprintf(("isr: samples:%u ",samples));
 
     if(samples == 0) { /* no free space in DMA buffer? */
-        PIC_SendEOI( AU_getirq( hAU ) );
+        PIC_SendEOI( AU_getirq( isr.hAU ) );
         return(1);
     }
 
@@ -292,7 +292,7 @@ static int SNDISR_Interrupt( void )
     if( digital ) {
         int i,j;
         int dmachannel = VSB_GetDMA();
-        uint32_t freq = AU_getfreq( hAU );
+        uint32_t freq = AU_getfreq( isr.hAU );
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int channels = VSB_GetChannels();
         int IdxSm = 0; /* sample index in 16bit PCM buffer */
@@ -344,7 +344,7 @@ static int SNDISR_Interrupt( void )
             else
                 resample = false;
             /* ensure count won't exceed DMA buffer def */
-            count = min( count, max(1,(DMA_Count) / samplesize / channels));
+            count = min( count, max(1, DMA_Count / samplesize / channels));
             /* ensure count won't exceed SB buffer def */
             count = min( count, max(1,(SB_BuffSize - SB_Pos) / samplesize / channels ));
             /* adjust count if sample size is < 8 (ADPCM) */
@@ -411,7 +411,7 @@ static int SNDISR_Interrupt( void )
     } else if ( i = VSB_GetDirectCount( &pDirect ) ) {
 
         int count = i;
-        uint32_t freq = AU_getfreq( hAU );
+        uint32_t freq = AU_getfreq( isr.hAU );
 
         /* calc the src frequency by formula:
          * x / dst-freq = src-smpls / dst-smpls
@@ -480,13 +480,13 @@ static int SNDISR_Interrupt( void )
 #endif
     //aui.samplenum = samples * 2;
     //aui.pcm_sample = ISR_PCM;
-    AU_writedata( hAU, samples * 2, isr.pPCM );
+    AU_writedata( isr.hAU, samples * 2, isr.pPCM );
 
 #if DISPSTAT
     if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, digital=%u\n", samples, digital );
 #endif
 
-    PIC_SendEOI( AU_getirq( hAU ) );
+    PIC_SendEOI( AU_getirq( isr.hAU ) );
 
 #if SLOWDOWN
     if ( gvars.slowdown )
@@ -496,8 +496,8 @@ static int SNDISR_Interrupt( void )
     return(1);
 }
 
-bool SNDISR_Init( uint8_t intno )
-/////////////////////////////////
+bool SNDISR_Init( int hAU, uint16_t vol )
+/////////////////////////////////////////
 {
     __dpmi_meminfo info;
     info.address = 0;
@@ -515,19 +515,25 @@ bool SNDISR_Init( uint8_t intno )
     if ( __dpmi_allocate_linear_memory( &info, 0 ) == -1 )
         return false;
 
+    isr.hAU = hAU;
+
     isr.Block_Handle = info.handle;
     isr.Block_Addr   = info.address;
 
-    return _SND_InstallISR( intno, &SNDISR_Interrupt );
+#if SETABSVOL
+    isr.SB_VOL = vol;
+#endif
+
+    return _SND_InstallISR( PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );
 }
 
-bool SNDISR_Exit( intno )
-/////////////////////////
+bool SNDISR_Exit( void )
+////////////////////////
 {
 #ifdef _LOGBUFFMAX
     printf("max PCM buffer usage: %u\n", isr.dwMaxBytes );
 #endif
-    return ( _SND_UninstallISR( intno ) );
+    return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }
 
 

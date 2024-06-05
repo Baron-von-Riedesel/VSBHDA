@@ -19,6 +19,11 @@ externdef _Snd_Notify31:near
 if TRAPINT21
 externdef _SB_Notify21:near
 externdef _Snd_Notify21:near
+ ifndef NOTFLAT
+  if @Model ne 7
+externdef c DSBase:dword
+  endif
+ endif
 endif
 
 ifdef NOTFLAT
@@ -128,7 +133,7 @@ if TRAPINT21
 ;--- (because DOS/4GW, after reading this vector, sets exception vectors without
 ;--- clearing hiword(edx).
 
-if @Model eq 7
+ifndef NOTFLAT
 	.data
 	align 4
 int21tmp label byte
@@ -218,7 +223,13 @@ if TRAPINT21
 	mov ebx, eax
 ;--- setup non-zerobased CS
 	mov [int21tmpCS], cs
+  if @Model eq 7
 	push offset int21tmp
+  else
+	mov eax, [DSBase]           ; for DJGPP's non-zerobased model
+	add eax, offset int21tmp
+	push eax
+  endif
 	pop dx
 	pop cx
 	mov ax, 7

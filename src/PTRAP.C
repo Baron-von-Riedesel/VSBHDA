@@ -30,8 +30,8 @@
 #include "VMPU.H"
 #endif
 
-#if JHDPMI
-int jhdpmi = 0; /* default: assume jhdpmi isn't loaded */
+#if 0//JHDPMI
+int jhdpmi = 0;
 #endif
 
 // next 2 defines must match EQUs in rmwrap.asm!
@@ -471,7 +471,7 @@ bool PTRAP_DetectHDPMI()
 {
     uint8_t result = _get_hdpmi_vendor_api(&HDPMIAPI_Entry);
 
-#if JHDPMI
+#if 0 //JHDPMI
 	__dpmi_regs r = {0};
 	uint8_t int2frm[] = { 0xCD, 0x2F, 0xCB };
 	uint32_t dosmem = _my_psp() + 0x5C;

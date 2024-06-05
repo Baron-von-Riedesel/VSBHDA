@@ -14,10 +14,10 @@ static inline unsigned int BSF(unsigned int x)
 	asm("bsf %1, %0" : "=r" (i) : "rm" (x));
 	return i;
 }
-static inline uint64_t rdtsc(void)
+static inline unsigned long long rdtsc(void)
 {
-	uint64_t tsc;
-	asm( "rdtsc" : =r(tsc) );
+	unsigned long long tsc;
+	asm( "rdtsc" : "=r" (tsc) );
 	return tsc;
 }
 static inline void fpu_save(void * buffer) { asm("fsave %0":: "m"(buffer)); }
@@ -76,7 +76,7 @@ unsigned int _my_ds();
 	modify exact [ eax ]
 extern unsigned int _linear_psp;
 extern unsigned int _linear_rmstack;
-extern unsigned int _size_rmstack;
+//extern unsigned int _size_rmstack;
 #define _my_psp()      _linear_psp
 #define _my_rmstack()  _linear_rmstack
 #define _my_rmstksiz() 0x400
