@@ -299,9 +299,11 @@ static int SNDISR_Interrupt( void )
         int count; /* samples to handle in this turn */
         bool resample; //don't resample if sample rates are close
         int bytes;
-
+#ifdef _DEBUG
+        int loop = 0;
+#endif
         /* a while loop that may run 2 times if a SB buffer overrun occured */
-        do {
+        while (1) {
             uint32_t DMA_Base = VDMA_GetBase(dmachannel);
             uint32_t DMA_Index = VDMA_GetIndex(dmachannel);
             int32_t DMA_Count = VDMA_GetCount(dmachannel);
@@ -386,16 +388,20 @@ static int SNDISR_Interrupt( void )
             }
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
             if( VSB_GetIRQStatus() ) {
-                dbgprintf(("isr: Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+                dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0); /* */
                 VIRQ_Invoke();
+                if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
             }
 #ifdef _DEBUG
-            else dbgprintf(("isr: Pos/BuffSize=0x%X/0x%X bytes=%u silent=%u\n", SB_Pos, SB_BuffSize, bytes, IsSilent ));
+            else
+                dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X bytes=%u silent=%u\n", loop++, SB_Pos, SB_BuffSize, bytes, IsSilent ));
 #endif
-        } while(VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running());
+            /* we can safely exit if no SB irq has been emulated. if IdxSm is < samples, then it's due to integer math used above */
+            break;
+        };
 
         /* in case there weren't enough samples copied, fill the rest with silence.
          * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,

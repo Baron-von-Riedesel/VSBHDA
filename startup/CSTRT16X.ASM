@@ -198,11 +198,11 @@ around:
 
 ;--- get CS alias into BX
 
-	mov ebx, cs
-	mov ax, 000AH
-	int 31h
-	mov ebx, eax
-	mov cx, es:[DOS_PSP_ENV_SEG]	; - get environment segment into cx
+	movzx ebx, __csalias
+
+;--- get environment segment into cx
+
+	mov cx, es:[DOS_PSP_ENV_SEG]
 
 ;--- HX is mostly compatible with rational
 

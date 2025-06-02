@@ -8,6 +8,8 @@
 
 	include config.inc
 
+if FIXEXC00
+
 	.code
 
 	public c dwOldexc00
@@ -67,5 +69,7 @@ UninstallExc00 proc c public uses ebx
 	ret
 
 UninstallExc00 endp
+
+endif
 
 	END

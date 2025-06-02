@@ -165,8 +165,9 @@ $(OUTD)/sbrk.obj:      startup\sbrk.asm
 # to avoid any issues with 16-bit relocations in PE binaries,
 # the 16-bit code is included in binary format into rmwrap.asm.
 
-$(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
-	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
+$(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode1.bin src\rmcode1.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode2.bin src\rmcode2.asm
 	@$(ASM) -q -D?MODEL=flat -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC

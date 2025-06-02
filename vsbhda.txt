@@ -22,7 +22,8 @@
                 This package will also contain JLOAD.EXE and QPIEMU.DLL.
                 Version must be at least v5.84. Jemm - or rather QPIEMU.DLL
                 - is necessary for VSBHDA's support for "real-mode" games.
-                Alternately, Qemm may be used.
+                Instead of Jemm, Qemm may be used; however, JHDPMI.DLL can
+                be loaded and used by Jemm only.
 
 
    3. Usage
@@ -49,11 +50,13 @@
     HDPMI32i -x            HDPMI16i -x
     VSBHDA                 VSBHDA16
 
-    Files start.bat and start16.bat are examples how this startup sequence
-   might look like. UNINST.COM may be used to unload the programs. This must
-   be done if one wants to switch from 32-bit to 16-bit and vice versa; the
-   programs themselves have problems to detect the presence of the other
-   variant.
+    Files START.BAT and START16.BAT are examples how this startup sequence
+   might look like. Also supplied are STARTL.BAT and START16L.BAT - these
+   variants run VSBHDA(16) without JHDPMI.DLL. 
+
+    File UNINST.COM may be used to unload VSBHDA. This must be done if one
+   wants to switch from 32-bit to 16-bit and vice versa; the programs
+   themselves have problems to detect the presence of the other variant.
 
     As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
    also, if it's not installed, UNINST.COM won't work.
@@ -79,6 +82,10 @@
      /SD     : Set slowdown factor
      /O      : Set output widget (HDA only)
      /DEV    : Set start index for device scan (HDA only)
+     /DIVE   : Set "Runtime Error 200" fix for Borland apps (VSBHDA16 only)
+
+    Options must be followed by a number, without spaces. Options /A and /P
+   expect the number to be in hexadecimal, else decimal numbers are required.
 
    - /F: note that if the frequency isn't supported by the codec, it can't be
      used - that's also true for the default value ( 22050 Hz ). In such cases
@@ -105,7 +112,7 @@
    supply any features for vsbhda directly, but enhances DPMI compliance of
    hdpmi. It ensures that the DPMI host will be the first to receive interrupt
    requests that occur in v86-mode, without the need to modify IVT vectors.
-    The utility JHDSTAT.EXE makes JHDPMI display its status. One may see what
+    The utility JHDPMIS.EXE makes JHDPMI display its status. One may see what
    IVT vectors are hooked and how often the hook address has been called.
 
 
@@ -177,14 +184,28 @@
      hosts HDPMI32i/HDPMI16i are the only ones implementing the protected-mode
      port trapping API used by VSBHDA.
 
+   - "HDA: card n skipped - no codecs attached": HDA only; VSBHDA didn't find
+     any codecs attached to the HDA controller. A controller reset may be
+     needed.
+
+   - "HDA: card n skipped - mixer init error": HDA only; VSBHDA was unable to
+     query the codec for an appropriate path for sound output.
+
    - "Pin <n> (<type>) used for output": HDA only; this is a warning that the
      expected output device type ( lineout|speaker|headphone ) wasn't found
      and hence another one had to be used.
 
    6. Compatibility Issues
 
-    Here are some games listed that require special actions:
+    Here are some programs/games listed that require special actions:
 
+    - Aladdin: requires EMS, max. XMS memory is 31MB (XMSRES 31).
     - Blood: setting SB IRQ to 2 or 5 may be required. Generally, on some
       machines the DOS/4GW DOS extender has problems with IRQ 7.
     - Jungle Book: needs SETPVI.EXE to be run before launched.
+    - Screamer: set max. XMS memory to 31MB (XMSRES 31).
+    - Stargunner: SETUP.EXE must be run without VSBHDA loaded.
+    - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
+      HDPMI32i.
+    - Windows 3.1: the Windows task switcher duo WSWAP.EXE/DSWAP.EXE isn't
+      compatible with JHDPMI.DLL - use START16L.BAT to run VSBHDA.

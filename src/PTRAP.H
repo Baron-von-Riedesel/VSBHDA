@@ -15,6 +15,7 @@ typedef uint32_t (*PORT_TRAP_HANDLER)(uint32_t port, uint32_t val, uint32_t out)
 uint16_t PTRAP_GetQEMMVersion(void);
 
 void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndint );
+void PTRAP_InitPortMax(void);
 bool PTRAP_Prepare_RM_PortTrap(void);
 bool PTRAP_Install_RM_PortTraps( void );
 bool PTRAP_Uninstall_RM_PortTraps( void );

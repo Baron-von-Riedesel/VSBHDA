@@ -35,6 +35,16 @@ uint16_t PIC_GetIRQMask(void)
     return ( (uint16_t)( UntrappedIO_IN( PIC_DATA2 ) << 8) | UntrappedIO_IN( PIC_DATA1 ) );
 }
 
+uint8_t PIC_GetISR(int bSlave)
+//////////////////////////////
+{
+    uint16_t wPort = (bSlave ? PIC_PORT2 : PIC_PORT1 );
+    uint8_t rc;
+    UntrappedIO_OUT(wPort, 0x0B);
+    rc = UntrappedIO_IN(wPort);
+    return rc;
+}
+
 void PIC_SetIRQMask(uint16_t mask)
 //////////////////////////////////
 {

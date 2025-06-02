@@ -79,8 +79,9 @@ $(OUTD)/$(NAME).ar:: $(OBJFILES)
 # to avoid problems with 16-bit relocations, the 16-bit code
 # is included in binary format into rmwrap.asm.
 
-$(OUTD)/rmwrap.o:: rmwrap.asm rmcode.asm
-	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode.bin src/rmcode.asm
+$(OUTD)/rmwrap.o:: rmwrap.asm rmcode1.asm rmcode2.asm
+	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode1.bin src/rmcode1.asm
+	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode2.bin src/rmcode2.asm
 	jwasm.exe -q -djgpp -D?MODEL=small -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
 $(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h ac97mix.h
@@ -99,7 +100,7 @@ $(OUTD)/timer.o::    timer.c     mpxplay.h au_cards.h timer.h
 
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/linear.o::   linear.c    linear.h platform.h
-$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au.h
+$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au.h version.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
 $(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h ctadpcm.h au.h

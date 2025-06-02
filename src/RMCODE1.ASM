@@ -6,7 +6,7 @@
 	option proc:private
 	option casemap:none
 
-HANDLE_IN_388H_DIRECTLY equ 0 ; std=1, must match #define in ptrap.c
+HANDLE_IN_388H_DIRECTLY equ 0 ; std=0, must match #define in ptrap.c
 RMPICTRAPDYN            equ 0 ; std=0, must match #define in ptrap.c
 
 ;--- if RMPICTRAPDYN is 0, the PIC port 0020h is permanently trapped.
@@ -23,7 +23,7 @@ _TEXT segment word public 'CODE'
 wRmcb dd 0	; rmcb to vsbhda port trap handler
 _0004 db 0	; last 388h value written
 _0005 db 0
-wPICp dw 20h; PIC port to trap ( 0020h or 0ffffh )
+wPICp dw 20h; PIC port to trap ( 0020h or 0ffffh ) - must be at offset 6!
 dwQPI dd 0	; QPI entry Jemm/Qemm, for "untrapped io"
 
 ife RMPICTRAPDYN
@@ -38,7 +38,9 @@ if HANDLE_IN_388H_DIRECTLY
 	je is389
 normal:
 endif
+
 	jmp [wRmcb]
+
 if HANDLE_IN_388H_DIRECTLY
 is388:
 	test cl, 4			; OUT instr?
@@ -70,8 +72,8 @@ endif
 
 ife RMPICTRAPDYN
 
-;--- this code runs when NO IRQ 5/7 is emulated.
-;--- since port 0020h is permanently trapped, QPI must be called
+;--- This code runs when NO SB IRQ (2/5/7) is emulated.
+;--- Since port 0020h is permanently trapped, QPI must be called
 ;--- to execute the IN/OUT instruction.
 ;--- 02/2024: fixed: register AH/AX preserved for IN/OUT
 

@@ -8,6 +8,10 @@
 #include "PTRAP.H"
 #include "VMPU.H"
 
+#if VMPU
+
+extern struct globalvars gvars;
+
 /* 0x330: data port
  * 0x331: read: status port
  *       write: command port
@@ -24,8 +28,8 @@ static bool bReset = false;
 static void VMPU_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
-	dbgprintf(("VMPU_Write(%X)=%X\n", port, value ));
-	if ( port == 0x331 ) {
+	dbgprintf(("VMPU_Write(%X, %X)\n", port, value ));
+	if ( port == gvars.mpu + 1 ) {  /* command port? */
 		if ( value == 0xff )
 			bReset = true;
 	} else {
@@ -36,16 +40,20 @@ static void VMPU_Write(uint16_t port, uint8_t value)
 static uint8_t VMPU_Read(uint16_t port)
 ///////////////////////////////////////
 {
-	dbgprintf(("VMPU_Read(%X)\n", port ));
-	if ( port == 0x330 ) {
+	if ( port == gvars.mpu ) {
 		if ( bReset ) {
+			dbgprintf(("VMPU_Read(%X)=0xfe\n", port ));
 			bReset = false;
 			return 0xfe;
 		}
+		dbgprintf(("VMPU_Read(%X)=0\n", port ));
 		return 0;
 	} else {
-		if ( bReset )
+		if ( bReset ) {
+			dbgprintf(("VMPU_Read(%X)=0\n", port ));
 			return 0x00;
+		}
+//		dbgprintf(("VMPU_Read(%X)=0x80\n", port ));
 		return 0x80;
 	}
 }
@@ -62,3 +70,4 @@ uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out)
 {
     return out ? (VMPU_Write(port, val), val) : ( val &= ~0xff, val |= VMPU_Read(port) );
 }
+#endif

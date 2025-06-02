@@ -1,7 +1,7 @@
 
 ;--- very simple memory allocator.
 ;--- implements a stack.
-;--- in 16-bin, the OW memory allocator cannot be used currently.
+;--- in 16-bit, the OW memory allocator cannot be used currently.
 ;--- but it's now also used for 32-bit, because it's so simple
 ;--- and sufficient for this kind of app.
 ;--- assemble with -zcw.

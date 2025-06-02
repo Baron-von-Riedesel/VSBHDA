@@ -118,7 +118,7 @@ struct VSB_Status {
     uint8_t dsp_cmd_len;
     uint8_t dsp_in_pos;
     uint8_t dsp_in_data[4];
-    uint8_t Irq;      /* IRQ, set by Init (5/7) */
+    uint8_t Irq;      /* IRQ, set by Init (2/5/7) */
     uint8_t Dma8;     /* 8-bit DMA channel */
     uint8_t Dma16;    /* 16-bit DMA channel */
     uint8_t MixerRegIndex;
@@ -741,7 +741,7 @@ int VSB_GetDMA()
 #if SB16
     if ( vsb.Bits > 8 ) {
         if( vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 )
-            return( BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] >> 4) + 4 );
+            return( BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 ) );
     }
 #endif
     if( vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] )
@@ -859,9 +859,16 @@ void VSB_SetIRQStatus( uint8_t flag )
     vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= flag;
 }
 
+/* checks if a SB IRQ is supposed to happen.
+ * Just the SB status flags are checked.
+ */
+
 int VSB_GetIRQStatus( void )
 ////////////////////////////
 {
+    /* Probably should also check the VPIC mask flags? */
+    //if ( VPIC_Acc( 0x21, 0, 0 ) & (1 << vsb.Irq ) )
+    //    return 0;
     return( vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] & ( SB_MIXERREG_IRQ_STAT8BIT | SB_MIXERREG_IRQ_STAT16BIT ) );
 }
 

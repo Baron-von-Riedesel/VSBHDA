@@ -7,6 +7,7 @@ SEGOFS equ 2
 insIRET textequ <iret>
 insPUSHF textequ <pushf>
 PFAR typedef ptr far16
+FIXEXC00 equ 1	;1=fix borland exc 00 bug
 
 IRETS struct
 _ip	dw ?

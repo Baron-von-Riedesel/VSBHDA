@@ -196,7 +196,16 @@ endif
 	mov es:[edi].RMCS.rCS, ax
 	add es:[edi].RMCS.rSP, 2+2
 
+ifdef _DEBUG ;v1.6: dwDS may not be set yet, at least in debug version
+	mov eax, cs:[dwDS]
+	and eax, eax
+	jnz @F
+	mov eax, es
+@@:
+	mov ds, eax
+else
 	mov ds, cs:[dwDS]
+endif
 
 	assume ds:ASSUMEDS
 

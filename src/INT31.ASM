@@ -28,12 +28,17 @@ endif
 
 ifdef NOTFLAT
 
+ if FIXEXC00
 InstallExc00 proto 
 UninstallExc00 proto 
+ endif
 
 	.code
 
+ if FIXEXC00
 externdef dwOldexc00:dword	; in _TEXT for 16-bit
+externdef bExc00:byte       ; 1=trap set/get exc 00 vector
+ endif
 
 oldint31 PFAR ?
  if TRAPINT21
@@ -69,10 +74,13 @@ endif
 myint31 proc
 
 ifdef NOTFLAT
+ if FIXEXC00
 	cmp ax, 202h	; get exc vector
 	jz is202
 	cmp ax, 203h	; set exc vector
 	jz is203
+@@:
+ endif
 endif
 	cmp ax, 204h	; get int vector
 	jz is204
@@ -99,15 +107,20 @@ is_SB:
 	insIRET
 
 ifdef NOTFLAT
+ if FIXEXC00
 is202:
 	cmp bl,0
 	jnz prevint
+	cmp cs:[dwOldexc00],0
+	jz prevint
 	mov dx, word ptr cs:[dwOldexc00+0]
 	mov cx, word ptr cs:[dwOldexc00+2]
 	insIRET
 is203:
 	cmp bl,0
 	jnz prevint
+	cmp cs:[dwOldexc00],0
+	jz prevint
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
@@ -119,6 +132,7 @@ is203:
 ;--- but for HDPMI16 it should be ok.
 	and byte ptr [esp].IRETS._fl, not 1
 	insIRET
+ endif
 endif
 	align 4
 
@@ -177,11 +191,20 @@ endif
 
 ;--- install int 31h handler; also int 21h, if TRAPINT21==1
 
+ifdef NOTFLAT
+_InstallInt31 proc public uses ebx bDivErr:dword
+else
 _InstallInt31 proc public uses ebx
+endif
 
 	@dprintf CStr("_InstallInt31 enter",10)
 ifdef NOTFLAT
+ if FIXEXC00
+	cmp bDivErr, 0
+	jz @F
 	call InstallExc00
+@@:
+ endif
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
@@ -287,7 +310,9 @@ endif
 	jc error
 
 ifdef NOTFLAT
+ if FIXEXC00
 	call UninstallExc00
+ endif
 endif
 	mov eax, 1
 	ret

@@ -30,9 +30,7 @@
 #include "VMPU.H"
 #endif
 
-#if 0//JHDPMI
-int jhdpmi = 0;
-#endif
+#define DOSMEMSTART 0x60
 
 // next 2 defines must match EQUs in rmwrap.asm!
 #define HANDLE_IN_388H_DIRECTLY 0
@@ -55,11 +53,8 @@ static int maxranges;
 static int PICIndex;
 
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
-extern void PTRAP_RM_Wrapper( void );
-extern void PTRAP_RM_WrapperEnd( void );
-#ifdef NOTFLAT
-extern void copyrmwrap( void * );
-#endif
+extern void * copyrmcode( void *, int );
+void * dosheap;
 #endif
 
 static uint32_t traphdl[8+1] = {0}; /* hdpmi32i trap handles */
@@ -270,16 +265,14 @@ uint16_t PTRAP_GetQEMMVersion(void)
     return 0;
 }
 
-bool PTRAP_Prepare_RM_PortTrap()
-////////////////////////////////
+/* v1.6: extracted from PTRAP_Prepare_RM_PortTrap() because that function may be optional.
+ * Variables maxports, maxranges, portranges[] and PortTable[] are initialized.
+ */
+
+void PTRAP_InitPortMax( void )
+//////////////////////////////
 {
     int i, j;
-    static __dpmi_regs TrapHandlerREG; /* static RMCS for RMCB */
-    __dpmi_regs r = {0};
-#if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
-    uint32_t dosmem;
-#endif
-
     /* setup port ranges */
     for ( i = 0, j = 1, portranges[0] = 0; PortTable[i] != 0xffff; i++ ) {
         if ( PortTable[i] & 0x8000 ) {
@@ -290,6 +283,24 @@ bool PTRAP_Prepare_RM_PortTrap()
     }
     maxports = i;
     maxranges = j - 1;
+}
+
+/*
+ * Prepare real-mode port trapping.
+ * This isn't called if /RM0 has been set or QPI API hasn't been found!
+ */
+
+bool PTRAP_Prepare_RM_PortTrap()
+////////////////////////////////
+{
+#ifdef _DEBUG
+    int j;
+#endif
+    static __dpmi_regs TrapHandlerREG; /* static RMCS for RMCB */
+    __dpmi_regs r = {0};
+#if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
+    uint32_t dosmem;
+#endif
 
 #ifdef _DEBUG
     dbgprintf(("PTRAP_Prepare_RM_PortTrap: maxports=%u, maxranges=%u\n", maxports, maxranges ));
@@ -320,15 +331,9 @@ bool PTRAP_Prepare_RM_PortTrap()
      * 8-B: Qemm/Jemm entry
      * C-x: code
      */
-    dosmem = _my_psp() + 0x80;
+    dosmem = _my_psp() + DOSMEMSTART;
 
-#ifdef NOTFLAT
-    copyrmwrap( NearPtr(dosmem) );
-#else
-    /* OW refuses to subtract two function addresses */
-    //memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, &PTRAP_RM_WrapperEnd - &PTRAP_RM_Wrapper );
-    memcpy( NearPtr(dosmem), &PTRAP_RM_Wrapper, 0x80 );
-#endif
+    dosheap = copyrmcode( NearPtr(dosmem), 1 );
 
     /* the first 12 bytes are variables, now to be initialized */
 
@@ -429,7 +434,7 @@ void PTRAP_SetPICPortTrap( int bSet )
          * see rmwrap.asm, proc PTRAP_RM_Wrapper.
          * 6 is the offset where the trapped port (PIC) in RMWRAP.ASM is stored!
          */
-        uint32_t dosmem = _my_psp() + 0x80 + 6;
+        uint32_t dosmem = _my_psp() + DOSMEMSTART + 6;
         WriteLinearW( dosmem, bSet ? 0xffff : 0x0020 );
 #endif
     }
@@ -608,7 +613,7 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndirq )
 #ifdef _DEBUG
     dbgprintf(("PTRAP_Prepare: maxports=%u, maxranges=%u\n", maxports, maxranges ));
     for( i = 0; i < maxranges; i++ ) {
-        dbgprintf(("PTRAP_Prepare_RM_PortTrap: range[%u]: ports %X-%X\n", i, PortTable[portranges[i]], PortTable[portranges[i+1]-1] ));
+        dbgprintf(("PTRAP_Prepare: range[%u]: ports %X-%X\n", i, PortTable[portranges[i]], PortTable[portranges[i+1]-1] ));
     }
 #endif
 

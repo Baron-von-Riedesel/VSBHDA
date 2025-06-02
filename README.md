@@ -27,4 +27,4 @@ may also be used, but cannot create the 16-bit variant of VSBHDA.
 
 In all cases the JWasm assembler (v2.17 or better) is also needed.
 For Open Watcom, a few things from the HX development package (HXDEV)
-are required - see Watcom.mak for details.
+are required - see Makefile for details.

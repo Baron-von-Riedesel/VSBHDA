@@ -8,34 +8,55 @@
 	option casemap:none
 	option proc:private
 
-;--- currently, WATCHSB = 1 works (for DOS/4GW) with SB IRQ 7
-;--- only if notify() returns with C ( meaning the protected-mode
-;--- vector will be set ). SB irq 5 has no such limitations.
+;--- 1. currently, WATCHSB = 1 works (for DOS/4GW) with SB IRQ 7 only if HOSTRT = 1.
+;--- 2. if HOSTRT = 0, MASKSBIRQ in virq.c should be set to 0.
 
 WATCHSB   equ 1	; 1=watch SB int
+HOSTRT    equ 1	; 1=route get/set pm vector calls to DPMI host
+ife HOSTRT
+RTIVT     equ 1	; 1=route interrupt requests to (old) real-mode IV directly.
+endif
 
 	include config.inc
 	include debug.inc
 
 externdef c VIRQ_Irq:byte
 externdef c __djgpp_stack_top:dword
+externdef c DSBase:dword
 externdef dwDS:dword
 externdef bIntSB:byte
+externdef c _linear_psp:dword
+copyrmcode proto c :ptr, :dword
+
+	.data
+
+dwOldIV0F dd 0
+ife HOSTRT
+ if RTIVT
+dwOldIV   dd 0
+ endif
+endif
 
 ifdef NOTFLAT
 
 	.code
 
-currSBvec  PFAR ?	; current vector for SB ISR
-
+currSBvec  PFAR ?	; current vector SB ISR
+ ife HOSTRT
+oldSBvec   PFAR ?	; original vector SB ISR
+ endif
 else
 
 	assume ds:_DATA
 
 	.data
 
-currSBvec  PFAR ?	; current vector for SB ISR
+currSBvec  PFAR ?	; current vector SB ISR
 	align 4
+ ife HOSTRT
+oldSBvec   PFAR ?	; original vector SB ISR
+	align 4
+ endif
 
 endif
 
@@ -75,13 +96,13 @@ else
 	pop ds
 	ja is0F
 	jz is0D
-	int 0Ah
+	int 8+2		;irq 2
 	jmp exit
 is0D:
-	int 0Dh
+	int 8+5		;irq 5
 	jmp exit
 is0F:
-	int 0Fh
+	int 8+7		;irq 7
 exit:
 endif
 	push ds
@@ -99,7 +120,46 @@ if 1
 @@:
 endif
 	ret
+	align 4
 _SBIsrCall endp
+
+ife HOSTRT
+sbisr proc
+ ife RTIVT
+	jmp cs:[oldSBvec]
+ else
+	push es
+	pushad
+	sub esp, 34h
+	mov edi, esp
+	push ss
+	pop es
+	xor bx, bx
+	xor ecx, ecx
+  ifdef NOTFLAT
+	push ds
+	mov ds, cs:[dwDS]
+	mov eax, [dwOldIV]
+	pop ds
+  else
+	mov eax, cs:[dwOldIV]
+  endif
+	mov es:[edi].RMCS.rFlags, 2
+	mov es:[edi].RMCS.rCSIP, eax
+	shr eax, 16
+	mov es:[edi].RMCS.rES, ax
+	mov es:[edi].RMCS.rDS, ax
+	mov es:[edi].RMCS.rSSSP, ecx
+	mov ax, 302h
+	int 31h
+	add esp, 34h
+	popad
+	pop es
+	insIRET
+ endif
+	align 4
+sbisr endp
+endif
 
 if TRAPINT21
 
@@ -114,6 +174,7 @@ _SB_Notify21 proc public
 if WATCHSB
 	cmp ah, 25h
 	jz is_25
+ ife HOSTRT
   ifdef NOTFLAT
 	mov bx, word ptr cs:[currSBvec+0]
 	mov es, word ptr cs:[currSBvec+SEGOFS]
@@ -122,6 +183,9 @@ if WATCHSB
 	mov es,   word ptr cs:[currSBvec+SEGOFS]
   endif
 	clc
+ else
+	stc	; C - call will be routed to DPMI host
+ endif
 	ret
 is_25:
 	push es
@@ -137,10 +201,14 @@ is_25:
  ifdef NOTFLAT
 	assume es:DGROUP
  endif
+ ife HOSTRT 
 	clc
+ else
+	stc	; C - call will be routed to DPMI host
+ endif
 	ret
 endif
-
+	align 4
 _SB_Notify21 endp
 
 endif
@@ -151,30 +219,42 @@ endif
 ;---     cx:edx=new value if al=5
 ;--- out: cx:edx=old value if al=4
 
+ife HOSTRT
 NOTFR struct
 	dd ?	;return
 	IRETS <>
 NOTFR ends
+endif
 
 _SB_Notify31 proc public
 
 if WATCHSB
+ ife HOSTRT
 	and byte ptr [esp].NOTFR._fl, not 1
+ endif
 	cmp al, 4
 	jz is_04
 	call savevector
-	stc
+ ife HOSTRT
+	clc
+ else
+	stc ; C - call will be routed to DPMI host
+ endif
 	ret
 is_04:
- ifdef NOTFLAT
+ ife HOSTRT
+  ifdef NOTFLAT
 	mov dx, word ptr cs:[currSBvec+0]
- else
+  else
 	mov edx, dword ptr cs:[currSBvec+0]
- endif
+  endif
 	mov cx, word ptr cs:[currSBvec+SEGOFS]
-	stc
+	clc
+ else
+	stc ; C - call will be routed to DPMI host
+ endif
 	ret
-
+	align 4
 savevector::
 	push ds
  ifdef NOTFLAT
@@ -192,15 +272,14 @@ savevector::
  ifdef NOTFLAT
 	assume ds:DGROUP
  endif
-	ret
-
+	retn
 endif
-
+	align 4
 _SB_Notify31 endp
 
 ;--- init the SB interrupt handling.
 
-_SB_InstallISR proc public uses ebx interrupt:byte
+_SB_InstallISR proc public uses ebx interrupt:byte, pDosHeap:ptr, dwPart:dword
 
 	@dprintf CStr("SB_InstallISR enter",10)
 if WATCHSB
@@ -208,13 +287,91 @@ if WATCHSB
 	mov ax, 204h
 	int 31h
 	call savevector
+ ife HOSTRT
+	call saveorgvec
+	mov ecx, cs
+	mov edx, offset sbisr
+	mov ax, 205h
+	int 31h
+  if RTIVT
+	mov ax, 200h
+	int 31h
+	mov word ptr [dwOldIV+0], dx
+	mov word ptr [dwOldIV+2], cx
+  endif
+ endif
 endif
+
+;--- if SB irq == 7, check if the real-mode interrupt is a plain IRET
+;--- if yes, install another routine that sends EOI to PIC.
+
+	mov bl, interrupt
+	cmp bl, 8+7
+	jnz exit
+	mov ax, 200h
+	int 31h
+	mov eax, ecx
+	shl eax, 16
+	mov ax, dx
+	movzx ecx, cx
+	movzx edx, dx
+	shl ecx, 4
+	add edx, ecx
+if @Model ne 7
+	sub edx, [DSBase]
+endif
+	cmp byte ptr [edx], 0CFh
+	jnz exit
+	mov [dwOldIV0F], eax
+	invoke copyrmcode, pDosHeap, dwPart
+	mov edx, pDosHeap
+if @Model ne 7
+	add edx, [DSBase]
+endif
+	mov ecx, [_linear_psp]
+	sub edx, ecx
+	shr ecx, 4
+	mov ax, 201h
+	int 31h
+exit:
 	mov eax, 1
 	ret
+ife HOSTRT
+saveorgvec:
+ ifdef NOTFLAT
+	push ds
+	mov ds, cs:[_csalias]
+	assume ds:_TEXT
+ endif
+	mov dword ptr [oldSBvec+0], edx
+	mov word ptr [oldSBvec+SEGOFS], cx
+ ifdef NOTFLAT
+	pop ds
+	assume ds:DGROUP
+ endif
+	retn
+endif
+	align 4
 _SB_InstallISR endp
 
-_SB_UninstallISR proc public interrupt:byte
+_SB_UninstallISR proc public uses ebx interrupt:byte
 
+	mov bl, interrupt
+ife HOSTRT
+	mov edx, dword ptr cs:[oldSBvec]
+	mov cx, word ptr cs:[oldSBvec+SEGOFS]
+	mov ax, 205h
+	int 31h
+endif
+	mov eax, [dwOldIV0F]
+	and eax, eax
+	jz exit
+	push eax
+	pop dx
+	pop cx
+	mov ax, 201h
+	int 31h
+exit:
 	mov eax, 1
 	ret
 

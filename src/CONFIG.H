@@ -15,7 +15,6 @@
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
 #define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 if BLASTER contains P=xxx */
 #define SLOWDOWN 1    /* 1=support /SD option */
-//#define JHDPMI 0      /* 1=check if JLM jhdpmi is loaded */
 #define DISPSTAT 1    /* 1=display VSB status */
 
 #ifdef __cplusplus
@@ -41,6 +40,9 @@ struct globalvars {
 	int buffsize;
 #if SLOWDOWN
 	int slowdown;
+#endif
+#ifdef NOTFLAT
+	int diverr; /* /DIVE value */
 #endif
 	int pin;
 	int device;

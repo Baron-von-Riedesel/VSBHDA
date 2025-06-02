@@ -18,6 +18,7 @@ extern "C"
 
 void PIC_SendEOI(uint8_t irq);        //send end of interrupt.
 //void PIC_MaskIRQ(uint8_t irq);      //mask an irq line
+uint8_t PIC_GetISR(int bSlave);
 void PIC_UnmaskIRQ(uint8_t irq);      //unmask an irq line
 uint16_t PIC_GetIRQMask(void);
 void PIC_SetIRQMask(uint16_t mask);

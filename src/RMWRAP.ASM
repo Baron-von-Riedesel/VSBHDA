@@ -7,21 +7,25 @@
 
 	.code
 
-PTRAP_RM_Wrapper proc c public
+RMCode1:
+%	incbin <OUTD\rmcode1.bin>
+RMCode1End equ $
+RMCode2:
+%	incbin <OUTD\rmcode2.bin>
+RMCode2End equ $
 
-%	incbin <OUTD\rmcode.bin>
-
-PTRAP_RM_Wrapper endp
-
-PTRAP_RM_WrapperEnd proc c public
-PTRAP_RM_WrapperEnd endp
-
-copyrmwrap proc c public uses esi edi pDst:ptr
+copyrmcode proc c public uses esi edi pDst:ptr, nSrc:dword
 	mov edi, pDst
-	mov esi, offset PTRAP_RM_Wrapper
-	mov ecx, PTRAP_RM_WrapperEnd - PTRAP_RM_Wrapper
+	mov esi, offset RMCode1
+	mov ecx, RMCode1End - RMCode1
+	cmp nSrc, 1
+	jz @F
+	mov esi, offset RMCode2
+	mov ecx, RMCode2End - RMCode2
+@@:
 	rep movsb es:[edi], cs:[esi]
+	mov eax, edi
 	ret
-copyrmwrap endp
+copyrmcode endp
 
 	end

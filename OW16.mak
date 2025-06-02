@@ -161,8 +161,9 @@ $(OUTD)/libmain.obj:   startup\libmain.c
 
 # the 16-bit code is included in binary format into rmwrap.asm.
 
-$(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode.asm
-	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode.bin src\rmcode.asm
+$(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode1.bin src\rmcode1.asm
+	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode2.bin src\rmcode2.asm
 	@$(ASM) -q -DNOTFLAT -D?MODEL=small -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
