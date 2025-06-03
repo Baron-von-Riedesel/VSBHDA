@@ -52,7 +52,7 @@
 
     Files START.BAT and START16.BAT are examples how this startup sequence
    might look like. Also supplied are STARTL.BAT and START16L.BAT - these
-   variants run VSBHDA(16) without JHDPMI.DLL. 
+   variants run VSBHDA(16) without JHDPMI.DLL.
 
     File UNINST.COM may be used to unload VSBHDA. This must be done if one
    wants to switch from 32-bit to 16-bit and vice versa; the programs
@@ -138,7 +138,7 @@
    - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
      Optionally, this can be further reduced by appending a digit to -x: -x2
      reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
-     since it's just the amount of memory that's reported as free - the program 
+     since it's just the amount of memory that's reported as free - the program
      may still allocate more than that, if available.
 
    - XMSRes: tool to reduce free XMS memory. This TSR can be uninstalled, so
@@ -149,7 +149,7 @@
 
 
    4.4 Jemm's NOVCPI Option
-   
+
     If VSBHDA is to work for DOS protected-mode games, those games must use the
    HDPMI32i/HDPMI16i DPMI host. This is usually no problem, because there's an
    API to detect the presence of such a host. However, games may ignore an
@@ -160,7 +160,7 @@
 
 
    5. Error Messages
-   
+
    - "Sound card IRQ conflict": the sound hardware uses the very same IRQ number
      than the emulated SB ( 2, 5 or 7 ). This is currently rejected ( it may
      confuse the emulator ).
@@ -168,7 +168,7 @@
    - "SB found - probably VSBHDA already installed": a SoundBlaster was
      detected. If it's due to an installed VSBHDA, use UNINST.COM to remove the
      running VSBHDA from memory.
-   
+
    - "Jemm/Qemm not installed, or version below 7.03: x.x - disable real-mode
      support": the so-called QPI wasn't found. It's either supplied by Qemm or
      Jemm ( with QPIEMU.DLL loaded ).
@@ -195,6 +195,7 @@
      expected output device type ( lineout|speaker|headphone ) wasn't found
      and hence another one had to be used.
 
+
    6. Compatibility Issues
 
     Here are some programs/games listed that require special actions:
@@ -207,5 +208,9 @@
     - Stargunner: SETUP.EXE must be run without VSBHDA loaded.
     - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
       HDPMI32i.
-    - Windows 3.1: the Windows task switcher duo WSWAP.EXE/DSWAP.EXE isn't
-      compatible with JHDPMI.DLL - use START16L.BAT to run VSBHDA.
+    - Windows 3.1: the Windows Standard Mode task switcher duo WSWAP.EXE &
+      DSWAP.EXE isn't compatible with JHDPMI.DLL - START16L.BAT must be used
+      to run VSBHDA. The Windows PL0 component DOSX.EXE will ignore any
+      active DPMI host, including HDPMI16i.exe. It must be replaced by the
+      DOSX.EXE binary supplied with the HX runtime package HXRT.
+

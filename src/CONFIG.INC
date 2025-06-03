@@ -54,6 +54,17 @@ EXCFRAME ends
 
 endif
 
+ifdef DJGPP
+_Go32_Info_Block struct
+	dd 6 dup (?)
+	db ?,?
+	dw ?
+	dd ?
+linear_address_of_original_psp dd ?
+	dw ?,?
+_Go32_Info_Block ends
+endif
+
 PUSHADS struct
 _edi	dd ?
 _esi	dd ?

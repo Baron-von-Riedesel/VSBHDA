@@ -25,7 +25,17 @@ externdef c __djgpp_stack_top:dword
 externdef c DSBase:dword
 externdef dwDS:dword
 externdef bIntSB:byte
+ifdef DJGPP
+externdef c _go32_info_block:_Go32_Info_Block
+_my_psp macro
+	exitm <_go32_info_block.linear_address_of_original_psp>
+endm
+else
 externdef c _linear_psp:dword
+_my_psp macro
+	exitm <_linear_psp>
+endm
+endif
 copyrmcode proto c :ptr, :dword
 
 	.data
@@ -328,7 +338,7 @@ endif
 if @Model ne 7
 	add edx, [DSBase]
 endif
-	mov ecx, [_linear_psp]
+	mov ecx, _my_psp()
 	sub edx, ecx
 	shr ecx, 4
 	mov ax, 201h

@@ -4,7 +4,7 @@
     trapping was disabled.
   - fixed: debug displays may have caused a GPF.
   - VSBHDA16: option /DIVE added; enable Borland "Runtime error 200" fix.
-  - fixed: VPIC EOI check now just tests if bit 5 of OCW2 is set.
+  - fixed: VPIC EOI check now handles specific EOIs ( bit 5 of OCW2 ).
 
   v1.5, 8.6.2024
   - MPU port emulation if BLASTER variable contains P=xxx.
