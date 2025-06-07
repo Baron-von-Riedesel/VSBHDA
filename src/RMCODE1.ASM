@@ -10,7 +10,7 @@ HANDLE_IN_388H_DIRECTLY equ 0 ; std=0, must match #define in ptrap.c
 RMPICTRAPDYN            equ 0 ; std=0, must match #define in ptrap.c
 
 ;--- if RMPICTRAPDYN is 0, the PIC port 0020h is permanently trapped.
-;--- if RMPICTRAPDYN is 1, the PIC port 0020h is trapped only while an IRQ 5/7
+;--- if RMPICTRAPDYN is 1, the PIC port 0020h is trapped only while SB IRQ 2/5/7
 ;--- is emulated. This is quite some overhead.
 
 ;--- this code runs in real-mode.

@@ -69,29 +69,34 @@ static void VPIC_Write(uint16_t port, uint8_t value)
             value |= ( 1 << VIRQ_Irq );
 #endif
 
-    } else if( IRQ_IS_VIRTUALIZED() ) {
+    } else {
+        int index = 0;
+        //int index = (port == 0x20) ? 0 : 1; /* activate if SB Irq may be > 7! */
         //dbgprintf(("VPIC_Write:%x,%x\n",port,value));
-        int index = (port == 0x20) ? 0 : 1; /* currently it's always port 0x20 */
-        vpic.OCW[index] = value;
-        dbgprintf(("VPIC_Write(%x,%x) vpic.ISR[%u]=%X\n", port, value, index, vpic.ISR[index] ));
-        /* v1.6: test just bit 5 of OCW2 for EOI */
-        //if( value == 0x20 && vpic.ISR[index] ) {
-        if( ( value & 0x20 ) && vpic.ISR[index] ) {
-            if ( value & 0x40 ) { /* v1.6: specific EOI? */
-                if (( value & 0x7 ) == VIRQ_Irq ) {
-                    vpic.ISR[index] = 0;
-                    return; //don't send to real PIC if it's virtualized.
-                }
-            } else {
-                /* v1.6: unspecific EOI - check if SB irq bit in ISR is first */
-                uint16_t wISR = PIC_GetISR( 0 ) | 0x8000;
-                if ( vpic.bIrq < 8 )
-                    wISR &= ~(1 << vpic.bIrq );
-                else if ( VIRQ_Irq != 2 )
-                    wISR &= ~(1 << 2);  /* reset bit 2 of ISR if snd hw IRQ is 8-15 */
-                if ( BSF( wISR ) >= VIRQ_Irq ) {
-                    vpic.ISR[index] = 0;
-                    return; //don't send to real PIC if it's virtualized.
+        /* v1.6: always store OCW so we can virtualize IRR for SB Irq */
+        if ( value & 0x18 )
+            vpic.OCW[index] = value;
+        if( IRQ_IS_VIRTUALIZED() ) {
+            dbgprintf(("VPIC_Write(%x,%x) vpic.ISR[%u]=%X\n", port, value, index, vpic.ISR[index] ));
+            /* v1.6: test just bit 5 of OCW2 for EOI */
+            //if( value == 0x20 && vpic.ISR[index] ) {
+            if( ( value & 0x20 ) && vpic.ISR[index] ) {
+                if ( value & 0x40 ) { /* v1.6: specific EOI? */
+                    if (( value & 0x7 ) == VIRQ_Irq ) {
+                        vpic.ISR[index] = 0;
+                        return; //don't send to real PIC if it's virtualized.
+                    }
+                } else {
+                    /* v1.6: unspecific EOI - check if SB irq bit in ISR is first */
+                    uint16_t wISR = PIC_GetISR( 0 ) | 0x8000;
+                    if ( vpic.bIrq < 8 )
+                        wISR &= ~(1 << vpic.bIrq );
+                    else if ( VIRQ_Irq != 2 )
+                        wISR &= ~(1 << 2);  /* reset bit 2 of ISR if snd hw IRQ is 8-15 */
+                    if ( BSF( wISR ) >= VIRQ_Irq ) {
+                        vpic.ISR[index] = 0;
+                        return; //don't send to real PIC if it's virtualized.
+                    }
                 }
             }
         }
@@ -118,7 +123,13 @@ static uint8_t VPIC_Read(uint16_t port)
 					rc &= ~(1 << 2);
 			}
 			dbgprintf(("VPIC_Read(%x)=%X vpic.ISR[0]=%X\n", port, rc, vpic.ISR[0] ));
-		}
+#if 0 /* if status of IRR is to be trapped */
+        } else if ( vpic.OCW[0] == 0x0A ) { /* v1.6: read IRR? */
+			if ( VSB_GetIRQStatus() )
+				rc |= (1 << VSB_GetIRQ());
+			dbgprintf(("VPIC_Read(%x)=%X (virt OFF)\n", port, rc ));
+#endif
+        }
 		break;
 #if 0 /* not needed if SB irq is < 8 */
 	case 0xA0:

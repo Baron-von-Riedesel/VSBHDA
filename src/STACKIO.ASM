@@ -13,7 +13,17 @@
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
+
+;--- if TRIGGERIRQ is 0, the interrupt is supposed to be triggered inside the snd hw ISR;
+;--- that means it's delayed up to several ms - may be too long for some apps.
+;--- which causes a problem for Win31 sndblst2.drv in its initial detection routine.
+;--- However, setting it to 1 may also cause problems, since the irq may then be
+;--- triggered multiple times if irq ackknowledge isn't done inside the ISR.
+
 TRIGGERIRQ equ 0	; 1=run virtual SB IRQ triggered by port access
+
+;--- todo: detailed description for what apps this setting is needed.
+
 IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" problem (16-bit)
 
 PTRAP_PM_TrapHandler proto :word, :dword, :dword
@@ -103,7 +113,7 @@ ifdef NOTFLAT
  if IRETFIX16
 	cmp dx, 20h
 	jnz @F
-	cmp al, 20h
+	cmp al, 20h	; just the unspecific EOI is detected!?
 	jnz @F
 	test cl, 1	; so it's an EOI sent to master PIC
 	jz @F

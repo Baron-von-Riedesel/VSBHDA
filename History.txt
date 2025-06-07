@@ -1,10 +1,11 @@
 
-  v1.6, 2.6.2025
+  v1.6, 7.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port
     trapping was disabled.
   - fixed: debug displays may have caused a GPF.
   - VSBHDA16: option /DIVE added; enable Borland "Runtime error 200" fix.
-  - fixed: VPIC EOI check now handles specific EOIs ( bit 5 of OCW2 ).
+  - fixed: VPIC EOI check now tests bits 5/6 of OCW2; handles specific EOIs.
+  - fixed VMPU: set UART mode cmd 0x3F added.
 
   v1.5, 8.6.2024
   - MPU port emulation if BLASTER variable contains P=xxx.

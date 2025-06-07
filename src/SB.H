@@ -135,7 +135,7 @@
 #define SB_DSP_CONTINUE_DMA16    0xD6 /* SB16 */
 #define SB_DSP_EXIT_16BIT_AUTO   0xD9 /* SB16 */
 #endif
-#define SB_DSP_EXIT_8BIT_AUTO    0xDA
+#define SB_DSP_EXIT_8BIT_AUTO    0xDA /* stop DMA auto init mode */
 #define SB_DSP_ID                0xE0 /* SB: DSP identification */
 #define SB_DSP_GETVER            0xE1 /* 1st byte major, 2nd byte minor */
 #define SB_DSP_DMA_ID            0xE2 /* ??? */

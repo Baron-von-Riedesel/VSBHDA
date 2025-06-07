@@ -17,7 +17,8 @@ _TEXT segment word public 'CODE'
 	in al, 20h
 	test al, 80h
 	jz @F
-	mov al, 20h
+;	mov al, 20h		;generic EOI
+	mov al, 60h or 7;specific EOI for IRQ 7
 	out 20h, al
 @@:
 	pop ax

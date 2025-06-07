@@ -208,9 +208,14 @@
     - Stargunner: SETUP.EXE must be run without VSBHDA loaded.
     - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
       HDPMI32i.
-    - Windows 3.1: the Windows Standard Mode task switcher duo WSWAP.EXE &
-      DSWAP.EXE isn't compatible with JHDPMI.DLL - START16L.BAT must be used
-      to run VSBHDA. The Windows PL0 component DOSX.EXE will ignore any
-      active DPMI host, including HDPMI16i.exe. It must be replaced by the
-      DOSX.EXE binary supplied with the HX runtime package HXRT.
+    - Windows 3.1: 
+      a) the Windows Standard Mode task switcher duo WSWAP.EXE & DSWAP.EXE
+       isn't compatible with JHDPMI.DLL - START16L.BAT must be used to run
+       VSBHDA.
+      b) The Windows PL0 component DOSX.EXE will ignore any active DPMI host,
+       including HDPMI16i.exe. It must be replaced by the DOSX.EXE binary
+       supplied with the HX runtime package HXRT.
+      c) if the MS drivers are to be used (msadlib.drv & sndblst2.drv), section
+       [sndblst.drv] in system.ini must have setting VerifyInt=0 if cpu is
+       "fast".
 

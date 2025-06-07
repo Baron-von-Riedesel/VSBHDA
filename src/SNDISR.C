@@ -247,6 +247,7 @@ static int SNDISR_Interrupt( void )
 
     /* since the client context is now restored when a SB IRQ is emulated,
      * it's safe to call VIRQ_Invoke here.
+     * Todo: check is SB emulated Irq is masked; if yes, don't trigger!
      */
     if ( VSB_GetIRQStatus() )
         VIRQ_Invoke();
