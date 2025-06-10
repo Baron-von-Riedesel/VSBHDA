@@ -42,8 +42,8 @@ enum {
  * widget types
  */
 enum {
-    AC_WID_AUD_OUT,        /* 0 Audio Out */
-    AC_WID_AUD_IN,         /* 1 Audio In */
+    AC_WID_AUD_OUT,        /* 0 Audio Out (DAC) */
+    AC_WID_AUD_IN,         /* 1 Audio In (ADC) */
     AC_WID_AUD_MIX,        /* 2 Audio Mixer */
     AC_WID_AUD_SEL,        /* 3 Audio Selector */
     AC_WID_PIN,            /* 4 Pin Complex */

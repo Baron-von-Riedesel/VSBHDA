@@ -43,18 +43,18 @@
 typedef uint16_t hda_nid_t;
 
 struct hda_gnode {
- hda_nid_t nid;        /* NID of this widget */
- unsigned short nconns;    /* number of input connections */
+ hda_nid_t nid;             /* NID of this widget */
+ unsigned short nconns;     /* number of input connections */
  hda_nid_t conn_list[HDA_MAX_CONNECTIONS];
  unsigned int  wid_caps;    /* widget capabilities */
- unsigned char type;    /* widget type */
- unsigned char pin_ctl;    /* pin controls */
- unsigned char checked;    /* the flag indicates that the node is already parsed */
+ unsigned char type;        /* widget type */
+ unsigned char pin_ctl;     /* pin controls */
+ unsigned char checked;     /* the flag indicates that the node is already parsed */
  unsigned int  pin_caps;    /* pin widget capabilities */
- unsigned int  def_cfg;    /* default configuration */
- unsigned int  amp_out_caps;    /* AMP out capabilities */
- unsigned int  amp_in_caps;    /* AMP in capabilities */
- unsigned long supported_formats; // format_val
+ unsigned int  def_cfg;     /* default configuration */
+ unsigned int  amp_out_caps;/* AMP out capabilities */
+ unsigned int  amp_in_caps; /* AMP in capabilities */
+ unsigned long supported_formats; /* format_val */
 };
 
 struct pcm_vol_s {
@@ -74,8 +74,8 @@ struct intelhd_card_s
  hda_nid_t afg_root_nodenum;
  int afg_num_nodes;
  struct hda_gnode *afg_nodes;
- unsigned int def_amp_out_caps;
- unsigned int def_amp_in_caps;
+ unsigned int def_amp_out_caps;   /* default amp caps set by audio function group */
+ unsigned int def_amp_in_caps;    /* default amp caps set by audio function group */
  struct hda_gnode *dac_node[2];            // DAC nodes
  struct hda_gnode *out_pin_node[MAX_PCM_VOLS];    // Output pin (Line-Out) nodes
  unsigned int pcm_num_vols;            // number of PCM volumes
@@ -386,6 +386,8 @@ static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_n
 	return conns;
 }
 
+/* add a widget to the widget array */
+
 static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda_nid_t nid)
 ///////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -542,12 +544,14 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 	hda_codec_write(card, node->nid, 0, AC_VERB_SET_POWER_STATE, 0 );
 #endif
 	node->checked = 1;
+	/* is node an "Audio Out" widget (=DAC)? */
 	if(node->type == AC_WID_AUD_OUT) {
 		if(node->wid_caps & AC_WCAP_DIGITAL)
 			return 0;
 		if(card->dac_node[dac_idx])
 			return (node == card->dac_node[dac_idx]);
 
+		/* store (one of) the volume nodes if the DAC has an output amplifier */
 		card->dac_node[dac_idx] = node;
 		if((node->wid_caps & AC_WCAP_OUT_AMP) && (card->pcm_num_vols < MAX_PCM_VOLS)){
 			card->pcm_vols[card->pcm_num_vols].node = node;
@@ -569,9 +573,11 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 				select_input_connection(card, node, i);
 			hda_unmute_input(card, node, i);
 			hda_unmute_output(card, node);
+			/* if the selected DAC has no OUT amplifier, use this node to set volume */
 			if( card->dac_node[dac_idx] && ( card->pcm_num_vols < MAX_PCM_VOLS ) && !( card->dac_node[dac_idx]->wid_caps & AC_WCAP_OUT_AMP ) ) {
-				if((node->wid_caps & AC_WCAP_IN_AMP) || (node->wid_caps & AC_WCAP_OUT_AMP)) {
+				if( node->wid_caps & (AC_WCAP_IN_AMP | AC_WCAP_OUT_AMP) ) {
 					int n = card->pcm_num_vols;
+					dbgprintf(("parse_output_path: widget %u, index %u used for volume setting\n", node->nid, i ));
 					card->pcm_vols[n].node = node;
 					card->pcm_vols[n].index = i;
 					card->pcm_num_vols++;
@@ -953,7 +959,10 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 			//hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps >> AC_AMPCAP_NUM_STEPS_SHIFT ) & AC_AMPCAP_NUM_STEPS_MASK;
 		}
 
-	dbgprintf(("hda_mixer_init: dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
+    /* this is the important log if something goes wrong with the volume;
+     * the card->pcm_vols should be DACs or Mixer widgets.
+     */
+	dbgprintf(("hda_mixer_init nodes: dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
 				(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
 				(int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
 				(int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
@@ -1440,6 +1449,10 @@ static int HDA_adetect( struct audioout_info_s *aui )
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
 					dbgprintf(("HDA_adetect: exit, found mixer for codec %u\n", i ));
+					printf("HDA widgets to be used: DAC=%d Pin=%d Volume=%d\n",
+						(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
+						(int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
+						(int)((card->pcm_vols[0].node) ? card->pcm_vols[0].node->nid: 0));
 					return( 1 );
 				}
 			}
@@ -1594,7 +1607,9 @@ static void HDA_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsi
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	/* v1.6: use pcm_vols[] instead of dac_node[] */
+	//int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	int maxstep = ( card->pcm_vols[0].node->amp_out_caps >> 8 ) & 0x7F;
 	val = maxstep * val / 100;
 	hda_set_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val ); /* left channel */
 	hda_set_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val ); /* right channel */
@@ -1609,7 +1624,9 @@ static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long r
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	uint32_t val;
-	int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	/* v1.6: use pcm_vols[] instead of dac_node[] */
+	//int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
+	int maxstep = ( card->pcm_vols[0].node->amp_out_caps >> 8 ) & 0x7F;
 	val = hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0 );
 	if ( maxstep )
 		val = val * 100 / maxstep;
