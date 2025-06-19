@@ -28,7 +28,7 @@ vpath %.o $(vpath_obj)
 
 OBJFILES=\
 	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
-	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o		$(OUTD)/vmpu.o\
+	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o		$(OUTD)/vmpu.o		$(OUTD)/tsf.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmairq.o	$(OUTD)/pcibios.o	$(OUTD)/memory.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
@@ -104,6 +104,7 @@ $(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h confi
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
 $(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h ctadpcm.h au.h
+$(OUTD)/tsf.o::      tsf.c       tsf/tsf.h
 $(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
 $(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
 $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h

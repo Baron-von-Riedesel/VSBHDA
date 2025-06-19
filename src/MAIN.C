@@ -24,6 +24,7 @@
 #include "VOPL3.H"
 #include "VSB.H"
 #include "SNDISR.H"
+#include "VMPU.H"
 #include "VERSION.H"
 
 #include "AU.H"
@@ -117,6 +118,9 @@ true, true, true, VOL_DEFAULT, 16, /* OPL3, rm, pm, vol, buffsize */
 #ifdef NOTFLAT
 0, /* diverr */
 #endif
+#if SOUNDFONT
+64, /* voices */
+#endif
 };
 
 static const struct {
@@ -197,6 +201,9 @@ static void ReleaseRes( void )
 //////////////////////////////
 {
 	_UninstallInt31(); /* must be called before SNDISR_Exit() */
+#if VMPU
+    VMPU_Exit();
+#endif
 	if ( gm.bISR ) {
 		VIRQ_Exit( gvars.irq );
 		SNDISR_Exit();
@@ -232,7 +239,7 @@ void MAIN_ReinitOPL( void )
 ///////////////////////////
 {
 	if( gvars.opl3 ) {
-		uint8_t buffer[108];
+		uint8_t buffer[FPU_SRSIZE];
 		fpu_save(buffer);
 		VOPL3_Reinit( AU_getfreq( gm.hAU ) );
 		fpu_restore(buffer);
@@ -411,9 +418,7 @@ int main(int argc, char* argv[])
         printf("Both real mode & protected mode support are disabled, exiting.\n");
         return 1;
     }
-    //aui.card_select_config = gvars.pin;
-    //aui.card_select_devicenum = gvars.device;
-    if ( (gm.hAU = AU_init( gvars.device, gvars.pin ) ) == 0 ) {
+    if ( (gm.hAU = AU_init( &gvars ) ) == 0 ) {
         printf("No soundcard found!\n");
         return 1;
     }
@@ -524,6 +529,14 @@ int main(int argc, char* argv[])
         _InstallInt31();
 #endif
     }
+
+#if VMPU
+    if ( gvars.mpu )
+        VMPU_Init( gm.freq );
+#endif
+
+    if (gvars.period_size)
+        printf("Using HDA/AC97 period size %d\n", gvars.period_size);
 
     PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 

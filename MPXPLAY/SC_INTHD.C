@@ -34,11 +34,8 @@
 #define AUCARDSCONFIG_IHD_USE_FIXED_SDO  (1<<2) // don't read stream offset (for sd_addr) from GCAP (use 0x100)
 
 #define INTHD_MAX_CHANNELS 8
-#ifdef SBEMU
-#define AZX_PERIOD_SIZE 512
-#else
-#define AZX_PERIOD_SIZE 4096
-#endif
+//#define AZX_PERIOD_SIZE_DEF 4096
+#define AZX_PERIOD_SIZE_DEF 512
 
 typedef uint16_t hda_nid_t;
 
@@ -81,7 +78,7 @@ struct intelhd_card_s
  unsigned int pcm_num_vols;            // number of PCM volumes
  struct pcm_vol_s pcm_vols[MAX_PCM_VOLS]; // PCM volume nodes
 
- struct cardmem_s *dm;
+ struct cardmem_s *dm; /* XMS memory struct */
  uint32_t *table_buffer;
  char *pcmout_buffer;
  long pcmout_bufsize;
@@ -740,9 +737,11 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	unsigned long allbufsize = BDL_SIZE + 1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
 	unsigned int beginmem_aligned;
 
-	dbgprintf(("hda_buffer_init: HDA data struct size=0x%X\n", allbufsize ));
+    /* v1.7 */
+	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
+	dbgprintf(("hda_buffer_init: HDA data struct size=0x%X period_size=%u\n", allbufsize, card->pcmout_period_size ));
 
-	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, AZX_PERIOD_SIZE, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
+	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
 	card->dm = MDma_alloc_cardmem( allbufsize );
 	if(!card->dm)
 		return 0;
@@ -772,11 +771,11 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 		}
 	}
 
-	dbgprintf(("hda_buffer_init: cs=%X csc=%d GCAP=%X SD-ofs=%X\n",
-				   card->config_select, aui->card_select_config, gcap, sdo_offset));
+	dbgprintf(("hda_buffer_init: cs=%X GCAP=%X SD-ofs=%X\n",
+				   card->config_select, gcap, sdo_offset));
 
 	card->sd_addr = card->iobase + sdo_offset;
-	card->pcmout_period_size = AZX_PERIOD_SIZE;
+	//card->pcmout_period_size = AZX_PERIOD_SIZE_DEF;
 	card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
 
 	return 1;
@@ -1029,9 +1028,9 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 		*(&bdl[off+1]) = 0;
 		*(&bdl[off+2]) = card->pcmout_period_size;
 #ifdef SBEMU
-		*(&bdl[off+3]) = 0x01;
+		*(&bdl[off+3]) = 0x01; /* enable interrupt */
 #else
-		*(&bdl[off+3]) = 0x00; // 0x01 enable interrupt
+		*(&bdl[off+3]) = 0x00;
 #endif
  }
 }
@@ -1369,6 +1368,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 {
 	struct intelhd_card_s *card;
 	unsigned int i;
+	unsigned int devidx;
 
 	card = (struct intelhd_card_s *)pds_calloc( 1, sizeof(struct intelhd_card_s) );
 	if( !card ) {
@@ -1385,29 +1385,29 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	}
 
 	/* don't search for vendors/deviceIDs. Instead scan for HDAs only, and
-	 * use card_select_devicenum as start index for the scan.
+	 * use gvars.device as start index for the scan.
 	 */
 	//if(pcibios_search_devices(intelhda_devices,card->pci_dev)!=PCI_SUCCESSFUL)
-	for ( ;; aui->card_select_devicenum++ ) {
+	for ( devidx = aui->gvars->device;; devidx++ ) {
 		__dpmi_meminfo info;
 		unsigned int timeout;
 		char *pReason;
 
 		card->pci_dev->device_type = AZX_DRIVER_GENERIC; /* set as default, will be changed if device is known */
-		if(pcibios_FindDeviceClass( 4, 3, 0, aui->card_select_devicenum, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
+		if(pcibios_FindDeviceClass( 4, 3, 0, devidx, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
 			break;
 
 		card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
 		if( card->iobase & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
 			card->iobase = 0;
 		if( !card->iobase ) {
-			dbgprintf(("HDA_adetect: card index %u skipped (no PCI base addr)\n", aui->card_select_devicenum ));
+			dbgprintf(("HDA_adetect: card index %u skipped (no PCI base addr)\n", devidx ));
 			continue;
 		}
 		if( card->iobase & 4 ) {// 64-bit address? then check if it's beyond 4G...
 			uint32_t tmp = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR+4);
 			if ( tmp ) {
-				dbgprintf(("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", aui->card_select_devicenum ));
+				dbgprintf(("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", devidx ));
 				continue;
 			}
 		}
@@ -1415,17 +1415,17 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		info.address = card->iobase;
 		info.size = 0x2000;
 		if (__dpmi_physical_address_mapping(&info) != 0) {
-			printf("HDA: mapping MMIO for card %u failed\n", aui->card_select_devicenum );
+			printf("HDA: mapping MMIO for card %u failed\n", devidx );
 			break;
 		}
 		/* the physical addr, after mapped to a linear addr, is finally converted to a ptr */
 		card->iobase = (uint32_t)NearPtr( info.address );
-		if( aui->card_select_config >= 0 )
-			card->config_select = aui->card_select_config;
+		if( aui->gvars->pin >= 0 )
+			card->config_select = aui->gvars->pin;
 
 		card->board_driver_type = card->pci_dev->device_type;
 		if( !hda_buffer_init( aui, card )) {
-			printf("HDA: DMA buffer init failed\n", aui->card_select_devicenum );
+			printf("HDA: DMA buffer init failed (card %u)\n", devidx );
 			break;
 		}
 
@@ -1458,7 +1458,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			}
 		}
 		pReason = ( card->codec_mask == 0 ) ? "no codecs attached" : "mixer init error";
-		printf("HDA: card %u skipped - %s\n", aui->card_select_devicenum, pReason );
+		printf("HDA: card %u skipped - %s\n", devidx, pReason );
 		HDA_cardclose( card );
 	}
 	HDA_close( aui );
@@ -1511,7 +1511,8 @@ static void HDA_setrate( struct audioout_info_s *aui )
 		card->dacout_num_bits = (aui->bits_set) ? aui->bits_set : 16;
 
 	card->format_val = hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
-	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
+	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
+	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size, 0);
 	dbgprintf(("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card ));
 
 	azx_setup_periods( card );

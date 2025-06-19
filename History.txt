@@ -1,4 +1,8 @@
 
+  v1.7, __._.____
+  - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
+  - added soundfont support from vsbhdasf.
+
   v1.6, 10.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port
     trapping was disabled.
@@ -24,11 +28,11 @@
 
   v1.4, 20.4.2024
   - added 16-bit protected-mode variant vsbhda16.exe.
-  - reworked HDA initialization code
+  - reworked HDA initialization code.
   - Creative's diagnose.exe accepts vsbhda's SB emulation.
-  - fix: virtual DMA address may have been too high (crash in tyrian2k)
+  - fix: virtual DMA address may have been too high (crash in tyrian2k).
   - fix: writes to virtual DMA channel ports C0h-DFh caused writes to
-    ports 10-1Fh
+    ports 10-1Fh.
   - handle "Runtime Error 200" issue in vsbhda16.
   - fix: DSP cmd 0x91 now handled correctly.
   - fix: virtual DMA register reads of 08/D0 (status) corrected.
@@ -39,14 +43,14 @@
 
   v1.3, 5.3.2024
   - source made compatible with Open Watcom 2.0.
-  - tool chain changed to Open Watcom 2.0;
+  - tool chain changed to Open Watcom 2.0.
 
   v1.2, 26.2.2024
-  - reset "interrupt disable" bit in PCI config space
+  - reset "interrupt disable" bit in PCI config space.
   - PCI access with BIOS functions.
 
   v1.1,  9.2.2024
-  - fix: code for port trap 0x20 in real-mode modified AH register
+  - fix: code for port trap 0x20 in real-mode modified AH register.
 
   v1.0, 12.4.2023
   - initial

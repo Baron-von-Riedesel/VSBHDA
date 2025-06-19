@@ -100,10 +100,19 @@ is205:
 is_snd:
 	call _Snd_Notify31
 	jc prevint
-	insIRET
+	jmp iret_with_NC
 is_SB:
 	call _SB_Notify31
 	jc prevint
+iret_with_NC:
+ ifdef NOTFLAT
+	push bp
+	mov bp,sp
+	and byte ptr [bp+2].IRETS._fl,not 1
+	pop bp
+ else
+	and byte ptr [esp].IRETS._fl,not 1
+ endif
 	insIRET
 
 ifdef NOTFLAT
@@ -115,7 +124,7 @@ is202:
 	jz prevint
 	mov dx, word ptr cs:[dwOldexc00+0]
 	mov cx, word ptr cs:[dwOldexc00+2]
-	insIRET
+	jmp iret_with_NC
 is203:
 	cmp bl,0
 	jnz prevint
@@ -128,10 +137,7 @@ is203:
 	mov word ptr [dwOldexc00+2], cx
 	pop ds
 	assume ds:DGROUP
-;--- this is a bit critical, stack may be 16-bit
-;--- but for HDPMI16 it should be ok.
-	and byte ptr [esp].IRETS._fl, not 1
-	insIRET
+	jmp iret_with_NC
  endif
 endif
 	align 4

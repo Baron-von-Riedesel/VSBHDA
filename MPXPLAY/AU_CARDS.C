@@ -61,8 +61,8 @@ static const struct sndcard_info_s *all_sndcard_info[] = {
 
 /* scan for audio devices */
 
-int FAREXP AU_init( int device, int pin )
-/////////////////////////////////////////
+int FAREXP AU_init( const struct globalvars *gvars )
+////////////////////////////////////////////////////
 {
     struct audioout_info_s *aui;
 	int i;
@@ -73,9 +73,11 @@ int FAREXP AU_init( int device, int pin )
 		return(0);
 	}
     /* 65535=maxbufsize, 4608=pagesize? 2=samplesize */
-//	aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
-	aui->card_select_devicenum = device;
-	aui->card_select_config = pin;
+    //aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
+    /* v1.7: global settings can be accessed directly - card_select_ variables removed */
+	//aui->card_select_devicenum = gvars->device;
+	//aui->card_select_config = gvars->pin;
+	aui->gvars = gvars;
 
 	for ( i = 0; all_sndcard_info[i]; i++ ) {
 		aui->card_handler = all_sndcard_info[i];

@@ -8,6 +8,9 @@
 
     .286
 
+CSGT64K  equ 1	; 1=_TEXT may exceed 64k
+CHKCS64K equ 0	; 1= check if _TEXT is < 64k (if CSGT64K==0)
+
 externdef _cstart_:far16
 externdef _edata:near32
 
@@ -61,8 +64,8 @@ endif
     mov ax, es
     add ax, 10h				; skip PSP -> start para of segment _TEXT
     sub cx, ax
-if 0 ; we know for sure that _TEXT is < 64k
-    cmp cx, 1000h			; must be <= 1000h
+if CHKCS64K
+    cmp cx, 1000h			; _TEXT < 1000h paragraphs?
     ja codetoobig
 endif
     mov codesize, cx
@@ -133,6 +136,12 @@ endif
 	pop cx
 	mov ax, 8
 	int 31h
+if CSGT64K
+	push bx
+	mov bx,ds	;extend csalias as well
+	int 31h
+	pop bx
+endif
 	pop ecx
 
 	push es
@@ -140,10 +149,16 @@ endif
 ;--- copy code
 ;--- codesize is actually a bit too large, since it contains _TEXT16 as well
 	shr ecx, 1
+	mov es, bx
+if CSGT64K
+	xor edi,edi
+	xor esi,esi
+	rep movsw [edi],[esi]
+else
 	xor di, di
 	xor si, si
-	mov es, bx
 	rep movsw
+endif
 
 ;--- set attributes of _TEXT to code, 32-bit
 	mov ax, cs
@@ -227,6 +242,11 @@ setumbstatus:
 	popf
 	retn
 
+if CHKCS64K
+codetoobig:
+	mov dx,offset errstr6
+	jmp errexit
+endif
 datatoobig:
 	mov dx,offset errstr5
 	jmp errexit
@@ -421,7 +441,9 @@ errstr2 db "DPMI initialization failed",13,10,'$'
 errstr3 db "no descriptors",13,10,'$'
 errstr4 db "no extended memory",13,10,'$'
 errstr5 db "DGROUP exceeds 64kB",13,10,'$'
-
+if CHKCS64K
+errstr6 db "code exceeds 64kB",13,10,'$'
+endif
 _TEXT16 ends
 
     end _start

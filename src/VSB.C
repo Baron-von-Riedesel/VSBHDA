@@ -662,12 +662,9 @@ static uint8_t DSP_Read( void )
         if (vsb.DataBytes) memcpy( vsb.DataBuffer, &vsb.DataBuffer[1], vsb.DataBytes );
         vsb.RS &= 0x7F;
         return( rc );
-    } else  {
-        dbgprintf(("DSP_Read: read buffer empty, returning %X\n", vsb.DataBuffer[0] ));
-        return vsb.DataBuffer[0];
     }
-    dbgprintf(("DSP_Read: read buffer empty (FFh)\n" ));
-    return 0xFF;
+    dbgprintf(("DSP_Read: read buffer empty, returning %X\n", vsb.DataBuffer[0] ));
+    return vsb.DataBuffer[0];
 }
 
 /* read port 02xC

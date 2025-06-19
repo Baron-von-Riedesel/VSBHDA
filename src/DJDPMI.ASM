@@ -99,7 +99,7 @@ __dpmi_free_real_mode_callback proc c public pRMCB:ptr
 	align 4
 __dpmi_free_real_mode_callback endp
 
-if 0
+if 1  ; needed for soundfonts
 
 __dpmi_free_memory proc c public uses esi edi dwHandle:dword
 	mov di, word ptr dwHandle+0
@@ -110,6 +110,23 @@ __dpmi_free_memory proc c public uses esi edi dwHandle:dword
 	ret
 	align 4
 __dpmi_free_memory endp
+
+__dpmi_resize_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:dword
+	mov edi, pInfo
+	mov esi, [edi].MEMINFO.dwHdl
+	mov ecx, [edi].MEMINFO.dwSize
+	mov edx, commit
+	and edx, 1	;clear bit 1 - no update of descriptors
+	mov ax, 505h
+	int 31h
+	sbb eax, eax
+	jnz @F
+	mov [edi].MEMINFO.dwHdl, esi
+	mov [edi].MEMINFO.dwAddress, ebx
+@@:
+	ret
+	align 4
+__dpmi_resize_linear_memory endp
 
 endif
 

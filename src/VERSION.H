@@ -1,3 +1,3 @@
 
 #define VERMAJOR "1"
-#define VERMINOR "6"
+#define VERMINOR "7"

@@ -13,7 +13,7 @@ extern "C" {
 typedef uint8_t PCM_CV_TYPE_UC;
 typedef int16_t PCM_CV_TYPE_S;
 
-extern int  AU_init( int, int );
+extern int  AU_init( struct globalvars * );
 extern int  AU_getirq( int );
 extern int  AU_getfreq( int );
 extern char *AU_getshortname( int );

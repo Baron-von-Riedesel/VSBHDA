@@ -99,8 +99,13 @@ struct intel_card_s {
  unsigned char   device_type;
  struct pci_config_s  *pci_dev;
 
- struct cardmem_s *dm;
- uint32_t *virtualpagetable; // must be aligned to 8 bytes?
+ struct cardmem_s *dm; /* XMS memory struct */
+
+ /* must be aligned to 8 bytes.
+  * consists of ICH_DMABUF_PERIODS elements, each element has
+  * 2 dwords, first is physical address, second is size (in "samples")
+  */
+ uint32_t *virtualpagetable;
  char *pcmout_buffer;
  long pcmout_bufsize;
 
@@ -138,12 +143,12 @@ static unsigned int snd_intel_codec_ready(struct intel_card_s *card,unsigned int
 		codec = ICH_GLOB_STAT_PCR;
 
 	// wait for codec ready status
-	retry = ICH_DEFAULT_RETRY;
-	do{
+	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
 		if(snd_intel_read_32(card,ICH_GLOB_STAT_REG) & codec)
 			break;
 		pds_delay_10us(10);
-	}while(--retry);
+	}
+
 	if (!retry) {
 		dbgprintf(("snd_intel_codec_ready: timeout\n" ));
 	}
@@ -158,12 +163,12 @@ static void snd_intel_codec_semaphore(struct intel_card_s *card,unsigned int cod
 	snd_intel_codec_ready(card,codec);
 
 	//wait for semaphore ready (not busy) status
-	retry = ICH_DEFAULT_RETRY;
-	do{
-		if(!(snd_intel_read_8(card,ICH_ACC_SEMA_REG)&ICH_CODEC_BUSY))
+	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
+		if(!(snd_intel_read_8(card,ICH_ACC_SEMA_REG) & ICH_CODEC_BUSY))
 			break;
 		pds_delay_10us(10);
-	} while (--retry);
+	}
+
 	if (!retry) {
 		dbgprintf(("snd_intel_codec_semaphore: timeout\n" ));
 	}
@@ -184,18 +189,21 @@ static unsigned int snd_intel_codec_read( struct intel_card_s *card, unsigned in
 	unsigned int data = 0,retry;
 	snd_intel_codec_semaphore(card,ICH_GLOB_STAT_PCR);
 
-	retry = ICH_DEFAULT_RETRY;
-	do{
+	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
 		data = inw( card->baseport_codec + reg );
 		if(!(snd_intel_read_32( card, ICH_GLOB_STAT_REG) & ICH_GLOB_STAT_RCS ) )
 			break;
 		pds_delay_10us(10);
-	} while (--retry);
+	}
+
 	if ( !retry ) {
 		dbgprintf(("snd_intel_codec_read: timeout\n" ));
 	}
 	return data;
 }
+
+/* init card->dm, card->pcmout, card->virtualpagetable
+ */
 
 static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -204,9 +212,12 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
-	if (!card->dm)
-        return 0;
-	card->virtualpagetable = (uint32_t *)card->dm->pMem; // pagetable requires 8 byte align, but dos-allocmem gives 16 byte align (so we don't need alignment correction)
+	if (!card->dm) {
+		dbgprintf(("snd_intel_buffer_init: MDma_alloc_cardmem(0x%X) failed\n", ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize));
+		return 0;
+	}
+	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
+	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t);
 	aui->card_DMABUFF = card->pcmout_buffer;
 #ifdef SBEMU
@@ -237,13 +248,13 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 	snd_intel_write_32(card, ICH_GLOB_CNT_REG, cmd);
 	dbgprintf(("snd_intel_chip_init: AC97 reset type: %s\n",((cmd & ICH_GLOB_CNT_AC97COLD) ? "cold":"warm")));
 
-	retry = ICH_DEFAULT_RETRY;
-	do{
+	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
 		unsigned int cntreg = snd_intel_read_32(card,ICH_GLOB_CNT_REG);
 		if(!(cntreg & ICH_GLOB_CNT_AC97WARM))
 			break;
 		pds_delay_10us(10);
-	} while (--retry);
+	}
+
 	if ( !retry ) {
 		dbgprintf(("snd_intel_chip_init: reset timeout\n" ));
 	}
@@ -297,13 +308,13 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 	unsigned int i,cmd,retry,spdif_rate,period_size_samples;
 
 	dbgprintf(("intel_prepare playback: period_size_bytes:%d\n",card->period_size_bytes));
+
 	// wait until DMA stopped ???
-	retry = ICH_DEFAULT_RETRY; /* =1000 */
-	do{
+	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
 		if(snd_intel_read_8(card,ICH_PO_SR_REG) & ICH_PO_SR_DCH)
 			break;
 		pds_delay_10us(1);
-	} while (--retry);
+	}
 
 	if (!retry) {
 		dbgprintf(("intel_prepare_playback: dma stop timeout: %d\n",retry));
@@ -352,7 +363,7 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 	for( i = 0; i < ICH_DMABUF_PERIODS; i++ ) {
 		table_base[i*2] = pds_cardmem_physicalptr(card->dm, (char *)card->pcmout_buffer + ( i * card->period_size_bytes ));
 #ifdef SBEMU
-		table_base[i*2+1] = period_size_samples |  (ICH_INT_INTERVAL && ((i % ICH_INT_INTERVAL == ICH_INT_INTERVAL-1)) ? (ICH_BD_IOC<<16) : 0);
+		table_base[i*2+1] = period_size_samples | (ICH_INT_INTERVAL && ((i % ICH_INT_INTERVAL == ICH_INT_INTERVAL-1)) ? (ICH_BD_IOC<<16) : 0);
 #else
 		table_base[i*2+1] = period_size_samples;
 #endif

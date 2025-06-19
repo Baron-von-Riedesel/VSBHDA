@@ -22,6 +22,7 @@ static inline unsigned long long rdtsc(void)
 }
 static inline void fpu_save(void * buffer) { asm("fsave %0":: "m"(buffer)); }
 static inline void fpu_restore(void * buffer) { asm("frstor %0":: "m"(buffer)); }
+#define FPU_SRSIZE 108
 static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
 static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
 
@@ -54,6 +55,8 @@ void fpu_restore(void *buffer);
 	"frstor [edx]" \
 	parm [edx] \
 	modify exact [edx]
+
+#define FPU_SRSIZE 108
 
 void _disable_ints(void);
 #pragma aux _disable_ints = \

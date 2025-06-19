@@ -22,6 +22,12 @@
 
 #include "AU.H"
 
+#if SOUNDFONT
+#include "VMPU.H"
+#include "../tsf/TSF.H"
+extern tsf* tsfrenderer;
+#endif
+
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
 
 #define MIXERROUTINE 0
@@ -266,7 +272,7 @@ static int SNDISR_Interrupt( void )
 #if SETABSVOL
     if( isr.SB_VOL != mastervol * gvars.vol / 9) {
         isr.SB_VOL =  mastervol * gvars.vol / 9;
-        //uint8_t buffer[108];
+        //uint8_t buffer[FPU_SRSIZE];
         //fpu_save(buffer); /* needed if AU_setmixer_one() uses floats */
         AU_setmixer_one( isr.hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, mastervol * 100 / 256 ); /* convert to percentage 0-100 */
         //fpu_restore(buffer);
@@ -487,6 +493,16 @@ static int SNDISR_Interrupt( void )
 #endif
     //aui.samplenum = samples * 2;
     //aui.pcm_sample = ISR_PCM;
+#if SOUNDFONT
+    if (tsfrenderer) {
+        unsigned char fpu_buffer[FPU_SRSIZE];
+        fpu_save(fpu_buffer);
+        VMPU_Process_Messages();
+        tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
+        tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
+        fpu_restore(fpu_buffer);
+    }
+#endif
     AU_writedata( isr.hAU, samples * 2, isr.pPCM );
 
 #if DISPSTAT

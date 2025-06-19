@@ -66,6 +66,7 @@ int __dpmi_simulate_real_mode_procedure_retf(__dpmi_regs *_regs);
 int __dpmi_simulate_real_mode_procedure_iret(__dpmi_regs *_regs);
 int __dpmi_free_real_mode_callback(__dpmi_raddr *_addr);
 int __dpmi_free_memory(unsigned long _handle);
+int __dpmi_resize_linear_memory(__dpmi_meminfo *_info, int _commit);
 int __dpmi_allocate_linear_memory(__dpmi_meminfo *_info, int _commit);
 int __dpmi_set_page_attr( unsigned long handle, unsigned long ofs, unsigned long pages, short attr);
 int __dpmi_map_physical_device(unsigned long handle, unsigned long ofs, unsigned long pages, unsigned long physaddr);

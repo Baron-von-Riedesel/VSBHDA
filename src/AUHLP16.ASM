@@ -118,7 +118,7 @@ callexp endp
 
 ;--- AU_init is the first function that is called.
 
-AU_init proc c public uses ebx esi edi a1:dword, a2:dword
+AU_init proc c public uses ebx esi edi pGlobalVars:ptr
 
 ;--- load the sndcard.drv binary.
 	invoke LoadMod16, addr szDrv, addr scd
@@ -156,7 +156,11 @@ AU_init proc c public uses ebx esi edi a1:dword, a2:dword
 		rep movsd
 ;--- and finally call AU_init().
 		@dprintf CStr("AUhlp16: calling exported function AU_Init",10)
-		@callexp AU_init, 2
+		mov eax, pGlobalVars; vsbhda near ptr
+		add eax, DSBase		; linear address
+		sub eax, dwDrvBase	; sndcard near ptr
+		mov pGlobalVars, eax
+		@callexp AU_init, 1
 	.endif
 	ret
 error:

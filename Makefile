@@ -55,7 +55,7 @@ A_DEBUG_FLAGS=
 
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
-	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj &
+	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
@@ -64,7 +64,7 @@ OBJFILES = &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -136,6 +136,7 @@ $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
 $(OUTD)/timer.obj:     mpxplay\timer.c
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
+$(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
 $(OUTD)/int31.obj:     src\int31.asm
 $(OUTD)/linear.obj:    src\linear.c
@@ -147,6 +148,7 @@ $(OUTD)/sbisr.obj:     src\sbisr.asm
 $(OUTD)/sndisr.obj:    src\sndisr.c
 $(OUTD)/stackio.obj:   src\stackio.asm
 $(OUTD)/stackisr.obj:  src\stackisr.asm
+$(OUTD)/tsf.obj:       src\tsf.c
 $(OUTD)/uninst.obj:    src\uninst.asm
 $(OUTD)/vdma.obj:      src\vdma.c
 $(OUTD)/vioout.obj:    src\vioout.asm

@@ -65,7 +65,7 @@ void VOPL3_Init(int samplerate)
 	opl3.Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
 	opl3.ADLG_Volume[0] = 0x08;
 	opl3.ADLG_Volume[1] = 0x08;
-    opl3.Chip->Setup(samplerate);
+	opl3.Chip->Setup(samplerate);
 #if NOSILENTGEN
 	opl3.bWritten = false;
 #endif
@@ -91,12 +91,12 @@ int VOPL3_GetMode()
 int VOPL3_GenSamples(int16_t* pcm16, int count)
 ///////////////////////////////////////////////
 {
-    char buffer[108];
-	int rc;
-	fpu_save(buffer);
-	rc = opl3.Chip->Generate(pcm16, count);
-	fpu_restore(buffer);
-	return rc;
+    char buffer[FPU_SRSIZE];
+    int rc;
+    fpu_save(buffer);
+    rc = opl3.Chip->Generate(pcm16, count);
+    fpu_restore(buffer);
+    return rc;
 }
 
 static uint32_t VOPL3_PrimaryRead(uint32_t val)

@@ -95,8 +95,6 @@ struct audioout_info_s {
  unsigned char bits_card; /* set in AU_setrate */
 
  unsigned int   card_wave_id;    // 0x0001,0x0003,0x0055,0x2000,etc.
- unsigned long  card_select_devicenum; /* inp: for HDA to select one among multiples */
- long           card_select_config;
  unsigned long  card_controlbits;  // card control flags
  unsigned long  card_infobits;     // card info flags
  unsigned long  card_outbytes;     // samplenum * bytespersample_card
@@ -109,6 +107,7 @@ struct audioout_info_s {
  char *card_DMABUFF;
 
  const struct sndcard_info_s *card_handler; // function structure of the card
+ const struct globalvars *gvars;
  void *card_private_data;        // extra private datas can be pointed here (with malloc)
  unsigned char  card_irq;
  int card_master_volume;
@@ -171,7 +170,7 @@ struct sndcard_info_s {
 #endif
 
 //main soundcard routines
-extern int  FAREXP AU_init( int, int );
+extern int  FAREXP AU_init( const struct globalvars * );
 extern int  FAREXP AU_getirq( struct audioout_info_s * );
 extern void FAREXP AU_prestart( struct audioout_info_s * );
 extern void FAREXP AU_start( struct audioout_info_s * );

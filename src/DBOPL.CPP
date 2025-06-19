@@ -667,9 +667,11 @@ Operator::Operator()
 	reg60 = 0;
 	reg80 = 0;
 	regE0 = 0;
+#if ( DBOPL_WAVE > WAVE_HANDLER )
     waveBase = 0;
     waveMask = 0;
     waveStart = 0;
+#endif
     vibrato = 0;
     attackAdd = 0;
     decayAdd = 0;

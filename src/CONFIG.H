@@ -16,6 +16,7 @@
 #define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 if BLASTER contains P=xxx */
 #define SLOWDOWN 1    /* 1=support /SD option */
 #define DISPSTAT 1    /* 1=display VSB status */
+#define SOUNDFONT 1   /* 1=support soundfonts if VMPU is on */
 
 #ifdef __cplusplus
 extern "C"
@@ -44,8 +45,12 @@ struct globalvars {
 #ifdef NOTFLAT
 	int diverr; /* /DIVE value */
 #endif
+#if SOUNDFONT
+	int voices;
+#endif
 	int pin;
 	int device;
+	int period_size;
 };
 
 int _dprintf(const char *fmt, ... );
