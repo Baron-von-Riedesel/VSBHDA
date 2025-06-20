@@ -91,8 +91,8 @@ int VOPL3_GetMode()
 int VOPL3_GenSamples(int16_t* pcm16, int count)
 ///////////////////////////////////////////////
 {
-    char buffer[FPU_SRSIZE];
     int rc;
+    char buffer[FPU_SRSIZE];
     fpu_save(buffer);
     rc = opl3.Chip->Generate(pcm16, count);
     fpu_restore(buffer);

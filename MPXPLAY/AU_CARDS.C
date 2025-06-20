@@ -197,8 +197,8 @@ static void AU_clearbuffs( struct audioout_info_s *aui )
 
 /* AU_setrate() is called by main(), not during interrupt time! */
 
-void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, int bits )
-//////////////////////////////////////////////////////////////////////////////////////////
+int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, int bits )
+/////////////////////////////////////////////////////////////////////////////////////////
 
 {
 	unsigned int new_cardcontrolbits;
@@ -216,7 +216,7 @@ void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, 
 
 		dbgprintf(("AU_setrate: changing rate to %u\n", freq ));
 
-		aui->freq_card = aui->freq_set = freq;
+		aui->freq_card = aui->freq_set = freq; /* may be modified below by card_setrate() */
 		aui->chan_card = aui->chan_set = outchannels;
 		aui->bits_card = aui->bits_set = bits;
 		aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
@@ -242,6 +242,7 @@ void FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, 
 		aui->card_outbytes = aui->card_dmasize/4; // ??? for interrupt_decoder
 #endif
 	}
+	return( aui->freq_card );
 }
 
 void FAREXP AU_setmixer_init( struct audioout_info_s *aui )

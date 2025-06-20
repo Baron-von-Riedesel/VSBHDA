@@ -63,11 +63,10 @@ error:
 	ret
 fseek endp
 
+ifdef NOTFLAT
 fread proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 
 ;--- descriptor adjustments needed if client is 16-bit
-
-ifdef NOTFLAT
 local tsel:dword
 local desc[8]:byte
 	push ss
@@ -106,6 +105,7 @@ nextchk:
 	pop eax
 	ret
 else
+fread proc uses ebx pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 	mov ebx,pFile
 	mov edx,pBuffer
 	mov ecx,elems

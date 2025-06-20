@@ -8,6 +8,8 @@ extern "C"
 
 #ifdef DJGPP
 
+#define FPUSRINLINE 1 /* 1=use the strange djgpp assembly inline feature */
+
 static inline unsigned int BSF(unsigned int x)
 {
 	unsigned int i;
@@ -20,11 +22,16 @@ static inline unsigned long long rdtsc(void)
 	asm( "rdtsc" : "=r" (tsc) );
 	return tsc;
 }
-static inline void fpu_save(void * buffer) { asm("fsave %0":: "m"(buffer)); }
-static inline void fpu_restore(void * buffer) { asm("frstor %0":: "m"(buffer)); }
+# if FPUSRINLINE 
+static inline void fpu_save(void * buffer) { asm( "movl %0, %%eax\n\t" "fsave (%%eax)"::"m"(buffer): "%eax" ) ; }
+static inline void fpu_restore(void * buffer) { asm( "movl %0, %%eax\n\t" "frstor (%%eax)"::"m"(buffer): "%eax" ) ; }
+# else
+void fpu_save(void * buffer);
+void fpu_restore(void * buffer);
+# endif
 #define FPU_SRSIZE 108
-static inline void _disable_ints(void) { asm("mov $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
-static inline void  _enable_ints(void) { asm("mov $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
+static inline void _disable_ints(void) { asm("movw $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
+static inline void  _enable_ints(void) { asm("movw $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
 
 #define _my_psp() _go32_info_block.linear_address_of_original_psp
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer

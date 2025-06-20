@@ -24,7 +24,7 @@ extern void AU_setoutbytes( int );
 extern void AU_start( int );
 extern void AU_stop( int );
 extern void AU_close( int );
-extern void AU_setrate( int , int, int, int );
+extern int  AU_setrate( int , int, int, int );
 extern void AU_setmixer_init( int );
 extern void AU_setmixer_one( int, unsigned int mixch, unsigned int setmode, int value );
 extern void AU_setmixer_outs( int, unsigned int setmode, int newvalue );

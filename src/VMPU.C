@@ -26,14 +26,14 @@ struct VMPU_s {
     unsigned int rptr;
     unsigned int index;
     unsigned char last_status;
+    unsigned char data0;
     unsigned char buffer[4096];
     unsigned char sysex[32];
-    unsigned char data0;
 };
 static struct VMPU_s vmpu;
 
-static const unsigned char gm_reset[6] = { 0x7E, 0x7F, 0x09, 0x01, 0xF7 };
-static const unsigned char gs_reset[11] = { 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41, 0xF7 };
+static const unsigned char gm_reset[4] = { 0x7E, 0x7F, 0x09, 0x01 };
+static const unsigned char gs_reset[9] = { 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41 };
 #endif
 
 
@@ -141,6 +141,8 @@ void VMPU_Process_Messages(void)
                 tsf_channel_set_pressure(tsfrenderer, vmpu.last_status & 0xf, vmpu.buffer[vmpu.rptr] / 127.f);
                 break;
             case 0xA0: /* poly key pressure +2 */
+                if ( vmpu.index != 0)
+                    vmpu.index = -1;
                 break;
             case 0x80: /* note off +2 */
                 if ( vmpu.index == 0 )
@@ -180,15 +182,7 @@ void VMPU_Process_Messages(void)
                 break;
             case 0xF0: /* system +0 */
                 switch ( vmpu.last_status & 0x0F ) {
-                case 0xF:
-                    tsf_reset(tsfrenderer);
-                    tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
-                    tsf_set_volume(tsfrenderer, 1.0f);
-                    break;
                 case 0:
-                    if ( vmpu.index < 32 )
-                        vmpu.sysex[vmpu.index] = vmpu.buffer[vmpu.rptr];
-
                     if (vmpu.buffer[vmpu.rptr] == 0xF7) {
                         if (vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 && vmpu.index >= 8) {
                             uint32_t addr = ((uint32_t)vmpu.sysex[4] << 16) + ((uint32_t)vmpu.sysex[5] << 8) + (uint32_t)vmpu.sysex[6];
@@ -196,7 +190,7 @@ void VMPU_Process_Messages(void)
                                 tsf_set_volume(tsfrenderer, ((vmpu.sysex[7] > 127) ? 127 : vmpu.sysex[7]) / 127.f);
                             }
                         }
-                        if (tsfrenderer && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
+                        if (vmpu.index > 5 && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
                             //_dprintf("GM Master Vol 0x%02X\n", vmpu.sysex[5]);
                             tsf_set_volume(tsfrenderer, vmpu.sysex[5] / 127.f);
                         }
@@ -206,13 +200,20 @@ void VMPU_Process_Messages(void)
                             tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
                             tsf_set_volume(tsfrenderer, 1.0f);
                         }
-                    }
+                        vmpu.index = -1;
+                    } else if ( vmpu.index < 32 )
+                        if ( vmpu.index == 0 )
+                            memset( vmpu.sysex, 0, sizeof( vmpu.sysex ) );
+                        vmpu.sysex[vmpu.index] = vmpu.buffer[vmpu.rptr];
                     break;
-                case 0x2: /* song position ptr + LSB,MSB */
+                case 0xF:
+                    tsf_reset(tsfrenderer);
+                    tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
+                    tsf_set_volume(tsfrenderer, 1.0f);
                     break;
-                case 0x1: /* MIDI time code quarter frame */
-                case 0x3: /* song select */
-                    break;
+                //case 0x1: /* MIDI time code quarter frame */
+                //case 0x2: /* song position ptr + LSB,MSB */
+                //case 0x3: /* song select */
                 default:
                     break;
                 }
@@ -232,6 +233,7 @@ void VMPU_Init( int freq )
     if (!soundfont_file) return;
     if ( tsfrenderer = tsf_load_filename(soundfont_file) ) {
         int channel = 0;
+        memset( &vmpu, 0, sizeof (vmpu ) );
         printf("TinySoundFont loaded; soundfont %s\n", soundfont_file);
         if (gvars.voices < 32) gvars.voices = 32;
         if (gvars.voices > 256) gvars.voices = 256;
@@ -241,7 +243,7 @@ void VMPU_Init( int freq )
         for (channel = 0; channel < 16; channel++)
             tsf_channel_midi_control(tsfrenderer, channel, 121, 0);
         tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
-        memset( &vmpu, 0, sizeof (vmpu ) );
+        tsf_set_samplerate_output(tsfrenderer, freq );
     } else
         printf("Failed loading soundfont %s\n", soundfont_file);
 #endif
@@ -251,8 +253,11 @@ void VMPU_Exit( void )
 //////////////////////
 {
 #if SOUNDFONT
-    if ( tsfrenderer)
-        tsf_close( tsfrenderer );
+    if ( tsfrenderer) {
+        tsf *tmp = tsfrenderer;
+        tsfrenderer = NULL; /* disables rendering in isr */
+        tsf_close( tmp );
+    }
 #endif
 }
 

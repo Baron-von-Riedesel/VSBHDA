@@ -176,7 +176,7 @@ extern void FAREXP AU_prestart( struct audioout_info_s * );
 extern void FAREXP AU_start( struct audioout_info_s * );
 extern void FAREXP AU_stop( struct audioout_info_s * );
 extern void FAREXP AU_close( struct audioout_info_s * );
-extern void FAREXP AU_setrate( struct audioout_info_s * , int, int, int );
+extern int  FAREXP AU_setrate( struct audioout_info_s * , int, int, int );
 extern void FAREXP AU_setmixer_init( struct audioout_info_s * );
 extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int mixch, unsigned int setmode, int value );
 extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );

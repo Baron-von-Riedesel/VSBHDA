@@ -200,10 +200,10 @@ void fatal_error( int nError )
 static void ReleaseRes( void )
 //////////////////////////////
 {
-	_UninstallInt31(); /* must be called before SNDISR_Exit() */
 #if VMPU
-    VMPU_Exit();
+	VMPU_Exit();
 #endif
+	_UninstallInt31(); /* must be called before SNDISR_Exit() */
 	if ( gm.bISR ) {
 		VIRQ_Exit( gvars.irq );
 		SNDISR_Exit();
@@ -432,7 +432,7 @@ int main(int argc, char* argv[])
     AU_setmixer_outs( gm.hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     //AU_setmixer_one( gm.hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
 
-    AU_setrate( gm.hAU, gm.freq, HW_CHANNELS, HW_BITS );
+    gm.freq = AU_setrate( gm.hAU, gm.freq, HW_CHANNELS, HW_BITS );
 
     PTRAP_InitPortMax(); /* v1.6: init port trap ranges */
     if( gvars.rm ) {

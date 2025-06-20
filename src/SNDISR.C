@@ -498,7 +498,7 @@ static int SNDISR_Interrupt( void )
         unsigned char fpu_buffer[FPU_SRSIZE];
         fpu_save(fpu_buffer);
         VMPU_Process_Messages();
-        tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
+        //tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
         tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
         fpu_restore(fpu_buffer);
     }
