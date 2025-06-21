@@ -25,7 +25,8 @@ struct VMPU_s {
     unsigned int wptr;
     unsigned int rptr;
     unsigned int index;
-    unsigned char last_status;
+    unsigned char status;
+    unsigned char channel;
     unsigned char data0;
     unsigned char buffer[4096];
     unsigned char sysex[32];
@@ -133,88 +134,100 @@ void VMPU_Process_Messages(void)
 {
     for ( ;vmpu.rptr != vmpu.wptr; vmpu.rptr++, vmpu.rptr &= 0xfff ) {
         if ( (vmpu.buffer[vmpu.rptr] & 0x80) && vmpu.buffer[vmpu.rptr] != 0xF7 ) {
-            vmpu.last_status = vmpu.buffer[vmpu.rptr];
+            vmpu.status = vmpu.buffer[vmpu.rptr] >> 4;
+            vmpu.channel = vmpu.buffer[vmpu.rptr] & 0xf;
             vmpu.index = 0;
         } else {
-            switch ( vmpu.last_status & 0xF0 ) {
-            case 0xD0: /* mono key pressure +1 */
-                tsf_channel_set_pressure(tsfrenderer, vmpu.last_status & 0xf, vmpu.buffer[vmpu.rptr] / 127.f);
+            switch ( vmpu.status ) {
+            case 0xD: /* mono key pressure +1 */
+                tsf_channel_set_pressure(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr] / 127.f);
                 break;
-            case 0xA0: /* poly key pressure +2 */
+            case 0xA: /* poly key pressure +2 */
                 if ( vmpu.index != 0)
                     vmpu.index = -1;
                 break;
-            case 0x80: /* note off +2 */
+            case 0x8: /* note off +2 */
                 if ( vmpu.index == 0 )
                     vmpu.data0 = vmpu.buffer[vmpu.rptr];
                 else {
                     /* second byte (velocity) currently not used */
-                    tsf_channel_note_off(tsfrenderer, vmpu.last_status & 0xf, vmpu.data0);
+                    tsf_channel_note_off(tsfrenderer, vmpu.channel, vmpu.data0);
                     vmpu.index = -1;
                 }
                 break;
-            case 0x90: /* note on +2 */
+            case 0x9: /* note on +2 */
                 if ( vmpu.index == 0)
                     vmpu.data0 = vmpu.buffer[vmpu.rptr];
                 else {
-                    tsf_channel_note_on(tsfrenderer, vmpu.last_status & 0xf, vmpu.data0, vmpu.buffer[vmpu.rptr] / 127.0f);
+                    tsf_channel_note_on(tsfrenderer, vmpu.channel, vmpu.data0, vmpu.buffer[vmpu.rptr] / 127.0f);
                     vmpu.index = -1;
                 }
                 break;
-            case 0xE0: /* pitch bend +2 */
+            case 0xE: /* pitch bend +2 */
                 if ( vmpu.index == 0)
                     vmpu.data0 = vmpu.buffer[vmpu.rptr];
                 else {
-                    tsf_channel_set_pitchwheel(tsfrenderer, vmpu.last_status & 0xf, (vmpu.data0 & 0x7f) | ((vmpu.buffer[vmpu.rptr] & 0x7f) << 7));
+                    tsf_channel_set_pitchwheel(tsfrenderer, vmpu.channel, vmpu.data0 | (vmpu.buffer[vmpu.rptr] << 7));
                     vmpu.index = -1;
                 }
                 break;
-            case 0xC0: /* program change +1 */
-                tsf_channel_set_presetnumber(tsfrenderer, vmpu.last_status & 0xf, vmpu.buffer[vmpu.rptr], (vmpu.last_status & 0xf) == 0x9);
+            case 0xC: /* program change +1 */
+                tsf_channel_set_presetnumber(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr], vmpu.channel == 0x9);
                 break;
-            case 0xB0: /* control change +2; channel mode msg if rsvd. controller numbers 120-127 are used */
+            case 0xB: /* control change +2; channel mode msg if rsvd. controller numbers 120-127 are used */
                 if ( vmpu.index == 0)
                     vmpu.data0 = vmpu.buffer[vmpu.rptr];
                 else {
-                    tsf_channel_midi_control(tsfrenderer, vmpu.last_status & 0xf, vmpu.data0, vmpu.buffer[vmpu.rptr]);
+                    tsf_channel_midi_control(tsfrenderer, vmpu.channel, vmpu.data0, vmpu.buffer[vmpu.rptr]);
                     vmpu.index = -1;
                 }
                 break;
-            case 0xF0: /* system +0 */
-                switch ( vmpu.last_status & 0x0F ) {
+            case 0xF: /* system +0 */
+                switch ( vmpu.channel ) {
                 case 0:
+                    if ( vmpu.index == 0 )
+                        memset( vmpu.sysex, 0, sizeof( vmpu.sysex ) );
                     if (vmpu.buffer[vmpu.rptr] == 0xF7) {
-                        if (vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 && vmpu.index >= 8) {
+                        /* msg 41 xx 42 12 400004 vv? */
+                        if (vmpu.index > 7 && vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 ) {
                             uint32_t addr = ((uint32_t)vmpu.sysex[4] << 16) + ((uint32_t)vmpu.sysex[5] << 8) + (uint32_t)vmpu.sysex[6];
-                            if (addr == 0x400004 && tsfrenderer) {
+                            if (addr == 0x400004 ) {
                                 tsf_set_volume(tsfrenderer, ((vmpu.sysex[7] > 127) ? 127 : vmpu.sysex[7]) / 127.f);
                             }
-                        }
-                        if (vmpu.index > 5 && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
+                            dbgprintf(("sysex msg 0xF0: %X %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3], addr ));
+                        } else if (vmpu.index > 5 && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
+                            /* msg 7f 7f 04 01 ll mm? */
                             //_dprintf("GM Master Vol 0x%02X\n", vmpu.sysex[5]);
                             tsf_set_volume(tsfrenderer, vmpu.sysex[5] / 127.f);
-                        }
+                            dbgprintf(("sysex msg 0xF0 'set GM master vol: %X\n", vmpu.sysex[5]));
+                        } else if (!memcmp(vmpu.sysex, gs_reset, sizeof(gs_reset)) || !memcmp(vmpu.sysex, gm_reset, sizeof(gm_reset))) {
                         // TODO: Differentiate between GS and GM Resets.
-                        if (!memcmp(vmpu.sysex, gs_reset, sizeof(gs_reset)) || !memcmp(vmpu.sysex, gm_reset, sizeof(gm_reset))) {
                             tsf_reset(tsfrenderer);
                             tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
                             tsf_set_volume(tsfrenderer, 1.0f);
+                            dbgprintf(("sysex msg 0xF0 'reset': %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
                         }
+#ifdef _DEBUG
+                        else
+                            dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
+#endif
                         vmpu.index = -1;
-                    } else if ( vmpu.index < 32 )
-                        if ( vmpu.index == 0 )
-                            memset( vmpu.sysex, 0, sizeof( vmpu.sysex ) );
+                    } else if ( vmpu.index < sizeof( vmpu.sysex ) )
                         vmpu.sysex[vmpu.index] = vmpu.buffer[vmpu.rptr];
                     break;
-                case 0xF:
+                case 0xF: /* 0xff - in a midi file it's supposed to be start of a "meta event"! */
                     tsf_reset(tsfrenderer);
                     tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
                     tsf_set_volume(tsfrenderer, 1.0f);
+                    dbgprintf(("sysex msg 0xFF\n"));
                     break;
                 //case 0x1: /* MIDI time code quarter frame */
                 //case 0x2: /* song position ptr + LSB,MSB */
                 //case 0x3: /* song select */
                 default:
+#ifdef _DEBUG
+                    if ( vmpu.index == 0 ) dbgprintf(("sysex msg %X\n", vmpu.channel | 0xF0 ));
+#endif
                     break;
                 }
                 break;

@@ -35,7 +35,9 @@ extern tsf* tsfrenderer;
 bool _SND_InstallISR( uint8_t, int(*ISR)(void) );
 bool _SND_UninstallISR( uint8_t );
 
+#if MUXERROUTINE==2
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
+#endif
 extern void fatal_error( int );
 
 extern struct globalvars gvars;

@@ -23,8 +23,8 @@ static inline unsigned long long rdtsc(void)
 	return tsc;
 }
 # if FPUSRINLINE 
-static inline void fpu_save(void * buffer) { asm( "movl %0, %%eax\n\t" "fsave (%%eax)"::"m"(buffer): "%eax" ) ; }
-static inline void fpu_restore(void * buffer) { asm( "movl %0, %%eax\n\t" "frstor (%%eax)"::"m"(buffer): "%eax" ) ; }
+static inline void fpu_save(void * buffer) { asm( "fsave (%%eax)"::"a"(buffer) ) ; }
+static inline void fpu_restore(void * buffer) { asm( "frstor (%%eax)"::"a"(buffer) ) ; }
 # else
 void fpu_save(void * buffer);
 void fpu_restore(void * buffer);

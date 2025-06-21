@@ -155,6 +155,7 @@ static const struct {
 #ifdef NOTFLAT
     "/DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
 #endif
+    "/PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
     NULL, NULL, 0,
 };
 
