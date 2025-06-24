@@ -34,7 +34,7 @@ struct VMPU_s {
 static struct VMPU_s vmpu;
 
 static const unsigned char gm_reset[4] = { 0x7E, 0x7F, 0x09, 0x01 };
-static const unsigned char gs_reset[9] = { 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41 };
+//static const unsigned char gs_reset[9] = { 0x41, 0x10, 0x42, 0x12, 0x40, 0x00, 0x7F, 0x00, 0x41 };
 #endif
 
 
@@ -124,6 +124,14 @@ uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out)
 
 #if SOUNDFONT
 
+static void reset(void)
+///////////////////////
+{
+    tsf_reset(tsfrenderer);
+    tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
+    tsf_set_volume(tsfrenderer, 1.0f);
+}
+
 /* process MIDI messages;
  * called during interrupt time - don't assume that
  * any message is "complete".
@@ -139,12 +147,15 @@ void VMPU_Process_Messages(void)
             vmpu.index = 0;
         } else {
             switch ( vmpu.status ) {
-            case 0xD: /* mono key pressure +1 */
+            case 0xD: /* channel pressure +1 */
                 tsf_channel_set_pressure(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr] / 127.f);
                 break;
-            case 0xA: /* poly key pressure +2 */
-                if ( vmpu.index != 0)
+            case 0xA: /* polyphonic key pressure +2, 1.byte is key, 2.byte is pressure value */
+                if ( vmpu.index == 0)
+                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                else {
                     vmpu.index = -1;
+                }
                 break;
             case 0x8: /* note off +2 */
                 if ( vmpu.index == 0 )
@@ -174,7 +185,15 @@ void VMPU_Process_Messages(void)
             case 0xC: /* program change +1 */
                 tsf_channel_set_presetnumber(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr], vmpu.channel == 0x9);
                 break;
-            case 0xB: /* control change +2; channel mode msg if rsvd. controller numbers 120-127 are used */
+            case 0xB:
+             /* control change +2; channel mode msg if rsvd. controller numbers 120-127 are used
+              * 1. byte is c(ontroller), 2. byte is v(alue.
+              * c=120, v=0: all sounds off
+              * c=121, v=0: all controllers reset
+              * c=122, v=0/127: local control off/on
+              * c=123, v=0: all notes off
+              * c=124/125/126/127, v=0: omni mode off/on, mono mode on, poly mode on
+              */
                 if ( vmpu.index == 0)
                     vmpu.data0 = vmpu.buffer[vmpu.rptr];
                 else {
@@ -188,37 +207,43 @@ void VMPU_Process_Messages(void)
                     if ( vmpu.index == 0 )
                         memset( vmpu.sysex, 0, sizeof( vmpu.sysex ) );
                     if (vmpu.buffer[vmpu.rptr] == 0xF7) {
-                        /* msg 41 xx 42 12 400004 vv? */
-                        if (vmpu.index > 7 && vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 ) {
+                        /* sysex msg (41 xx 42 12 aaaaaa dd cc F7? (41=Roland, 42=GS synth, 12=sending) */
+                        if (vmpu.index > 8 && vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 ) {
                             uint32_t addr = ((uint32_t)vmpu.sysex[4] << 16) + ((uint32_t)vmpu.sysex[5] << 8) + (uint32_t)vmpu.sysex[6];
-                            if (addr == 0x400004 ) {
+                            if ( addr == 0x400004 ) {
                                 tsf_set_volume(tsfrenderer, ((vmpu.sysex[7] > 127) ? 127 : vmpu.sysex[7]) / 127.f);
+                                dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (set GS volume)\n", vmpu.sysex[1], addr, vmpu.sysex[7] ));
+                            } else if ( addr == 0x40007f ) {
+                                if ( vmpu.sysex[7] == 0 ) { /* 0=GS reset (enter GS mode), 7F=gs "rereset" (exit GS mode) */
+                                    reset();
+                                    dbgprintf(("sysex msg 0xF0: 41 %X 42 12 40007f (GS reset)\n", vmpu.sysex[1] ));
+                                }
+#ifdef _DEBUG
+                                else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (unhandled)\n", vmpu.sysex[1], addr, vmpu.sysex[7] ));
+#endif
+
                             }
-                            dbgprintf(("sysex msg 0xF0: %X %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3], addr ));
+#ifdef _DEBUG
+                            else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X (unhandled)\n", vmpu.sysex[1], addr ));
+#endif
                         } else if (vmpu.index > 5 && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
                             /* msg 7f 7f 04 01 ll mm? */
-                            //_dprintf("GM Master Vol 0x%02X\n", vmpu.sysex[5]);
                             tsf_set_volume(tsfrenderer, vmpu.sysex[5] / 127.f);
-                            dbgprintf(("sysex msg 0xF0 'set GM master vol: %X\n", vmpu.sysex[5]));
-                        } else if (!memcmp(vmpu.sysex, gs_reset, sizeof(gs_reset)) || !memcmp(vmpu.sysex, gm_reset, sizeof(gm_reset))) {
-                        // TODO: Differentiate between GS and GM Resets.
-                            tsf_reset(tsfrenderer);
-                            tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
-                            tsf_set_volume(tsfrenderer, 1.0f);
-                            dbgprintf(("sysex msg 0xF0 'reset': %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
+                            dbgprintf(("sysex msg 0xF0: 7F 7F 04 01 v=%X (set GM master vol)\n", vmpu.sysex[5]));
+                        } else if ( !memcmp(vmpu.sysex, gm_reset, sizeof(gm_reset)) ) {
+                            // TODO: Differentiate between GS and GM Resets.
+                            reset();
+                            dbgprintf(("sysex msg 0xF0: %X %X %X %X (GM reset)\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
                         }
 #ifdef _DEBUG
-                        else
-                            dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
+                        else dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
 #endif
                         vmpu.index = -1;
                     } else if ( vmpu.index < sizeof( vmpu.sysex ) )
                         vmpu.sysex[vmpu.index] = vmpu.buffer[vmpu.rptr];
                     break;
                 case 0xF: /* 0xff - in a midi file it's supposed to be start of a "meta event"! */
-                    tsf_reset(tsfrenderer);
-                    tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
-                    tsf_set_volume(tsfrenderer, 1.0f);
+                    reset();
                     dbgprintf(("sysex msg 0xFF\n"));
                     break;
                 //case 0x1: /* MIDI time code quarter frame */
@@ -247,16 +272,14 @@ void VMPU_Init( int freq )
     if ( tsfrenderer = tsf_load_filename(soundfont_file) ) {
         int channel = 0;
         memset( &vmpu, 0, sizeof (vmpu ) );
-        printf("TinySoundFont loaded; soundfont %s\n", soundfont_file);
-        if (gvars.voices < 32) gvars.voices = 32;
-        if (gvars.voices > 256) gvars.voices = 256;
-        printf("Maximum voice limit: %d\n", gvars.voices);
+        printf("TSF: soundfont %s [presets=%d]\n", soundfont_file, tsf_get_presetcount(tsfrenderer) );
         tsf_set_max_voices(tsfrenderer, gvars.voices);
+        printf("TSF: voice limit: %d\n", gvars.voices);
         tsf_set_output(tsfrenderer, TSF_STEREO_INTERLEAVED, freq, 0);
-        for (channel = 0; channel < 16; channel++)
-            tsf_channel_midi_control(tsfrenderer, channel, 121, 0);
-        tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
         tsf_set_samplerate_output(tsfrenderer, freq );
+        for (channel = 0; channel < 16; channel++)
+            tsf_channel_midi_control(tsfrenderer, channel, 121, 0); /* 121 = reset controller */
+        tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0); /* channel 9 set to 128 (percussion) */
     } else
         printf("Failed loading soundfont %s\n", soundfont_file);
 #endif

@@ -234,7 +234,6 @@ struct Chip {
 	int8_t opl3Active;
 	//Running in opl3 mode
 	const bool opl3Mode;
-
 	//Return the maximum amount of samples before and LFO change
 	uint32_t ForwardLFO( uint32_t samples );
 	uint32_t ForwardNoise();

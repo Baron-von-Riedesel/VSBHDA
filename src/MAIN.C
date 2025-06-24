@@ -156,6 +156,9 @@ static const struct {
     "/DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
 #endif
     "/PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
+#if SOUNDFONT
+    "/MV", "Set voice limit [32-256, def 64]", &gvars.voices,
+#endif
     NULL, NULL, 0,
 };
 
@@ -283,24 +286,18 @@ int main(int argc, char* argv[])
     if(blaster != NULL) {
         char c;
         while(( c = toupper(*(blaster++)))) {
-            if(c == 'I')
-                gvars.irq = *(blaster++) - '0';
-            else if(c == 'D')
-                gvars.dma = *(blaster++) - '0';
-            else if(c == 'A') {
-                gvars.base = strtol(blaster, &blaster, 16);
-                while(*blaster >= '0') blaster++;
-#if VMPU
-            } else if(c == 'P') {
-                gvars.mpu = strtol(blaster, &blaster, 16);
-                while(*blaster >= '0') blaster++;
-#endif
-            } else if(c == 'T')
-                gvars.type = *(blaster++) - '0';
+            switch (c) {
+            case 'A': gvars.base = strtol(blaster, &blaster, 16); break;
+            case 'D': gvars.dma  = *(blaster++) - '0'; break;
+            case 'I': gvars.irq  = *(blaster++) - '0'; break;
 #if SB16
-            else if(c == 'H')
-                gvars.hdma = *(blaster++) - '0';
+            case 'H': gvars.hdma = *(blaster++) - '0'; break;
 #endif
+#if VMPU
+            case 'P': gvars.mpu  = strtol(blaster, &blaster, 16); break;
+#endif
+            case 'T': gvars.type = *(blaster++) - '0'; break;
+            }
         }
     }
     dbgprintf(("A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
@@ -340,7 +337,13 @@ int main(int argc, char* argv[])
             printf( " %-8s: %s\n", GOptions[i].option, GOptions[i].desc );
 
         printf("\nNote: the BLASTER environment variable may change the default settings; " HELPNOTE );
-        printf("\nSource code used from:\n    MPXPlay (https://mpxplay.sourceforge.net/)\n    DOSBox (https://www.dosbox.com/)\n");
+        printf("\nSource code used from:\n"
+               "\tMPXPlay (https://mpxplay.sourceforge.net)\n"
+               "\tDOSBox (https://www.dosbox.com)\n"
+#if SOUNDFONT
+               "\tTinySoundFont (https://www.github.com/schellingb/TinySoundFont)\n"
+#endif
+              );
         return 0;
     }
 
@@ -388,6 +391,12 @@ int main(int argc, char* argv[])
         printf("Error: valid frequencies are 22050 and 44100\n" );
         return 1;
     }
+#if SOUNDFONT
+    if ((gvars.voices < 32) || (gvars.voices > 256)) {
+        printf("Error: invalid voice limit: %d\n", gvars.voices );
+        return 1;
+    }
+#endif
 #if defined(DJGPP)
     __dpmi_get_segment_base_address(_my_ds(), (unsigned long *)&DSBase);
 #endif

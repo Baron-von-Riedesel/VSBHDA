@@ -274,7 +274,9 @@ TSFDEF float tsf_channel_get_pressure(tsf* f, int channel);
 // Increasing this above 512 should not have a significant impact on performance.
 // The value should be a multiple of TSF_RENDER_EFFECTSAMPLEBLOCK.
 #ifndef TSF_RENDER_SHORTBUFFERBLOCK
-#define TSF_RENDER_SHORTBUFFERBLOCK 512
+/* vsbhda */
+//#define TSF_RENDER_SHORTBUFFERBLOCK 512
+#define TSF_RENDER_SHORTBUFFERBLOCK 128
 #endif
 
 // Grace release time for quick voice off (avoid clicking noise)

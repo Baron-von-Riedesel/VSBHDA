@@ -459,24 +459,24 @@ static int SNDISR_Interrupt( void )
             cv_channels_1_to_2( pPCMOPL, samples );
 
         if( digital ) {
-#if MIXERROUTINE==0
+# if MIXERROUTINE==0
             for( i = 0; i < samples * 2; i++ ) {
                 int a = (*(isr.pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (*(pPCMOPL+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
                 *(isr.pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
             }
-#elif MIXERROUTINE==1
+# elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
             for( i = 0; i < samples * 2; i++ ) *(isr.pPCM+i) = ( *(isr.pPCM+i) * voicevol + *(pPCMOPL+i) * midivol ) >> (8+1);
-#else
+# else
             /* in assembly it's probably easier to handle signed/unsigned shifts */
             SNDISR_Mixer( isr.pPCM, pPCMOPL, samples * 2, voicevol, midivol );
-#endif
-#ifdef _LOGBUFFMAX
+# endif
+# ifdef _LOGBUFFMAX
             if ( (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
                 isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
-#endif
+# endif
         } else
             for( i = 0; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * midivol ) >> 8;
     } else {
@@ -498,11 +498,13 @@ static int SNDISR_Interrupt( void )
 #if SOUNDFONT
     if (tsfrenderer) {
         unsigned char fpu_buffer[FPU_SRSIZE];
-        fpu_save(fpu_buffer);
+        fpu_save( fpu_buffer );
         VMPU_Process_Messages();
         //tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
-        tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
-        fpu_restore(fpu_buffer);
+        /* don't try to mix if no digital sound has been created */
+        //tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
+        tsf_render_short(tsfrenderer, isr.pPCM, samples, digital);
+        fpu_restore( fpu_buffer );
     }
 #endif
     AU_writedata( isr.hAU, samples * 2, isr.pPCM );
