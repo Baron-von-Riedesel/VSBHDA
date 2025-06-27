@@ -78,7 +78,7 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 	bufsize -= (bufsize % pagesize);  //
 	if(bufsize > max_bufsize)
 		bufsize = max_bufsize - (max_bufsize % pagesize);
-	dbgprintf(("MDma_get_max_pcmoutbufsize=%X\n", bufsize ));
+	dbgprintf(("MDma_get_max_pcmoutbufsize()=0x%X\n", bufsize ));
 	return bufsize;
 }
 

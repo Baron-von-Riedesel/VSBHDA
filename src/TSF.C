@@ -35,7 +35,7 @@ void tsfimpl_free(void* ptr)
         return;
     handle = *((size_t*)(ptr) - 1);
     __dpmi_free_memory(handle);
-    dbgprintf(("tsfimpl_free(%X)\n", handle ));
+    //dbgprintf(("tsfimpl_free(%X)\n", handle ));
 }
 
 void* tsfimpl_realloc(void *ptr, size_t size)

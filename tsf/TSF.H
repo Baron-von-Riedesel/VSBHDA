@@ -276,7 +276,7 @@ TSFDEF float tsf_channel_get_pressure(tsf* f, int channel);
 #ifndef TSF_RENDER_SHORTBUFFERBLOCK
 /* vsbhda */
 //#define TSF_RENDER_SHORTBUFFERBLOCK 512
-#define TSF_RENDER_SHORTBUFFERBLOCK 128
+#define TSF_RENDER_SHORTBUFFERBLOCK 256
 #endif
 
 // Grace release time for quick voice off (avoid clicking noise)

@@ -56,6 +56,11 @@ struct SNDISR_s {
 #ifdef _LOGBUFFMAX /* log the usage of the PCM buffer? */
 	uint32_t dwMaxBytes;
 #endif
+#ifdef _DEBUG
+    int max_samples;
+    int total_samples;
+    int cnt;
+#endif
 };
 
 static struct SNDISR_s isr = {NULL,-1,0,0};
@@ -289,8 +294,13 @@ static int SNDISR_Interrupt( void )
 #endif
     AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
     samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
+#ifdef _DEBUG
+    if (samples > isr.max_samples)
+        isr.max_samples = samples;
+    isr.total_samples += samples;
+    isr.cnt++;
     //dbgprintf(("isr: samples:%u ",samples));
-
+#endif
     if(samples == 0) { /* no free space in DMA buffer? */
         PIC_SendEOI( AU_getirq( isr.hAU ) );
         return(1);
@@ -397,14 +407,14 @@ static int SNDISR_Interrupt( void )
             }
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
             if( VSB_GetIRQStatus() ) {
-                dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+                //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
                 VSB_SetPos(0); /* */
                 VIRQ_Invoke();
                 if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
             }
-#ifdef _DEBUG
+#if 0//def _DEBUG
             else
                 dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X bytes=%u silent=%u\n", loop++, SB_Pos, SB_BuffSize, bytes, IsSilent ));
 #endif
@@ -558,7 +568,10 @@ bool SNDISR_Exit( void )
 ////////////////////////
 {
 #ifdef _LOGBUFFMAX
-    printf("max PCM buffer usage: %u\n", isr.dwMaxBytes );
+    printf("SNDISR_Exit: max PCM buffer usage=%u\n", isr.dwMaxBytes );
+#endif
+#ifdef _DEBUG
+    printf("SNDISR_Exit: max/avg samples=%u/%u\n", isr.max_samples, isr.total_samples / isr.cnt );
 #endif
     return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }

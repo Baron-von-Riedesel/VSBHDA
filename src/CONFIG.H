@@ -46,6 +46,7 @@ struct globalvars {
 	int diverr; /* /DIVE value */
 #endif
 #if SOUNDFONT
+	char *soundfont;
 	int voices;
 #endif
 	int pin;

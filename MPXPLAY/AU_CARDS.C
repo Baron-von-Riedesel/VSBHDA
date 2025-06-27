@@ -493,7 +493,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 
 #define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (required for PCI cards)
 
-/* this function is static in mpxplay
+/* this function is static in mpxplay;
  * calculates and returns aui->card_dmaspace - in "sample"-units!
  */
 
@@ -506,7 +506,6 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	 * modifies:
 	 * - card_dmalastput
 	 * - card_dmaspace
-	 * - card_dmalastput
 	 * - card_dmafilled
 	 * - card_infobits
 	 * it's also the only function that calls cardbuf_getpos(),

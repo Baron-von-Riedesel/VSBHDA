@@ -114,6 +114,9 @@ static uint8_t VMPU_Read(uint16_t port)
 void VMPU_SBMidi_RawWrite( uint8_t value )
 //////////////////////////////////////////
 {
+#if SOUNDFONT
+    VMPU_Write( 0, value );
+#endif
 }
 
 uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out)
@@ -267,21 +270,20 @@ void VMPU_Init( int freq )
 //////////////////////////
 {
 #if SOUNDFONT
-    char* soundfont_file = getenv("SOUNDFONT");
-    if (!soundfont_file) return;
-    if ( tsfrenderer = tsf_load_filename(soundfont_file) ) {
+    if (!gvars.soundfont) ;
+    else if ( tsfrenderer = tsf_load_filename(gvars.soundfont) ) {
         int channel = 0;
         memset( &vmpu, 0, sizeof (vmpu ) );
-        printf("TSF: soundfont %s [presets=%d]\n", soundfont_file, tsf_get_presetcount(tsfrenderer) );
+        printf("TSF: soundfont %s [presets=%d]\n", gvars.soundfont, tsf_get_presetcount(tsfrenderer) );
         tsf_set_max_voices(tsfrenderer, gvars.voices);
-        printf("TSF: voice limit: %d\n", gvars.voices);
+        printf("TSF: voice limit=%d\n", gvars.voices);
         tsf_set_output(tsfrenderer, TSF_STEREO_INTERLEAVED, freq, 0);
         tsf_set_samplerate_output(tsfrenderer, freq );
         for (channel = 0; channel < 16; channel++)
             tsf_channel_midi_control(tsfrenderer, channel, 121, 0); /* 121 = reset controller */
         tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0); /* channel 9 set to 128 (percussion) */
     } else
-        printf("Failed loading soundfont %s\n", soundfont_file);
+        printf("Failed loading soundfont %s\n", gvars.soundfont);
 #endif
 }
 

@@ -119,6 +119,7 @@ true, true, true, VOL_DEFAULT, 16, /* OPL3, rm, pm, vol, buffsize */
 0, /* diverr */
 #endif
 #if SOUNDFONT
+NULL,
 64, /* voices */
 #endif
 };
@@ -128,36 +129,37 @@ static const struct {
     const char *desc;
     int *pValue;
 } GOptions[] = {
-    "/?", "Show help", &gm.bHelp,
-    "/A", "Set IO base address [220|240, def 220]", &gvars.base,
-    "/I", "Set IRQ number [2|5|7, def 7]", &gvars.irq,
-    "/D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
+    "?", "Show help", &gm.bHelp,
+    "A", "Set IO base address [220|240, def 220]", &gvars.base,
+    "I", "Set IRQ number [2|5|7, def 7]", &gvars.irq,
+    "D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
 #if SB16
-    "/H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
-    "/T", "Set SB Type [0-6, def 4]", &gvars.type,
+    "H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
+    "T", "Set SB Type [0-6, def 4]", &gvars.type,
 #else
-    "/T", "Set SB Type [0-5, def 4]", &gvars.type,
+    "T", "Set SB Type [0-5, def 4]", &gvars.type,
 #endif
 #if VMPU
-    "/P", "Set Midi port [330|300, no def]", &gvars.mpu,
+    "P", "Set Midi port [330|300, no def]", &gvars.mpu,
 #endif
-    "/OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
-    "/PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
-    "/RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "/F",  "Set frequency [22050|44100, def 22050]", &gm.freq,
-    "/VOL", "Set master volume [0-9, def 7]", &gvars.vol,
-    "/BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
+    "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
+    "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
+    "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
+    "F",  "Set frequency [22050|44100, def 22050]", &gm.freq,
+    "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
+    "BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
 #if SLOWDOWN
-    "/SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
+    "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
 #endif
-    "/O",  "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
-    "/DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
+    "O",  "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
+    "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
 #ifdef NOTFLAT
-    "/DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
+    "DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
 #endif
-    "/PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
+    "PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
 #if SOUNDFONT
-    "/MV", "Set voice limit [32-256, def 64]", &gvars.voices,
+    "SF:", "Set sound font file name", (int *)&gvars.soundfont,
+    "MV", "Set voice limit [32-256, def 64]", &gvars.voices,
 #endif
     NULL, NULL, 0,
 };
@@ -312,20 +314,29 @@ int main(int argc, char* argv[])
     /* check cmdline arguments */
     for( i = 1; i < argc; ++i ) {
         int j;
-        for( j = 1; GOptions[j].option; ++j ) {
-            int len = strlen( GOptions[j].option);
-            if( memicmp(argv[i], GOptions[j].option, len) == 0 ) {
-                if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
-                    *GOptions[j].pValue = strtol(&argv[i][len], NULL, IsHexOption(j) ? 16 : 10 );
-                    break;
-                } else if ( argv[i][len] == 0 && *GOptions[j].pValue == false ) {
-                    *GOptions[j].pValue = true;
-                    break;
+        if ( *argv[i] == '/' || *argv[i] == '-' ) {
+            argv[i]++;
+            for( j = 0; GOptions[j].option; ++j ) {
+                int len = strlen( GOptions[j].option);
+                if( memicmp(argv[i], GOptions[j].option, len) == 0 ) {
+                    if ( strchr( GOptions[j].option, ':' ) ) {
+                        *GOptions[j].pValue = (int)&argv[i][len];
+                        break;
+                    } else if ( argv[i][len] >= '0' && argv[i][len] <= '9' ) {
+                        *GOptions[j].pValue = strtol(&argv[i][len], NULL, IsHexOption(j) ? 16 : 10 );
+                        break;
+                    } else if ( argv[i][len] == 0 && *GOptions[j].pValue == false ) {
+                        *GOptions[j].pValue = true;
+                        break;
+                    }
                 }
             }
-        }
-        if ( GOptions[j].option == NULL )
-            gm.bHelp = true;
+            if ( GOptions[j].option == NULL ) {
+                argv[i]--;
+                printf("%s?\n", argv[i]);
+            }
+        } else
+            printf("%s?\n", argv[i]);
     }
 
     /* if -? or unrecognised option was entered, display help and exit */
@@ -333,8 +344,11 @@ int main(int argc, char* argv[])
         gm.bHelp = false;
         printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Usage:\n");
 
-        for( i = 0; GOptions[i].option; i++ )
-            printf( " %-8s: %s\n", GOptions[i].option, GOptions[i].desc );
+        for( i = 0; GOptions[i].option; i++ ) {
+            char *tmp;
+            tmp = strchr( GOptions[i].option, ':') ? "fn" : "";
+            printf( " /%s%s\t : %s\n", GOptions[i].option, tmp, GOptions[i].desc );
+        }
 
         printf("\nNote: the BLASTER environment variable may change the default settings; " HELPNOTE );
         printf("\nSource code used from:\n"
@@ -414,7 +428,7 @@ int main(int argc, char* argv[])
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf(("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF));
         if(bcd < 0x703) {
-            printf("Jemm+QPIEmu/Qemm not found [or version (%x.%02x) below 7.03]; no real mode support.\n", bcd >> 8, bcd & 0xFF);
+            printf("Jemm+QPIEmu/Qemm not found [or version (%x.%02x) below 7.03]; no real-mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
         }
     }
@@ -452,8 +466,8 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
-    printf("Real mode support: %s.\n", gvars.rm ? "enabled" : "disabled");
-    printf("Protected mode support: %s.\n", gvars.pm ? "enabled" : "disabled");
+    printf("Real-mode support: %s\n", gvars.rm ? "enabled" : "disabled");
+    printf("Protected-mode support: %s\n", gvars.pm ? "enabled" : "disabled");
 
     if( gvars.pm ) {
         UntrappedIO_OUT_Handler = &PTRAP_UntrappedIO_OUT;
@@ -500,10 +514,10 @@ int main(int argc, char* argv[])
 #ifndef NOFM
     if( gvars.opl3 ) {
         VOPL3_Init( AU_getfreq( gm.hAU ) );
-        printf("OPL3 emulation enabled at port 388h (%u Hz).\n", AU_getfreq( gm.hAU ) );
+        printf("OPL3 emulation: enabled at port 388h (%u Hz)\n", AU_getfreq( gm.hAU ) );
     }
 #endif
-    printf("SB emulation enabled at Addr=%x, Irq=%d, Dma=%d, ", gvars.base, gvars.irq, gvars.dma );
+    printf("SB emulation: Addr=%x, Irq=%d, Dma=%d, ", gvars.base, gvars.irq, gvars.dma );
 #if SB16
     if (gvars.hdma) printf("HDma=%d, ", gvars.hdma );
 #endif
@@ -512,10 +526,10 @@ int main(int argc, char* argv[])
 #endif
     printf("Type=%d\n", gvars.type );
     if ( gvars.vol != VOL_DEFAULT )
-        printf("Volume=%u\n", gvars.vol );
+        printf("Volume: %u\n", gvars.vol );
 #if SLOWDOWN
     if ( gvars.slowdown  )
-        printf("Slowdown factor=%u\n", gvars.slowdown );
+        printf("Slowdown factor: %u\n", gvars.slowdown );
 #endif
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
@@ -541,12 +555,11 @@ int main(int argc, char* argv[])
     }
 
 #if VMPU
-    if ( gvars.mpu )
-        VMPU_Init( gm.freq );
+    VMPU_Init( gm.freq );
 #endif
 
     if (gvars.period_size)
-        printf("Using HDA/AC97 period size %d\n", gvars.period_size);
+        printf("HDA/AC97 period size: %d\n", gvars.period_size);
 
     PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 

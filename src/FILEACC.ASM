@@ -8,7 +8,7 @@
 	.code
 
 ;--- just mode "rb" is supported;
-;--- no LFNs!
+;--- expects DOS LFN API supported by DOS extender (true for HDPMI)
 
 fopen proc uses ebx esi pszName:ptr, pszMode:ptr
 
@@ -21,9 +21,16 @@ fopen proc uses ebx esi pszName:ptr, pszMode:ptr
 	mov bx,3000h	;BH bit 5:1=return error, no int 24h, bit 4:1=allow 4GB-1 file size
 	mov cx,0
 	mov esi,pszName
+	mov ax,716ch
+	stc
+	int 21h
+	jc error
+	cmp ax,7100h
+	jnz done
 	mov ax,6c00h
 	int 21h
 	jc error
+done:
 	movzx eax,ax
 	ret
 error:

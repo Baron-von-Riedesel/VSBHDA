@@ -1016,7 +1016,7 @@ static void azx_setup_periods(struct intelhd_card_s *card)
 
 	card->pcmout_num_periods = card->pcmout_dmasize / card->pcmout_period_size;
 
-	dbgprintf(("azx_setup_periods: dmasize=%d periods=%d prsize=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size));
+	dbgprintf(("azx_setup_periods: dmasize=%d periods=%d period_size=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size));
 
 	azx_sd_writel(card, SD_BDLPL, 0);
 	azx_sd_writel(card, SD_BDLPU, 0);
@@ -1672,10 +1672,10 @@ static const struct aucards_mixerchan_s *hda_mixerset[] = {
 
 const struct sndcard_info_s HDA_sndcard_info = {
  "Intel HDA",
- 0,
- NULL,              // card_config
- NULL,              // no init
- &HDA_adetect,      // only autodetect
+ 0,               /* infobits */
+ NULL,            /* card_config */
+ NULL,            /* no init */
+ &HDA_adetect,    /* only autodetect */
  &HDA_card_info,
  &HDA_start,
  &HDA_stop,
