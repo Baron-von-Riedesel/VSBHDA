@@ -224,11 +224,10 @@ static void snd_live24_hw_close( struct emu10k1_card *card)
 static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample=(aui->bits_set>=24) ? 4 : 2;
+	unsigned int bytes_per_sample = (aui->bits_set >= 24) ? 4 : 2;
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, CA0106_DMABUF_ALIGN, bytes_per_sample, 0);
 	card->dm = MDma_alloc_cardmem(CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize);
-	if (!card->dm)
-        return 0;
+	if (!card->dm) return 0;
 	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable)+CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t);
 	dbgprintf(("buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));

@@ -62,7 +62,7 @@ struct pcm_vol_s {
 
 struct intelhd_card_s
 {
- unsigned long  iobase;
+ volatile struct HDAREGS_s *hdac;
  struct pci_config_s  *pci_dev;
  unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
  long          codec_vendor_id;
@@ -79,7 +79,7 @@ struct intelhd_card_s
  struct pcm_vol_s pcm_vols[MAX_PCM_VOLS]; // PCM volume nodes
 
  struct cardmem_s *dm; /* XMS memory struct */
- uint32_t *table_buffer;
+ struct BDL_s *table_buffer; /* BDL array */
  char *pcmout_buffer;
  long pcmout_bufsize;
  unsigned long* corb_buffer;
@@ -87,7 +87,8 @@ struct intelhd_card_s
  unsigned long pcmout_dmasize;
  unsigned int  pcmout_num_periods;
  unsigned long pcmout_period_size;
- unsigned long sd_addr;    // stream io address (one playback stream only)
+ //unsigned long sd_addr;    // stream io address (one playback stream only)
+ volatile struct HDASTREAM_s *sd;     // stream io address (one playback stream only)
  unsigned int  format_val; // stream type
  unsigned int  dacout_num_bits;
  unsigned long supported_formats;
@@ -139,25 +140,6 @@ static struct aucards_mixerchan_s hda_master_vol = {
 		{0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
 	}
 };
-
-//Intel HDA codec has memory mapping only (by specification)
-// VSBHDA: access changed to "volatile"
-
-#define azx_writel(chip,reg,value) *((volatile int32_t *)((chip)->iobase + HDA_REG_##reg)) = value
-#define azx_writew(chip,reg,value) *((volatile int16_t *)((chip)->iobase + HDA_REG_##reg)) = value
-#define azx_writeb(chip,reg,value) *((volatile uint8_t *)((chip)->iobase + HDA_REG_##reg)) = value
-
-#define azx_readl(chip,reg) *((volatile int32_t *)((chip)->iobase + HDA_REG_##reg))
-#define azx_readw(chip,reg) *((volatile int16_t *)((chip)->iobase + HDA_REG_##reg))
-#define azx_readb(chip,reg) *((volatile uint8_t *)((chip)->iobase + HDA_REG_##reg))
-
-#define azx_sd_writel(dev,reg,value) *((volatile int32_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
-#define azx_sd_writew(dev,reg,value) *((volatile int16_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
-#define azx_sd_writeb(dev,reg,value) *((volatile uint8_t *)((dev)->sd_addr + HDA_REG_##reg)) = value
-
-#define azx_sd_readl(dev,reg) *((volatile int32_t *)((dev)->sd_addr + HDA_REG_##reg))
-#define azx_sd_readw(dev,reg) *((volatile int16_t *)((dev)->sd_addr + HDA_REG_##reg))
-#define azx_sd_readb(dev,reg) *((volatile uint8_t *)((dev)->sd_addr + HDA_REG_##reg))
 
 #define codec_param_read(codec,nid,param) hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
 
@@ -222,15 +204,15 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 {
 	int        timeout      = 2000; // 200 ms
 	static int corbsizes[4] = {2, 16, 256, 0};
-	int        corbsize     = corbsizes[(azx_readb( chip, CORBSIZE) & 0x3 )];
-	int        corbindex    = azx_readw( chip, CORBWP ) & 0xFF;  /* get current CORB write pointer */
-    uint8_t    corbrp       = azx_readw( chip, CORBRP ) & 0xFF;
+	int        corbsize     = corbsizes[chip->hdac->corbsize & 0x3];
+	int        corbindex    = chip->hdac->corbwp & 0xFF;  /* get current CORB write pointer */
+    uint8_t    corbrp       = chip->hdac->corbrp & 0xFF;
 
 	corbindex = (corbindex + 1) % corbsize;
 	chip->corb_buffer[corbindex] = val;
-	azx_writew(chip, CORBWP, corbindex); /* update buffer pointer */
+	chip->hdac->corbwp = corbindex; /* update buffer pointer */
 	/* wait till cmd has been sent */
-    for ( ; timeout && (corbrp == ( azx_readw( chip, CORBRP ) & 0xFF ) ); timeout--, pds_delay_10us(100) );
+    for ( ; timeout && (corbrp == chip->hdac->corbrp & 0xFF ); timeout--, pds_delay_10us(100) );
 }
 
 /* argument "direct" is always zero.
@@ -263,7 +245,7 @@ static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, u
 {
 	int timeout = 2000; // 200 ms
 	int rirbindex;
-	uint16_t rirbwp = azx_readw( chip, RIRBWP );
+	uint16_t rirbwp = chip->hdac->rirbwp;
 	long long data;
 
 	dbgprintf(( "hda_codec_read: write verb %X, parm=%X\n", verb, parm ));
@@ -271,14 +253,14 @@ static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, u
 	hda_codec_write( chip, nid, direct, verb, parm );
 
 	//dbgprintf(( "hda_codec_read: waiting for response\n" ));
-	for( ; timeout && ( rirbwp == azx_readw( chip, RIRBWP ) ); timeout--, pds_delay_10us(100) );
+	for( ; timeout && ( rirbwp == chip->hdac->rirbwp ); timeout--, pds_delay_10us(100) );
 	if (!timeout) {
 		dbgprintf(( "hda_codec_read: timeout waiting for codec response\n" ));
 		return 0;
 	}
-	rirbindex = azx_readw( chip, RIRBWP );
+	rirbindex = chip->hdac->rirbwp;
 	data = chip->rirb_buffer[rirbindex];
-	//azx_writeb(chip, RIRBSTS, 1); /* writing a 1 clears bit 0! */
+	//chip->hdac->rirbsts = 1; /* writing a 1 clears bit 0! */
 	return (unsigned int)data;
 }
 
@@ -734,47 +716,42 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
-	unsigned long allbufsize = BDL_SIZE + 1024 + (HDA_CORB_MAXSIZE + HDA_CORB_ALIGN + HDA_RIRB_MAXSIZE + HDA_RIRB_ALIGN), gcap, sdo_offset;
-	unsigned int beginmem_aligned;
+	unsigned long gcap, sdo_index;
 
-    /* v1.7 */
+    /* v1.7: period_size has become a cmdline option */
 	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
-	dbgprintf(("hda_buffer_init: HDA data struct size=0x%X period_size=%u\n", allbufsize, card->pcmout_period_size ));
+	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
 
-	allbufsize += card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
-	card->dm = MDma_alloc_cardmem( allbufsize );
-	if(!card->dm)
-		return 0;
-	beginmem_aligned = (((unsigned long)card->dm->pMem + 1023) & (~1023));
-	card->table_buffer = (uint32_t *)beginmem_aligned;
-	card->pcmout_buffer = (char *)(beginmem_aligned + BDL_SIZE);
-	card->corb_buffer = (unsigned long *)(((uint32_t)card->pcmout_buffer + card->pcmout_bufsize + HDA_CORB_ALIGN - 1) & (~(HDA_CORB_ALIGN - 1)));
-	card->rirb_buffer = (unsigned long long *)(((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE + HDA_RIRB_ALIGN - 1) & (~(HDA_RIRB_ALIGN - 1)));
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
+	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE );
+	if(!card->dm) return 0;
+	card->table_buffer = (struct BDL_s *)card->dm->pMem;
+	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);
+	card->rirb_buffer = (unsigned long long *)((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE);
+	card->pcmout_buffer = (char *)((uint32_t)card->rirb_buffer + HDA_RIRB_MAXSIZE);
 
     /* set offset for access to output stream descriptor; the first output stream descriptor is used */
 
-	gcap = (unsigned long)azx_readw( card, GCAP);
+	gcap = card->hdac->gcap;
 	if(!(card->config_select & AUCARDSCONFIG_IHD_USE_FIXED_SDO) && (gcap & 0xF000)) // number of playback streams
-		/* 0x80=offset start SDs in HDA, 0x20=size SD, gcap[8-11]=#input SDs */
-		sdo_offset = ((gcap >> 8) & 0x0F) * 0x20 + 0x80; // number of capture streams
-	else{
+		sdo_index = (gcap >> 8) & 0x0F; /* gcap[8-11]=#input SDs */
+	else {
 		switch(card->board_driver_type){
 		case AZX_DRIVER_ATIHDMI:
 		case AZX_DRIVER_ATIHDMI_NS:
-			sdo_offset = 0x80; break;
+			sdo_index = 0; break;
 		case AZX_DRIVER_TERA:
-			sdo_offset = 0xe0; break;
+			sdo_index = 3; break;
 		case AZX_DRIVER_ULI:
-			sdo_offset = 0x120; break;
+			sdo_index = 5; break;
 		default:
-			sdo_offset = 0x100;break;
+			sdo_index = 4;break;
 		}
 	}
 
-	dbgprintf(("hda_buffer_init: cs=%X GCAP=%X SD-ofs=%X\n",
-				   card->config_select, gcap, sdo_offset));
+	dbgprintf(("hda_buffer_init: config_select=%X GCAP=%X SD-index=%u\n", card->config_select, gcap, sdo_index));
 
-	card->sd_addr = card->iobase + sdo_offset;
+	card->sd = &card->hdac->stream[sdo_index];
 	//card->pcmout_period_size = AZX_PERIOD_SIZE_DEF;
 	card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
 
@@ -788,14 +765,14 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 {
 	int timeout;
 
-	dbgprintf(("azx_reset: GCTL=%X\n", azx_readl(chip, GCTL)));
+	dbgprintf(("azx_reset: GCTL=%X\n", chip->hdac->gctl ));
 
 	/* wake up the HDA controller if it is in "reset" state */
-	if ( !(azx_readl(chip, GCTL ) & HDA_GCTL_RESET )) {
-		azx_writel(chip, GCTL, azx_readl(chip, GCTL) | HDA_GCTL_RESET );
+	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
+		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
 
 		timeout = 500;
-		while( (!azx_readl(chip, GCTL) & HDA_GCTL_RESET) && (--timeout))
+		while((!chip->hdac->gctl & HDA_GCTL_RESET) && (--timeout))
 			pds_delay_10us(100);
 		if( !timeout ) {
 			dbgprintf(("HDA controller not ready!\n"));
@@ -803,51 +780,45 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 		}
 	}
 	// disable unsolicited responses (single cmd mode)
-	azx_writel(chip, GCTL, (azx_readl(chip, GCTL) & (~HDA_GCTL_UREN)));
+	chip->hdac->gctl = chip->hdac->gctl & (~HDA_GCTL_UREN);
 
     /* reset CORB & RIRB */
-    azx_writew( chip, CORBCTL, azx_readw( chip, CORBCTL ) & ~2 );
-	azx_writew( chip, RIRBCTL, azx_readw( chip, CORBCTL ) & ~2 );
-	for( timeout = 100;
-		(azx_readw(chip, CORBCTL) & 2) && timeout;
-		 timeout--, pds_delay_10us(10));
+    chip->hdac->corbctl = chip->hdac->corbctl & ~2;
+	chip->hdac->rirbctl = chip->hdac->rirbctl & ~2;
+	for( timeout = 100; (chip->hdac->corbctl & 2) && timeout; timeout--, pds_delay_10us(10));
 
 	/* STATESTS decides what codecs will be tried.
 	 * Since this fields is writeable ( write '1' to clear bits ),
 	 * it might be a good idea to reset the HDA if STATESTS is 0.
 	 */
-	chip->codec_mask = azx_readw(chip, STATESTS);
+	chip->codec_mask = chip->hdac->statests;
 
 	// set CORB command DMA buffer
-	azx_writel(chip, CORBLBASE, pds_cardmem_physicalptr(chip->dm, chip->corb_buffer));
-	azx_writel(chip, CORBUBASE, 0 );
-	azx_writew(chip, CORBWP, 0 );
+	chip->hdac->corblbase = pds_cardmem_physicalptr(chip->dm, chip->corb_buffer);
+	chip->hdac->corbubase = 0;
+	chip->hdac->corbwp = 0;
 
 	/* to reset CORB RP, set/reset bit 15 */
-	azx_writew(chip, CORBRP, (int16_t)0x8000 ); /* OW needs a type cast for constant */
-	/* according to specs wait until bit 15 changes to 1. then write a
+	chip->hdac->corbrp = (uint16_t)0x8000; /* OW needs a type cast for constant */
+	/* according to specs wait until bit 15 changes to 1, then write a
 	 * 0 and again wait until a 0 is read.
 	 */
 #if 1
 	timeout = 500;
-	while ( ( 0 == (azx_readw( chip, CORBRP ) & 0x8000 ) ) && timeout--) {
-		pds_delay_10us(100);
-	}
+	while ( ( 0 == ( chip->hdac->corbrp & 0x8000 ) ) && timeout-- ) pds_delay_10us(100);
 #endif
-	azx_writew(chip, CORBRP, 0 );
+	chip->hdac->corbrp = 0;
 #if 1
 	timeout = 500;
-	while ( (azx_readw( chip, CORBRP ) & 0x8000 ) && timeout-- ) {
-		pds_delay_10us(100);
-	}
+	while ( ( chip->hdac->corbrp & 0x8000 ) && timeout-- ) pds_delay_10us(100);
 #endif
-	//azx_writeb(chip, CORBSIZE, 0);
+	//chip->hdac->corbsize = 0;
 
-	azx_writel(chip, RIRBLBASE, pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer));
-	azx_writel(chip, RIRBUBASE, 0 );
-	azx_writew(chip, RIRBWP, (int16_t)0x8000 ); /* reset RIRB write pointer */
-	//azx_writeb(chip, RIRBSIZE, 0); maybe only 1 supported
-	azx_writew(chip, RIRBRIC, 64); //1 response for one interrupt each time
+	chip->hdac->rirblbase = pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer);
+	chip->hdac->rirbubase = 0;
+	chip->hdac->rirbwp = (uint16_t)0x8000; /* reset RIRB write pointer */
+	//chip->hdac->rirbsize = 0; maybe only 1 supported
+	chip->hdac->rirbric = 64; //1 response for one interrupt each time
 
 	pds_delay_10us(100);
 
@@ -863,29 +834,29 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_reset(card);
 
 	/* reset int errors by writing '1's in SD_STS */
-	azx_sd_writeb(card, SD_STS, SD_INT_MASK);
+    card->sd->bSts = SD_INT_MASK;
 
 	/* should not be written - writing '1' clears bits.
      * and STATESTS_INT_MASK is 0x7?
 	 */
 	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
 
-	azx_writeb(card, RIRBSTS, RIRB_INT_MASK);
+	card->hdac->rirbsts = RIRB_INT_MASK;
 
 	/* set interrupt control register; don't enable all stream interrupts - will be done more specific later */
-	//azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM);
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN );
+	//card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM;
+	card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN;
 	/* interrupt status register is RO! */
-	//azx_writel(card, INTSTS, HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM);
+	//card>-hdac->intsts = HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM;
 
-	azx_writel(card, DPLBASE, 0);
-	azx_writel(card, DPUBASE, 0);
+	card->hdac->dplbase = 0;
+	card->hdac->dpubase = 0;
 
-	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) ));
+	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
 	dbgprintf(("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-		azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
+		card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
 	dbgprintf(("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-		azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
+		card->hdac->rirblbase, card->hdac->rirbwp, card->hdac->rirbric, card->hdac->rirbctl, card->hdac->rirbsts, card->hdac->rirbsize ));
 
 }
 
@@ -985,53 +956,49 @@ err_out_mixinit:
 static void hda_hw_close(struct intelhd_card_s *card)
 /////////////////////////////////////////////////////
 {
-	azx_writel(card, DPLBASE, 0);
-	azx_writel(card, DPUBASE, 0);
-
-	if ( card->sd_addr ) {
-		azx_sd_writel(card, SD_BDLPL, 0);
-		azx_sd_writel(card, SD_BDLPU, 0);
-		azx_sd_writew(card, SD_CTL, 0); /* stop DMA engine for this stream */
+	if ( card->sd ) {
+		card->sd->dwBDLLow = 0;
+		card->sd->dwBDLHigh = 0;
+		card->sd->wCtl = 0; /* stop DMA engine for this stream */
 	}
+	card->hdac->dplbase = 0; /* DMA position; don't write if any DMA engine is active */
+	card->hdac->dpubase = 0;
+
 #if RESETCODECONCLOSE
 	/* reset codec */
 	//hda_codec_write(card, card->afg_root_nodenum, 0, AC_VERB_SET_CODEC_RESET, 0);
 	/* stop CORB & RIRB DMA engines */
-	azx_writeb( card, CORBCTL, 0 );
-	azx_writeb( card, RIRBCTL, 0 );
-	azx_writel( card, INTSTS, 0 );
-	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", azx_readw( card, STATESTS ), azx_readl( card, INTCTL ), azx_readl( card, INTSTS ) ));
+	card->hdac->corbctl = 0;
+	card->hdac->rirbctl = 0;
+	card->hdac->intsts = 0;
+	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
 	dbgprintf(("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, CORBLBASE ), azx_readw( card, CORBWP ), azx_readw( card, CORBRP ), azx_readb( card, CORBCTL ), azx_readb( card, CORBSTS ),  azx_readb( card, CORBSIZE )));
+			card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
 	dbgprintf(("hda_hw_close: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-			  azx_readl( card, RIRBLBASE ), azx_readw( card, RIRBWP ), azx_readw( card, RIRBRIC ), azx_readb( card, RIRBCTL ), azx_readb( card, RIRBSTS ),  azx_readb( card, RIRBSIZE )));
+			card->hdac->rirblbase, card->hdac->rirbwp, card->hdac->rirbric, card->hdac->rirbctl, card->hdac->rirbsts, card->hdac->rirbsize ));
 #endif
 }
+
+/* called by HDA_setrate() */
 
 static void azx_setup_periods(struct intelhd_card_s *card)
 //////////////////////////////////////////////////////////
 {
-	uint32_t *bdl = card->table_buffer;
+	struct BDL_s *bdl;
 	unsigned int i;
 
 	card->pcmout_num_periods = card->pcmout_dmasize / card->pcmout_period_size;
 
 	dbgprintf(("azx_setup_periods: dmasize=%d periods=%d period_size=%d\n",card->pcmout_dmasize,card->pcmout_num_periods,card->pcmout_period_size));
 
-	azx_sd_writel(card, SD_BDLPL, 0);
-	azx_sd_writel(card, SD_BDLPU, 0);
+    /* reset BDL pointers to 0 */
+	card->sd->dwBDLLow = 0;
+	card->sd->dwBDLHigh = 0;
 
-	for( i = 0; i < card->pcmout_num_periods; i++ ) {
-		unsigned int off  = i << 2;
-		uint32_t addr = ( pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
-		*(&bdl[off+0]) = addr;
-		*(&bdl[off+1]) = 0;
-		*(&bdl[off+2]) = card->pcmout_period_size;
-#ifdef SBEMU
-		*(&bdl[off+3]) = 0x01; /* enable interrupt */
-#else
-		*(&bdl[off+3]) = 0x00;
-#endif
+	for( i = 0, bdl = card->table_buffer; i < card->pcmout_num_periods; i++, bdl++ ) {
+		bdl->address = (pds_cardmem_physicalptr(card->dm, card->pcmout_buffer)) + i * card->pcmout_period_size;
+		bdl->size    = card->pcmout_period_size;
+		bdl->flags   = 0x01; /* bit 0: 1=enable interrupts */
  }
 }
 
@@ -1045,14 +1012,14 @@ static void azx_setup_stream(struct intelhd_card_s *card)
 	int timeout;
 
 	/* stop streams DMA engine */
-	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~SD_CTL_DMA_START);
+	card->sd->wCtl = card->sd->wCtl & ~SD_CTL_DMA_START;
 	/* reset stream */
-	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_STREAM_RESET);
+	card->sd->wCtl = card->sd->wCtl | SD_CTL_STREAM_RESET;
 	pds_delay_10us(100);
 
 	/* wait till stream is in reset state */
 	timeout = 300;
-	while(!((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
+	while(!( card->sd->wCtl & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
 #ifdef _DEBUG
@@ -1061,12 +1028,11 @@ static void azx_setup_stream(struct intelhd_card_s *card)
 #endif	
 
 	 /* get stream out of reset state */
-	val &= ~SD_CTL_STREAM_RESET;
-	azx_sd_writeb(card, SD_CTL, val);
+	card->sd->wCtl = card->sd->wCtl & ~SD_CTL_STREAM_RESET;
 	pds_delay_10us(100);
 
 	timeout = 300; /* wait till stream is ready */
-	while(((val = azx_sd_readb(card, SD_CTL)) & SD_CTL_STREAM_RESET) && --timeout)
+	while((val = card->sd->wCtl & SD_CTL_STREAM_RESET) && --timeout)
 		pds_delay_10us(100);
 
 #ifdef _DEBUG
@@ -1074,16 +1040,16 @@ static void azx_setup_stream(struct intelhd_card_s *card)
 		dbgprintf(("azx_setup_stream: stream ready timeout\n"));
 #endif
 	/* set stream# to use */
-	azx_sd_writel(card, SD_CTL, (azx_sd_readl(card, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK) | (stream_tag << SD_CTL_STREAM_TAG_SHIFT));
-	azx_sd_writel(card, SD_CBL, card->pcmout_dmasize);
-	azx_sd_writew(card, SD_LVI, card->pcmout_num_periods - 1);
-	azx_sd_writew(card, SD_FORMAT, card->format_val);
-	azx_sd_writel(card, SD_BDLPL, pds_cardmem_physicalptr(card->dm, card->table_buffer));
-	azx_sd_writel(card, SD_BDLPU, 0); // upper 32 bit
-	//azx_sd_writel(card, SD_CTL, azx_sd_readl(card, SD_CTL) | SD_INT_MASK);
+	card->sd->dwCtl = (card->sd->dwCtl & ~SD_CTL_STREAM_TAG_MASK) | (stream_tag << SD_CTL_STREAM_TAG_SHIFT);
+	card->sd->dwBufLen = card->pcmout_dmasize;
+	card->sd->wLastIdx = card->pcmout_num_periods - 1;
+	card->sd->wFormat = card->format_val;
+	card->sd->dwBDLLow = pds_cardmem_physicalptr(card->dm, card->table_buffer);
+	card->sd->dwBDLHigh = 0; // upper 32 bit
+	//card->sd->wCtl = card->sd->wCtl | SD_INT_MASK;
 #ifdef SBEMU
 	/* set stream int mask; now done later in setrate() */
-	//azx_sd_writel(card, SD_CTL, azx_sd_readl(card, SD_CTL) | SD_INT_COMPLETE);
+	//card->sd->wCtl = card->sd->wCtl | SD_INT_COMPLETE;
 #endif
 	pds_delay_10us(100);
 
@@ -1343,13 +1309,13 @@ static void HDA_card_info( struct audioout_info_s *aui )
 static void HDA_cardclose( struct intelhd_card_s *card )
 ////////////////////////////////////////////////////////
 {
-	if( card->iobase ){
+	if( card->hdac ){
 		__dpmi_meminfo info;
 		hda_hw_close( card );
-		/* iobase has to be converted back to a linear address */
-		info.address = LinearAddr( (void *)(card->iobase) );
+		/* hdac has to be converted back to a linear address */
+		info.address = LinearAddr( (void *)(card->hdac) );
 		__dpmi_free_physical_address_mapping( &info );
-		card->iobase = 0;
+		card->hdac = 0;
 	}
 	if( card->afg_nodes ) {
 		pds_free( card->afg_nodes );
@@ -1397,29 +1363,29 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		if(pcibios_FindDeviceClass( 4, 3, 0, devidx, intelhda_devices, card->pci_dev) != PCI_SUCCESSFUL)
 			break;
 
-		card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
-		if( card->iobase & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
-			card->iobase = 0;
-		if( !card->iobase ) {
+		card->hdac = (struct HDAREGS_s *)pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
+		if( (uint32_t)card->hdac & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
+			card->hdac = 0;
+		if( !card->hdac ) {
 			dbgprintf(("HDA_adetect: card index %u skipped (no PCI base addr)\n", devidx ));
 			continue;
 		}
-		if( card->iobase & 4 ) {// 64-bit address? then check if it's beyond 4G...
+		if( (uint32_t)card->hdac & 4 ) {// 64-bit address? then check if it's beyond 4G...
 			uint32_t tmp = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR+4);
 			if ( tmp ) {
 				dbgprintf(("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", devidx ));
 				continue;
 			}
-		}
-		card->iobase &= 0xfffffff0;
-		info.address = card->iobase;
+        }
+		card->hdac = (struct HDAREGS_s *)((uint32_t)card->hdac & 0xfffffff0);
+		info.address = (uint32_t)card->hdac;
 		info.size = 0x2000;
 		if (__dpmi_physical_address_mapping(&info) != 0) {
 			printf("HDA: mapping MMIO for card %u failed\n", devidx );
 			break;
 		}
 		/* the physical addr, after mapped to a linear addr, is finally converted to a ptr */
-		card->iobase = (uint32_t)NearPtr( info.address );
+		card->hdac = (struct HDAREGS_s *)NearPtr( info.address );
 		if( aui->gvars->pin >= 0 )
 			card->config_select = aui->gvars->pin;
 
@@ -1439,10 +1405,10 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		dbgprintf(("HDA_adetect: hw init done\n" ));
 
 		/* hda_mixer_init talks to codec; means CORB/RIRB must be ready to use */
-		azx_writeb( card, CORBCTL, 2 ); /* start CORB DMA engine */
-		azx_writeb( card, RIRBCTL, 2 ); /* start RIRB DMA engine */
+		card->hdac->corbctl = 2; /* start CORB DMA engine */
+		card->hdac->rirbctl = 2; /* start RIRB DMA engine */
 		/* wait till engines are up */
-		for ( timeout = 0; timeout < 100 && !(azx_readb( card, CORBCTL ) & 2); timeout++, pds_delay_10us(100) );
+		for ( timeout = 0; timeout < 100 && !(card->hdac->corbctl & 2); timeout++, pds_delay_10us(100) );
 
 		for( i = 0; i < AZX_MAX_CODECS; i++ ){
 			if( card->codec_mask & ( 1 << i) ) {
@@ -1472,13 +1438,13 @@ static void HDA_close( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 	dbgprintf(("HDA_close\n" ));
 	if( card ){
-		if( card->iobase ){
+		if( card->hdac ){
 			__dpmi_meminfo info;
 			hda_hw_close( card );
-			/* iobase has to be converted back to a linear address */
-			info.address = LinearAddr( (void *)(card->iobase) );
+			/* hdac has to be converted back to a linear address */
+			info.address = LinearAddr( (void *)(card->hdac) );
 			__dpmi_free_physical_address_mapping( &info );
-			card->iobase = 0;
+			card->hdac = 0;
 		}
 		if( card->afg_nodes ) {
 			pds_free( card->afg_nodes );
@@ -1530,18 +1496,18 @@ static void HDA_start( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
 	/* stream# isn't stored in card, so we have to calculate it */
-	const unsigned int stream_index = ( card->sd_addr - (card->iobase + 0x80)) / 0x20;
+	const unsigned int stream_index = ( (uint32_t)card->sd - (uint32_t)card->hdac - 0x80 ) / 0x20;
 
 	dbgprintf(("HDA_start, stream#=%u\n", stream_index ));
 
 	/* enable interrupts from THIS stream */
-	azx_writel(card, INTCTL, azx_readl(card, INTCTL) | (1 << stream_index)); // enable SIE
+	card->hdac->intctl = card->hdac->intctl | (1 << stream_index); // enable SIE
 
-	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START | SD_INT_MASK); // start DMA
-	//azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) | SD_CTL_DMA_START); // start DMA
+	card->sd->wCtl = card->sd->wCtl | SD_CTL_DMA_START | SD_INT_MASK; // start DMA
+	//card->sd->wCtl = card->sd->wCtl | SD_CTL_DMA_START; // start DMA
 
 	timeout = 500;
-	while (!(azx_sd_readb(card, SD_CTL) & SD_CTL_DMA_START) && --timeout) // wait for DMA engine ready
+	while (!(card->sd->wCtl & SD_CTL_DMA_START) && --timeout) // wait for DMA engine ready
 		pds_delay_10us(100);
 #ifdef _DEBUG
 	if (!timeout)
@@ -1559,21 +1525,21 @@ static void HDA_stop( struct audioout_info_s *aui )
 {
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int timeout;
-	const unsigned int stream_index = (card->sd_addr - (card->iobase + 0x80)) / 0x20;
+	const unsigned int stream_index = ( (uint32_t)card->sd - (uint32_t)card->hdac - 0x80 ) / 0x20;
 
 	dbgprintf(("HDA_stop\n" ));
 
-	azx_sd_writeb(card, SD_CTL, azx_sd_readb(card, SD_CTL) & ~(SD_CTL_DMA_START | SD_INT_MASK)); // stop DMA
+	card->sd->wCtl = card->sd->wCtl & ~(SD_CTL_DMA_START | SD_INT_MASK); // stop DMA
 
 	timeout = 200;
-	while((azx_sd_readb(card, SD_CTL) & SD_CTL_DMA_START) && --timeout) // wait for DMA stop
+	while((card->sd->wCtl & SD_CTL_DMA_START) && --timeout) // wait for DMA stop
 		pds_delay_10us(100);
 
 	pds_delay_10us(100);
 
 	/* clear pending interrupts, just to be sure */
-	azx_sd_writeb( card, SD_STS, SD_INT_MASK);
-	azx_writeb( card, INTCTL, azx_readb(card, INTCTL) & ~(1 << stream_index)); // disable SIE
+	card->sd->bSts = SD_INT_MASK;
+	card->hdac->intctl = card->hdac->intctl & ~(1 << stream_index); // disable SIE
 }
 
 /* HDA implementation of cardbuf_getpos() */
@@ -1584,11 +1550,11 @@ static long HDA_getbufpos( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned long bufpos;
 
-	bufpos = azx_sd_readl(card, SD_LPIB);
+	bufpos = card->sd->dwLinkPos;
 
 	/*
 	dbgprintf(("HDA_getbufpos: bufpos1=%u sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
-	    bufpos, azx_sd_readb(card, SD_STS), azx_sd_readl(card, SD_CTL), azx_sd_readl(card, SD_CBL), aui->card_dmasize,
+	    bufpos, card->sd->bSts, card->sd->wCtl, card->sd->dwBufLen, aui->card_dmasize,
 	    card->pcmout_period_size, card->pcmout_num_periods ));
 	 */
 
@@ -1647,20 +1613,20 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 ////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	int status = azx_sd_readb(card, SD_STS) & SD_INT_MASK;
+	int status = card->sd->bSts & SD_INT_MASK;
 	int corbsts;
 	int rirbsts;
 
 	if(status)
-		azx_sd_writeb(card, SD_STS, status); //ack all
+		card->sd->bSts = status; //ack all
 
 	//ack CORB/RIRB status
-	corbsts = azx_readb(card, CORBSTS) & 0x1;
-	rirbsts = azx_readb(card, RIRBSTS) & RIRB_INT_MASK; /* bits 0 & 2 */
+	corbsts = card->hdac->corbsts & 0x1;
+	rirbsts = card->hdac->rirbsts & RIRB_INT_MASK; /* bits 0 & 2 */
 	if(corbsts)
-		azx_writeb(card, CORBSTS, corbsts); /* by writing 0 the bits are cleared */
+		card->hdac->corbsts = corbsts; /* by writing 0 the bits are cleared */
 	if(rirbsts)
-		azx_writeb(card, RIRBSTS, rirbsts); /* by writing 0 the bits are cleared */
+		card->hdac->rirbsts = rirbsts; /* by writing 0 the bits are cleared */
 	return status | corbsts | rirbsts;
 }
 #endif

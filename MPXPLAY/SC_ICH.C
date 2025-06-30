@@ -212,10 +212,7 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
-	if (!card->dm) {
-		dbgprintf(("snd_intel_buffer_init: MDma_alloc_cardmem(0x%X) failed\n", ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize));
-		return 0;
-	}
+	if (!card->dm) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
 	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t);

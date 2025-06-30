@@ -53,6 +53,12 @@ enum {
     AC_WID_VENDOR = 0x0f   /* Vendor specific */
 };
 
+struct BDL_s {
+    uint64_t address;
+    uint32_t size;
+    uint32_t flags;
+};
+
 /*
  * GET verbs (0F=12 bit verb ID)
  */
@@ -429,7 +435,8 @@ enum {
  AZX_NUM_DRIVERS
 };
 
-// registers
+#if 0 /* v1.7: replaced the offsets by struct definition HDAREGS_s */
+// HDA controller registers
 #define HDA_REG_GCAP           0x00 /* global capabilities */
 #define HDA_REG_VMIN           0x02 /* version */
 #define HDA_REG_VMAJ           0x03
@@ -466,10 +473,13 @@ enum {
 #define HDA_IRS_VALID       (1<<1)
 #define HDA_IRS_BUSY        (1<<0)
 
-#define HDA_REG_DPLBASE        0x70
-#define HDA_REG_DPUBASE        0x74
-#define HDA_DPLBASE_ENABLE     0x1    /* Enable position buffer */
+#define HDA_REG_DPLBASE        0x70 /* DMA position lower base */
+#define HDA_REG_DPUBASE        0x74 /* DMA position upper base */
+#endif
 
+#define HDA_DPLBASE_ENABLE     0x1  /* Enable position buffer */
+
+#if 0 /* v1.7 replaced the offsets by struct definition HDASTREAM_s */
 /* stream register offsets from stream base */
 #define HDA_REG_SD_CTL            0x00
 #define HDA_REG_SD_STS            0x03
@@ -481,6 +491,72 @@ enum {
 #define HDA_REG_SD_FORMAT         0x12
 #define HDA_REG_SD_BDLPL          0x18
 #define HDA_REG_SD_BDLPU          0x1c
+#endif
+
+struct HDASTREAM_s {
+    union {
+        uint32_t dwCtl;
+        struct {
+            uint16_t wCtl;
+            uint8_t bCtl2316;
+            uint8_t bSts;
+        };
+    };
+    uint32_t dwLinkPos;
+    uint32_t dwBufLen;
+    uint16_t wLastIdx;
+    uint16_t wFIFOmark;
+    uint16_t wFIFOsize;
+    uint16_t wFormat;
+    uint32_t dwRsvd;
+    uint32_t dwBDLLow;
+    uint32_t dwBDLHigh;
+};
+
+struct HDAREGS_s {
+uint16_t gcap;
+uint8_t  vminor;
+uint8_t  vmajor;
+uint16_t opayload;
+uint16_t ipayload;
+uint32_t gctl;
+uint16_t wakeen;
+uint16_t statests;
+uint32_t gsts;
+uint32_t rsvd1[3];
+uint32_t intctl;
+uint32_t intsts;
+uint32_t rsvd2[2];
+uint32_t walclk;
+uint32_t rsvd3[1];
+uint32_t ssync;
+uint32_t rsvd4[1];
+uint32_t corblbase;
+uint32_t corbubase;
+uint16_t corbwp;
+uint16_t corbrp;
+uint8_t  corbctl;
+uint8_t  corbsts;
+uint8_t  corbsize;
+uint8_t  rsvd5[1];
+uint32_t rirblbase;
+uint32_t rirbubase;
+uint16_t rirbwp;
+uint16_t rirbric;
+uint8_t  rirbctl;
+uint8_t  rirbsts;
+uint8_t  rirbsize;
+uint8_t  rsvd6[1];
+uint32_t ic;
+uint32_t ir;
+uint16_t ics;
+uint16_t rsvd7[1];
+uint32_t rsvd8[1];
+uint32_t dplbase;
+uint32_t dpubase;
+uint32_t rsvd9[2];
+struct HDASTREAM_s stream[8];
+};
 
 /*CORB & RIRB */
 #define HDA_CORB_MAXSIZE 1024
@@ -489,20 +565,21 @@ enum {
 #define HDA_RIRB_ALIGN    128
 
 /* PCI space */
-#define HDA_PCIREG_TCSEL    0x44
+#define HDA_PCIREG_TCSEL   0x44
 
-#define MAX_AZX_DEV        16
-#define BDL_SIZE           8192
-#define AZX_MAX_FRAG        (BDL_SIZE / (MAX_AZX_DEV * 16))
+//#define MAX_AZX_DEV        16
+//#define BDL_SIZE           8192   /* must conform to HDA_CORB/RIRB_ALIGN -> bits 0-6 cleared! */
+#define BDL_SIZE             (sizeof(struct BDL_s) * 512) /* must be 128byte aligned */
+//#define AZX_MAX_FRAG       (BDL_SIZE / (MAX_AZX_DEV * 16))
 
 #define STATESTS_INT_MASK    0x07
-#define AZX_MAX_CODECS        4
+#define AZX_MAX_CODECS       4
 
 /* GCTL unsolicited response enable bit */
 #define HDA_GCTL_UREN        (1<<8)
 
 /* GCTL reset bit */
-#define HDA_GCTL_RESET        (1<<0)
+#define HDA_GCTL_RESET       (1<<0)
 
 /* SD_CTL bits */
 #define SD_CTL_STREAM_RESET    0x01    /* stream reset bit; 0=stream ready */

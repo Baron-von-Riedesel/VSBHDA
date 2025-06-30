@@ -25,6 +25,8 @@
 #include "PHYSMEM.H"
 #include "LINEAR.H"
 
+/* alloc physical memory block (it's always an XMS EMB, aligned to 1kB ) */
+
 struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
 ///////////////////////////////////////////////////////////
 {

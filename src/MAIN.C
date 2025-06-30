@@ -405,6 +405,10 @@ int main(int argc, char* argv[])
         printf("Error: valid frequencies are 22050 and 44100\n" );
         return 1;
     }
+    if( gvars.period_size % 64 ) {
+        printf("Error: period size must be a multiple of 64\n" );
+        return 1;
+    }
 #if SOUNDFONT
     if ((gvars.voices < 32) || (gvars.voices > 256)) {
         printf("Error: invalid voice limit: %d\n", gvars.voices );
@@ -531,6 +535,8 @@ int main(int argc, char* argv[])
     if ( gvars.slowdown  )
         printf("Slowdown factor: %u\n", gvars.slowdown );
 #endif
+    if (gvars.period_size)
+        printf("HDA/AC97 period size: %d\n", gvars.period_size);
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
      * result in problems, since that memory is released when that client exits.
@@ -557,9 +563,6 @@ int main(int argc, char* argv[])
 #if VMPU
     VMPU_Init( gm.freq );
 #endif
-
-    if (gvars.period_size)
-        printf("HDA/AC97 period size: %d\n", gvars.period_size);
 
     PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 
