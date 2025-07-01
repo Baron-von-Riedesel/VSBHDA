@@ -31,7 +31,7 @@ LDPARMS ends
 
 SCDEXP struct
 AU_init     dd ?
-AU_prestart dd ?
+;AU_prestart dd ?
 AU_start    dd ?
 AU_stop     dd ?
 AU_close    dd ?

@@ -24,6 +24,7 @@
 #define WAVE_TABLEMUL	12
 
 //Select the type of wave generator routine
+//#define DBOPL_WAVE WAVE_TABLEMUL
 #define DBOPL_WAVE WAVE_TABLEMUL
 
 #include <inttypes.h>

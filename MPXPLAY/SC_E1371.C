@@ -15,6 +15,7 @@
 //function: Ensoniq 1371/1373 low level routines (for SB PCI 16/64/128 cards)
 //based on ALSA (http://www.alsa-project.org)
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #ifndef DJGPP
@@ -545,12 +546,12 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 {
 	struct ensoniq_card_s *card;
 
-	card = (struct ensoniq_card_s *)pds_calloc(1,sizeof(struct ensoniq_card_s));
+	card = (struct ensoniq_card_s *)calloc(1,sizeof(struct ensoniq_card_s));
 	if(!card)
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
+	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
 		goto err_adetect;
 
@@ -602,8 +603,8 @@ static void ES1371_close( struct audioout_info_s *aui )
 		snd_es1371_chip_close(card);
 		MDma_free_cardmem(card->dm);
 		if(card->pci_dev)
-			pds_free(card->pci_dev);
-		pds_free(card);
+			free(card->pci_dev);
+		free(card);
 		aui->card_private_data = NULL;
 	}
 }

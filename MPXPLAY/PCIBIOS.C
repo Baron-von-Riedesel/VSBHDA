@@ -42,7 +42,7 @@ extern void fatal_error( int );
 #define PCIFUNCNUM(bParam)     (bParam & 0x07)
 #define PCIDEVFUNC(bDev,bFunc) ((((uint32_t)bDev) << 3) | bFunc)
 
-#define pcibios_clear_regs(reg) pds_memset(&reg,0,sizeof(reg))
+#define pcibios_clear_regs(reg) memset(&reg,0,sizeof(reg))
 
 /* DPMI function 0x300 is used, with a custom
  * real-mode stack that is >= 1kB, as required by PCI BIOS specs.

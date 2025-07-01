@@ -60,7 +60,7 @@ OBJFILES = &
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
-	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/memory.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
+	$(OUTD)/dmairq.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
@@ -125,7 +125,6 @@ $(OUTD)/ac97mix.obj:   mpxplay\ac97mix.c
 $(OUTD)/au_cards.obj:  mpxplay\au_cards.c
 $(OUTD)/dmairq.obj:    mpxplay\dmairq.c
 $(OUTD)/physmem.obj:   mpxplay\physmem.c
-$(OUTD)/memory.obj:    mpxplay\memory.c
 $(OUTD)/pcibios.obj:   mpxplay\pcibios.c
 $(OUTD)/sc_e1371.obj:  mpxplay\sc_e1371.c
 $(OUTD)/sc_ich.obj:    mpxplay\sc_ich.c

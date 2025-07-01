@@ -127,7 +127,7 @@ DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,
 
 _TEXT   segment use32 dword public 'CODE'
 externdef c _AU_init       :near32
-externdef c _AU_prestart   :near32
+;externdef c _AU_prestart   :near32
 externdef c _AU_start      :near32
 externdef c _AU_stop       :near32
 externdef c _AU_close      :near32
@@ -148,28 +148,26 @@ _TEXT ends
 CONST segment
 
 SCDEXP struct
-AU_init     dd ?
-AU_prestart dd ?
-AU_start    dd ?
-AU_stop     dd ?
-AU_close    dd ?
-AU_getirq   dd ?
-AU_isirq    dd ?
-AU_getfreq  dd ?
-AU_getshortname  dd ?
-AU_setoutbytes   dd ?
-AU_setrate       dd ?
-AU_setmixer_init dd ?
-AU_setmixer_one  dd ?
-AU_setmixer_outs dd ?
-AU_setmixer_all  dd ?
-AU_writedata     dd ?
-AU_cardbuf_space dd ?
+AU_init     dd offset _AU_init
+;AU_prestart dd offset _AU_prestart
+AU_start    dd offset _AU_start
+AU_stop     dd offset _AU_stop
+AU_close    dd offset _AU_close
+AU_getirq   dd offset _AU_getirq
+AU_isirq    dd offset _AU_isirq
+AU_getfreq  dd offset _AU_getfreq
+AU_getshortname  dd offset _AU_getshortname
+AU_setoutbytes   dd offset _AU_setoutbytes
+AU_setrate       dd offset _AU_setrate
+AU_setmixer_init dd offset _AU_setmixer_init
+AU_setmixer_one  dd offset _AU_setmixer_one
+AU_setmixer_outs dd offset _AU_setmixer_outs
+AU_setmixer_all  dd offset _AU_setmixer_all
+AU_writedata     dd offset _AU_writedata
+AU_cardbuf_space dd offset _AU_cardbuf_space
 SCDEXP ends
 
-scd SCDEXP <offset _AU_init, offset _AU_prestart, offset _AU_start, _AU_stop, _AU_close, _AU_getirq, _AU_isirq, _AU_getfreq,
-            _AU_getshortname, _AU_setoutbytes, _AU_setrate, _AU_setmixer_init, _AU_setmixer_one, 
-            _AU_setmixer_outs, _AU_setmixer_all, _AU_writedata, _AU_cardbuf_space>
+scd SCDEXP <>
 
 ConsoleName     db      "con",0
 NewLine         db      0Dh,0Ah

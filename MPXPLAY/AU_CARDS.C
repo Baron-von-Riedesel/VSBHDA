@@ -68,7 +68,7 @@ int FAREXP AU_init( const struct globalvars *gvars )
 	int i;
 
 	dbgprintf(("AU_init\n"));
-	if ( !( aui = (struct audioout_info_s *)pds_calloc( 1, sizeof( struct audioout_info_s ) ) ) ) {
+	if ( !( aui = (struct audioout_info_s *)calloc( 1, sizeof( struct audioout_info_s ) ) ) ) {
 		dbgprintf(("AU_init: out of memory\n"));
 		return(0);
 	}
@@ -98,7 +98,7 @@ int FAREXP AU_init( const struct globalvars *gvars )
 	}
 
 	dbgprintf(("AU_init: no card found\n"));
-	pds_free( aui );
+	free( aui );
 	return(0);
 
 }
@@ -134,19 +134,24 @@ void FAREXP AU_setoutbytes( struct audioout_info_s *aui )
     aui->card_outbytes = aui->card_dmasize;
     return;
 }
+
+#if 0
 void AU_setsamplenum( struct audioout_info_s *aui, int samples )
 ////////////////////////////////////////////////////////////////
 {
     aui->samplenum = samples ;
     return;
 }
+#endif
 
+#if 0
 void FAREXP AU_prestart( struct audioout_info_s *aui )
 //////////////////////////////////////////////////////
 {
 	if(aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR)
 		AU_clearbuffs(aui);
 }
+#endif
 
 void FAREXP AU_start( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////
@@ -683,19 +688,5 @@ static int aucards_writedata_normal( struct audioout_info_s *aui, unsigned long 
 	} while(1);
 	return 0;
 }
-#endif
-
-#if 0 /* not used by SBEMU */
-static void aucards_dma_monitor( void )
-///////////////////////////////////////
-{
-	struct audioout_info_s *aui = &au_infos;
-	if(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING)
-		if(aui->card_handler->cardbuf_int_monitor)
-			aui->card_handler->cardbuf_int_monitor(aui);
-}
-
-//---------------- Timer Interrupt ------------------------------------------
-unsigned long intdec_timer_counter;
 #endif
 

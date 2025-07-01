@@ -29,7 +29,7 @@ static inline uint16_t gettimercnt(void)
 	unsigned short oldstate;
 	uint16_t tsc;
 	_disableint();
-	outp( 0x43, 0x04 );
+	outp( 0x43, 0x04 ); /* read timer 0 */
 	tsc = inp(0x40);
 	tsc += inp(0x40) << 8;
 	_restoreint();

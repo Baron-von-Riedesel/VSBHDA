@@ -87,8 +87,9 @@
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit
 
-    Options must be followed by a number, without spaces. Options /A and /P
-   expect the number to be in hexadecimal, else decimal numbers are required.
+    Options must be followed by the number/string, without spaces. Options /A
+   and /P expect the number to be in hexadecimal, else decimal numbers are
+   required.
 
    - /F: note that if the frequency isn't supported by the codec, it can't be
      used - that's also true for the default value ( 22050 Hz ). In such cases

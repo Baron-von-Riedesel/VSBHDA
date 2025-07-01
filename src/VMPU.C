@@ -22,14 +22,13 @@ extern struct globalvars gvars;
 tsf* tsfrenderer = NULL;
 
 struct VMPU_s {
-    unsigned int wptr;
-    unsigned int rptr;
-    unsigned int index;
+    unsigned int widx;  /* current write index in buffer */
+    unsigned int ridx;  /* current read index in buffer */
+    int didx;           /* index for current msg data */
     unsigned char status;
     unsigned char channel;
-    unsigned char data0;
+    unsigned char data[32]; /* data for current msg */
     unsigned char buffer[4096];
-    unsigned char sysex[32];
 };
 static struct VMPU_s vmpu;
 
@@ -63,8 +62,8 @@ static void VMPU_Write(uint16_t port, uint8_t value)
 			bUART = 1;
 	} else {
 #if SOUNDFONT
-		vmpu.buffer[vmpu.wptr++] = value;
-		vmpu.wptr &= 0xfff;
+		vmpu.buffer[vmpu.widx++] = value;
+		vmpu.widx &= 0xfff;
 #endif
     }
     return;
@@ -102,7 +101,7 @@ static uint8_t VMPU_Read(uint16_t port)
 		}
 		rc |= 0x80; /* no data to read */
 #if SOUNDFONT
-		return rc | (( vmpu.wptr - vmpu.rptr ) == -1 ? 0x40 : 0);
+		return rc | (( vmpu.widx - vmpu.ridx ) == -1 ? 0x40 : 0);
 #else
 		return rc;
 #endif
@@ -143,50 +142,50 @@ static void reset(void)
 void VMPU_Process_Messages(void)
 ////////////////////////////////
 {
-    for ( ;vmpu.rptr != vmpu.wptr; vmpu.rptr++, vmpu.rptr &= 0xfff ) {
-        if ( (vmpu.buffer[vmpu.rptr] & 0x80) && vmpu.buffer[vmpu.rptr] != 0xF7 ) {
-            vmpu.status = vmpu.buffer[vmpu.rptr] >> 4;
-            vmpu.channel = vmpu.buffer[vmpu.rptr] & 0xf;
-            vmpu.index = 0;
+    for ( ;vmpu.ridx != vmpu.widx; vmpu.ridx++, vmpu.ridx &= 0xfff ) {
+        if ( (vmpu.buffer[vmpu.ridx] & 0x80) && vmpu.buffer[vmpu.ridx] != 0xF7 ) {
+            vmpu.status = vmpu.buffer[vmpu.ridx] >> 4;
+            vmpu.channel = vmpu.buffer[vmpu.ridx] & 0xf;
+            vmpu.didx = 0;
         } else {
             switch ( vmpu.status ) {
             case 0xD: /* channel pressure +1 */
-                tsf_channel_set_pressure(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr] / 127.f);
+                tsf_channel_set_pressure(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.ridx] / 127.f);
                 break;
             case 0xA: /* polyphonic key pressure +2, 1.byte is key, 2.byte is pressure value */
-                if ( vmpu.index == 0)
-                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                if ( vmpu.didx == 0)
+                    vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
-                    vmpu.index = -1;
+                    vmpu.didx = -1;
                 }
                 break;
             case 0x8: /* note off +2 */
-                if ( vmpu.index == 0 )
-                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                if ( vmpu.didx == 0 )
+                    vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
                     /* second byte (velocity) currently not used */
-                    tsf_channel_note_off(tsfrenderer, vmpu.channel, vmpu.data0);
-                    vmpu.index = -1;
+                    tsf_channel_note_off(tsfrenderer, vmpu.channel, vmpu.data[0]);
+                    vmpu.didx = -1;
                 }
                 break;
             case 0x9: /* note on +2 */
-                if ( vmpu.index == 0)
-                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                if ( vmpu.didx == 0)
+                    vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
-                    tsf_channel_note_on(tsfrenderer, vmpu.channel, vmpu.data0, vmpu.buffer[vmpu.rptr] / 127.0f);
-                    vmpu.index = -1;
+                    tsf_channel_note_on(tsfrenderer, vmpu.channel, vmpu.data[0], vmpu.buffer[vmpu.ridx] / 127.0f);
+                    vmpu.didx = -1;
                 }
                 break;
             case 0xE: /* pitch bend +2 */
-                if ( vmpu.index == 0)
-                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                if ( vmpu.didx == 0)
+                    vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
-                    tsf_channel_set_pitchwheel(tsfrenderer, vmpu.channel, vmpu.data0 | (vmpu.buffer[vmpu.rptr] << 7));
-                    vmpu.index = -1;
+                    tsf_channel_set_pitchwheel(tsfrenderer, vmpu.channel, vmpu.data[0] | (vmpu.buffer[vmpu.ridx] << 7));
+                    vmpu.didx = -1;
                 }
                 break;
             case 0xC: /* program change +1 */
-                tsf_channel_set_presetnumber(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.rptr], vmpu.channel == 0x9);
+                tsf_channel_set_presetnumber(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.ridx], vmpu.channel == 0x9);
                 break;
             case 0xB:
              /* control change +2; channel mode msg if rsvd. controller numbers 120-127 are used
@@ -197,53 +196,53 @@ void VMPU_Process_Messages(void)
               * c=123, v=0: all notes off
               * c=124/125/126/127, v=0: omni mode off/on, mono mode on, poly mode on
               */
-                if ( vmpu.index == 0)
-                    vmpu.data0 = vmpu.buffer[vmpu.rptr];
+                if ( vmpu.didx == 0)
+                    vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
-                    tsf_channel_midi_control(tsfrenderer, vmpu.channel, vmpu.data0, vmpu.buffer[vmpu.rptr]);
-                    vmpu.index = -1;
+                    tsf_channel_midi_control(tsfrenderer, vmpu.channel, vmpu.data[0], vmpu.buffer[vmpu.ridx]);
+                    vmpu.didx = -1;
                 }
                 break;
             case 0xF: /* system +0 */
                 switch ( vmpu.channel ) {
                 case 0:
-                    if ( vmpu.index == 0 )
-                        memset( vmpu.sysex, 0, sizeof( vmpu.sysex ) );
-                    if (vmpu.buffer[vmpu.rptr] == 0xF7) {
+                    if ( vmpu.didx == 0 )
+                        memset( vmpu.data, 0, sizeof( vmpu.data ) );
+                    if (vmpu.buffer[vmpu.ridx] == 0xF7) {
                         /* sysex msg (41 xx 42 12 aaaaaa dd cc F7? (41=Roland, 42=GS synth, 12=sending) */
-                        if (vmpu.index > 8 && vmpu.sysex[0] == 0x41 && vmpu.sysex[2] == 0x42 && vmpu.sysex[3] == 0x12 ) {
-                            uint32_t addr = ((uint32_t)vmpu.sysex[4] << 16) + ((uint32_t)vmpu.sysex[5] << 8) + (uint32_t)vmpu.sysex[6];
+                        if (vmpu.didx > 8 && vmpu.data[0] == 0x41 && vmpu.data[2] == 0x42 && vmpu.data[3] == 0x12 ) {
+                            uint32_t addr = ((uint32_t)vmpu.data[4] << 16) + ((uint32_t)vmpu.data[5] << 8) + (uint32_t)vmpu.data[6];
                             if ( addr == 0x400004 ) {
-                                tsf_set_volume(tsfrenderer, ((vmpu.sysex[7] > 127) ? 127 : vmpu.sysex[7]) / 127.f);
-                                dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (set GS volume)\n", vmpu.sysex[1], addr, vmpu.sysex[7] ));
+                                tsf_set_volume(tsfrenderer, ((vmpu.data[7] > 127) ? 127 : vmpu.data[7]) / 127.f);
+                                dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (set GS volume)\n", vmpu.data[1], addr, vmpu.data[7] ));
                             } else if ( addr == 0x40007f ) {
-                                if ( vmpu.sysex[7] == 0 ) { /* 0=GS reset (enter GS mode), 7F=gs "rereset" (exit GS mode) */
+                                if ( vmpu.data[7] == 0 ) { /* 0=GS reset (enter GS mode), 7F=gs "rereset" (exit GS mode) */
                                     reset();
-                                    dbgprintf(("sysex msg 0xF0: 41 %X 42 12 40007f (GS reset)\n", vmpu.sysex[1] ));
+                                    dbgprintf(("sysex msg 0xF0: 41 %X 42 12 40007f (GS reset)\n", vmpu.data[1] ));
                                 }
 #ifdef _DEBUG
-                                else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (unhandled)\n", vmpu.sysex[1], addr, vmpu.sysex[7] ));
+                                else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (unhandled)\n", vmpu.data[1], addr, vmpu.data[7] ));
 #endif
 
                             }
 #ifdef _DEBUG
-                            else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X (unhandled)\n", vmpu.sysex[1], addr ));
+                            else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X (unhandled)\n", vmpu.data[1], addr ));
 #endif
-                        } else if (vmpu.index > 5 && vmpu.sysex[0] == 0x7f && vmpu.sysex[1] == 0x7f && vmpu.sysex[2] == 0x04 && vmpu.sysex[3] == 0x01) {
+                        } else if (vmpu.didx > 5 && vmpu.data[0] == 0x7f && vmpu.data[1] == 0x7f && vmpu.data[2] == 0x04 && vmpu.data[3] == 0x01) {
                             /* msg 7f 7f 04 01 ll mm? */
-                            tsf_set_volume(tsfrenderer, vmpu.sysex[5] / 127.f);
-                            dbgprintf(("sysex msg 0xF0: 7F 7F 04 01 v=%X (set GM master vol)\n", vmpu.sysex[5]));
-                        } else if ( !memcmp(vmpu.sysex, gm_reset, sizeof(gm_reset)) ) {
+                            tsf_set_volume(tsfrenderer, vmpu.data[5] / 127.f);
+                            dbgprintf(("sysex msg 0xF0: 7F 7F 04 01 v=%X (set GM master vol)\n", vmpu.data[5]));
+                        } else if ( !memcmp(vmpu.data, gm_reset, sizeof(gm_reset)) ) {
                             // TODO: Differentiate between GS and GM Resets.
                             reset();
-                            dbgprintf(("sysex msg 0xF0: %X %X %X %X (GM reset)\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
+                            dbgprintf(("sysex msg 0xF0: %X %X %X %X (GM reset)\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3]));
                         }
 #ifdef _DEBUG
-                        else dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.sysex[0], vmpu.sysex[1], vmpu.sysex[2], vmpu.sysex[3]));
+                        else dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3]));
 #endif
-                        vmpu.index = -1;
-                    } else if ( vmpu.index < sizeof( vmpu.sysex ) )
-                        vmpu.sysex[vmpu.index] = vmpu.buffer[vmpu.rptr];
+                        vmpu.didx = -1;
+                    } else if ( vmpu.didx < sizeof( vmpu.data ) )
+                        vmpu.data[vmpu.didx] = vmpu.buffer[vmpu.ridx];
                     break;
                 case 0xF: /* 0xff - in a midi file it's supposed to be start of a "meta event"! */
                     reset();
@@ -254,13 +253,13 @@ void VMPU_Process_Messages(void)
                 //case 0x3: /* song select */
                 default:
 #ifdef _DEBUG
-                    if ( vmpu.index == 0 ) dbgprintf(("sysex msg %X\n", vmpu.channel | 0xF0 ));
+                    if ( vmpu.didx == 0 ) dbgprintf(("sysex msg %X\n", vmpu.channel | 0xF0 ));
 #endif
                     break;
                 }
                 break;
             } /* end switch() */
-            vmpu.index++;
+            vmpu.didx++;
         } /* end if() */
     } /* end for() */
 }

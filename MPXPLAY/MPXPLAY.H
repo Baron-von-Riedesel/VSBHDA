@@ -65,8 +65,9 @@ extern "C" {
 #define outpd outportl
 #endif
 
+//#include "MEMORY.H"
+#include <string.h>
 #include "PHYSMEM.H"
-#include "MEMORY.H"
 #include "TIMER.H"
 #include "AU_CARDS.H"
 

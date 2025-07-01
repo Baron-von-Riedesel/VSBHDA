@@ -16,6 +16,7 @@
 //based on the Creative (http://sourceforge.net/projects/emu10k1)
 //         and ALSA (http://www.alsa-project.org) drivers
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #ifndef DJGPP
@@ -1300,12 +1301,12 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	int i;
 
 	dbgprintf(("SBLIVE_adetect\n"));
-	card = (struct emu10k1_card *)pds_calloc(1,sizeof(struct emu10k1_card));
+	card = (struct emu10k1_card *)calloc(1,sizeof(struct emu10k1_card));
 	if(!card)
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
+	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
 		goto err_adetect;
 
@@ -1377,8 +1378,8 @@ static void SBLIVE_close( struct audioout_info_s *aui )
 				card->driver_funcs->hw_close( card );
 		MDma_free_cardmem( card->dm );
 		if( card->pci_dev )
-			pds_free( card->pci_dev );
-		pds_free(card);
+			free( card->pci_dev );
+		free(card);
 		aui->card_private_data = NULL;
 	}
 }

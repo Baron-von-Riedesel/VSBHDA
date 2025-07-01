@@ -15,6 +15,7 @@
 //function: Intel HD audio driver for Mpxplay
 //based on ALSA (http://www.alsa-project.org) and WSS libs
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,66 +41,64 @@
 typedef uint16_t hda_nid_t;
 
 struct hda_gnode {
- hda_nid_t nid;             /* NID of this widget */
- unsigned short nconns;     /* number of input connections */
- hda_nid_t conn_list[HDA_MAX_CONNECTIONS];
- unsigned int  wid_caps;    /* widget capabilities */
- unsigned char type;        /* widget type */
- unsigned char pin_ctl;     /* pin controls */
- unsigned char checked;     /* the flag indicates that the node is already parsed */
- unsigned int  pin_caps;    /* pin widget capabilities */
- unsigned int  def_cfg;     /* default configuration */
- unsigned int  amp_out_caps;/* AMP out capabilities */
- unsigned int  amp_in_caps; /* AMP in capabilities */
- unsigned long supported_formats; /* format_val */
+    hda_nid_t nid;             /* NID of this widget */
+    unsigned short nconns;     /* number of input connections */
+    hda_nid_t conn_list[HDA_MAX_CONNECTIONS];
+    unsigned int  wid_caps;    /* widget capabilities */
+    unsigned char type;        /* widget type */
+    unsigned char pin_ctl;     /* pin controls */
+    unsigned char checked;     /* the flag indicates that the node is already parsed */
+    unsigned int  pin_caps;    /* pin widget capabilities */
+    unsigned int  def_cfg;     /* default configuration */
+    unsigned int  amp_out_caps;/* AMP out capabilities */
+    unsigned int  amp_in_caps; /* AMP in capabilities */
+    unsigned long supported_formats; /* format_val */
 };
 
 struct pcm_vol_s {
- struct hda_gnode *node;  /* Node for PCM volume */
- unsigned int index;      /* connection of PCM volume */
+    struct hda_gnode *node;  /* Node for PCM volume */
+    unsigned int index;      /* connection of PCM volume */
 };
 
 
-struct intelhd_card_s
-{
- volatile struct HDAREGS_s *hdac;
- struct pci_config_s  *pci_dev;
- unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
- long          codec_vendor_id;
- unsigned long codec_mask;
- unsigned int  codec_index;
- hda_nid_t afg_root_nodenum;
- int afg_num_nodes;
- struct hda_gnode *afg_nodes;
- unsigned int def_amp_out_caps;   /* default amp caps set by audio function group */
- unsigned int def_amp_in_caps;    /* default amp caps set by audio function group */
- struct hda_gnode *dac_node[2];            // DAC nodes
- struct hda_gnode *out_pin_node[MAX_PCM_VOLS];    // Output pin (Line-Out) nodes
- unsigned int pcm_num_vols;            // number of PCM volumes
- struct pcm_vol_s pcm_vols[MAX_PCM_VOLS]; // PCM volume nodes
+struct intelhd_card_s {
+    volatile struct HDAREGS_s *hdac; /* HDA controller register map address */
+    struct pci_config_s  *pci_dev;
+    unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
+    long          codec_vendor_id;
+    unsigned long codec_mask;
+    unsigned int  codec_index;
+    hda_nid_t afg_root_nodenum;
+    int afg_num_nodes;
+    struct hda_gnode *afg_nodes;
+    unsigned int def_amp_out_caps;   /* default amp caps set by audio function group */
+    unsigned int def_amp_in_caps;    /* default amp caps set by audio function group */
+    struct hda_gnode *dac_node[2];            // DAC nodes
+    struct hda_gnode *out_pin_node[MAX_PCM_VOLS];    // Output pin (Line-Out) nodes
+    unsigned int pcm_num_vols;            // number of PCM volumes
+    struct pcm_vol_s pcm_vols[MAX_PCM_VOLS]; // PCM volume nodes
 
- struct cardmem_s *dm; /* XMS memory struct */
- struct BDL_s *table_buffer; /* BDL array */
- char *pcmout_buffer;
- long pcmout_bufsize;
- unsigned long* corb_buffer;
- unsigned long long* rirb_buffer;
- unsigned long pcmout_dmasize;
- unsigned int  pcmout_num_periods;
- unsigned long pcmout_period_size;
- //unsigned long sd_addr;    // stream io address (one playback stream only)
- volatile struct HDASTREAM_s *sd;     // stream io address (one playback stream only)
- unsigned int  format_val; // stream type
- unsigned int  dacout_num_bits;
- unsigned long supported_formats;
- unsigned long supported_max_freq;
- unsigned int  supported_max_bits;
- unsigned int  config_select;
+    struct cardmem_s *dm; /* XMS memory struct */
+    struct BDL_s  *table_buffer; /* BDL array */
+    unsigned long *corb_buffer;
+    unsigned long long* rirb_buffer;
+    char          *pcmout_buffer;
+    long          pcmout_bufsize; /* return value of MDma_get_max_pcmoutbufsize() */
+    unsigned long pcmout_dmasize; /* return value of MDma_init_pcmoutbuf() */
+    unsigned int  pcmout_num_periods;
+    unsigned long pcmout_period_size;
+    volatile struct HDASTREAM_s *sd;  /* stream descriptor (one playback stream only) */
+    unsigned int  format_val; // stream type
+    unsigned int  dacout_num_bits;
+    unsigned long supported_formats;
+    unsigned long supported_max_freq;
+    unsigned int  supported_max_bits;
+    unsigned int  config_select;
 };
 
 struct hda_rate_tbl {
- unsigned int hz;
- unsigned int hda_fmt;
+    unsigned int hz;
+    unsigned int hda_fmt;
 };
 
 /* supported rates:
@@ -135,10 +134,10 @@ static const struct hda_rate_tbl rate_bits[] = {
 };
 
 static struct aucards_mixerchan_s hda_master_vol = {
-	AU_MIXCHANFUNCS_PACK( AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME), MAX_PCM_VOLS, {
-		{0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[0] register, max, shift, infobits
-		{0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
-	}
+    AU_MIXCHANFUNCS_PACK( AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME), MAX_PCM_VOLS, {
+        {0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[0] register, max, shift, infobits
+        {0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
+    }
 };
 
 #define codec_param_read(codec,nid,param) hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
@@ -206,7 +205,7 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
 	static int corbsizes[4] = {2, 16, 256, 0};
 	int        corbsize     = corbsizes[chip->hdac->corbsize & 0x3];
 	int        corbindex    = chip->hdac->corbwp & 0xFF;  /* get current CORB write pointer */
-    uint8_t    corbrp       = chip->hdac->corbrp & 0xFF;
+	uint8_t    corbrp       = chip->hdac->corbrp & 0xFF;
 
 	corbindex = (corbindex + 1) % corbsize;
 	chip->corb_buffer[corbindex] = val;
@@ -215,7 +214,8 @@ static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
     for ( ; timeout && (corbrp == chip->hdac->corbrp & 0xFF ); timeout--, pds_delay_10us(100) );
 }
 
-/* argument "direct" is always zero.
+/* send cmd to codec.
+ * argument "direct" is always zero.
  * 12-bit verbs have a 8-bit "payload" (=parm);
  * 4-bits verb may have a 16-bit "payload";
  * since the 4-bit verbs are defined so that the lower 8bits are zero,
@@ -892,7 +892,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 	dbgprintf(("hda_mixer_init: outcaps=%X incaps=%X afgsubnodes=%d anid=%d\n",card->def_amp_out_caps,card->def_amp_in_caps,card->afg_num_nodes,(int)nid));
 
-	card->afg_nodes = (struct hda_gnode *)pds_calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
+	card->afg_nodes = (struct hda_gnode *)calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
 	if(!card->afg_nodes) {
 		dbgprintf(("hda_mixer_init: malloc failed\n"));
 		goto err_out_mixinit;
@@ -946,7 +946,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 err_out_mixinit:
 	if( card->afg_nodes ){
-		pds_free(card->afg_nodes);
+		free(card->afg_nodes);
 		card->afg_nodes = NULL;
 	}
 	dbgprintf(("mixer_init: failed\n"));
@@ -1318,7 +1318,7 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 		card->hdac = 0;
 	}
 	if( card->afg_nodes ) {
-		pds_free( card->afg_nodes );
+		free( card->afg_nodes );
 		card->afg_nodes = NULL;
 	}
 	if ( card->dm ) {
@@ -1336,16 +1336,16 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	unsigned int i;
 	unsigned int devidx;
 
-	card = (struct intelhd_card_s *)pds_calloc( 1, sizeof(struct intelhd_card_s) );
+	card = (struct intelhd_card_s *)calloc( 1, sizeof(struct intelhd_card_s) );
 	if( !card ) {
 		dbgprintf(("HDA_adetect: 1. calloc() failed\n" ));
 		return 0;
 	}
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)pds_calloc( 1, sizeof(struct pci_config_s) );
+	card->pci_dev = (struct pci_config_s *)calloc( 1, sizeof(struct pci_config_s) );
 	if( !card->pci_dev ) {
-		pds_free( card );
+		free( card );
 		dbgprintf(("HDA_adetect: 2. calloc() failed\n" ));
 		return( 0 );
 	}
@@ -1447,7 +1447,7 @@ static void HDA_close( struct audioout_info_s *aui )
 			card->hdac = 0;
 		}
 		if( card->afg_nodes ) {
-			pds_free( card->afg_nodes );
+			free( card->afg_nodes );
 			card->afg_nodes = NULL;
 		}
 		if ( card->dm ) {
@@ -1455,10 +1455,10 @@ static void HDA_close( struct audioout_info_s *aui )
 			card->dm = NULL;
 		}
 		if( card->pci_dev ) {
-			pds_free( card->pci_dev );
+			free( card->pci_dev );
 			card->pci_dev = NULL;
 		}
-		pds_free( card );
+		free( card );
 		aui->card_private_data = NULL;
 	}
 }
@@ -1602,8 +1602,6 @@ static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long r
 	return val;
 }
 
-#if 1 /* vsbhda */
-
  /* check if the interrupt comes from the sound card's DMA engines.
  * The CORB/RIRB DMA engines are minor, since communication
  * was during init, while when playing there's nothing to communicate.
@@ -1629,7 +1627,6 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 		card->hdac->rirbsts = rirbsts; /* by writing 0 the bits are cleared */
 	return status | corbsts | rirbsts;
 }
-#endif
 
 static const struct aucards_mixerchan_s *hda_mixerset[] = {
 	&hda_master_vol,
@@ -1637,22 +1634,22 @@ static const struct aucards_mixerchan_s *hda_mixerset[] = {
 };
 
 const struct sndcard_info_s HDA_sndcard_info = {
- "Intel HDA",
- 0,               /* infobits */
- NULL,            /* card_config */
- NULL,            /* no init */
- &HDA_adetect,    /* only autodetect */
- &HDA_card_info,
- &HDA_start,
- &HDA_stop,
- &HDA_close,
- &HDA_setrate,
+    "Intel HDA",
+    0,               /* infobits */
+    NULL,            /* card_config */
+    NULL,            /* no init */
+    &HDA_adetect,    /* only autodetect */
+    &HDA_card_info,
+    &HDA_start,
+    &HDA_stop,
+    &HDA_close,
+    &HDA_setrate,
 
- &MDma_writedata, /* =cardbuf_writedata() */
- &HDA_getbufpos,  /* =cardbuf_getpos() */
- &MDma_clearbuf,  /* =cardbuf_clear() */
- &HDA_IRQRoutine, /* vsbhda */
- &HDA_writeMIXER, /* =card_writemixer() */
- &HDA_readMIXER,  /* =card_readmixer() */
- hda_mixerset     /* =card_mixerchans */
+    &MDma_writedata, /* =cardbuf_writedata() */
+    &HDA_getbufpos,  /* =cardbuf_getpos() */
+    &MDma_clearbuf,  /* =cardbuf_clear() */
+    &HDA_IRQRoutine, /* vsbhda */
+    &HDA_writeMIXER, /* =card_writemixer() */
+    &HDA_readMIXER,  /* =card_readmixer() */
+    hda_mixerset     /* =card_mixerchans */
 };

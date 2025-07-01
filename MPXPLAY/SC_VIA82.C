@@ -15,6 +15,7 @@
 //function: VIA VT82C686, VT8233/VT8235?/VT8237(R)? low level routines (onboard chips on AMD Athlon mainboards)
 //some routines are based on the ALSA (http://www.alsa-project.org)
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -259,12 +260,12 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 {
 	struct via82xx_card *card;
 
-	card = (struct via82xx_card *)pds_calloc(1,sizeof(struct via82xx_card));
+	card = (struct via82xx_card *)calloc(1,sizeof(struct via82xx_card));
 	if(!card)
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
+	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
 		goto err_adetect;
 
@@ -329,8 +330,8 @@ static void VIA82XX_close(struct audioout_info_s *aui)
 			via82xx_chip_close(card);
 		MDma_free_cardmem(card->dm);
 		if(card->pci_dev)
-			pds_free(card->pci_dev);
-		pds_free(card);
+			free(card->pci_dev);
+		free(card);
 		aui->card_private_data = NULL;
 	}
 }

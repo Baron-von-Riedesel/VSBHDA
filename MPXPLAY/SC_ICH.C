@@ -15,6 +15,7 @@
 //function: Intel ICH audiocards low level routines
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
 
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -418,12 +419,12 @@ static int ICH_adetect( struct audioout_info_s *aui )
 {
 	struct intel_card_s *card;
 
-	card = (struct intel_card_s *)pds_calloc(1,sizeof(struct intel_card_s));
+	card = (struct intel_card_s *)calloc(1,sizeof(struct intel_card_s));
 	if(!card)
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)pds_calloc(1,sizeof(struct pci_config_s));
+	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
 	if(!card->pci_dev)
 		goto err_adetect;
 
@@ -516,8 +517,8 @@ static void ICH_close( struct audioout_info_s *aui )
 		snd_intel_chip_close(card);
 		MDma_free_cardmem(card->dm);
 		if(card->pci_dev)
-			pds_free(card->pci_dev);
-		pds_free(card);
+			free(card->pci_dev);
+		free(card);
 		aui->card_private_data = NULL;
 	}
 }

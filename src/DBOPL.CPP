@@ -143,9 +143,9 @@ static uint16_t SinTable[ 512 ];
 //Layout of the waveform table in 512 entry intervals
 //With overlapping waves we reduce the table to half it's size
 
-//	|    |//\\|____|WAV7|//__|/\  |____|/\/\|
-//	|\\//|    |    |WAV7|    |  \/|    |    |
-//	|06  |0126|17  |7   |3   |4   |4 5 |5   |
+//  |    |//\\|____|WAV7|//__|/\  |____|/\/\|
+//  |\\//|    |    |WAV7|    |  \/|    |    |
+//  |06  |0126|17  |7   |3   |4   |4 5 |5   |
 
 //6 is just 0 shifted and masked
 
@@ -1522,7 +1522,14 @@ void InitTables( void )
 		double val = ( 0.5 + ( pow(2.0, -1.0 + ( 255 - s) * ( 1.0 /256 ) )) * ( 1 << MUL_SH ));
 		MulTable[i] = (uint16_t)(val);
 	}
-
+#if 0//def _DEBUG
+    for ( int i = 0; i < 384; i = i+16 )
+        dbgprintf(("OPL: MulTable[%u]: %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d\n", i,
+                   MulTable[i+0],MulTable[i+1],MulTable[i+2],MulTable[i+3],
+                   MulTable[i+4],MulTable[i+5],MulTable[i+6],MulTable[i+7],
+                   MulTable[i+8],MulTable[i+9],MulTable[i+10],MulTable[i+11],
+                   MulTable[i+12],MulTable[i+13],MulTable[i+14],MulTable[i+15] ));
+#endif
 	//Sine Wave Base
 	for ( int i = 0; i < 512; i++ ) {
 		WaveTable[ 0x0200 + i ] = (int16_t)(sin( (i + 0.5) * (PI / 512.0) ) * 4084);

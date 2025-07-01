@@ -513,7 +513,7 @@ static int SNDISR_Interrupt( void )
         //tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
         /* don't try to mix if no digital sound has been created */
         //tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
-        tsf_render_short(tsfrenderer, isr.pPCM, samples, digital);
+        tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
         fpu_restore( fpu_buffer );
     }
 #endif

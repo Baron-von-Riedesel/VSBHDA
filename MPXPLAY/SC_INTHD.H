@@ -435,64 +435,6 @@ enum {
  AZX_NUM_DRIVERS
 };
 
-#if 0 /* v1.7: replaced the offsets by struct definition HDAREGS_s */
-// HDA controller registers
-#define HDA_REG_GCAP           0x00 /* global capabilities */
-#define HDA_REG_VMIN           0x02 /* version */
-#define HDA_REG_VMAJ           0x03
-#define HDA_REG_OUTPAY         0x04 /* out payload */
-#define HDA_REG_INPAY          0x06
-#define HDA_REG_GCTL           0x08 /* global control */
-#define HDA_REG_WAKEEN         0x0c
-#define HDA_REG_STATESTS       0x0e
-#define HDA_REG_GSTS           0x10 /* global status */
-#define HDA_REG_INTCTL         0x20 /* interrupt control */
-#define HDA_REG_INTSTS         0x24 /* interrupt status */
-#define HDA_REG_WALCLK         0x30
-#define HDA_REG_SYNC           0x34
-
-#define HDA_REG_CORBLBASE      0x40 /* uint32 */
-#define HDA_REG_CORBUBASE      0x44 /* uint32 */
-#define HDA_REG_CORBWP         0x48 /* int16 */
-#define HDA_REG_CORBRP         0x4A /* int16 */
-#define HDA_REG_CORBCTL        0x4c /* uint8 */
-#define HDA_REG_CORBSTS        0x4d /* uint8 */
-#define HDA_REG_CORBSIZE       0x4e /* uint8 */
-
-#define HDA_REG_RIRBLBASE      0x50 /* uint32 */
-#define HDA_REG_RIRBUBASE      0x54 /* uint32 */
-#define HDA_REG_RIRBWP         0x58 /* int16 */
-#define HDA_REG_RIRBRIC        0x5a /* int16 */
-#define HDA_REG_RIRBCTL        0x5c /* uint8 */
-#define HDA_REG_RIRBSTS        0x5d /* uint8 */
-#define HDA_REG_RIRBSIZE       0x5e /* uint8 */
-
-#define HDA_REG_IC            0x60
-#define HDA_REG_IR            0x64
-#define HDA_REG_IRS           0x68
-#define HDA_IRS_VALID       (1<<1)
-#define HDA_IRS_BUSY        (1<<0)
-
-#define HDA_REG_DPLBASE        0x70 /* DMA position lower base */
-#define HDA_REG_DPUBASE        0x74 /* DMA position upper base */
-#endif
-
-#define HDA_DPLBASE_ENABLE     0x1  /* Enable position buffer */
-
-#if 0 /* v1.7 replaced the offsets by struct definition HDASTREAM_s */
-/* stream register offsets from stream base */
-#define HDA_REG_SD_CTL            0x00
-#define HDA_REG_SD_STS            0x03
-#define HDA_REG_SD_LPIB           0x04
-#define HDA_REG_SD_CBL            0x08
-#define HDA_REG_SD_LVI            0x0c
-#define HDA_REG_SD_FIFOW          0x0e
-#define HDA_REG_SD_FIFOSIZE       0x10
-#define HDA_REG_SD_FORMAT         0x12
-#define HDA_REG_SD_BDLPL          0x18
-#define HDA_REG_SD_BDLPU          0x1c
-#endif
-
 struct HDASTREAM_s {
     union {
         uint32_t dwCtl;
@@ -514,48 +456,48 @@ struct HDASTREAM_s {
 };
 
 struct HDAREGS_s {
-uint16_t gcap;
-uint8_t  vminor;
-uint8_t  vmajor;
-uint16_t opayload;
-uint16_t ipayload;
-uint32_t gctl;
-uint16_t wakeen;
-uint16_t statests;
-uint32_t gsts;
-uint32_t rsvd1[3];
-uint32_t intctl;
-uint32_t intsts;
-uint32_t rsvd2[2];
-uint32_t walclk;
-uint32_t rsvd3[1];
-uint32_t ssync;
-uint32_t rsvd4[1];
-uint32_t corblbase;
-uint32_t corbubase;
-uint16_t corbwp;
-uint16_t corbrp;
-uint8_t  corbctl;
-uint8_t  corbsts;
-uint8_t  corbsize;
-uint8_t  rsvd5[1];
-uint32_t rirblbase;
-uint32_t rirbubase;
-uint16_t rirbwp;
-uint16_t rirbric;
-uint8_t  rirbctl;
-uint8_t  rirbsts;
-uint8_t  rirbsize;
-uint8_t  rsvd6[1];
-uint32_t ic;
-uint32_t ir;
-uint16_t ics;
-uint16_t rsvd7[1];
-uint32_t rsvd8[1];
-uint32_t dplbase;
-uint32_t dpubase;
-uint32_t rsvd9[2];
-struct HDASTREAM_s stream[8];
+    uint16_t gcap;
+    uint8_t  vminor;
+    uint8_t  vmajor;
+    uint16_t opayload;
+    uint16_t ipayload;
+    uint32_t gctl;
+    uint16_t wakeen;
+    uint16_t statests;
+    uint32_t gsts;
+    uint32_t rsvd1[3];
+    uint32_t intctl;
+    uint32_t intsts;
+    uint32_t rsvd2[2];
+    uint32_t walclk;
+    uint32_t rsvd3[1];
+    uint32_t ssync;
+    uint32_t rsvd4[1];
+    uint32_t corblbase;
+    uint32_t corbubase;
+    uint16_t corbwp;
+    uint16_t corbrp;
+    uint8_t  corbctl;
+    uint8_t  corbsts;
+    uint8_t  corbsize;
+    uint8_t  rsvd5[1];
+    uint32_t rirblbase;
+    uint32_t rirbubase;
+    uint16_t rirbwp;
+    uint16_t rirbric;
+    uint8_t  rirbctl;
+    uint8_t  rirbsts;
+    uint8_t  rirbsize;
+    uint8_t  rsvd6[1];
+    uint32_t ic;
+    uint32_t ir;
+    uint16_t ics;
+    uint16_t rsvd7[1];
+    uint32_t rsvd8[1];
+    uint32_t dplbase;
+    uint32_t dpubase;
+    uint32_t rsvd9[2];
+    struct HDASTREAM_s stream[8];
 };
 
 /*CORB & RIRB */
@@ -563,6 +505,8 @@ struct HDASTREAM_s stream[8];
 #define HDA_CORB_ALIGN    128
 #define HDA_RIRB_MAXSIZE 2048
 #define HDA_RIRB_ALIGN    128
+
+#define HDA_DPLBASE_ENABLE     0x1  /* Enable position buffer */
 
 /* PCI space */
 #define HDA_PCIREG_TCSEL   0x44

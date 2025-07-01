@@ -32,7 +32,7 @@ struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
 {
 	struct cardmem_s *dm;
 	dbgprintf(("MDma_alloc_cardmem(0x%X)\n", buffsize));
-	dm = pds_calloc( 1, sizeof(struct cardmem_s) );
+	dm = calloc( 1, sizeof(struct cardmem_s) );
 	if(!dm)
 		return NULL;
 	/* alloc & map physical memory */
@@ -145,7 +145,7 @@ void MDma_clearbuf( struct audioout_info_s *aui )
 /////////////////////////////////////////////////
 {
 	if(aui->card_DMABUFF && aui->card_dmasize)
-		pds_memset(aui->card_DMABUFF,0,aui->card_dmasize);
+		memset(aui->card_DMABUFF,0,aui->card_dmasize);
 }
 
 void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
@@ -157,13 +157,13 @@ void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left 
 	todo = aui->card_dmasize - aui->card_dmalastput;
 
 	if(todo <= left){
-		pds_memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,todo);
+		memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,todo);
 		aui->card_dmalastput = 0;
 		left -= todo;
 		src += todo;
 	}
 	if(left){
-		pds_memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,left);
+		memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,left);
 		aui->card_dmalastput += left;
 	}
 }

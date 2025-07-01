@@ -172,7 +172,7 @@ struct sndcard_info_s {
 //main soundcard routines
 extern int  FAREXP AU_init( const struct globalvars * );
 extern int  FAREXP AU_getirq( struct audioout_info_s * );
-extern void FAREXP AU_prestart( struct audioout_info_s * );
+//extern void FAREXP AU_prestart( struct audioout_info_s * );
 extern void FAREXP AU_start( struct audioout_info_s * );
 extern void FAREXP AU_stop( struct audioout_info_s * );
 extern void FAREXP AU_close( struct audioout_info_s * );
