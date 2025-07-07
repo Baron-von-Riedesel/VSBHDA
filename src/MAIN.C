@@ -120,7 +120,7 @@ true, true, true, VOL_DEFAULT, 16, /* OPL3, rm, pm, vol, buffsize */
 #endif
 #if SOUNDFONT
 NULL,
-64, /* voices */
+VOICES_DEFAULT, /* voices */
 #endif
 };
 
@@ -159,7 +159,7 @@ static const struct {
     "PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
-    "MV", "Set voice limit [32-256, def 64]", &gvars.voices,
+    "MV", "Set voice limit [1-256, def 64]", &gvars.voices,
 #endif
     NULL, NULL, 0,
 };
@@ -410,8 +410,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 #if SOUNDFONT
-    if ((gvars.voices < 32) || (gvars.voices > 256)) {
-        printf("Error: invalid voice limit: %d\n", gvars.voices );
+    if (gvars.voices > 256) {
+        printf("Error: voice limit %d beyond 256\n", gvars.voices );
         return 1;
     }
 #endif

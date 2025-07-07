@@ -108,7 +108,7 @@ static uint8_t VMPU_Read(uint16_t port)
 	}
 }
 
-/* SB-MIDI data written with DSP cmd 0x38 */
+/* SB-MIDI data written with DSP cmd 0x38 (so-called "Normal" mode */
 
 void VMPU_SBMidi_RawWrite( uint8_t value )
 //////////////////////////////////////////
@@ -274,8 +274,9 @@ void VMPU_Init( int freq )
         int channel = 0;
         memset( &vmpu, 0, sizeof (vmpu ) );
         printf("TSF: soundfont %s [presets=%d]\n", gvars.soundfont, tsf_get_presetcount(tsfrenderer) );
+        if (gvars.voices != VOICES_DEFAULT)
+            printf("TSF: voice limit=%d\n", gvars.voices);
         tsf_set_max_voices(tsfrenderer, gvars.voices);
-        printf("TSF: voice limit=%d\n", gvars.voices);
         tsf_set_output(tsfrenderer, TSF_STEREO_INTERLEAVED, freq, 0);
         tsf_set_samplerate_output(tsfrenderer, freq );
         for (channel = 0; channel < 16; channel++)

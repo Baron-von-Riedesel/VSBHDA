@@ -361,7 +361,9 @@ static const WaveHandler WaveHandlerTable[8] = {
 	totalLevel += ( kslBase << ENV_EXTRA ) >> kslShift;
 }
 
-void Operator::UpdateFrequency(  ) {
+void Operator::UpdateFrequency( )
+/////////////////////////////////
+{
 	uint32_t freq = chanData & (( 1 << 10 ) - 1);
 	uint32_t block = (chanData >> 10) & 0xff;
 #ifdef WAVE_PRECISION
@@ -401,7 +403,9 @@ void Operator::UpdateRates( const Chip* chip )
 	UpdateRelease( chip );
 }
 
-/*INLINE*/ int32_t Operator::RateForward( uint32_t add ) {
+/*INLINE*/ int32_t Operator::RateForward( uint32_t add )
+////////////////////////////////////////////////////////
+{
 	rateIndex += add;
 	int32_t ret = (int32_t)(rateIndex >> RATE_SH);
 	rateIndex = rateIndex & RATE_MASK;
@@ -564,13 +568,17 @@ void Operator::WriteE0( const Chip* chip, uint8_t val ) {
 #endif
 }
 
-/*INLINE*/ void Operator::SetState( uint8_t s ) {
+/*INLINE*/ void Operator::SetState( uint8_t s )
+///////////////////////////////////////////////
+{
 	state = s;
 	bState = s;
 	volHandler = VolumeHandlerTable[ s ];
 }
 
-/*INLINE*/ bool Operator::Silent() const {
+/*INLINE*/ bool Operator::Silent() const
+////////////////////////////////////////
+{
 	if ( !ENV_SILENT( totalLevel + volume ) )
 		return false;
 	if ( !(rateZero & ( 1 << state ) ) )
@@ -609,7 +617,9 @@ void Operator::KeyOn( uint8_t mask )
 	keyOn |= mask;
 }
 
-void Operator::KeyOff( uint8_t mask ) {
+void Operator::KeyOff( uint8_t mask )
+/////////////////////////////////////
+{
 	keyOn &= ~mask;
 	if ( !keyOn ) {
 		if ( state != OFF ) {
@@ -706,7 +716,9 @@ Channel::Channel()
     mode = sm2FM;
 }
 
-void Channel::SetChanData( const Chip* chip, uint32_t data ) {
+void Channel::SetChanData( const Chip* chip, uint32_t data )
+////////////////////////////////////////////////////////////
+{
 	uint32_t change = chanData ^ data;
 	chanData = data;
 	Op( 0 )->chanData = data;
@@ -1207,18 +1219,18 @@ void Chip::WriteBD( uint8_t val )
 }
 
 
-#define REGOP( _FUNC_ )															\
-	index = ( ( reg >> 3) & 0x20 ) | ( reg & 0x1f );								\
-	if ( OpOffsetTable[ index ] ) {													\
+#define REGOP( _FUNC_ )		\
+	index = ( ( reg >> 3) & 0x20 ) | ( reg & 0x1f );	\
+	if ( OpOffsetTable[ index ] ) {		\
 		Operator* regOp = (Operator*)( ((char *)this ) + OpOffsetTable[ index ]-1 );	\
-		regOp->_FUNC_( this, val );													\
+		regOp->_FUNC_( this, val );		\
 	}
 
-#define REGCHAN( _FUNC_ )																\
-	index = ( ( reg >> 4) & 0x10 ) | ( reg & 0xf );										\
-	if ( ChanOffsetTable[ index ] ) {													\
+#define REGCHAN( _FUNC_ )	\
+	index = ( ( reg >> 4) & 0x10 ) | ( reg & 0xf );		\
+	if ( ChanOffsetTable[ index ] ) {	\
 		Channel* regChan = (Channel*)( ((char *)this ) + ChanOffsetTable[ index ]-1 );	\
-		regChan->_FUNC_( this, val );													\
+		regChan->_FUNC_( this, val );	\
 	}
 
 //Update the 0xc0 register for all channels to signal the switch to mono/stereo handlers
@@ -1331,8 +1343,8 @@ int Chip::GenerateBlock2( Bitu total, int16_t* output )
 	return output - base;
 }
 
-int Chip::GenerateBlock3( Bitu total, int16_t* output  )
-////////////////////////////////////////////////////////
+int Chip::GenerateBlock3( Bitu total, int16_t* output )
+///////////////////////////////////////////////////////
 {
 	int16_t* base = output;
 	while ( total > 0 ) {
@@ -1517,14 +1529,13 @@ void InitTables( void )
 #if ( DBOPL_WAVE == WAVE_TABLEMUL )
 	//Multiplication based tables
 	for ( int i = 0; i < 384; i++ ) {
-		int s = i * 8;
 		//TODO maybe keep some of the precision errors of the original table?
-		double val = ( 0.5 + ( pow(2.0, -1.0 + ( 255 - s) * ( 1.0 /256 ) )) * ( 1 << MUL_SH ));
+		double val = ( 0.5 + ( pow(2.0, -1.0 + ( 255 - i * 8) * ( 1.0 / 256 ) ) ) * ( 1 << MUL_SH ));
 		MulTable[i] = (uint16_t)(val);
 	}
 #if 0//def _DEBUG
     for ( int i = 0; i < 384; i = i+16 )
-        dbgprintf(("OPL: MulTable[%u]: %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d\n", i,
+        dbgprintf(("OPL: MulTable[%3u]: %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d %5d\n", i,
                    MulTable[i+0],MulTable[i+1],MulTable[i+2],MulTable[i+3],
                    MulTable[i+4],MulTable[i+5],MulTable[i+6],MulTable[i+7],
                    MulTable[i+8],MulTable[i+9],MulTable[i+10],MulTable[i+11],
@@ -1537,7 +1548,7 @@ void InitTables( void )
 	}
 	//Exponential wave
 	for ( int i = 0; i < 256; i++ ) {
-		WaveTable[ 0x700 + i ] = (int16_t)( 0.5 + ( pow(2.0, -1.0 + ( 255 - i * 8) * ( 1.0 /256 ) ) ) * 4085 );
+		WaveTable[ 0x700 + i ] = (int16_t)( 0.5 + ( pow(2.0, -1.0 + ( 255 - i * 8) * ( 1.0 / 256 ) ) ) * 4085 );
 		WaveTable[ 0x6ff - i ] = -WaveTable[ 0x700 + i ];
 	}
 #endif

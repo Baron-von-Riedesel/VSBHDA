@@ -588,9 +588,14 @@ static void DSP_DoCommand( void )
         dbgprintf(("DSP_DoCommand: cmd %X, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
 #if VMPU
-    case 0x38: /* write SB MIDI data */
+    case 0x38: /* write SB MIDI data ("normal" mode) */
         VMPU_SBMidi_RawWrite( vsb.dsp_in_data[0] );
         break;
+        /* todo: support "UART" mode cmds 0x34-0x37; also "read" modes 0x30-0x33?
+         * 0x34: polling mode; 0x35: interrupt mode; 0x36:polling with time stamping; 0x37: interrupt with time stamping;
+         * polling/interrupt is for reads only.
+         * to exit UART mode a reset is required.
+         */
 #endif
     case SB_DSP_ID: /* E0: supposed to return bitwise NOT of data byte */
         DSP_AddData( vsb.dsp_in_data[0] ^ 0xFF );

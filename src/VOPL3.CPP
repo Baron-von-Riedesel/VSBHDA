@@ -49,9 +49,9 @@
 struct VOpl3_s {
 DBOPL::Chip * Chip;
 uint32_t TimerCtrlReg[2]; //if start 1 and 2 seperately we will miss one, so use 2 cache
-uint32_t IndexReg[2];
-uint32_t ADLG_CtrlEnable;    //seems not working for Miles Sound, don't use it
 uint32_t ADLG_Volume[2];
+uint16_t IndexReg[2];
+uint8_t ADLG_CtrlEnable;    //seems not working for Miles Sound, don't use it
 #if NOSILENTGEN
 bool bWritten;
 #endif
@@ -63,7 +63,7 @@ void VOPL3_Init(int samplerate)
 ///////////////////////////////
 {
 	opl3.Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
-	opl3.ADLG_Volume[0] = 0x08;
+	opl3.ADLG_Volume[0] = 0x08;  /* todo: add ref to docs */
 	opl3.ADLG_Volume[1] = 0x08;
 	opl3.Chip->Setup(samplerate);
 #if NOSILENTGEN
@@ -88,6 +88,11 @@ int VOPL3_GetMode()
     return opl3.Chip->opl3Active;
 }
 
+/* generate samples; called during interrupt time;
+ * according to docs there's no FPU usage in Chip::Generate(),
+ * so it's likely that there's no need to save/restore fpu state.
+ */
+
 int VOPL3_GenSamples(int16_t* pcm16, int count)
 ///////////////////////////////////////////////
 {
@@ -99,10 +104,10 @@ int VOPL3_GenSamples(int16_t* pcm16, int count)
     return rc;
 }
 
-static uint32_t VOPL3_PrimaryRead(uint32_t val)
-///////////////////////////////////////////////
+static uint32_t VOPL3_PrimaryRead( )
+////////////////////////////////////
 {
-    val &= ~0xFF;
+    uint32_t val = 0;
     if ( ( opl3.TimerCtrlReg[0] & (VOPL3_TIMER1_MASK | VOPL3_TIMER1_START ) ) == VOPL3_TIMER1_START )
         val |= VOPL3_TIMER1_TIMEOUT;
     if ( ( opl3.TimerCtrlReg[1] & (VOPL3_TIMER2_MASK | VOPL3_TIMER2_START ) ) == VOPL3_TIMER2_START )
@@ -110,14 +115,14 @@ static uint32_t VOPL3_PrimaryRead(uint32_t val)
     return val;
 }
 
-static uint32_t VOPL3_PrimaryWriteIndex(uint32_t val)
-/////////////////////////////////////////////////////
+static void VOPL3_PrimaryWriteIndex(uint32_t val)
+/////////////////////////////////////////////////
 {
-    opl3.IndexReg[VOPL3_PRIMARY] = opl3.Chip->WriteAddr(0x388, val); /* returns val or 0 */
-    return val;
+    opl3.IndexReg[VOPL3_PRIMARY] = (uint16_t)opl3.Chip->WriteAddr(0x388, val); /* returns val or 0 */
+    return;
 }
 
-static uint32_t VOPL3_PrimaryWriteData(uint32_t val)
+static void VOPL3_PrimaryWriteData(uint32_t val)
 ////////////////////////////////////////////////////
 {
     if ( opl3.IndexReg[VOPL3_PRIMARY] == VOPL3_TIMER_REG_INDEX ) {
@@ -132,65 +137,72 @@ static uint32_t VOPL3_PrimaryWriteData(uint32_t val)
 #if NOSILENTGEN
 	opl3.bWritten = true;
 #endif
-    return val;
+    return;
 }
 
-static uint32_t VOPL3_SecondaryRead(uint32_t val)
-/////////////////////////////////////////////////
+static uint32_t VOPL3_SecondaryRead( )
+//////////////////////////////////////
 {
-    if( ( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX )) || ( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLR_REG_INDEX) ) )
-            return opl3.ADLG_Volume[opl3.IndexReg[VOPL3_SECONDARY] - VOPL3_ADLG_VOLL_REG_INDEX];
-    return VOPL3_PrimaryRead(val);
+    /* v1.7: fixed access to opl3.ADLG_Volume[] */
+    if( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) )
+        return opl3.ADLG_Volume[0];
+    else if( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLR_REG_INDEX ) )
+        return opl3.ADLG_Volume[1];
+
+    return VOPL3_PrimaryRead();
 }
 
-static uint32_t VOPL3_SecondaryWriteIndex(uint32_t val)
-///////////////////////////////////////////////////////
+static void VOPL3_SecondaryWriteIndex(uint32_t val)
+///////////////////////////////////////////////////
 {
     if(val == 0xFF)
         opl3.ADLG_CtrlEnable = 1;
     else if(val == 0xFE)
         opl3.ADLG_CtrlEnable = 0;
 
-    opl3.IndexReg[VOPL3_SECONDARY] = opl3.Chip->WriteAddr(0x38A, val);  /* returns val or 0 */
-    return val;
+    opl3.IndexReg[VOPL3_SECONDARY] = (uint16_t)opl3.Chip->WriteAddr(0x38A, val);  /* returns val, val + 0x100 or 0 */
+    return;
 }
 
-static uint32_t VOPL3_SecondaryWriteData(uint32_t val)
-//////////////////////////////////////////////////////
+static void VOPL3_SecondaryWriteData(uint32_t val)
+//////////////////////////////////////////////////
 {
-    //if(/*opl3.ADLG_CtrlEnable && */(opl3.IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLL_REG_INDEX || opl3.IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLR_REG_INDEX))
-    if( (opl3.IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) || ( opl3.IndexReg[VOPL3_SECONDARY] == 0x100 + VOPL3_ADLG_VOLR_REG_INDEX))
-        opl3.ADLG_Volume[opl3.IndexReg[VOPL3_SECONDARY] - VOPL3_ADLG_VOLL_REG_INDEX] = val;
+    /* v1.7: fixed access to opl3.ADLG_Volume[] */
+    if( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) )
+        opl3.ADLG_Volume[0] = val;
+    else if( opl3.IndexReg[VOPL3_SECONDARY] == (0x100 + VOPL3_ADLG_VOLR_REG_INDEX ) )
+        opl3.ADLG_Volume[1] = val;
+
     opl3.Chip->WriteReg(opl3.IndexReg[VOPL3_SECONDARY], val);
     dbgprintf(("VOPL3_SecondaryWriteData(%X)=%X\n", opl3.IndexReg[VOPL3_SECONDARY], val ));
 
 #if NOSILENTGEN
 	opl3.bWritten = true;
 #endif
-    return val;
+    return;
 }
 
 uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t out)
 /////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_PrimaryWriteIndex(val) : VOPL3_PrimaryRead(val);
+    return out ? VOPL3_PrimaryWriteIndex(val), val : VOPL3_PrimaryRead();
 }
 
 uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t out)
 /////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_PrimaryWriteData(val) : VOPL3_PrimaryRead(val);
+    return out ? VOPL3_PrimaryWriteData(val), val : VOPL3_PrimaryRead();
 }
 
 uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t out)
 /////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_SecondaryWriteIndex(val) : VOPL3_SecondaryRead(val);
+    return out ? VOPL3_SecondaryWriteIndex(val), val : VOPL3_SecondaryRead();
 }
 uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t out)
 /////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_SecondaryWriteData(val) : VOPL3_SecondaryRead(val);
+    return out ? VOPL3_SecondaryWriteData(val), val : VOPL3_SecondaryRead();
 }
 #if NOSILENTGEN
 bool VOPL3_IsActive( void )

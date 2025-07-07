@@ -24,8 +24,10 @@
 
 #if SOUNDFONT
 #include "VMPU.H"
-#include "../tsf/TSF.H"
-extern tsf* tsfrenderer;
+//#include "../tsf/TSF.H"
+//extern tsf* tsfrenderer;
+extern void* tsfrenderer;
+void tsf_render_short(void *, short *, int, int);
 #endif
 
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */

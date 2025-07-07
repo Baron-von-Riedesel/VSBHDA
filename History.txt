@@ -2,6 +2,7 @@
   v1.7, __._.____
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
   - added soundfont support from vsbhdasf.
+  - fixed: array bounds check in vopl3.cpp added (& 0xff).
 
   v1.6, 10.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port

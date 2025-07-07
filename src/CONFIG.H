@@ -17,6 +17,9 @@
 #define SLOWDOWN 1    /* 1=support /SD option */
 #define DISPSTAT 1    /* 1=display VSB status */
 #define SOUNDFONT 1   /* 1=support soundfonts if VMPU is on */
+#if SOUNDFONT
+#define VOICES_DEFAULT 64
+#endif
 
 #ifdef __cplusplus
 extern "C"
