@@ -8,7 +8,7 @@ extern "C"
 
 void VMPU_Init( int );
 void VMPU_Exit( void );
-uint32_t VMPU_MPU(uint32_t port, uint32_t val, uint32_t out);
+uint32_t VMPU_Acc(uint32_t port, uint32_t val, uint32_t out);
 void VMPU_SBMidi_RawWrite( uint8_t value );
 #if SOUNDFONT
 void VMPU_Process_Messages( void );

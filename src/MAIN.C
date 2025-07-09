@@ -504,17 +504,8 @@ int main(int argc, char* argv[])
         VDMA_Virtualize( gvars.hdma, true );
 #endif
 
-    if ( gvars.rm ) {
-        if ((gm.bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
-            printf("Error: Failed installing IO port trap for real-mode.\n");
-    }
-    if ( gvars.pm ) {
-        if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
-            printf("Error: Failed installing IO port trap for protected-mode.\n");
-#ifdef _DEBUG
-        //PTRAP_PrintPorts(); /* for debugging */
-#endif
-    }
+    /* v1.7: installing RM/PM port traps done here before v1.7 */
+
 #ifndef NOFM
     if( gvars.opl3 ) {
         VOPL3_Init( AU_getfreq( gm.hAU ) );
@@ -550,6 +541,16 @@ int main(int argc, char* argv[])
         free( p );
 
     gm.bISR = SNDISR_Init( gm.hAU, gvars.vol * 256/9 ); /* vol: translate 0-9 to 0-256 */
+
+    if ( gvars.rm ) {
+        if ((gm.bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
+            printf("Error: Failed installing IO port trap for real-mode.\n");
+    }
+    if ( gvars.pm ) {
+        if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
+            printf("Error: Failed installing IO port trap for protected-mode.\n");
+        //PTRAP_PrintPorts(); /* for debugging */
+    }
 
     if ( gm.bISR ) {
         VIRQ_Init( gvars.irq );

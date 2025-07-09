@@ -412,6 +412,10 @@ void Operator::UpdateRates( const Chip* chip )
 	return ret;
 }
 
+/* vsbhda: removed the "template<..>" because OW has problems with such
+ * function addresses in tables (VolumeHandlerTable[])
+ */
+
 //template< Operator::State yes>
 Bits Operator::TemplateVolume( )
 ////////////////////////////////
@@ -467,11 +471,11 @@ Bits Operator::TemplateVolume( )
 }
 
 static const VolumeHandler VolumeHandlerTable[5] = {
-	&Operator::TemplateVolume,
-	&Operator::TemplateVolume,
-	&Operator::TemplateVolume,
-	&Operator::TemplateVolume,
-	&Operator::TemplateVolume
+	&Operator::TemplateVolume, /* OFF */
+	&Operator::TemplateVolume, /* RELEASE */
+	&Operator::TemplateVolume, /* SUSTAIN */
+	&Operator::TemplateVolume, /* DECAY */
+	&Operator::TemplateVolume  /* ATTACK */
 };
 
 /*INLINE*/ Bitu Operator::ForwardVolume()

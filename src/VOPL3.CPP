@@ -49,9 +49,9 @@
 struct VOpl3_s {
 DBOPL::Chip * Chip;
 uint32_t TimerCtrlReg[2]; //if start 1 and 2 seperately we will miss one, so use 2 cache
-uint32_t ADLG_Volume[2];
+uint32_t ADLG_Volume[2];  /* AdLib Gold reg 9/10; todo: add ref to docs */
 uint16_t IndexReg[2];
-uint8_t ADLG_CtrlEnable;    //seems not working for Miles Sound, don't use it
+uint8_t ADLG_CtrlEnable;  //seems not working for Miles Sound, don't use it
 #if NOSILENTGEN
 bool bWritten;
 #endif
@@ -63,7 +63,7 @@ void VOPL3_Init(int samplerate)
 ///////////////////////////////
 {
 	opl3.Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
-	opl3.ADLG_Volume[0] = 0x08;  /* todo: add ref to docs */
+	opl3.ADLG_Volume[0] = 0x08;
 	opl3.ADLG_Volume[1] = 0x08;
 	opl3.Chip->Setup(samplerate);
 #if NOSILENTGEN

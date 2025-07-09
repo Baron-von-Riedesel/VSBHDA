@@ -129,7 +129,7 @@ static PORT_TRAP_HANDLER PortHandler[] = {
 	VSB_DSP_Read, VSB_DSP_Write,                /* 0x22A, 0x22C */
 	VSB_DSP_ReadStatus, VSB_DSP_ReadINT16BitACK, /* 0x22e, 0x22f */
 #if VMPU
-	VMPU_MPU, VMPU_MPU,
+	VMPU_Acc, VMPU_Acc,
 #endif
 };
 

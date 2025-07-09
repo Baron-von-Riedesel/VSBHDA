@@ -11,7 +11,7 @@
 
 #if SOUNDFONT
 
-void* tsfimpl_malloc(size_t size)
+static void* tsfimpl_malloc(size_t size)
 {
     __dpmi_meminfo info;
 
@@ -28,7 +28,7 @@ void* tsfimpl_malloc(size_t size)
     return NearPtr((unsigned int)(((uint8_t*)info.address) + sizeof(size_t) ));
 }
 
-void tsfimpl_free(void* ptr)
+static void tsfimpl_free(void* ptr)
 {
     size_t handle;
     if (ptr == NULL)
@@ -38,7 +38,7 @@ void tsfimpl_free(void* ptr)
     //dbgprintf(("tsfimpl_free(%X)\n", handle ));
 }
 
-void* tsfimpl_realloc(void *ptr, size_t size)
+static void* tsfimpl_realloc(void *ptr, size_t size)
 {
     __dpmi_meminfo info;
     if (ptr == 0)

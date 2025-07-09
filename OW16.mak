@@ -51,9 +51,11 @@ OBJFILES2 = &
 	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj   
 
-C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
+# v1.7: changed "-oxa" to "-oxas"; reduces code size of vsbhda16.exe below 64kb!
+
+C_OPT_FLAGS=-q -oxas -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
-CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
+CPP_OPT_FLAGS=-q -oxas -ms -bc -5s -fp5 -fpi87 
 C_EXTRA_FLAGS=-DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
@@ -95,10 +97,10 @@ op q,statics,m=$*.map
 disable 80
 <<
 
-$(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj
+$(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj $(OUTD)\auexp16.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\dstrt16x name $@
+file $(OUTD)\dstrt16x,$(OUTD)\auexp16.obj name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $*.lib
 op q,statics,m=$*.map
@@ -125,6 +127,7 @@ $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
 $(OUTD)/timer.obj:     mpxplay\timer.c
 
 $(OUTD)/auhlp16.obj:   src\auhlp16.asm
+$(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm
