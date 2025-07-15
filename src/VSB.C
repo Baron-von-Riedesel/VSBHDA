@@ -14,6 +14,8 @@
 #include "VMPU.H"
 #endif
 
+#define FASTIRQ 1 /* to work this requires TRIGGERIRQ==1 in stackio.asm! */
+
 #if REINITOPL
 extern void MAIN_ReinitOPL( void );
 #endif
@@ -143,6 +145,7 @@ struct VSB_Status {
 #if LATERATE
     uint8_t bTimeConst;
 #endif
+    uint8_t bTriggerIrq;
     uint8_t MixerRegs[256];
 
     uint8_t DirectBuffer[VSB_DIRECTBUFFER_SIZE];
@@ -409,14 +412,12 @@ static void DSP_Write( uint8_t value )
 #endif
             vsb.dsp_cmd_len = DSP_cmd_len_sb[value];
         vsb.dsp_in_pos = 0;
-        if (!vsb.dsp_cmd_len)
-            DSP_DoCommand();
     } else {
         vsb.dsp_in_data[vsb.dsp_in_pos] = value;
         vsb.dsp_in_pos++;
-        if ( vsb.dsp_in_pos >= vsb.dsp_cmd_len )
-            DSP_DoCommand();
     }
+    if ( vsb.dsp_in_pos >= vsb.dsp_cmd_len )
+        DSP_DoCommand();
 }
 
 static void DSP_DoCommand( void )
@@ -455,18 +456,27 @@ static void DSP_DoCommand( void )
         //  vsb.Started = false;
         //}
         break;
-    case SB_DSP_8BIT_OUT_1: /* 14 */
+    case SB_DSP_8BIT_OUT_1: /* 14 - single cycle 8-bit DMA transfer */
     case 0x15: /* 15 */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* actually it's length (=samples-1) */
+#if FASTIRQ
+        /* IRQ detection routines may have a very short wait loop, too short
+         * for the sound hardware interrupt to occur.
+         */
+        if ( vsb.Samples < 2 ) {
+            vsb.bTriggerIrq = 1;
+        }
+#endif
+        vsb.Auto = false; /* v1.7: added */
         vsb.Bits = 8;
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true;
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand: cmd %X, length=%u started=%u\n", vsb.dsp_cmd, vsb.Samples, vsb.Started ));
+        dbgprintf(("DSP_DoCommand: cmd %X, length=%u started=1\n", vsb.dsp_cmd, vsb.Samples ));
         break;
-    case SB_DSP_8BIT_OUT_1_HS: /* 91 */
+    case SB_DSP_8BIT_OUT_1_HS: /* 91 - no DMA block size for this cmd */
     case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 */
     case SB_DSP_8BIT_OUT_AUTO: /* 1C */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
@@ -477,7 +487,7 @@ static void DSP_DoCommand( void )
         vsb.Silent = false;
         vsb.Started = true; //start transfer
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
+        dbgprintf(("DSP_DoCommand: cmd %X, started=1\n", vsb.dsp_cmd ));
         break;
     case SB_DSP_2BIT_OUT_AUTO: /* 1F; AUTO: bit 3=1 */
     case SB_DSP_3BIT_OUT_AUTO: /* 7F */
@@ -491,7 +501,7 @@ static void DSP_DoCommand( void )
         vsb.Silent = false;
         vsb.Started = true; //start transfer here
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand: cmd %X, started=%u\n", vsb.dsp_cmd, vsb.Started ));
+        dbgprintf(("DSP_DoCommand: cmd %X, ADPCM, bits=%u, started=1\n", vsb.dsp_cmd, vsb.Bits ));
         break;
     case 0xb0:  case 0xb1:  case 0xb2:  case 0xb3:  case 0xb4:  case 0xb5:  case 0xb6:  case 0xb7:
     case 0xb8:  case 0xb9:  case 0xba:  case 0xbb:  case 0xbc:  case 0xbd:  case 0xbe:  case 0xbf:
@@ -538,8 +548,9 @@ static void DSP_DoCommand( void )
         vsb.DirectIdx %= VSB_DIRECTBUFFER_SIZE;
         dbgprintf(("DSP_DoCommand: 8Bit Direct, data=%X\n", vsb.dsp_in_data[0] ));
         break;
-    case SB_DSP_SET_SIZE: /* 48 - set DMA block size - used for auto cmds */
+    case SB_DSP_SET_SIZE: /* 48 - set DMA block size - used for autoinit cmds */
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
+        dbgprintf(("DSP_DoCommand: set DMA size for autoinit modes, size=%X\n", vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ) ));
         break;
     case SB_DSP_2BIT_OUT_1_NREF: /* 16 */
     case SB_DSP_2BIT_OUT_1:      /* 17 */
@@ -606,11 +617,11 @@ static void DSP_DoCommand( void )
         DSP_AddData( vsb.DSPVER & 0xFF );
         dbgprintf(("DSP_DoCommand: cmd %X, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
-    case SB_DSP_DMA_ID: /* E2 */
+    case SB_DSP_DMA_ID: /* E2 - undocumented */
         vsb.DMAID_A += vsb.dsp_in_data[0] ^ vsb.DMAID_X;
         vsb.DMAID_X = (vsb.DMAID_X >> 2u) | (vsb.DMAID_X << 6u);
-        dbgprintf(("DSP_DoCommand: cmd %X\n", vsb.dsp_cmd ));
-        VDMA_WriteData( vsb.Dma8, vsb.DMAID_A ); /* write to low dma channel */
+        dbgprintf(("DSP_DoCommand: cmd %X, data=%X\n", vsb.dsp_cmd, vsb.DMAID_A ));
+        VDMA_WriteData( vsb.Dma8, vsb.DMAID_A, 0 ); /* write to low dma channel */
         break;
     case SB_DSP_COPYRIGHT: /* E3 */
         strcpy( vsb.DataBuffer, SB_Copyright );
@@ -619,15 +630,18 @@ static void DSP_DoCommand( void )
         break;
     case SB_DSP_WRITE_TESTREG: /* E4 */
         vsb.TestReg = vsb.dsp_in_data[0];
+        dbgprintf(("DSP_DoCommand: cmd %X (write testreg), data=%X\n", vsb.dsp_cmd, vsb.TestReg ));
         break;
     case SB_DSP_READ_TESTREG: /* E8 */
         DSP_AddData( vsb.TestReg );
-        dbgprintf(("DSP_DoCommand: cmd %X, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
+        dbgprintf(("DSP_DoCommand: cmd %X (read testreg), databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
     case SB_DSP_TRIGGER_IRQ: /* F2 */
+        vsb.bTriggerIrq = 1;
         VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT8BIT );
         break;
     case SB_DSP_TRIGGER_IRQ16: /* F3 */
+        vsb.bTriggerIrq = 1;
         VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT16BIT );
         break;
     case SB_DSP_STATUS: /* FB */
@@ -865,6 +879,15 @@ void VSB_SetIRQStatus( uint8_t flag )
  * Just the SB status flags are checked.
  */
 
+int VSB_GetIRQTrigger( void )
+////////////////////////////
+{
+    if ( vsb.bTriggerIrq ) {
+        vsb.bTriggerIrq = 0;
+        return 1;
+    }
+    return 0;
+}
 int VSB_GetIRQStatus( void )
 ////////////////////////////
 {

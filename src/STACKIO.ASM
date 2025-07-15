@@ -16,11 +16,13 @@ COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that inst
 
 ;--- if TRIGGERIRQ is 0, the interrupt is supposed to be triggered inside the snd hw ISR;
 ;--- that means it's delayed up to several ms - may be too long for some apps.
-;--- which causes a problem for Win31 sndblst2.drv in its initial detection routine.
+;--- It causes a problem for Win31 sndblst2.drv in its initial detection routine.
 ;--- However, setting it to 1 may also cause problems, since the irq may then be
 ;--- triggered multiple times if irq ackknowledge isn't done inside the ISR.
 
-TRIGGERIRQ equ 0	; 1=run virtual SB IRQ triggered by port access
+;--- v1.7: this switch has been activated to improve SB detection
+
+TRIGGERIRQ equ 1	; 1=run virtual SB IRQ triggered by port access
 
 ;--- todo: detailed description for what apps this setting is needed.
 
@@ -61,7 +63,7 @@ externdef dwDS:dword	; it's in _TEXT
 	.data
 
 if TRIGGERIRQ
-VSB_GetIRQStatus proto c
+VSB_GetIRQTrigger proto c
 VIRQ_Invoke proto c
 endif
 
@@ -157,10 +159,10 @@ isstring:
 	mov [ebp].IOEXCFR._ecx, 0
 done:
 if TRIGGERIRQ
-	call VSB_GetIRQStatus
-	and eax, eax
-	jz @F
 	test byte ptr [ebp].IOEXCFR._fl+1, 2		; interrupts enabled?
+	jz @F
+	call VSB_GetIRQTrigger
+	and eax, eax
 	jz @F
 	sub [__djgpp_stack_top], STACKCORR
 	mov ss, PRFXDS[dwDS]
@@ -221,6 +223,12 @@ endif
 
 	sub [__djgpp_stack_top], STACKCORR
 	mov ebx, ss
+if TRIGGERIRQ
+;--- v1.7: if the SB emulation IRQ is called, the (saved) stack is supposed to hold client ES/DS;
+;---       that's not the case here, so two NULLs have to be stored.
+	push 0
+	push 0
+endif
 	mov ebp, esp
 	mov eax, ds
 	mov ss, eax
@@ -249,9 +257,12 @@ endif
 ;--- calling VIRQ_Invoke from inside real-mode callback is critical
 ;--- we could restore the client stack, but client's protected-mode ds/es is unknown
 if TRIGGERIRQ
-	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
+;--- v1.7: the callback has been called from inside a port trapping function;
+;---       the IF is *always* cleared there; the original IF is stored in CH, bit 1!
+;	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
+	test byte ptr es:[edi].RMCS.rECX+1, 2	; interrupts enabled?
 	jz @F
-	call VSB_GetIRQStatus
+	call VSB_GetIRQTrigger
 	and eax, eax
 	jz @F
 	call VIRQ_Invoke
@@ -263,7 +274,11 @@ ife COPYRMCS
 	pop es
 endif
 	mov ss, ebx
+if TRIGGERIRQ
+	lea esp,[ebp+2*4]
+else
 	mov esp, ebp
+endif
 	insIRET
 	align 4
 

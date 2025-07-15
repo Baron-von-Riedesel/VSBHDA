@@ -61,7 +61,8 @@ struct SNDISR_s {
 #ifdef _DEBUG
     int max_samples;
     int total_samples;
-    int cnt;
+    int cntTotal;
+    int cntDigital;
 #endif
 };
 
@@ -300,7 +301,7 @@ static int SNDISR_Interrupt( void )
     if (samples > isr.max_samples)
         isr.max_samples = samples;
     isr.total_samples += samples;
-    isr.cnt++;
+    isr.cntTotal++;
     //dbgprintf(("isr: samples:%u ",samples));
 #endif
     if(samples == 0) { /* no free space in DMA buffer? */
@@ -322,8 +323,9 @@ static int SNDISR_Interrupt( void )
         int bytes;
 #ifdef _DEBUG
         int loop = 0;
+        isr.cntDigital++;
 #endif
-        /* a while loop that may run 2 times if a SB buffer overrun occured */
+        /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         while (1) {
             uint32_t DMA_Base = VDMA_GetBase(dmachannel);
             uint32_t DMA_Index = VDMA_GetIndex(dmachannel);
@@ -571,7 +573,7 @@ bool SNDISR_Exit( void )
     printf("SNDISR_Exit: max PCM buffer usage=%u\n", isr.dwMaxBytes );
 #endif
 #ifdef _DEBUG
-    printf("SNDISR_Exit: max/avg samples=%u/%u\n", isr.max_samples, isr.total_samples / isr.cnt );
+    printf("SNDISR_Exit: cnt total/voice=%u/%u max/avg samples=%u/%u\n", isr.cntTotal, isr.cntDigital, isr.max_samples, isr.cntTotal ? isr.total_samples / isr.cntTotal : 0 );
 #endif
     return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }

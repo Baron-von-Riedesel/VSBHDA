@@ -144,8 +144,8 @@
 
    4.3 Extended Memory
 
-    Some DOS games refuse to run if too much extended memory is available. There
-   are some simple software workarounds for such issues:
+   a) Some DOS games refuse to run if too much extended memory is available.
+      There are some simple software workarounds for such issues:
 
    - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
      Optionally, this can be further reduced by appending a digit to -x: -x2
@@ -159,6 +159,12 @@
    - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount of
      extended memory.
 
+   b) There exist (real-mode) games that allocate an XMS memory block to be
+      used as sound buffer. Since the SoundBlaster hardware uses ISA DMA, such
+      blocks must reside in the first 16 MB of physical memory. The XMSRes tool
+      has two options ( /L and /H ) that may help to ensure that the game will
+      get an extended memory block with an appropriate address.
+
 
    4.4 Jemm's NOVCPI Option
 
@@ -169,6 +175,28 @@
    own low-level code. This will actually deactivate VSBHDA for the game. To
    cover such cases, Jemm386/JemmEx offers the NOVCPI option. This option must
    be set *after* VSBHDA has been loaded and *before* the game is launched.
+
+
+   4.5 Windows 3.1
+
+    Windows 3.1 runs as a 16-bit DPMI client and is compatible with HDPMI in
+   so-called Standard mode. A few things have to be considered, though:
+
+    - The Windows Standard Mode task switcher duo WSWAP.EXE & DSWAP.EXE isn't
+      compatible with JHDPMI.DLL - START16L.BAT must be used to run VSBHDA.
+
+    - The Windows PL0 component DOSX.EXE will ignore any active DPMI host,
+      including HDPMI16i.exe. It must be replaced by the DOSX.EXE binary
+      supplied with the HX runtime package HXRT.
+
+    - If sound fonts are to be used, a lot of extended memory may be needed.
+      If there's less than 128 MB free memory *after* VSBHDA has been loaded,
+      it may be necessary to set environment variable HDPMI=64. For details
+      see DOSX.TXT in HXRT.
+
+    - if the MS drivers are to be used (msadlib.drv & sndblst2.drv), section
+      [sndblst.drv] in system.ini must have setting VerifyInt=0 if cpu is
+      "fast".
 
 
    5. Error Messages
@@ -220,14 +248,6 @@
     - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option.
     - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
       HDPMI32i.
-    - Windows 3.1: 
-      a) the Windows Standard Mode task switcher duo WSWAP.EXE & DSWAP.EXE
-       isn't compatible with JHDPMI.DLL - START16L.BAT must be used to run
-       VSBHDA.
-      b) The Windows PL0 component DOSX.EXE will ignore any active DPMI host,
-       including HDPMI16i.exe. It must be replaced by the DOSX.EXE binary
-       supplied with the HX runtime package HXRT.
-      c) if the MS drivers are to be used (msadlib.drv & sndblst2.drv), section
-       [sndblst.drv] in system.ini must have setting VerifyInt=0 if cpu is
-       "fast".
+    - "Sword and Fairy 1" (Chinese Paladin): allocates an XMS sound buffer;
+      run "XMSRES /L 31" after VSBHDA has been started.
 

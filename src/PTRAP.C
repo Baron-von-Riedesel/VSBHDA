@@ -151,6 +151,8 @@ static void RM_TrapHandler( __dpmi_regs * regs)
     /* regs.x.cl:
      * bit[2]: 1=out, 0=in;
      * bits 3,4 word/dword access, not used here
+     * regs.x.ch:
+     * bit[1]: IF
      */
     for ( i = 0; i < maxports; i++ ) {
         if( PortTable[i] == port ) {

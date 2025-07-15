@@ -17,7 +17,7 @@ int32_t VDMA_GetCount(int channel);
 uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count);
 int VDMA_GetAuto(int channel);
 int VDMA_GetWriteMode(int channel);
-void VDMA_WriteData(int channel, unsigned char data );
+void VDMA_WriteData(int channel, unsigned char data, unsigned char iscb );
 //void VDMA_SetComplete(int channel, unsigned char value );
 
 #ifdef __cplusplus

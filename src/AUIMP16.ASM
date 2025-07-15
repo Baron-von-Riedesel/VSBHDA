@@ -1,5 +1,5 @@
 
-;--- for 16-bit variant: helper to call functions in sndcard.drv binary.
+;--- for 16-bit variant: import & call functions in sndcard.drv binary.
 ;--- the calls trigger a full stack switch, so that the called
 ;--- functions can assume small model setup SS=DS.
 
@@ -29,7 +29,7 @@ wSS		dw ?
 dwHeap  dd ?
 LDPARMS ends
 
-SCDEXP struct
+AUEXP struct
 AU_init     dd ?
 ;AU_prestart dd ?
 AU_start    dd ?
@@ -47,14 +47,13 @@ AU_setmixer_outs dd ?
 AU_setmixer_all  dd ?
 AU_writedata     dd ?
 AU_cardbuf_space dd ?
-DllStart dd ?
-SCDEXP ends
+AUEXP ends
 
 	.data?
 
 dwDrvBase dd ?
 scd LDPARMS <>
-vec SCDEXP <>
+vec AUEXP <>
 
 	.const
 
@@ -70,7 +69,7 @@ szDrv db "sndcard.drv",0
 	call callexp
 endm
 
-;--- call function contained in SCDEXP.
+;--- call function contained in AUEXP.
 ;--- switch stack, copy arguments, call function, switch stack back
 ;--- eax=function to call
 ;--- ecx=# of arguments to copy
@@ -135,20 +134,20 @@ AU_init proc c public uses ebx esi edi pGlobalVars:ptr
 ;---  void *DllStart( word psp_sel, uint32_t heapsize, uint32_t rmstack );
 
 	@dprintf CStr("AUhlp16: calling sndcard.drv's entry",10)
-	movzx eax, [scd.wIP]
-	mov vec.DllStart, eax
 	push _linear_rmstack
 	push scd.dwHeap
 	push [psp]
 	push 0
 	push ebp
 	movzx ebp, sp
-	@callexp DllStart, 3
+	movzx eax, scd.wIP
+	mov ecx, 3
+	call callexp
 	pop ebp
 	add esp, 4*4
 	.if eax
 ;--- copy the exported functions array to vec
-		mov ecx, (sizeof SCDEXP - 4 ) / 4
+		mov ecx, ( sizeof AUEXP ) / 4
 		mov edi, offset vec
 		add eax, dwDrvBase	;now a linear address
 		sub eax, DSBase		;now a near pointer

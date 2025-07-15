@@ -29,9 +29,7 @@ externdef _AU_writedata     :near32
 externdef _AU_cardbuf_space :near32
 _TEXT ends
 
-CONST segment
-
-SCDEXP struct
+AUEXP struct
 AU_init     dd offset _AU_init
 ;AU_prestart dd offset _AU_prestart
 AU_start    dd offset _AU_start
@@ -49,11 +47,13 @@ AU_setmixer_outs dd offset _AU_setmixer_outs
 AU_setmixer_all  dd offset _AU_setmixer_all
 AU_writedata     dd offset _AU_writedata
 AU_cardbuf_space dd offset _AU_cardbuf_space
-SCDEXP ends
+AUEXP ends
+
+CONST segment
 
 	public ExpTable
 
-ExpTable SCDEXP <>
+ExpTable AUEXP <>
 
 CONST ends
 

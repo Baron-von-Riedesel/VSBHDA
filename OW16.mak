@@ -41,7 +41,7 @@ OBJFILES = &
 !endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/auhlp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
+	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
 	$(OUTD)/fileacc.obj
 
 OBJFILES2 = &
@@ -51,11 +51,9 @@ OBJFILES2 = &
 	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj   
 
-# v1.7: changed "-oxa" to "-oxas"; reduces code size of vsbhda16.exe below 64kb!
-
-C_OPT_FLAGS=-q -oxas -ms -ecc -5s -fp5 -fpi87 -wcd=111
+C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
-CPP_OPT_FLAGS=-q -oxas -ms -bc -5s -fp5 -fpi87 
+CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
 C_EXTRA_FLAGS=-DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
@@ -68,10 +66,10 @@ LIBS=
 	@$(ASM) -q -DNOTFLAT -Istartup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {src}.cpp{$(OUTD)}.obj
-	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {mpxplay}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
@@ -126,7 +124,7 @@ $(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
 $(OUTD)/timer.obj:     mpxplay\timer.c
 
-$(OUTD)/auhlp16.obj:   src\auhlp16.asm
+$(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
@@ -180,4 +178,4 @@ clean: .SYMBOLIC
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst
-	@del $(OUTD)\rmcode.bin
+	@del $(OUTD)\rmcode?.bin

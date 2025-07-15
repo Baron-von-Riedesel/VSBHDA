@@ -29,6 +29,8 @@ struct VDMA_Status {
 	uint16_t MaxCnt[8];      // initial count
 	uint8_t  Virtualized;    // bool: 1=channel virtualized
 	uint8_t  Complete;       // bool: set by VDMA_SetComplete() - will set DMA_REG_STATUS[0-3]
+	uint8_t  e2value;        // byte value written by SB DSP cmd E2 (stored if channel is masked)
+	uint8_t  e2channel;      // byte value written by SB DSP cmd E2 (stored if channel is masked)
 	uint8_t  InIO[8];        // bool: 1=in the middle of reading count/addr
 	uint8_t  DelayUpdate[8]; // bool
 };
@@ -64,9 +66,12 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
         else if( index == DMA_REG_MODE ) {
             int channel = byte & 0x3; //0~3
             vdma.Modes[channelbase + channel] = byte & ~0x3;
-        } else
+        } else {
             vdma.Regs[base + index] = byte; /* just store the value, it isn't used */
-
+            if ( vdma.e2channel != 0xff && ( index == DMA_REG_MASK_RESET || ( index == DMA_REG_SINGLEMASK &&
+                                                                     (byte & 7) == vdma.e2channel ) ) )
+                VDMA_WriteData(vdma.e2channel,0,1);
+        }
     } else if(( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) || /* ports 00-07? */
             ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER )) { /* or ports C0-CE? */
         int channel = ( port >> 1 );
@@ -187,6 +192,8 @@ void VDMA_Virtualize(int channel, int enable)
             vdma.Virtualized |= (1 << channel);
         else
             vdma.Virtualized &= ~(1 << channel);
+
+    vdma.e2channel = 0xff; /* reset SB DSP E2 callback mechanism */
 }
 
 uint32_t VDMA_GetBase(int channel)
@@ -270,21 +277,40 @@ int VDMA_GetAuto(int channel)
 {
     return vdma.Modes[channel] & DMA_REG_MODE_AUTO;
 }
+
+#if 0
 int VDMA_GetWriteMode(int channel)
 //////////////////////////////////
 {
     return ( (vdma.Modes[channel] & DMA_REG_MODE_OPERATION ) == DMA_REG_MODE_OP_WRITE );
 }
-
-/* called by DSP cmd 0xE2 */
-
-void VDMA_WriteData(int channel, uint8_t data)
-//////////////////////////////////////////////
+#else
+int VDMA_IsMasked(int channel)
+//////////////////////////////
 {
-    if(VDMA_GetWriteMode(channel)) {
-        uint32_t index = VDMA_GetIndex(channel);
-        uint32_t addr = VDMA_GetBase(channel) + index;
+    if ( channel < 4 )
+        return UntrappedIO_IN(DMA_REG_MULTIMASK) & (1 << channel);
+    else
+        return 1;
+}
+#endif
 
+/* called by (weird and undocumented) DSP cmd 0xE2 */
+
+void VDMA_WriteData(int channel, uint8_t data, uint8_t iscb)
+////////////////////////////////////////////////////////////
+{
+    uint32_t index = VDMA_GetIndex(channel);
+    uint32_t addr = VDMA_GetBase(channel) + index;
+
+    //if(VDMA_GetWriteMode(channel)) {
+    if ( iscb ) {
+        data = vdma.e2value;
+        vdma.e2channel = 0xff;
+    } else if(!VDMA_IsMasked(channel))
+        iscb = 1;
+
+    if ( iscb ) {
         if( addr > 1024*1024 ) {
             __dpmi_meminfo info;
             info.address = addr;
@@ -296,6 +322,9 @@ void VDMA_WriteData(int channel, uint8_t data)
             *(uint8_t *)(NearPtr(addr)) = data;
 
         VDMA_SetIndexCount(channel, index+1, VDMA_GetCount(channel) - 1);
+    } else {
+        vdma.e2value = data;
+        vdma.e2channel = channel;
     }
 }
 
