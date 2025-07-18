@@ -767,12 +767,17 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	dbgprintf(("azx_reset: GCTL=%X\n", chip->hdac->gctl ));
 
-	/* wake up the HDA controller if it is in "reset" state */
+    /* v1.7: do a reset if no codec bits in STATESTS are set */
+    if ( !(chip->hdac->statests & 0xf) ) {
+		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
+		for (timeout = 100;timeout && (chip->hdac->gctl & HDA_GCTL_RESET);timeout--)
+			pds_delay_10us(100);
+    }
+    /* wake up the HDA controller if it is in "reset" state */
 	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
 		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
 
-		timeout = 500;
-		while((!chip->hdac->gctl & HDA_GCTL_RESET) && (--timeout))
+		for (timeout = 500;timeout && (!chip->hdac->gctl & HDA_GCTL_RESET);timeout--)
 			pds_delay_10us(100);
 		if( !timeout ) {
 			dbgprintf(("HDA controller not ready!\n"));
@@ -834,7 +839,7 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	azx_reset(card);
 
 	/* reset int errors by writing '1's in SD_STS */
-    card->sd->bSts = SD_INT_MASK;
+	card->sd->bSts = SD_INT_MASK;
 
 	/* should not be written - writing '1' clears bits.
      * and STATESTS_INT_MASK is 0x7?

@@ -216,15 +216,22 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 
 /* convert 8 to 16 bits. It's assumed that 8 bit is unsigned, 16-bit is signed */
 
-static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum )
-/////////////////////////////////////////////////////////////////////////
+static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum, uint8_t issigned )
+///////////////////////////////////////////////////////////////////////////////////////////
 {
-	PCM_CV_TYPE_UC *src = (PCM_CV_TYPE_UC *)pcm + samplenum - 1;
+	PCM_CV_TYPE_UC *srcu;
+	PCM_CV_TYPE_SC *srcs;
 	PCM_CV_TYPE_S *dst = pcm + samplenum - 1;
 
-	for ( ; samplenum; samplenum-- ) {
-		*dst-- = (PCM_CV_TYPE_S)((*src-- ^ 0x80) << 8);
-	}
+    if ( issigned ) {
+        srcs = (PCM_CV_TYPE_SC *)pcm + samplenum - 1;
+        for ( ; samplenum; samplenum-- )
+            *dst-- = (PCM_CV_TYPE_S)((*srcs--) << 8);
+    } else {
+        srcu = (PCM_CV_TYPE_UC *)pcm + samplenum - 1;
+        for ( ; samplenum; samplenum-- )
+            *dst-- = (PCM_CV_TYPE_S)((*srcu-- ^ 0x80) << 8);
+    }
 }
 
 /* convert mono to stereo. */
@@ -389,7 +396,7 @@ static int SNDISR_Interrupt( void )
                 count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
 #endif
             if( samplesize != 2 )
-                cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels ); /* converts unsigned 8-bit to signed 16-bit */
+                cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
             else if ( !VSB_IsSigned() )
                 for ( i = IdxSm * 2, j = i + count * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
@@ -414,7 +421,8 @@ static int SNDISR_Interrupt( void )
                 //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
                 if(!VSB_GetAuto())
                     VSB_Stop();
-                VSB_SetPos(0); /* */
+                else /* v1.7: don't reset position if autoinit is off */
+                    VSB_SetPos(0);
                 VIRQ_Invoke();
                 if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
             }
@@ -450,7 +458,7 @@ static int SNDISR_Interrupt( void )
 
         //dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
         memcpy( isr.pPCM, pDirect, count );
-        cv_bits_8_to_16( isr.pPCM, count );
+        cv_bits_8_to_16( isr.pPCM, count, 0 );
         count = cv_rate( isr.pPCM, count, 1, SB_Rate, freq );
         cv_channels_1_to_2( isr.pPCM, count );
         for( i = count; i < samples; i++ )

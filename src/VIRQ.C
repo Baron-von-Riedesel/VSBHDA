@@ -143,10 +143,10 @@ static uint8_t VPIC_Read(uint16_t port)
     return rc;
 }
 
-uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out)
-////////////////////////////////////////////////////////////
+uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t flags)
+//////////////////////////////////////////////////////////////
 {
-    return out ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
+    return (flags & TRAPF_OUT) ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
 }
 
 void VPIC_Init( uint8_t hwirq )
@@ -202,6 +202,22 @@ void VIRQ_Invoke( void )
     PIC_SetIRQMask( mask ); /* restore the PIC mask */
 #endif
     return;
+}
+
+int VIRQ_GetSndIrq( void ) { return vpic.bIrq; }
+
+/* VIRQ_WaitForSndIrq() is called only by "IO trapping" functions;
+ * interrupts are disabled - this is needed for PIC IRR reads.
+ */
+
+void VIRQ_WaitForSndIrq( void )
+///////////////////////////////
+{
+    uint16_t wPort = vpic.bIrq > 8 ? 0xA0 : 0x20;
+    if (VIRQ_Irq == -1) {
+        UntrappedIO_OUT( wPort, 0x0A ); /* get PIC IRR */
+        while ( !( UntrappedIO_IN( wPort ) & (1 << ( vpic.bIrq & 0x7 ) ) ) );
+    }
 }
 
 void VIRQ_Init( uint8_t virq )

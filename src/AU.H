@@ -10,6 +10,7 @@ extern "C" {
 #define MIXER_SETMODE_RELATIVE 0
 #define MIXER_SETMODE_ABSOLUTE 1
 
+typedef int8_t  PCM_CV_TYPE_SC;
 typedef uint8_t PCM_CV_TYPE_UC;
 typedef int16_t PCM_CV_TYPE_S;
 

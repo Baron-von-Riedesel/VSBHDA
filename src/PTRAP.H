@@ -11,6 +11,9 @@ typedef uint32_t (*PORT_TRAP_HANDLER)(uint32_t port, uint32_t val, uint32_t out)
 #define PDT_FLGS_RMINST 1
 #define PDT_FLGS_PMINST 2
 
+#define TRAPF_OUT 4
+#define TRAPF_IF  0x200
+
 //get QEMM version
 uint16_t PTRAP_GetQEMMVersion(void);
 

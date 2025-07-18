@@ -8,6 +8,8 @@
     to work.
   - qpiemu.dll: bit 1 of register CH now holds IF.
   - XMSRes.exe: option -H added.
+  - SB16: 8-bit signed PCM mode (C6h 10h) supported.
+  - HDA: reset controller if no codecs are attached.
 
   v1.6, 10.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port

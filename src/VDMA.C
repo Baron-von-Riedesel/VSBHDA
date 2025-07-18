@@ -48,7 +48,7 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
 {
 
     int index = port;
-    dbgprintf(("VDMA_Write(%x, %x )\n", port, byte));
+    //dbgprintf(("VDMA_Write(%x, %x )\n", port, byte));
     /* ports 08-0F or D0-DE? */
     if(( port >= DMA_REG_STATUS_CMD && port <= DMA_REG_MULTIMASK) ||
        ( port >= DMA_REG_STATUS_CMD16 && port <= DMA_REG_MULTIMASK16 ) ) {
@@ -68,6 +68,7 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
             vdma.Modes[channelbase + channel] = byte & ~0x3;
         } else {
             vdma.Regs[base + index] = byte; /* just store the value, it isn't used */
+            /* v1.7: if SB low DMA is unmasked, check if an DSP cmd E2 byte is waiting */
             if ( vdma.e2channel != 0xff && ( index == DMA_REG_MASK_RESET || ( index == DMA_REG_SINGLEMASK &&
                                                                      (byte & 7) == vdma.e2channel ) ) )
                 VDMA_WriteData(vdma.e2channel,0,1);
@@ -328,8 +329,8 @@ void VDMA_WriteData(int channel, uint8_t data, uint8_t iscb)
     }
 }
 
-uint32_t VDMA_Acc(uint32_t port, uint32_t val, uint32_t out)
-////////////////////////////////////////////////////////////
+uint32_t VDMA_Acc(uint32_t port, uint32_t val, uint32_t flags)
+//////////////////////////////////////////////////////////////
 {
-    return out ? (VDMA_Write(port, val), val) : (val &= ~0xFF, val |= VDMA_Read(port));
+    return (flags & TRAPF_OUT) ? (VDMA_Write(port, val), val) : (val &= ~0xFF, val |= VDMA_Read(port));
 }

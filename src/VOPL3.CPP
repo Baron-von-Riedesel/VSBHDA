@@ -1,8 +1,10 @@
 
+#include <stdint.h>
 #include <stdbool.h>
 
 #include "CONFIG.H"
 #include "PLATFORM.H"
+#include "PTRAP.H"
 #include "DBOPL.H"
 #include "VOPL3.H"
 
@@ -182,27 +184,27 @@ static void VOPL3_SecondaryWriteData(uint32_t val)
     return;
 }
 
-uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t out)
-/////////////////////////////////////////////////////////////
+uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t flags)
+///////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_PrimaryWriteIndex(val), val : VOPL3_PrimaryRead();
+    return (flags & TRAPF_OUT) ? VOPL3_PrimaryWriteIndex(val), val : VOPL3_PrimaryRead();
 }
 
-uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t out)
-/////////////////////////////////////////////////////////////
+uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t flags)
+///////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_PrimaryWriteData(val), val : VOPL3_PrimaryRead();
+    return (flags & TRAPF_OUT) ? VOPL3_PrimaryWriteData(val), val : VOPL3_PrimaryRead();
 }
 
-uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t out)
-/////////////////////////////////////////////////////////////
+uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t flags)
+///////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_SecondaryWriteIndex(val), val : VOPL3_SecondaryRead();
+    return (flags & TRAPF_OUT) ? VOPL3_SecondaryWriteIndex(val), val : VOPL3_SecondaryRead();
 }
-uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t out)
-/////////////////////////////////////////////////////////////
+uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t flags)
+///////////////////////////////////////////////////////////////
 {
-    return out ? VOPL3_SecondaryWriteData(val), val : VOPL3_SecondaryRead();
+    return (flags & TRAPF_OUT) ? VOPL3_SecondaryWriteData(val), val : VOPL3_SecondaryRead();
 }
 #if NOSILENTGEN
 bool VOPL3_IsActive( void )

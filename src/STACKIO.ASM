@@ -13,16 +13,9 @@
 ;--- COPYRMCS must be 1 to make vsbhda fully reentrant.
 
 COPYRMCS   equ 1	; 1=copy RMCS of rmcb to protected-mode stack and use that instance
+TRAPF_OUT  equ 4
 
-;--- if TRIGGERIRQ is 0, the interrupt is supposed to be triggered inside the snd hw ISR;
-;--- that means it's delayed up to several ms - may be too long for some apps.
-;--- It causes a problem for Win31 sndblst2.drv in its initial detection routine.
-;--- However, setting it to 1 may also cause problems, since the irq may then be
-;--- triggered multiple times if irq ackknowledge isn't done inside the ISR.
-
-;--- v1.7: this switch has been activated to improve SB detection
-
-TRIGGERIRQ equ 1	; 1=run virtual SB IRQ triggered by port access
+IRQCOMPAT  equ 0	; 1=generate a compatible stack frame so VIRQ_Invoke can be called
 
 ;--- todo: detailed description for what apps this setting is needed.
 
@@ -62,11 +55,6 @@ externdef dwDS:dword	; it's in _TEXT
 
 	.data
 
-if TRIGGERIRQ
-VSB_GetIRQTrigger proto c
-VIRQ_Invoke proto c
-endif
-
 ;	comm c __djgpp_stack_top:dword
 externdef c __djgpp_stack_top:dword
 
@@ -77,11 +65,11 @@ SwitchStackIOIn proc public
 	jmp SwitchStackIO
 SwitchStackIOIn endp
 SwitchStackIOOut proc public
-	push 1
+	push TRAPF_OUT
 SwitchStackIOOut endp
 
 ;--- switch stack, then call protected-mode port trap handler;
-;--- handler expects port in dx, flags in cx and value in ax
+;--- PTRAP_PM_TrapHandler(port, flags, value)
 
 SwitchStackIO proc
 
@@ -101,7 +89,7 @@ else
 	mov ecx, [ebp].IOEXCFR._errcode
 endif
 	and cl, 0f8h
-	or cl, byte ptr [ebp].IOEXCFR.dwMode
+	or cl, byte ptr [ebp].IOEXCFR.dwMode   ;flags bit 2: 1=out, 0=in
 	test cl, 8h	; string?
 	jnz @F
 	test cl, 40h; port in DX?
@@ -113,11 +101,11 @@ endif
 
 ifdef NOTFLAT
  if IRETFIX16
-	cmp dx, 20h
+	cmp dx, 20h ; port 20h?
 	jnz @F
 	cmp al, 20h	; just the unspecific EOI is detected!?
 	jnz @F
-	test cl, 1	; so it's an EOI sent to master PIC
+	test cl, TRAPF_OUT	; out instr? so it's an EOI sent to master PIC
 	jz @F
 	or byte ptr [ebp].IOEXCFR._fl+1, 2	; set IF=1
 @@:
@@ -125,6 +113,8 @@ ifdef NOTFLAT
 endif
 
 	assume ds:ASSUMEDS
+
+	mov ch, byte ptr [ebp].IOEXCFR._fl+1   ;v1.7: CH[1] holds IF
 
 	mov ebx, ss
 	sub [__djgpp_stack_top], STACKCORR
@@ -141,7 +131,7 @@ endif
 	add [__djgpp_stack_top], STACKCORR
 	test byte ptr [ebp].IOEXCFR._errcode, 8h	; string?
 	jnz isstring
-	cmp [ebp].IOEXCFR.dwMode, 0			; IN?
+	test byte ptr [ebp].IOEXCFR.dwMode, TRAPF_OUT	; OUT?
 	jnz done
 	mov byte ptr [ebp].IOEXCFR._eax, al
 	test byte ptr [ebp].IOEXCFR._errcode, 30h	; word/dword?
@@ -158,23 +148,6 @@ isstring:
 	jz done
 	mov [ebp].IOEXCFR._ecx, 0
 done:
-if TRIGGERIRQ
-	test byte ptr [ebp].IOEXCFR._fl+1, 2		; interrupts enabled?
-	jz @F
-	call VSB_GetIRQTrigger
-	and eax, eax
-	jz @F
-	sub [__djgpp_stack_top], STACKCORR
-	mov ss, PRFXDS[dwDS]
-	mov esp, [__djgpp_stack_top]
-	push ebx
-	push ebp
-	call VIRQ_Invoke
-	mov ss, ebx
-	mov esp, ebp
-	add [__djgpp_stack_top], STACKCORR
-@@:
-endif
 	pop es
 	pop ds
 	popad
@@ -223,7 +196,7 @@ endif
 
 	sub [__djgpp_stack_top], STACKCORR
 	mov ebx, ss
-if TRIGGERIRQ
+if IRQCOMPAT
 ;--- v1.7: if the SB emulation IRQ is called, the (saved) stack is supposed to hold client ES/DS;
 ;---       that's not the case here, so two NULLs have to be stored.
 	push 0
@@ -253,28 +226,13 @@ ife COPYRMCS
 endif
 	push edi
 	call [dwProc]
-
-;--- calling VIRQ_Invoke from inside real-mode callback is critical
-;--- we could restore the client stack, but client's protected-mode ds/es is unknown
-if TRIGGERIRQ
-;--- v1.7: the callback has been called from inside a port trapping function;
-;---       the IF is *always* cleared there; the original IF is stored in CH, bit 1!
-;	test byte ptr es:[edi].RMCS.rFlags+1, 2	; interrupts enabled?
-	test byte ptr es:[edi].RMCS.rECX+1, 2	; interrupts enabled?
-	jz @F
-	call VSB_GetIRQTrigger
-	and eax, eax
-	jz @F
-	call VIRQ_Invoke
-@@:
-endif
-	add [__djgpp_stack_top], STACKCORR
 ife COPYRMCS
 	add esp, 4
 	pop es
 endif
+	add [__djgpp_stack_top], STACKCORR
 	mov ss, ebx
-if TRIGGERIRQ
+if IRQCOMPAT
 	lea esp,[ebp+2*4]
 else
 	mov esp, ebp

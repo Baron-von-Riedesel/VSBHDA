@@ -126,8 +126,8 @@ static PORT_TRAP_HANDLER PortHandler[] = {
 	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B, /* 0x220-0x223 */
 	VSB_MixerAddr, VSB_MixerData,               /* 0x224-0x225 */
 	VSB_DSP_Reset, VOPL3_388, VOPL3_389,        /* 0x226, 0x228, 0x229 */
-	VSB_DSP_Read, VSB_DSP_Write,                /* 0x22A, 0x22C */
-	VSB_DSP_ReadStatus, VSB_DSP_ReadINT16BitACK, /* 0x22e, 0x22f */
+	VSB_DSP_Acc0A, VSB_DSP_Acc0C,               /* 0x22a, 0x22c */
+	VSB_DSP_Acc0E, VSB_DSP_Acc0F,               /* 0x22e, 0x22f */
 #if VMPU
 	VMPU_Acc, VMPU_Acc,
 #endif
@@ -156,7 +156,7 @@ static void RM_TrapHandler( __dpmi_regs * regs)
      */
     for ( i = 0; i < maxports; i++ ) {
         if( PortTable[i] == port ) {
-            regs->h.al = PortHandler[i]( port, regs->h.al, regs->h.cl & 4 );
+            regs->h.al = PortHandler[i]( port, regs->h.al, regs->x.cx );
             regs->x.flags &= ~CPU_CFLAG; /* clear carry flag, indicates that access was handled */
             return;
         }
@@ -175,7 +175,7 @@ static void RM_TrapHandler( __dpmi_regs * regs)
         regs->h.al = r.h.al;
     }
 #else
-    if (regs->h.cl & 4)
+    if (regs->h.cl & TRAPF_OUT)
         UntrappedIO_OUT( regs->x.dx, regs->h.al );
     else
         regs->h.al = UntrappedIO_IN( regs->x.dx );
@@ -193,13 +193,14 @@ uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
 {
     int i;
     for( i = 0; i < maxports; i++ )
-        if( PortTable[i] == port)
-            return PortHandler[i](port, value, flags & 1);
+        if( PortTable[i] == port) {
+            return PortHandler[i](port, value, flags );
+        }
 
     /* ports that are trapped, but not handled; this may happen, since
      * hdpmi32i's support for port trapping is limited to 8 ranges.
      */
-    return (flags & 1) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
+    return (flags & TRAPF_OUT) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
 }
 
 

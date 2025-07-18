@@ -187,12 +187,12 @@
 
     - The Windows PL0 component DOSX.EXE will ignore any active DPMI host,
       including HDPMI16i.exe. It must be replaced by the DOSX.EXE binary
-      supplied with the HX runtime package HXRT.
+      supplied in directory Win31.
 
     - If sound fonts are to be used, a lot of extended memory may be needed.
       If there's less than 128 MB free memory *after* VSBHDA has been loaded,
       it may be necessary to set environment variable HDPMI=64. For details
-      see DOSX.TXT in HXRT.
+      see DOSX.TXT in directory Win31.
 
     - if the MS drivers are to be used (msadlib.drv & sndblst2.drv), section
       [sndblst.drv] in system.ini must have setting VerifyInt=0 if cpu is

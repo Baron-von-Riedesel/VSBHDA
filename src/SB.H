@@ -150,22 +150,16 @@
 #define SB_DSP_DSP_CMD_STATUS    0xFD /* SB16 DSP cmd status */
 #endif
 
-
-//following commands
 // SB16: 0Bxh=16-bit, 0Cxh=8-bit
-// bits 0-3: bit0=0, bit1=FIFO mode, bit2=DMA mode (single, auto), bit3=DAC/ADC (0/1)
+// bits 0-3: bit0=0, bit1=FIFO mode, bit2=DMA mode (0=single, 1=auto), bit3=DAC/ADC (0/1)
 //
-#define SB_DSP_8OR16_8_OUT_1     0xC0
-#define SB_DSP_8OR16_8_OUT_AUTO  0xC6
-#define SB_DSP_8OR16_8_OUT_AUTO_NOFIFO 0xC4 //undocumented, FIFO bit(bit 1) off. from DOSBox source comments
-#define SB_DSP_8OR16_16_OUT_1    0xB0
-#define SB_DSP_8OR16_16_OUT_AUTO 0xB6
-//following modes
+#define SB16_DSP_16_OUT_1    0xB0
+#define SB16_DSP_16_OUT_AUTO 0xB6
+#define SB16_DSP_8_OUT_1     0xC0
+#define SB16_DSP_8_OUT_AUTO  0xC6
+#define SB16_DSP_8_OUT_AUTO_NOFIFO 0xC4 //undocumented, FIFO bit(bit 1) off. from DOSBox source comments
+//mode bits:
 // bit 4: 1=signed
 // bit 5: 1=stereo
-#define SB_DSP_MODE_PCM8_MONO    0x00
-#define SB_DSP_MODE_PCM8_STEREO  0x20
-#define SB_DSP_MODE_PCM16_MONO   0x10
-#define SB_DSP_MODE_PCM16_STEREO 0x30
 
 #endif//_SB_H_
