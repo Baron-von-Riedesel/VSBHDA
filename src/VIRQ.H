@@ -13,7 +13,7 @@ uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out);
 void VPIC_Init( uint8_t );
 
 void VIRQ_Invoke( void );
-int  VIRQ_GetSndIrq( void );
+//int  VIRQ_GetSndIrq( void );
 void VIRQ_WaitForSndIrq( void );
 void VIRQ_Init( uint8_t );
 void VIRQ_Exit( uint8_t );

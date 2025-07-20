@@ -77,7 +77,7 @@ static void VPIC_Write(uint16_t port, uint8_t value)
         if ( value & 0x18 )
             vpic.OCW[index] = value;
         if( IRQ_IS_VIRTUALIZED() ) {
-            dbgprintf(("VPIC_Write(%x,%x) vpic.ISR[%u]=%X\n", port, value, index, vpic.ISR[index] ));
+            //dbgprintf(("VPIC_Write(%x,%x) vpic.ISR[%u]=%X\n", port, value, index, vpic.ISR[index] ));
             /* v1.6: test just bit 5 of OCW2 for EOI */
             //if( value == 0x20 && vpic.ISR[index] ) {
             if( ( value & 0x20 ) && vpic.ISR[index] ) {
@@ -189,11 +189,11 @@ void VIRQ_Invoke( void )
     vpic.OCW[0] = vpic.OCW[1] = 0;
 
     PTRAP_SetPICPortTrap( 1 );
-    dbgprintf(("VIRQ_Invoke: calling SBIsrCall\n"));
+    //dbgprintf(("VIRQ_Invoke: calling SBIsrCall\n"));
     VIRQ_Irq = irq;
     SBIsrCall();
     VIRQ_Irq = -1;
-    dbgprintf(("VIRQ_Invoke: back from SBIsrCall\n"));
+    //dbgprintf(("VIRQ_Invoke: back from SBIsrCall\n"));
     PTRAP_SetPICPortTrap( 0 );
 #if !SETIF
     _disable_ints(); /* the ISR should have run a STI! So disable interrupts again before the masks are restored */
@@ -204,7 +204,7 @@ void VIRQ_Invoke( void )
     return;
 }
 
-int VIRQ_GetSndIrq( void ) { return vpic.bIrq; }
+//int VIRQ_GetSndIrq( void ) { return vpic.bIrq; }
 
 /* VIRQ_WaitForSndIrq() is called only by "IO trapping" functions;
  * interrupts are disabled - this is needed for PIC IRR reads.
@@ -213,10 +213,11 @@ int VIRQ_GetSndIrq( void ) { return vpic.bIrq; }
 void VIRQ_WaitForSndIrq( void )
 ///////////////////////////////
 {
-    uint16_t wPort = vpic.bIrq > 8 ? 0xA0 : 0x20;
+    uint16_t wPort = ( vpic.bIrq > 8 ? 0xA0 : 0x20 );
     if (VIRQ_Irq == -1) {
+        int timeout;
         UntrappedIO_OUT( wPort, 0x0A ); /* get PIC IRR */
-        while ( !( UntrappedIO_IN( wPort ) & (1 << ( vpic.bIrq & 0x7 ) ) ) );
+        for ( timeout = 0x10000; !UntrappedIO_IN( wPort ) & (1 << ( vpic.bIrq & 0x7 ) ); timeout-- );
     }
 }
 

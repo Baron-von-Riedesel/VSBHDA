@@ -159,9 +159,6 @@ SwitchStackIO endp
 
 ;--- another stack switch, this time for io trapping in v86-mode.
 ;--- this is a realmode callback.
-;--- COPYRMCS will save the RMCS onto the protected-mode stack,
-;--- then the code becomes reentrant - this would probably allow
-;--- to trigger a "virtual interrupt" inside.
 
 	.data
 

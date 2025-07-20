@@ -360,7 +360,8 @@ static int SNDISR_Interrupt( void )
                             fatal_error( 2 );
                         isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
                     }
-                    dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n", isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
+                    dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
+                               dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
                 }
             }
             count = samples - IdxSm;

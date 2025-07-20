@@ -167,10 +167,10 @@ static int FindItem(const uint8_t* array, int count, uint8_t  val)
 
 /* write port 2x4 - set mixer index register */
 
-static void VSB_Mixer_WriteAddr( uint8_t value )
-////////////////////////////////////////////////
+static void VSB_Mixer_SetIndex( uint8_t value )
+///////////////////////////////////////////////
 {
-    dbgprintf(("VSB_Mixer_WriteAddr: Set MixerRegIndex to %u\n", value));
+    //dbgprintf(("VSB_Mixer_SetIndex(%u)\n", value));
     vsb.MixerRegIndex = value;
 }
 
@@ -263,6 +263,11 @@ static void VSB_Mixer_Write( uint8_t value )
                 vsb.MixerRegs[SB16_MIXERREG_MIDIR] = ((value & 0xF) << 4) | 8;
                 vsb.MixerRegs[SB16_MIXERREG_MIDIL] = (value & 0xF0) | 8;
                 break;
+#if 1 /* for SB16, don't allow to set the Pro Modefilter */
+            case SB_MIXERREG_MODEFILTER: /* 0E */
+                vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0;
+                break;
+#endif
             }
         }
     }
@@ -312,15 +317,9 @@ static void DSP_Reset( uint8_t value )
     if(value == 1) {
         vsb.ResetState = VSB_RESET_START;
         /* v1.5: bits 4-7 are rsvd, set to 1? DosBox sets to 0 - check a real SB16! */
-        vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
+        /* v1.7: now done in VSB_Init() - INT_SETUP and DMA_SETUP are r/o registers */
+        //vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
-
-        //vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xEB;
-#if SB16
-        vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << vsb.Dma8) | ( vsb.Dma16 ? (1 << vsb.Dma16) : 0)) & 0xEB;
-#else
-        vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xB;
-#endif
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0x11; //SB Pro: mono, no filter
         vsb.MixerRegIndex = 0;
         vsb.dsp_cmd = SB_DSP_NOCMD;
@@ -328,6 +327,7 @@ static void DSP_Reset( uint8_t value )
         VSB_Stop();
         vsb.SampleRate = 0;
         vsb.Samples = 0;
+        vsb.HighSpeed = false;
         vsb.Auto = false;
         vsb.Signed = false;
         vsb.Silent = false;
@@ -338,10 +338,10 @@ static void DSP_Reset( uint8_t value )
         vsb.WS = 0x80;
         vsb.RS = 0x7F;
         vsb.bTimeConst = 0xD2; /* = 22050 */
-#if FASTIRQ
-        vsb.Cmd14Cnt = 0;
+#if FASTCMD14
+        vsb.Cmd14Cnt = 4;
 #endif
-        VSB_Mixer_WriteAddr( SB_MIXERREG_RESET );
+        VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
         VSB_Mixer_Write( 1 );
 #if REINITOPL
         MAIN_ReinitOPL();
@@ -364,29 +364,29 @@ static void DSP_Reset( uint8_t value )
     }
 }
 
-static int CalcSampleRate( void )
-/////////////////////////////////
+static int CalcSampleRate( uint16_t value )
+///////////////////////////////////////////
 {
     int rc;
     uint8_t limit;
-    uint16_t channels = VSB_GetChannels();
-    uint16_t value = vsb.bTimeConst;
+    unsigned int channels = 1;
 
     if( vsb.DSPVER < 0x300 )
         limit = ( vsb.Bits == 2 ? 189 : (vsb.Bits <= 4 ? 172 : 210));
+    else if( vsb.DSPVER >= 0x0400 )
+        limit = vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 234));
     else {
-        if( vsb.DSPVER >= 0x0400 )
-            limit = vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 234));
-        else {
-            if( vsb.HighSpeed )
-                limit = 234;
-            else
-                limit = ( vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 212)));
-        }
+        /* v1.7: only for SBPro the channel # are used - reduces SB16 compatibility with SBPro */
+        channels = VSB_GetChannels();
+        if( vsb.HighSpeed )
+            limit = 234;
+        else
+            limit = ( vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 212)));
     }
+
     value = min(value, limit);
     //rc = 1000000 / ( 256 - value ) / VSB_GetChannels();
-    rc = 256000000/( 65536 - (value << 8) ) / channels;
+    rc = 256000000u / ( 65536u - (value << 8) ) / channels;
     return rc;
 }
 
@@ -399,7 +399,7 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
 {
     vsb.WS = 0x80;
     if ( vsb.dsp_cmd == SB_DSP_NOCMD ) {
-        if( vsb.HighSpeed ) {//highspeed won't accept further commands, need reset
+        if( vsb.HighSpeed ) { /* highspeed mode rejects further cmds until reset (flag never set for SB16) */
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
             return;
         }
@@ -424,13 +424,13 @@ static void DSP_DoCommand( uint32_t flags )
 {
     switch ( vsb.dsp_cmd ) {
     case SB_DSP_SPEAKER_ON: /* D1 */
-        vsb.bSpeaker = true;
+        vsb.bSpeaker = 0xff;
         break;
     case SB_DSP_SPEAKER_OFF: /* D3 */
-        vsb.bSpeaker = false;
+        vsb.bSpeaker = 0;
         break;
     case SB_DSP_SPEAKER_STATUS: /* D8 */
-        DSP_AddData( vsb.bSpeaker ? 0xff : 0 );
+        DSP_AddData( vsb.bSpeaker );
         dbgprintf(("DSP_DoCommand: cmd %X, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
     case SB_DSP_HALT_DMA16: SB16_ONLY(); /* D5 */
@@ -463,9 +463,12 @@ static void DSP_DoCommand( uint32_t flags )
         /* v1.7: IRQ detection routines may have a very short wait loop;
          * waiting for the sound hardware interrupt to occur may be too long.
          */
-        if ( ( vsb.Cmd14Cnt < 4 ) && ( vsb.Samples < 0x100 ) && ( flags & TRAPF_IF ) )
-            VIRQ_WaitForSndIrq();
-        vsb.Cmd14Cnt++;
+        if ( ( vsb.Samples < 32 ) && ( flags & TRAPF_IF ) ) {
+            if ( vsb.Cmd14Cnt ) {
+                vsb.Cmd14Cnt--;
+                VIRQ_WaitForSndIrq();
+            }
+        }
 #endif
         vsb.Auto = false; /* v1.7: added */
         vsb.Bits = 8;
@@ -481,7 +484,8 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Auto = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Bits = 8;
-        vsb.HighSpeed = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_1_HS || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
+        if ( vsb.DSPVER < 0x400 )
+            vsb.HighSpeed = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_1_HS || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true; //start transfer
@@ -738,7 +742,15 @@ void VSB_Init(int irq, int dma, int hdma, int type )
         default: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x10;
         }
     }
-    VSB_Mixer_WriteAddr( SB_MIXERREG_RESET );
+    /* mixer regs INT_SETUP/DMA_SETUP must be initialized no matter what SB type has been set */
+    vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
+    //vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xEB;
+#if SB16
+    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << vsb.Dma8) | ( vsb.Dma16 ? (1 << vsb.Dma16) : 0)) & 0xEB;
+#else
+    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xB;
+#endif
+    VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
     VSB_Mixer_Write( 1 );
 }
 
@@ -828,8 +840,10 @@ int VSB_GetChannels()
 int VSB_GetSampleRate()
 ///////////////////////
 {
-    if ( !vsb.SampleRate )
-        vsb.SampleRate = CalcSampleRate();
+    if ( !vsb.SampleRate ) {
+        vsb.SampleRate = CalcSampleRate( vsb.bTimeConst );
+        dbgprintf(("VSB_GetSampleRate()=%u (time const=%X)\n", vsb.SampleRate, vsb.bTimeConst ));
+    }
     return vsb.SampleRate;
 }
 
@@ -905,7 +919,7 @@ uint8_t VSB_GetMixerReg(uint8_t index)
 uint32_t VSB_MixerAddr( uint32_t port, uint32_t val, uint32_t flags )
 /////////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (VSB_Mixer_WriteAddr( val ), val) : val;
+    return (flags & TRAPF_OUT) ? (VSB_Mixer_SetIndex( val ), val) : val;
 }
 uint32_t VSB_MixerData( uint32_t port, uint32_t val, uint32_t flags )
 /////////////////////////////////////////////////////////////////////
