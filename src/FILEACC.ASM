@@ -24,9 +24,9 @@ fopen proc uses ebx esi pszName:ptr, pszMode:ptr
 	mov ax,716ch
 	stc
 	int 21h
-	jc error
+	jnc done
 	cmp ax,7100h
-	jnz done
+	jnz error
 	mov ax,6c00h
 	int 21h
 	jc error
