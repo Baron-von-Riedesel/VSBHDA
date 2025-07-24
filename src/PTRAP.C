@@ -174,12 +174,14 @@ static void RM_TrapHandler( __dpmi_regs * regs)
         regs->x.flags |= r.x.flags & CPU_CFLAG;
         regs->h.al = r.h.al;
     }
-#else
+#elif 0
     if (regs->h.cl & TRAPF_OUT)
         UntrappedIO_OUT( regs->x.dx, regs->h.al );
     else
         regs->h.al = UntrappedIO_IN( regs->x.dx );
     regs->x.flags &= ~CPU_CFLAG;
+#else
+    regs->x.flags |= CPU_CFLAG;
 #endif
     return;
 }
@@ -200,7 +202,11 @@ uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
     /* ports that are trapped, but not handled; this may happen, since
      * hdpmi32i's support for port trapping is limited to 8 ranges.
      */
-    return (flags & TRAPF_OUT) ? (UntrappedIO_OUT( port, value ), 0) : ( UntrappedIO_IN( port ) | (value &= ~0xff) );
+    if ( flags & TRAPF_OUT) {
+        UntrappedIO_OUT( port, value );
+        return value;
+    } else
+        return UntrappedIO_IN( port ) | (value &= ~0xff);
 }
 
 

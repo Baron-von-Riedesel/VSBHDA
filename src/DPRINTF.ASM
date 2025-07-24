@@ -7,6 +7,8 @@
 	option casemap:none
 	option proc:private
 
+SETBORDER equ 0	;1=support _SetBorder(color)
+
 ifdef DJGPP
 	assume ds:_DATA
 endif
@@ -75,6 +77,12 @@ i64toa ENDP
 	.data?
 szTmp db 24 dup (?)
 	.code
+
+;--- format:
+;--- %X,%u,%d    32-bit number
+;--- %lX,%lu,%ld 64-bit number
+;--- %s          32-bit address
+;--- %c          char
 
 vprintf proc c uses ebx esi edi fmt:ptr sbyte, pArgs:ptr
 local flag:byte
@@ -278,6 +286,40 @@ printf proc syscall public fstr:ptr, args:vararg
 	ret
 printf endp
 
+endif
+
+if SETBORDER
+_SetBorder proc c public bColor:byte
+	push eax
+	push edx
+	mov dx,3dah
+	in al,dx
+	mov dl,0c0h
+	mov al,11h    ;select overscan register
+	out dx,al
+	mov al,bColor
+	out dx,al
+	mov al,20h    ;video access
+	out dx,al
+	pop edx
+	pop eax
+	ret
+_SetBorder endp
+endif
+
+ifdef _DEBUG
+
+;--- check if low-level debugger wants a stop;
+;--- the last byte of the IVT is used as flag.
+
+dbgcondbrk proc c public pVoid:ptr
+	mov eax,pVoid
+	cmp byte ptr ds:[3ffh],0
+	jz @F
+	int 3
+@@:
+	ret
+dbgcondbrk endp
 endif
 
 	end

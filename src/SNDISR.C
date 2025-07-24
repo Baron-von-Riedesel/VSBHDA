@@ -420,12 +420,18 @@ static int SNDISR_Interrupt( void )
             SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
             if( VSB_GetIRQStatus() ) {
                 //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
-                if(!VSB_GetAuto())
-                    VSB_Stop();
-                else /* v1.7: don't reset position if autoinit is off */
+                if ( VSB_GetAuto() )
                     VSB_SetPos(0);
+                else
+                    VSB_Stop(); /* VSB_Stop() will set position to 0 */
                 VIRQ_Invoke();
-                if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
+                /* v1.7: calling VDMA_GetAuto() may be problematic. The SB ISR may
+                 *       have setup a new transfer with DSP cmd 0x14; then the DMA
+                 *       channel isn't in autoinit mode, but it would still be a good
+                 *       idea to get a few bytes from the (new) data stream.
+                 */
+                //if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
+                if ( (IdxSm < samples) && VSB_Running() ) continue;
             }
 #if 0//def _DEBUG
             else

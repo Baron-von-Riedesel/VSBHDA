@@ -164,7 +164,8 @@ static const struct {
     NULL, NULL, 0,
 };
 
-static const char* MAIN_SBTypeString[] =
+#if 0
+static const char* SBTypeString[] =
 {
     "0",
     "1.0",
@@ -176,6 +177,7 @@ static const char* MAIN_SBTypeString[] =
     "16",
 #endif
 };
+#endif
 
 int _is_installed( void );
 

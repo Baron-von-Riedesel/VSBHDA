@@ -207,6 +207,7 @@ is_25:
  endif
 	mov dword ptr es:[currSBvec+0], edx
 	mov  word ptr es:[currSBvec+SEGOFS], ds
+	@dprintf CStr("SB_Notify21: DS:EDX=%X:%X",10),ds,edx
 	pop es
  ifdef NOTFLAT
 	assume es:DGROUP
@@ -275,6 +276,7 @@ savevector::
  endif
 	mov dword ptr [currSBvec+0], edx
 	mov word ptr [currSBvec+SEGOFS], cx
+	@dprintf CStr("SB_Notify31: CX:EDX=%X:%X",10),cx,edx
 
 	mov [bIntSB], bl	; activate notifications
 

@@ -121,7 +121,7 @@
    4.1 JHDPMI.DLL
 
     This JLM is recommended to be loaded before the vsbhda binary. It doesn't
-   supply any features for vsbhda directly, but enhances DPMI compliance of
+   supply any features for VSBHDA directly, but enhances DPMI compliance of
    hdpmi. It ensures that the DPMI host will be the first to receive interrupt
    requests that occur in v86-mode, without the need to modify IVT vectors.
     The utility JHDPMIS.EXE makes JHDPMI display its status. One may see what
@@ -144,26 +144,32 @@
 
    4.3 Extended Memory
 
-   a) Some DOS games refuse to run if too much extended memory is available.
+   a)  Some DOS games refuse to run if too much extended memory is available.
       There are some simple software workarounds for such issues:
 
-   - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
-     Optionally, this can be further reduced by appending a digit to -x: -x2
-     reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
-     since it's just the amount of memory that's reported as free - the program
-     may still allocate more than that, if available.
+    - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
+      Optionally, this can be further reduced by appending a digit to -x: -x2
+      reduces free memory to 64MB, -x4 to 16MB. However, this is a soft limit,
+      since it's just the amount of memory that's reported as free - the
+      program may still allocate more than that, if available.
 
-   - XMSRes: tool to reduce free XMS memory. This TSR can be uninstalled, so
-     the reduction may be reverted without reboot.
+    - XMSRes: tool to reduce free XMS memory. This TSR can be uninstalled, so
+      the reduction may be reverted without reboot.
 
-   - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount of
-     extended memory.
+    - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount
+      of extended memory.
 
-   b) There exist (real-mode) games that allocate an XMS memory block to be
-      used as sound buffer. Since the SoundBlaster hardware uses ISA DMA, such
-      blocks must reside in the first 16 MB of physical memory. The XMSRes tool
-      has two options ( /L and /H ) that may help to ensure that the game will
-      get an extended memory block with an appropriate address.
+   b)  There exist (real-mode) games that allocate an extended memory block to
+      be used as sound buffer. Since the SoundBlaster hardware uses ISA DMA,
+      such blocks must reside in the first 16 MB of physical memory. On newer
+      machines with GBs of memory it may be tricky to ensure that the game
+      will get what it needs.
+       The XMSRes tool has two options ( /L and /H ) that may help in this
+      regard. In the simplest case running "XMSRES -L 15" after VSBHDA has
+      been launched will leave a free block with the lowest address possible.
+      However, if VSBHDA is to load large sound fonts, there may be no free
+      blocks left below the 16MB barrier. Then one has to play with XMSRES's
+      /H option to force HDPMI and VSBHDA being loaded at very high addresses.
 
 
    4.4 Jemm's NOVCPI Option
@@ -248,6 +254,10 @@
     - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option.
     - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
       HDPMI32i.
-    - "Sword and Fairy 1" (Chinese Paladin): allocates an XMS sound buffer;
-      run "XMSRES /L 31" after VSBHDA has been started.
+    - "Sword and Fairy 1" (Chinese Paladin): allocates a sound buffer in
+      extended memory - see notes in 4.3 b); run "XMSRES /L 15" after VSBHDA
+      has been started.
+    - "Legend of Kyrandia 2": allocates a sound buffer in extended memory -
+      see notes in 4.3 b).
+    - The Flight of the Amazon Queen: requires SETPVI.
 

@@ -23,6 +23,9 @@
  */
 #define MASKSBIRQ 1
 
+//#define SetBorder(x) _SetBorder(x)
+#define SetBorder(x)
+
 extern bool _SB_InstallISR( uint8_t, void *, int );
 extern bool _SB_UninstallISR( uint8_t );
 extern void SBIsrCall( void );
@@ -213,11 +216,15 @@ void VIRQ_Invoke( void )
 void VIRQ_WaitForSndIrq( void )
 ///////////////////////////////
 {
-    uint16_t wPort = ( vpic.bIrq > 8 ? 0xA0 : 0x20 );
+    uint16_t wPort = ( vpic.bIrq >= 8 ? 0xA0 : 0x20 );
     if (VIRQ_Irq == -1) {
         int timeout;
+        uint8_t bMask = (1 << ( vpic.bIrq & 0x7 ) );
         UntrappedIO_OUT( wPort, 0x0A ); /* get PIC IRR */
-        for ( timeout = 0x10000; !UntrappedIO_IN( wPort ) & (1 << ( vpic.bIrq & 0x7 ) ); timeout-- );
+        for ( timeout = 0x10000; timeout && (!(UntrappedIO_IN( wPort ) & bMask ) ); timeout-- );
+#ifdef _DEBUG
+        if (!timeout ) fatal_error(4);
+#endif
     }
 }
 

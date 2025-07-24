@@ -58,6 +58,8 @@ struct globalvars {
 };
 
 int _dprintf(const char *fmt, ... );
+void SetBorder( uint8_t );
+void fatal_error( int );
 
 #ifdef __cplusplus
 }
@@ -65,8 +67,10 @@ int _dprintf(const char *fmt, ... );
 
 #ifdef _DEBUG
 #define dbgprintf(x) _dprintf x
+void dbgcondbrk(void *);
 #else
 #define dbgprintf(x)
+#define dbgcondbrk(x)
 #endif
 
 #endif//_CONFIG_H_

@@ -4,8 +4,8 @@
   - added soundfont support from VSBHDASF.
   - fixed: array bounds check in vopl3.cpp added (& 0xff).
   - fixed: handling of DSP cmd E2 (DMA identification).
-  - switch TRIGGERIRQ activated; this should make more detection routines
-    to work.
+  - DSP cmd 14h with size < 32 will trigger an IRQ at once; this should make
+    more detection routines to work.
   - qpiemu.dll: bit 1 of register CH now holds IF.
   - XMSRes.exe: option -H added.
   - SB16: 8-bit signed PCM mode (C6h 10h) supported.

@@ -19,8 +19,9 @@ Requirements:
  * JEMMEX 5.84 - V86 monitor with port trapping; v86-mode
  
 VSBHDA uses some source codes from:
- * MPXPlay: https://mpxplay.sourceforge.net/, for sound card access
- * DOSBox: https://www.dosbox.com/, for OPL3 FM emulation
+ * MPXPlay: https://mpxplay.sourceforge.net/ - sound card access
+ * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation
+ * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
 To create the binaries, Open Watcom v2.0 is recommended. DJGPP v2.05
 may also be used, but cannot create the 16-bit variant of VSBHDA.

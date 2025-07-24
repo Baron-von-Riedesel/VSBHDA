@@ -100,9 +100,9 @@
 //time constant used
 #define SB_DSP_NOCMD                0
 #define SB_DSP_8BIT_DIRECT       0x10
-#define SB_DSP_8BIT_OUT_1        0x14 //single cycle
-#define SB_DSP_2BIT_OUT_1_NREF   0x16 //2bit ADPCM
-#define SB_DSP_2BIT_OUT_1        0x17 //2bit ADPCM
+#define SB_DSP_8BIT_OUT_SNGL     0x14 //single cycle
+#define SB_DSP_2BIT_OUT_SNGL_NREF 0x16 //2bit ADPCM
+#define SB_DSP_2BIT_OUT_SNGL     0x17 //2bit ADPCM
 #define SB_DSP_8BIT_OUT_AUTO     0x1C
 #define SB_DSP_2BIT_OUT_AUTO     0x1F
 
@@ -115,16 +115,16 @@
 #endif
 #define SB_DSP_SET_SIZE          0x48 //size-1
 
-#define SB_DSP_4BIT_OUT_1_NREF   0x74 //4bit ADPCM
-#define SB_DSP_4BIT_OUT_1        0x75 //4bit ADPCM
+#define SB_DSP_4BIT_OUT_SNGL_NREF 0x74 //4bit ADPCM
+#define SB_DSP_4BIT_OUT_SNGL     0x75 //4bit ADPCM
 #define SB_DSP_4BIT_OUT_AUTO     0x7D //4bit ADPCM
-#define SB_DSP_3BIT_OUT_1_NREF   0x76 //3bit ADPCM
-#define SB_DSP_3BIT_OUT_1        0x77 //3bit ADPCM
+#define SB_DSP_3BIT_OUT_SNGL_NREF 0x76 //3bit ADPCM
+#define SB_DSP_3BIT_OUT_SNGL     0x77 //3bit ADPCM
 #define SB_DSP_3BIT_OUT_AUTO     0x7F //3bit ADPCM
 
 #define SB_DSP_SILENCE_DAC       0x80 /* SB; output silent samples */
 #define SB_DSP_8BIT_OUT_AUTO_HS  0x90
-#define SB_DSP_8BIT_OUT_1_HS     0x91 //high speed mode, need a reset(actually restore to previous) to exit hs mode
+#define SB_DSP_8BIT_OUT_SNGL_HS  0x91 /* high speed mode, need a reset(actually restore to previous) to exit */
 #define SB_DSP_HALT_DMA          0xD0
 #define SB_DSP_SPEAKER_ON        0xD1
 #define SB_DSP_SPEAKER_OFF       0xD3
@@ -153,9 +153,9 @@
 // SB16: 0Bxh=16-bit, 0Cxh=8-bit
 // bits 0-3: bit0=0, bit1=FIFO mode, bit2=DMA mode (0=single, 1=auto), bit3=DAC/ADC (0/1)
 //
-#define SB16_DSP_16_OUT_1    0xB0
+#define SB16_DSP_16_OUT_SNGL 0xB0
 #define SB16_DSP_16_OUT_AUTO 0xB6
-#define SB16_DSP_8_OUT_1     0xC0
+#define SB16_DSP_8_OUT_SNGL  0xC0
 #define SB16_DSP_8_OUT_AUTO  0xC6
 #define SB16_DSP_8_OUT_AUTO_NOFIFO 0xC4 //undocumented, FIFO bit(bit 1) off. from DOSBox source comments
 //mode bits:

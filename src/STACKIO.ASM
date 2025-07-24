@@ -194,8 +194,9 @@ endif
 	sub [__djgpp_stack_top], STACKCORR
 	mov ebx, ss
 if IRQCOMPAT
-;--- v1.7: if the SB emulation IRQ is called, the (saved) stack is supposed to hold client ES/DS;
-;---       that's not the case here, so two NULLs have to be stored.
+;--- v1.7: if the SB emulation IRQ is to be called, the (saved) stack is supposed to hold
+;---       client ES/DS; that's not the case here, so two NULLs have to be stored.
+;---       The current code never calls the SB IRQ during IO trapping, so it's not active.
 	push 0
 	push 0
 endif
