@@ -104,7 +104,7 @@ struct audioout_info_s {
  unsigned long  card_dmafilled;    /* ??? */
  unsigned long  card_dma_lastgoodpos;
  unsigned int   card_bytespersign; // bytespersample_card * chan_card
- char *card_DMABUFF;
+ char          *card_DMABUFF;      /* identical with the card's pcmout_buffer */
 
  const struct sndcard_info_s *card_handler; // function structure of the card
  const struct globalvars *gvars;

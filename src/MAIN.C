@@ -103,25 +103,26 @@ struct MAIN_s {
 
 static struct MAIN_s gm = { 0, 22050, false, false, false, false };
 
-struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT,
+struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT, /* /A /I /D */
 #if SB16
-HDMA_DEFAULT,
+HDMA_DEFAULT, /* /H */
 #endif
-TYPE_DEFAULT,
+TYPE_DEFAULT, /* /T */
 #if VMPU
-0, /* no default for Midi port */
+0, /* /P - no default for Midi port */
 #endif
-true, true, true, VOL_DEFAULT, 16, /* OPL3, rm, pm, vol, buffsize */
+true, true, true, VOL_DEFAULT, 16, /* /OPL3, /RM, /PM, /VOL, /BS */
 #if SLOWDOWN
-0,
+0, /* /SD */
 #endif
 #ifdef NOTFLAT
-0, /* diverr */
+0, /* /DIVE */
 #endif
 #if SOUNDFONT
-NULL,
-VOICES_DEFAULT, /* voices */
+NULL, /* /SF: */
+VOICES_DEFAULT, /* /MV */
 #endif
+0, /* CF */
 };
 
 static const struct {
@@ -161,6 +162,7 @@ static const struct {
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
     "MV", "Set voice limit [1-256, def 64]", &gvars.voices,
 #endif
+    "CF", "Set compatibility flags [def 0]", &gvars.compatflags,
     NULL, NULL, 0,
 };
 
@@ -364,20 +366,20 @@ int main(int argc, char* argv[])
     }
 
     if( gvars.base != 0x220 && gvars.base != 0x240 ) {
-        printf("Error: accepted IO base addresses: 220 or 240\n" );
+        printf("Error: valid IO base addresses: 220 or 240\n" );
         return 1;
     }
     if( gvars.irq != 2 && gvars.irq != 5 && gvars.irq != 7 ) {
-        printf("Error: accepted as IRQ: 2, 5 or 7\n" );
+        printf("Error: valid IRQs: 2, 5 or 7\n" );
         return 1;
     }
     if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 ) {
-        printf("Error: accepted as DMA channel: 0, 1 or 3\n" );
+        printf("Error: valid DMA channels: 0, 1 or 3\n" );
         return 1;
     }
 #if SB16
     if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
-        printf("Error: accepted as HDMA channel: 5, 6 or 7\n" );
+        printf("Error: valid HDMA channels: 5, 6 or 7\n" );
         return 1;
     }
 #endif
@@ -387,12 +389,12 @@ int main(int argc, char* argv[])
     }
 #if VMPU
     if( gvars.mpu && ( gvars.mpu != 0x330 && gvars.mpu != 0x300 )) {
-        printf("Error: accepted as Midi port address: 330 or 300\n" );
+        printf("Error: valid Midi port addresses: 330 or 300\n" );
         return 1;
     }
 #endif
     if( gvars.pin < 0 || gvars.pin > 2) {
-        printf("Error: appected as output device: 0, 1 or 2\n" );
+        printf("Error: valid output devices: 0, 1 or 2\n" );
         return 1;
     }
     if( gvars.vol < 0 || gvars.vol > 9) {
@@ -404,7 +406,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     if( gm.freq != 22050 && gm.freq != 44100 ) {
-        printf("Error: valid frequencies are 22050 and 44100\n" );
+        printf("Error: valid frequencies: 22050 and 44100\n" );
         return 1;
     }
     if( gvars.period_size % 64 ) {

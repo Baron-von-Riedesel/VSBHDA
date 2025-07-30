@@ -1,7 +1,7 @@
 
-  v1.7, __._.____
+  v1.7, __._.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
-  - added soundfont support from VSBHDASF.
+  - added soundfont support from VSBHDASF; new cmdline options /SF, /MV, /PS.
   - fixed: array bounds check in vopl3.cpp added (& 0xff).
   - fixed: handling of DSP cmd E2 (DMA identification).
   - DSP cmd 14h with size < 32 will trigger an IRQ at once; this should make
@@ -10,6 +10,8 @@
   - XMSRes.exe: option -H added.
   - SB16: 8-bit signed PCM mode (C6h 10h) supported.
   - HDA: reset controller if no codecs are attached.
+  - cmdline option /CF added.
+  - fixed: ES1371 audio driver.
 
   v1.6, 10.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port

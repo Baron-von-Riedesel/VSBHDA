@@ -25,8 +25,16 @@
                 Instead of Jemm, Qemm may be used; however, JHDPMI.DLL can
                 be loaded and used by Jemm only.
 
+     As cpu at least a Pentium is required. However, since the emulation needs
+   quite a bit of processing power, such a cpu very likely isn't sufficient.
+   Tests revealed that a Pentium II with 266 MHz is able to handle simple games;
+   a Pentium III with 500 MHz gave the impression that it could handle both
+   voice and music output smoothly.
+
 
    3. Usage
+
+   3.1 Launching VSBHDA
 
     VSBHDA consists of two programs: vsbhda.exe and vsbhda16.exe. Due to the
    nature of DPMI, 16-bit and 32-bit DPMI clients must at least have separate
@@ -69,6 +77,9 @@
    SB, SB Pro or SB 16; for example: "SET BLASTER=A220 I7 D1 H5 T6" will select
    a SB16.
 
+
+   3.2 VSBHDA Commandline Options
+
     VSBHDA will understand a few commandline options. Some, like /A, /I, /D, /H,
    /P or /T, are similar to the settings of the BLASTER environment variable
    ( this variable is NOT altered by VSBHDA ). The others are:
@@ -86,6 +97,7 @@
      /PS     : Set period size (HDA only)
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit
+     /CF     : Set compatibility flags
 
     Options must be followed by the number/string, without spaces. Options /A
    and /P expect the number to be in hexadecimal, else decimal numbers are
@@ -114,6 +126,9 @@
    - /SF: sound font must be in .sf2 format.
    - /MV: setting a voice limit of 0 will trigger dynamic allocation - this
      may not work for all applications.
+   - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
+     Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
+            0 = interrupt will be triggered delayed (default).
 
 
    4. Details/Hints
@@ -144,8 +159,10 @@
 
    4.3 Extended Memory
 
-   a)  Some DOS games refuse to run if too much extended memory is available.
-      There are some simple software workarounds for such issues:
+   4.3.1 Extended Memory Size
+
+    Some DOS games refuse to run if too much extended memory is available.
+   There are some simple software workarounds for such issues:
 
     - HDPMI's -x cmdline option: this restricts the free DPMI memory to 256MB.
       Optionally, this can be further reduced by appending a digit to -x: -x2
@@ -159,28 +176,32 @@
     - JemmEx's MAXEXT option: tells JemmEx's XMS host to supply a max. amount
       of extended memory.
 
-   b)  There exist (real-mode) games that allocate an extended memory block to
-      be used as sound buffer. Since the SoundBlaster hardware uses ISA DMA,
-      such blocks must reside in the first 16 MB of physical memory. On newer
-      machines with GBs of memory it may be tricky to ensure that the game
-      will get what it needs.
-       The XMSRes tool has two options ( /L and /H ) that may help in this
-      regard. In the simplest case running "XMSRES -L 15" after VSBHDA has
-      been launched will leave a free block with the lowest address possible.
-      However, if VSBHDA is to load large sound fonts, there may be no free
-      blocks left below the 16MB barrier. Then one has to play with XMSRES's
-      /H option to force HDPMI and VSBHDA being loaded at very high addresses.
+   4.3.2 Extended Memory Address
+
+    There exist (real-mode) games that allocate an extended memory block to
+   be used as sound buffer. Since the SoundBlaster hardware uses ISA DMA, such
+   blocks must reside in the first 16 MB of physical memory. On newer machines
+   with GBs of memory it may be tricky to ensure that the game will get what
+   it needs.
+
+    The XMSRes tool has two options ( /L and /H ) that may help in this
+   regard. In the simplest case running "XMSRes -L 15" after VSBHDA has been
+   launched will leave a free block with the lowest address possible. However,
+   if VSBHDA is to load large sound fonts, there may be no free blocks left
+   below the 16MB barrier after vsbhda.exe has been launched. Then one has
+   to play with XMSRes's /H option to force VSBHDA ( and perhaps even HDPMI )
+   being loaded at high physical addresses.
 
 
    4.4 Jemm's NOVCPI Option
 
-    If VSBHDA is to work for DOS protected-mode games, those games must use the
+    If VSBHDA is to work for DOS protected-mode programs, they have to use the
    HDPMI32i/HDPMI16i DPMI host. This is usually no problem, because there's an
-   API to detect the presence of such a host. However, games may ignore an
-   installed DPMI host and use the so-called VCPI API instead to run their very
-   own low-level code. This will actually deactivate VSBHDA for the game. To
+   API to detect the presence of such a host. However, a program may ignore an
+   installed DPMI host and use the so-called VCPI API instead to run its very
+   own low-level code; this will actually deactivate VSBHDA for the program. To
    cover such cases, Jemm386/JemmEx offers the NOVCPI option. This option must
-   be set *after* VSBHDA has been loaded and *before* the game is launched.
+   be set *after* VSBHDA has been loaded and *before* the program is launched.
 
 
    4.5 Windows 3.1
@@ -246,18 +267,17 @@
 
     Here are some programs/games listed that require special actions:
 
-    - Aladdin: requires EMS, max. XMS memory is 31MB (XMSRES 31).
+    - Aladdin: requires EMS, max. XMS memory is 31MB (XMSRes 31).
     - Blood: setting SB IRQ to 2 or 5 may be required. Generally, on some
       machines the DOS/4GW DOS extender has problems with IRQ 7.
     - Jungle Book: needs SETPVI.EXE to be run before launched.
-    - Screamer: set max. XMS memory to 31MB (XMSRES 31).
+    - Screamer: set max. XMS memory to 31MB (XMSRes 31).
     - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option.
-    - System Shock: set max. XMS memory to 31MB (XMSRES 31) before running
+    - System Shock: set max. XMS memory to 31MB (XMSRes 31) before running
       HDPMI32i.
     - "Sword and Fairy 1" (Chinese Paladin): allocates a sound buffer in
-      extended memory - see notes in 4.3 b); run "XMSRES /L 15" after VSBHDA
-      has been started.
+      extended memory - see notes in 4.3.2).
     - "Legend of Kyrandia 2": allocates a sound buffer in extended memory -
-      see notes in 4.3 b).
-    - The Flight of the Amazon Queen: requires SETPVI.
+      see notes in 4.3.2).
+    - "The Flight of the Amazon Queen": requires SETPVI.
 

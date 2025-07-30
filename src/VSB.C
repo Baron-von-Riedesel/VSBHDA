@@ -15,7 +15,10 @@
 #include "VMPU.H"
 #endif
 
-#define FASTCMD14 1 /* ensure DSP cmd 0x14 for SB detection is handled "at once" */
+/* compatibility switches */
+#define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
+
+extern struct globalvars gvars;
 
 #if REINITOPL
 extern void MAIN_ReinitOPL( void );
@@ -140,10 +143,10 @@ struct VSB_Status {
     uint8_t Silent;
     uint8_t Signed;
     uint8_t HighSpeed;
-    uint8_t ResetState;
+    uint8_t ResetState; /* 1=VSB_RESET_START, 0=VSB_RESET_END */
     uint8_t TestReg;
-    uint8_t WS;
-    uint8_t RS;
+    uint8_t WS;  /* bit 7: register 0C status (0=cmd/data may be written) */
+    uint8_t RS;  /* bit 7: register 0E status (1=data available for read at 0A) */
     uint8_t DMAID_A;
     uint8_t DMAID_X;
     uint8_t DataBytes; /* # of bytes to read from DataBuffer */
@@ -343,8 +346,8 @@ static void DSP_Reset( uint8_t value )
         vsb.DMAID_A = 0xAA;
         vsb.DMAID_X = 0x96;
         vsb.DirectIdx = 0;
-        vsb.WS = 0x80;
-        vsb.RS = 0x7F;
+        vsb.WS = 0x7f; /* port 0c may be written */
+        vsb.RS = 0x7f; /* no data at port 0a */
         vsb.bTimeConst = 0xD2; /* = 22050 */
 #if FASTCMD14
         vsb.Cmd14Cnt = 4;
@@ -405,7 +408,7 @@ static void DSP_DoCommand( uint32_t );
 static void DSP_Write0C( uint8_t value, uint32_t flags )
 ////////////////////////////////////////////////////////
 {
-    vsb.WS = 0x80;
+    vsb.WS |= 0x80;
     if ( vsb.dsp_cmd == SB_DSP_NOCMD ) {
         if( vsb.HighSpeed ) { /* highspeed mode rejects further cmds until reset (flag never set for SB16) */
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
@@ -650,13 +653,16 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_TRIGGER_IRQ: /* F2 */
         VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT8BIT );
         dbgprintf(("DSP_DoCommand(%X): trigger IRQ, flags=%X\n", vsb.dsp_cmd, flags ));
-        if ( flags & TRAPF_IF )
+        /* there are games that emit this DSP cmd, but don't expect that the IRQ is triggered
+         * instantly. They won't detect the SB if CF_INSTANTIRQ is set.
+         */
+        if ( gvars.compatflags & CF_INSTANTIRQ )
             VIRQ_WaitForSndIrq();
         break;
     case SB_DSP_TRIGGER_IRQ16: /* F3 */
         VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT16BIT );
         dbgprintf(("DSP_DoCommand(%X): trigger IRQ16, flags=%X\n", vsb.dsp_cmd, flags ));
-        if ( flags & TRAPF_IF )
+        if ( gvars.compatflags & CF_INSTANTIRQ )
             VIRQ_WaitForSndIrq();
         break;
     case SB_DSP_STATUS: /* FB */
@@ -706,10 +712,10 @@ static uint8_t DSP_Read0A( void )
 static uint8_t DSP_Read0C( void )
 /////////////////////////////////
 {
+    uint8_t tmp = vsb.WS;
     //dbgprintf(("DSP_Read0C (bit 7=0 means DSP ready for cmd/data)\n"));
-    //return 0; //ready for write (bit7 clear)
-    vsb.WS += 0x80; //some games will wait on busy first
-    return vsb.WS;
+    vsb.WS = 0x7F;
+    return tmp;
 }
 
 /* read status register 02xE;
@@ -941,7 +947,7 @@ uint32_t VSB_MixerData( uint32_t port, uint32_t val, uint32_t flags )
 uint32_t VSB_DSP_Reset( uint32_t port, uint32_t val, uint32_t flags )
 /////////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (DSP_Reset( val ), val) : val;
+    return (flags & TRAPF_OUT) ? (DSP_Reset( val ), val) : 0xff;
 }
 
 /* read/write DSP "read data"

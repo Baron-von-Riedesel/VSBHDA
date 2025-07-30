@@ -59,6 +59,11 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 	}
 }
 
+/* usually called by card during adetect(), before card is initialized.
+ * max_bufsize should be 0 then, pagesize should be "period size", samplesize is 2,
+ * freq_config is 0 except for HDA.
+ */
+
 unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize, unsigned long freq_config)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -88,6 +93,13 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
  * these are called by AU_setrate(), which is called by main().
  * So it's NOT called during interrupt time!
  * freq_config is usually 0, except for HDA.
+ * Besides the function's arguments, used are:
+ * - aui->bits_card,aui->chan_card
+ * - aui->freq_card
+ * out:
+ * - aui->card_dmasize
+ * - aui->card_bytespersign
+ * - aui->card_outbytes (only if 0); may have been init with card_dmasize by AU_setoutbytes()
  */
 
 unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned long freq_config )
@@ -110,6 +122,7 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 		break;
 	}
 
+	/* ensure dmabufsize is a multiple of pagesize */
 	dmabufsize = maxbufsize * aui->freq_card / freq;
 	dmabufsize += (pagesize - 1);           // rounding up to pagesize
 	dmabufsize -= (dmabufsize % pagesize);  //

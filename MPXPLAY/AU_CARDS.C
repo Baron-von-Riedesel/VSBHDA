@@ -187,6 +187,13 @@ void FAREXP AU_close( struct audioout_info_s *aui )
 {
 	if(!aui)
 		return;
+#ifdef _DEBUG
+    dbgprintf(("card controlbits=%X infobits=%X\n", aui->card_controlbits, aui->card_infobits));
+    dbgprintf(("card outbytes=%X dmasize=%X\n", aui->card_outbytes, aui->card_dmasize));
+	dbgprintf(("card dmalastput=%X dmaspace=%X\n", aui->card_dmalastput, aui->card_dmaspace));
+	dbgprintf(("card dmafilled=%X dma_lastgoodpos=%X\n", aui->card_dmafilled, aui->card_dma_lastgoodpos));
+	dbgprintf(("card bytespersign=%X bytespersample=%X\n", aui->card_bytespersign, aui->bytespersample_card));
+#endif
 	AU_stop(aui);
 	if(aui->card_handler && aui->card_handler->card_close)
 		aui->card_handler->card_close(aui);
@@ -288,7 +295,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 	unsigned int subchannelnum, sch, channel, function;
 	long newpercentval, maxpercentval;
 
-	dbgprintf(("AU_setmixer_one( %u, %u, %u )\n", mixchannum, setmode, newvalue ));
+	dbgprintf(("AU_setmixer_one( mixchannum=%u, setmode=%u, newvalue=%u )\n", mixchannum, setmode, newvalue ));
 	//mixer structure/values verifying
 
 	/* there are 2 funcs: 0="set volume" or 1="set mute" */
@@ -307,6 +314,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 	if(!onechi)
 		return;
 	subchannelnum = onechi->subchannelnum;
+	dbgprintf(("AU_setmixer_one: function=%u, channel=%u, subchannelnum=%u\n", function, channel, subchannelnum ));
 	if( !subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS) )
 		return;
 
@@ -315,8 +323,8 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 	//calculate new percent
 	switch( setmode ) {
 	case MIXER_SETMODE_ABSOLUTE:
-		dbgprintf(("AU_setmixer_one( SETMODE_ABSOLUTE, %u %% )\n", newvalue ));
 		newpercentval = newvalue;
+		dbgprintf(("AU_setmixer_one: set newpercentval to %u %% )\n", newvalue ));
 		break;
 	case MIXER_SETMODE_RELATIVE:
 		if(function == AU_MIXCHANFUNC_VOLUME)
@@ -358,23 +366,25 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u)\n", newpercentval ));
 			cardi->card_writemixer( aui, subchi->submixch_register, newpercentval );
 		} else {
-			currchval = cardi->card_readmixer( aui, subchi->submixch_register);// read current value
-			dbgprintf(("AU_setmixer_one: called card_readmixer(%X)=%X (max=%X, shift=%X)\n", subchi->submixch_register, currchval, subchi->submixch_max, subchi->submixch_shift ));
-
 			/* vsbhda: don't use floats here - function may be called during interrupt time */
 			//newchval=(long)(((float)newpercentval * (float)subchi->submixch_max + ((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
 			newchval = (((int64_t)newpercentval * subchi->submixch_max + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
+			dbgprintf(("AU_setmixer_one: newchval=%X max=%X\n", newchval, subchi->submixch_max ));
 			if( newchval > subchi->submixch_max)
 				newchval = subchi->submixch_max;
-			if(subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE)   // reverse value if required
+			if( subchi->submixch_infobits & SUBMIXCH_INFOBIT_REVERSEDVALUE )   // reverse value if required
 				newchval = subchi->submixch_max - newchval;
+			dbgprintf(("AU_setmixer_one: newchval=%X\n", newchval ));
 
 			newchval <<= subchi->submixch_shift;                             // shift to position
+			dbgprintf(("AU_setmixer_one: newchval=%X after shift\n", newchval ));
 
+			currchval = cardi->card_readmixer( aui, subchi->submixch_register);// read current value
+			dbgprintf(("AU_setmixer_one: called card_readmixer(%X)=%X (max=%X, shift=%u)\n", subchi->submixch_register, currchval, subchi->submixch_max, subchi->submixch_shift ));
 			currchval &= ~(subchi->submixch_max << subchi->submixch_shift);  // unmask
 			newchval = (currchval | newchval);                               // add new value
 
-			dbgprintf(("AU_setmixer_one: calling card_writemixer(%X, %X)\n", subchi->submixch_register, newchval ));
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(%X, %X) [currchval=%X]\n", subchi->submixch_register, newchval, currchval ));
 			cardi->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
 		}
 	}
@@ -456,6 +466,8 @@ static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
 	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
 
 /* set the volumes of "output channels:", defined in array above.
+ * for VSBHDA, this is actually the mixer function that's used for volume setting;
+ * setmode == SETMODE_ABSOLUTE.
  */
 
 void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode, int newvalue )
@@ -506,6 +518,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////
 {
 	unsigned long buffer_protection;
+	unsigned long bufpos;
 
 	/* this function is called from sound ISR!
 	 * modifies:
@@ -525,6 +538,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 		aui->card_dmalastput = 0;
 
 	if( aui->card_handler->cardbuf_getpos ) {
+		/* vsbhda: none of the cards has bit CARDBUF_SPACE set currently */
 		if( aui->card_handler->infobits & SNDCARD_CARDBUF_SPACE ) {
 			if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 				aui->card_dmaspace = aui->card_handler->cardbuf_getpos(aui);
@@ -532,7 +546,6 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 			} else
 				aui->card_dmaspace = (aui->card_dmaspace > aui->card_outbytes) ? (aui->card_dmaspace - aui->card_outbytes) : 0;
 		} else {
-			unsigned long bufpos;
 
 			if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 				bufpos = aui->card_handler->cardbuf_getpos(aui);
@@ -569,6 +582,8 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 		aui->card_dmaspace = aui->card_dmasize;
 
 	aui->card_dmafilled = aui->card_dmasize - aui->card_dmaspace;
+
+	//dbgprintf(("AU_cardbuf_space: card_dmaspace=%X, bufpos=%X, card_dmalastput=%X info=%X\n", aui->card_dmaspace, bufpos, aui->card_dmalastput, aui->card_infobits ));
 
 	return (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace - buffer_protection) : 0;
 }

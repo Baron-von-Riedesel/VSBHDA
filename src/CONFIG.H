@@ -52,9 +52,15 @@ struct globalvars {
 	char *soundfont;
 	int voices;
 #endif
+	int compatflags; /* compatibility flags */
 	int pin;
 	int device;
 	int period_size;
+};
+
+/* compatflags bits */
+enum {
+    CF_INSTANTIRQ = 1,
 };
 
 int _dprintf(const char *fmt, ... );
