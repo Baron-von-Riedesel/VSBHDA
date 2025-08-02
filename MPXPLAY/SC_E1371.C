@@ -28,10 +28,14 @@
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 
+#if 0
 #define ES1371_DMABUF_PERIODS  32
 #define ES1371_MAX_CHANNELS     2
 #define ES1371_MAX_BYTES        4
 #define ES1371_DMABUF_ALIGN (ES1371_DMABUF_PERIODS * ES1371_MAX_CHANNELS * ES1371_MAX_BYTES) // 256
+#else
+#define ES1371_DMABUF_ALIGN 512
+#endif
 
 /* 00-07 interrupt/chip select
  * 08-0B UART
@@ -459,7 +463,8 @@ static unsigned int snd_es1371_buffer_init( struct ensoniq_card_s *card, struct 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample = 2; // 16 bit
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
+	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
+    card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
 	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize );
 	if (!card->dm)
 		return 0;
@@ -595,9 +600,9 @@ static void ES1371_close( struct audioout_info_s *aui );
 static void ES1371_card_info( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card = aui->card_private_data;
-	printf("ENS : Ensoniq %s found on port:%X irq:%d rev:%X\n",
-		   card->pci_dev->device_name, card->port, aui->card_irq, card->chiprev);
+	//struct ensoniq_card_s *card = aui->card_private_data;
+	//printf("ENS : Ensoniq %s found on port:%X irq:%d rev:%X\n",
+	//	   card->pci_dev->device_name, card->port, aui->card_irq, card->chiprev);
 }
 
 static int ES1371_adetect( struct audioout_info_s *aui )
@@ -675,7 +680,7 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
-	unsigned int pagesize = aui->gvars->period_size ? aui->gvars->period_size : 512;
+	unsigned int pagesize = aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN;
 
 	dbgprintf(("ES1371_setrate\n"));
 	aui->card_wave_id = WAVEID_PCM_SLE;

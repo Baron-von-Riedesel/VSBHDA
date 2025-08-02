@@ -282,7 +282,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	card->irq    = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	card->chiprev= pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
 	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
-#ifdef SBEMU
+#if 1 /* modifying the IRQ? */
 	aui->card_irq = card->irq;
 	dbgprintf(("VIA82XX_adetect: irq=%d\n",aui->card_irq));
 	if(aui->card_irq == 0 || aui->card_irq == 0xFF) {

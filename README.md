@@ -8,6 +8,7 @@ Supported Sound cards:
  * Intel ICH / nForce
  * VIA VT82C686, VT8233/35/37
  * SB Live/SB Audigy
+ * SB based on ES1371/1373 (Ensoniq)
 
 Emulated modes/cards:
 8-bit, 16-bit, mono, stereo, high-speed;

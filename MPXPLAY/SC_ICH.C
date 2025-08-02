@@ -86,7 +86,8 @@
 #define ICH_DMABUF_PERIODS  32
 #define ICH_MAX_CHANNELS     2
 #define ICH_MAX_BYTES        4
-#define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS * ICH_MAX_CHANNELS * ICH_MAX_BYTES) // 256
+//#define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS * ICH_MAX_CHANNELS * ICH_MAX_BYTES) // 256
+#define ICH_DMABUF_ALIGN 512 /* v1.7 to match the setting of HDA/ES1371 */
 #if 1 //def SBEMU
 #define ICH_INT_INTERVAL     1 //interrupt interval in periods
 #endif
@@ -211,7 +212,7 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
+    card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
 	if (!card->dm) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
@@ -444,50 +445,62 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	dbgprintf(("ICH_adetect: enable PCI io and busmaster\n"));
 	pcibios_enable_BM_IO(card->pci_dev);
 
-	card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR);
+	card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR); /* PCI offset 0x14 */
 	if (!(card->baseport_bm & 1 )) {/* must be an IO address */
 		dbgprintf(("ICH_adetect: no IO port for DMA engine set\n"));
 		goto err_adetect;
 	}
-    card->baseport_bm &= ~1; /* just mask out bits 0; bits 1-5 should be 0, since IO space is 64 ports */
+	card->baseport_bm &= ~1; /* just mask out bits 0; bits 1-5 should be 0, since IO space is 64 ports */
 
-#if 0//def SBEMU
 	/* Some BIOSes don't set NAMBAR/NABMBAR at all. assign manually.
-	 * Probably a bad idea - we don't know what port ranges are free to use -
-	 * so if this is done, it should be done by an external tool...
+	 * Almost certainly a bad idea - we don't know what port ranges are free to use -
+	 * so if this is done, it should be done by an external tool.
+	 * Better approach may be to set PnP OS in BIOS to "NO".
 	 */
-	int iobase = 0xF000;
 	if( card->baseport_bm == 0 ) {
+#if 0//def SBEMU
+		int iobase = 0xF000;
 		iobase &= ~0x3F;
 		pcibios_WriteConfig_Dword(card->pci_dev, PCIR_NABMBAR, iobase);
 		card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR) & 0xfff0;
-	}
-#endif
-	if(!card->baseport_bm)
+		if(!card->baseport_bm)
+			goto err_adetect;
+#else
+		dbgprintf(("ICH_adetect: PCI IO addr for DMA engine (offs 0x14) not set\n"));
 		goto err_adetect;
+#endif
+	}
 
-	card->baseport_codec = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
+	card->baseport_codec = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR); /* PCI offset 0x10 */
 	if (!(card->baseport_codec & 1 )) { /* must be an IO address */
 		dbgprintf(("ICH_adetect: no IO port for Native Audio Mixer set\n"));
 		goto err_adetect;
 	}
 	card->baseport_codec &= ~1; /* just mask out bit 0; bits 1-7 should be 0, since IO space is 256 ports */
-#if 0 //def SBEMU
 	if( card->baseport_codec == 0 ) {
+#if 0 //def SBEMU
+		/* see comment above for PCIR_NABMBAR! */
 		iobase -= 256;
 		iobase &= ~0xFF;
 		pcibios_WriteConfig_Dword(card->pci_dev, PCIR_NAMBAR, iobase);
 		card->baseport_codec = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
-	}
-#endif
-	if(!card->baseport_codec)
+		if(!card->baseport_codec)
+			goto err_adetect;
+#else
+		dbgprintf(("ICH_adetect: PCI IO addr for codec (offs 0x10) not set\n"));
 		goto err_adetect;
+#endif
+	}
 
 	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-#ifdef SBEMU
-	/* if no interrupt assigned, assign #11??? A pretty doubtful action - BIOS should know a lot better what IRQs are to be used */
+#if 1
+	/* if no interrupt assigned, assign #11?
+	 * Also a doubtful action - BIOS should know better what IRQs are to be used.
+	 * Probably it's better to just display an error -
+	 * the appropriate fix might be to set "PnP OS" in the BIOS to "NO".
+	 */
 	if( aui->card_irq == 0xFF ) {
-		printf(("Intel ICH detection: no IRQ set in PCI config space, try to set it to 11\n"));
+		printf(("Intel ICH: no IRQ set in PCI config space, trying to set it to 11\n"));
 		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_INTR_LN, 11);
 		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	}
@@ -529,7 +542,7 @@ static void ICH_setrate( struct audioout_info_s *aui )
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int dmabufsize;
 	if((card->device_type == DEVICE_INTEL) && !card->ac97_clock_detected )
-		snd_intel_measure_ac97_clock(aui); // called from here because pds_gettimeu() needs int08
+		snd_intel_measure_ac97_clock(aui); // called from here because gettimeu() needs int08
 
 	aui->card_wave_id = WAVEID_PCM_SLE;
 	aui->chan_card = 2;
@@ -545,7 +558,7 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, ICH_DMABUF_ALIGN, 0);
+    dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, 0);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
 
 	snd_intel_prepare_playback(card,aui);
@@ -603,12 +616,12 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	aui->bits_card = 16;
 
 	dmabufsize = min( card->pcmout_bufsize, AUCARDS_DMABUFSIZE_NORMAL ); // to avoid longer test at -ddma, -ob 24
-	dmabufsize = MDma_init_pcmoutbuf( aui, dmabufsize, ICH_DMABUF_ALIGN, 0);
+    dmabufsize = MDma_init_pcmoutbuf( aui, dmabufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, 0);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
 	snd_intel_prepare_playback( card, aui);
 	MDma_clearbuf(aui);
 
-#ifdef SBEMU
+#if 1//def SBEMU
 	cr = snd_intel_read_8( card, ICH_PO_CR_REG);
 	snd_intel_write_8( card, ICH_PO_CR_REG, 0); //disable LVBIE/IOCE
 #endif
@@ -625,7 +638,7 @@ static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
 	else
 		timelen = 0;
 	ICH_stop(aui);
-#ifdef SBEMU
+#if 1//def SBEMU
 	snd_intel_write_8(card,ICH_PO_CR_REG, cr);
 #endif
 
@@ -654,7 +667,7 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 
 	MDma_writedata(aui,src,left);
 
-#ifdef SBEMU
+#if 1//def SBEMU
 	snd_intel_write_8(card,ICH_PO_LVI_REG,(snd_intel_read_8(card, ICH_PO_CIV_REG)-1) % ICH_DMABUF_PERIODS);
 #else
 	index = aui->card_dmalastput / card->period_size_bytes;
@@ -674,7 +687,7 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 
 	do{
 		index = snd_intel_read_8( card, ICH_PO_CIV_REG );  // number of current period
-#ifndef SBEMU
+#if 0//ndef SBEMU
 		//dbgprintf(("index1: %d\n",index));
 		if(index >= ICH_DMABUF_PERIODS){
 			if(retry > 1)
@@ -699,11 +712,11 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 				//snd_intel_write_8(card,ICH_PO_CIV_REG,index); // ??? -RO
 				aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			}
-#ifndef SBEMU
+#if 0//ndef SBEMU
 			continue;
 #endif
 		}
-#ifndef SBEMU
+#if 0//ndef SBEMU
 		if(snd_intel_read_8(card,ICH_PO_CIV_REG) != index) // verifying
 			continue;
 #endif

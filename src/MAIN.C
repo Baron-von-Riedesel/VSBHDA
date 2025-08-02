@@ -146,7 +146,7 @@ static const struct {
     "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "F",  "Set frequency [22050|44100, def 22050]", &gm.freq,
+    "F",  "Set frequency [11025|22050|44100, def 22050]", &gm.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
 #if SLOWDOWN
@@ -157,7 +157,7 @@ static const struct {
 #ifdef NOTFLAT
     "DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
 #endif
-    "PS", "Set period size (HDA only) [def 512]", &gvars.period_size,
+    "PS", "Set period size (HDA/ES1371 only) [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
     "MV", "Set voice limit [1-256, def 64]", &gvars.voices,
@@ -362,61 +362,61 @@ int main(int argc, char* argv[])
                "\tTinySoundFont (https://www.github.com/schellingb/TinySoundFont)\n"
 #endif
               );
-        return 0;
+        return(0);
     }
 
     if( gvars.base != 0x220 && gvars.base != 0x240 ) {
         printf("Error: valid IO base addresses: 220 or 240\n" );
-        return 1;
+        return(1);
     }
     if( gvars.irq != 2 && gvars.irq != 5 && gvars.irq != 7 ) {
         printf("Error: valid IRQs: 2, 5 or 7\n" );
-        return 1;
+        return(1);
     }
     if( gvars.dma != 0x0 && gvars.dma != 1 && gvars.dma != 3 ) {
         printf("Error: valid DMA channels: 0, 1 or 3\n" );
-        return 1;
+        return(1);
     }
 #if SB16
     if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
         printf("Error: valid HDMA channels: 5, 6 or 7\n" );
-        return 1;
+        return(1);
     }
 #endif
     if( gvars.type <= 0 || gvars.type > MAXTYPE ) {
         printf("Error: invalid SB Type: %d\n", gvars.type );
-        return 1;
+        return(1);
     }
 #if VMPU
     if( gvars.mpu && ( gvars.mpu != 0x330 && gvars.mpu != 0x300 )) {
         printf("Error: valid Midi port addresses: 330 or 300\n" );
-        return 1;
+        return(1);
     }
 #endif
     if( gvars.pin < 0 || gvars.pin > 2) {
         printf("Error: valid output devices: 0, 1 or 2\n" );
-        return 1;
+        return(1);
     }
     if( gvars.vol < 0 || gvars.vol > 9) {
         printf("Error: Invalid volume %d\n", gvars.vol );
-        return 1;
+        return(1);
     }
     if( gvars.buffsize < 1) {
         printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
-        return 1;
+        return(1);
     }
-    if( gm.freq != 22050 && gm.freq != 44100 ) {
-        printf("Error: valid frequencies: 22050 and 44100\n" );
-        return 1;
+    if( gm.freq != 11025 && gm.freq != 22050 && gm.freq != 44100 ) {
+        printf("Error: valid frequencies: 11025, 22050, 44100\n" );
+        return(1);
     }
     if( gvars.period_size % 64 ) {
         printf("Error: period size must be a multiple of 64\n" );
-        return 1;
+        return(1);
     }
 #if SOUNDFONT
     if (gvars.voices > 256) {
         printf("Error: voice limit %d beyond 256\n", gvars.voices );
-        return 1;
+        return(1);
     }
 #endif
 #if defined(DJGPP)
@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
 #endif
 
     if ( IsInstalled() ) {
-        printf("SB found - probably VSBHDA already installed.\n" );
+        printf("SB found - probably VSBHDA already installed\n" );
         return(0);
     }
     if( gvars.rm ) {
@@ -443,21 +443,22 @@ int main(int argc, char* argv[])
     if( gvars.pm ) {
         bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used than HDPMI?
         if(!hasHDPMI)
-            printf("HDPMI not installed, disable protected mode support.\n");
+            printf("HDPMI not installed - no protected mode support.\n");
         gvars.pm = hasHDPMI;
     }
-    if( !gvars.pm && !gvars.rm ) {
-        printf("Both real mode & protected mode support are disabled, exiting.\n");
-        return 1;
-    }
     if ( (gm.hAU = AU_init( &gvars ) ) == 0 ) {
-        printf("No soundcard found!\n");
-        return 1;
+        printf("Error: no soundcard found\n");
+        return(1);
     }
     printf("Found sound card: %s\n", AU_getshortname( gm.hAU ) );
-    if( AU_getirq( gm.hAU ) == gvars.irq ) {
-        printf("Sound card IRQ conflict, abort.\n");
-        return 1;
+    i = AU_getirq( gm.hAU );
+    if( i == 0 || i == -1 ) {
+        printf("Error: no IRQ assigned to sound card\n");
+        return(1);
+    }
+    if( i == gvars.irq ) {
+        printf("Error: sound card IRQ conflict\n");
+        return(1);
     }
     AU_setmixer_init( gm.hAU );
 
@@ -470,13 +471,19 @@ int main(int argc, char* argv[])
     if( gvars.rm ) {
         gvars.rm = PTRAP_Prepare_RM_PortTrap();
         if ( !gvars.rm ) {
-            printf("Error: Failed setting IO port handler for real-mode.\n");
+            printf("Error: preparing IO port traps for real-mode failed\n");
             return 1;
         }
     }
-    printf("Real-mode support: %s\n", gvars.rm ? "enabled" : "disabled");
-    printf("Protected-mode support: %s\n", gvars.pm ? "enabled" : "disabled");
-
+    if ( !gvars.rm )
+        printf("Real-mode support disabled\n");
+    if ( !gvars.pm ) {
+        printf("Protected-mode support disabled\n");
+        if( !gvars.rm ) {
+            printf("Error: support for both modes disabled\n");
+            return(1);
+        }
+    }
     if( gvars.pm ) {
         UntrappedIO_OUT_Handler = &PTRAP_UntrappedIO_OUT;
         UntrappedIO_IN_Handler = &PTRAP_UntrappedIO_IN;
@@ -548,11 +555,11 @@ int main(int argc, char* argv[])
 
     if ( gvars.rm ) {
         if ((gm.bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
-            printf("Error: Failed installing IO port trap for real-mode.\n");
+            printf("Failed installing IO port trap for real-mode\n");
     }
     if ( gvars.pm ) {
         if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
-            printf("Error: Failed installing IO port trap for protected-mode.\n");
+            printf("Failed installing IO port trap for protected-mode\n");
         //PTRAP_PrintPorts(); /* for debugging */
     }
 
