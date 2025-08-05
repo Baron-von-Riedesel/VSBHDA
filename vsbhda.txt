@@ -95,7 +95,7 @@
      /O      : Set output widget (HDA only)
      /DEV    : Set start index for device scan (HDA only)
      /DIVE   : Set "Runtime Error 200" fix for Borland apps (VSBHDA16 only)
-     /PS     : Set period size (HDA/ES1371/ICH/nForce only)
+     /PS     : Set period size
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit for MPU synthesizer
      /CF     : Set compatibility flags

@@ -22,7 +22,11 @@
 #include "MPXPLAY.H"
 #include "DMAIRQ.H"
 
+#ifdef NOTFLAT
+uint8_t bOMode = 1;
+#else
 extern uint8_t bOMode;
+#endif
 
 #ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
@@ -164,7 +168,9 @@ void FAREXP AU_start( struct audioout_info_s *aui )
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_PLAYING;
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 	}
+#ifdef NOTFLAT
 	if ( bOMode & 1 ) bOMode = 2;  /* no DOS output anymore */
+#endif
 }
 
 void FAREXP AU_stop( struct audioout_info_s *aui )
@@ -188,11 +194,12 @@ void FAREXP AU_close( struct audioout_info_s *aui )
 	if(!aui)
 		return;
 #ifdef _DEBUG
-    dbgprintf(("card controlbits=%X infobits=%X\n", aui->card_controlbits, aui->card_infobits));
-    dbgprintf(("card outbytes=%X dmasize=%X\n", aui->card_outbytes, aui->card_dmasize));
+	dbgprintf(("card controlbits=%X infobits=%X\n", aui->card_controlbits, aui->card_infobits));
+	dbgprintf(("card outbytes=%X dmasize=%X\n", aui->card_outbytes, aui->card_dmasize));
 	dbgprintf(("card dmalastput=%X dmaspace=%X\n", aui->card_dmalastput, aui->card_dmaspace));
 	dbgprintf(("card dmafilled=%X dma_lastgoodpos=%X\n", aui->card_dmafilled, aui->card_dma_lastgoodpos));
 	dbgprintf(("card bytespersign=%X bytespersample=%X\n", aui->card_bytespersign, aui->bytespersample_card));
+	dbgprintf(("freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card));
 #endif
 	AU_stop(aui);
 	if(aui->card_handler && aui->card_handler->card_close)
@@ -254,6 +261,7 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 		aui->card_outbytes = aui->card_dmasize/4; // ??? for interrupt_decoder
 #endif
 	}
+    //bOMode = 0;  /* suppress further output!!!! */
 	return( aui->freq_card );
 }
 

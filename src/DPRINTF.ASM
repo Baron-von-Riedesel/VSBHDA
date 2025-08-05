@@ -238,7 +238,7 @@ handle_char:
 		int 21h
 	.elseif bOMode & 2
 		call VioPutChar
-	.else
+	.elseif bOMode & 4
 		mov dl, al
 		xor ax, ax
 		int 41h

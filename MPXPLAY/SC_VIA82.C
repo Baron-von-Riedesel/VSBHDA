@@ -135,6 +135,7 @@ struct via82xx_card
  char *pcmout_buffer;
  long pcmout_bufsize;
  int pcmout_pages;
+ int pagesize; /* v1.7 */
 };
 
 static void via82xx_AC97Codec_ready(unsigned int baseport);
@@ -292,8 +293,10 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	}
 #endif
 
+	/* v1.7: use /PS cmdline value if available */
+	card->pagesize = ( aui->gvars->period_size ? aui->gvars->period_size : PCMBUFFERPAGESIZE );
 	// alloc buffers
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,PCMBUFFERPAGESIZE,2,0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pagesize, 2, 0 );
 
 	card->dm = MDma_alloc_cardmem( VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 );
 	if (!card->dm)
@@ -343,6 +346,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	unsigned int dmabufsize,pagecount,spdif_rate;
 	unsigned long pcmbufp;
 
+
 	dbgprintf(("VIA82XX_setrate\n"));
 	if(aui->freq_card < 4000)
 		aui->freq_card = 4000;
@@ -355,25 +359,28 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	aui->bits_card = 16;
 	aui->card_wave_id = WAVEID_PCM_SLE;
 
-	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,PCMBUFFERPAGESIZE,0);
+	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize, 0);
 
 	// page tables
-	card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;
+	//card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;
+	card->pcmout_pages = dmabufsize / card->pagesize;
 	pcmbufp = (unsigned long)card->pcmout_buffer;
 	dbgprintf(("VIA82XX_setrate: PCM pages=%u\n", card->pcmout_pages));
  
 	for( pagecount = 0; pagecount < card->pcmout_pages; pagecount++) {
 		card->virtualpagetable[pagecount * 2] = pds_cardmem_physicalptr(card->dm,pcmbufp);
 		if( pagecount < (card->pcmout_pages - 1)) {
-#ifdef SBEMU
-			card->virtualpagetable[pagecount * 2 + 1] = ((pagecount % VIA_INT_INTERVAL) == VIA_INT_INTERVAL - 1) ? VIA_TBL_BIT_FLAG | PCMBUFFERPAGESIZE : PCMBUFFERPAGESIZE;
+#if 1//def SBEMU
+			//card->virtualpagetable[pagecount * 2 + 1] = ((pagecount % VIA_INT_INTERVAL) == VIA_INT_INTERVAL - 1) ? VIA_TBL_BIT_FLAG | PCMBUFFERPAGESIZE : PCMBUFFERPAGESIZE;
+			card->virtualpagetable[pagecount * 2 + 1] = ((pagecount % VIA_INT_INTERVAL) == VIA_INT_INTERVAL - 1) ? VIA_TBL_BIT_FLAG | card->pagesize : card->pagesize;
 #else
-			card->virtualpagetable[pagecount * 2 + 1]= PCMBUFFERPAGESIZE; // 0x00001000; // period continues to the next
+			card->virtualpagetable[pagecount * 2 + 1] = PCMBUFFERPAGESIZE; // 0x00001000; // period continues to the next
 #endif
 		} else
-			card->virtualpagetable[pagecount * 2 + 1] = VIA_TBL_BIT_EOL | PCMBUFFERPAGESIZE; // 0x80001000; // buffer boundary
+			//card->virtualpagetable[pagecount * 2 + 1] = VIA_TBL_BIT_EOL | PCMBUFFERPAGESIZE; // 0x80001000; // buffer boundary
+			card->virtualpagetable[pagecount * 2 + 1] = VIA_TBL_BIT_EOL | card->pagesize; // 0x80001000; // buffer boundary
 
-		pcmbufp += PCMBUFFERPAGESIZE;
+		pcmbufp += card->pagesize;
 	}
 
 	// ac97 config
@@ -469,9 +476,9 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 
 	/* vsbhda: count may be 0 */
 	//if(count && (count <= PCMBUFFERPAGESIZE)){
-	if ( ( card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686 ) || ( count && ( count <= PCMBUFFERPAGESIZE ))) {
+	if ( ( card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686 ) || ( count && ( count <= card->pagesize ))) {
 
-		bufpos = (idx * PCMBUFFERPAGESIZE) + PCMBUFFERPAGESIZE - count;
+		bufpos = (idx * card->pagesize) + card->pagesize - count;
 
 		if(bufpos < aui->card_dmasize)
 			aui->card_dma_lastgoodpos = bufpos;

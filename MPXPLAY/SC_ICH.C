@@ -121,7 +121,7 @@ struct intel_card_s {
 };
 
 enum { DEVICE_INTEL, DEVICE_INTEL_ICH4, DEVICE_NFORCE };
-static char *ich_devnames[3]={"ICH","ICH4","NForce"};
+static const char *ich_devnames[3]={"ICH","ICH4","NForce"};
 
 static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui );
 

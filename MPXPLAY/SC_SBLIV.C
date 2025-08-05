@@ -185,7 +185,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card)
 		emu10k1_writeptr(card, ENVVAL, ch, 0);
 
 		// Audigy extra stuffs
-		if (card->chips&EMU_CHIPS_10K2) {
+		if (card->chips & EMU_CHIPS_10K2) {
 			emu10k1_writeptr(card, 0x4c, ch, 0); // ??
 			emu10k1_writeptr(card, 0x4d, ch, 0); // ??
 			emu10k1_writeptr(card, 0x4e, ch, 0); // ??
@@ -592,7 +592,7 @@ static void emu10k1_clear_stop_on_loop( struct emu10k1_card *card, uint32_t voic
 static uint32_t emu10k1_srToPitch(uint32_t sampleRate)
 //////////////////////////////////////////////////////
 {
-	static uint32_t logMagTable[128] = {
+	static const uint32_t logMagTable[128] = {
 		0x00000, 0x02dfc, 0x05b9e, 0x088e6, 0x0b5d6, 0x0e26f, 0x10eb3, 0x13aa2,
 		0x1663f, 0x1918a, 0x1bc84, 0x1e72e, 0x2118b, 0x23b9a, 0x2655d, 0x28ed5,
 		0x2b803, 0x2e0e8, 0x30985, 0x331db, 0x359eb, 0x381b6, 0x3a93d, 0x3d081,
@@ -611,7 +611,7 @@ static uint32_t emu10k1_srToPitch(uint32_t sampleRate)
 		0xf4463, 0xf5c2a, 0xf73da, 0xf8b71, 0xfa2f0, 0xfba57, 0xfd1a7, 0xfe8df
 	};
 
-	static char logSlopeTable[128] = {
+	static const char logSlopeTable[128] = {
 		0x5c, 0x5c, 0x5b, 0x5a, 0x5a, 0x59, 0x58, 0x58,
 		0x57, 0x56, 0x56, 0x55, 0x55, 0x54, 0x53, 0x53,
 		0x52, 0x52, 0x51, 0x51, 0x50, 0x50, 0x4f, 0x4f,
@@ -682,6 +682,8 @@ static uint32_t emu10k1_select_interprom( struct emu10k1_card *card, unsigned in
 		return CCCA_INTERPROM_3;
 	return CCCA_INTERPROM_2;
 }
+
+/* called by setrate */
 
 static void emu10k1_pcm_init_voice( struct emu10k1_card *card, unsigned int voice, unsigned int flags, unsigned int start_addr, unsigned int end_addr)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -886,7 +888,7 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	aui->chan_card = 2;
 	aui->bits_card = 16;
 
-	dbgprintf(("snd_emu10kx_setrate enter\n"));
+	dbgprintf(("snd_emu10kx_setrate(%u) enter\n", aui->freq_card));
 	if( aui->freq_card < 4000 )
 		aui->freq_card = 4000;
 	else{
@@ -899,11 +901,11 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 
 	if(aui->freq_card == 44100)
 		snd_emu_set_spdif_freq(card,44100);
-	else
-		if(aui->freq_card <= 48000)
-			snd_emu_set_spdif_freq(card,48000);
-		else
-			snd_emu_set_spdif_freq(card,96000);
+	else {
+		/* v1.7: update freq_card member! */
+		aui->freq_card = (aui->freq_card <= 48000 ? 48000 : 96000 );
+		snd_emu_set_spdif_freq( card, aui->freq_card );
+	}
 
 	card->voice_initial_pitch = emu10k1_srToPitch(aui->freq_card) >> 8;
 	card->voice_pitch_target  = emu10k1_samplerate_to_linearpitch(aui->freq_card);
@@ -1024,7 +1026,7 @@ static unsigned int snd_p16v_selector( struct emu10k1_card *card, struct audioou
 static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui,0,AUDIGY2_P16V_DMABUF_ALIGN,AUDIGY2_P16V_BYTES_PER_SAMPLE,0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN, AUDIGY2_P16V_BYTES_PER_SAMPLE, 0);
 	card->dm = MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize);
 	card->virtualpagetable = (uint32_t *)card->dm->pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t);
@@ -1043,7 +1045,7 @@ static void snd_p16v_pcm_prepare_playback( struct emu10k1_card *card,unsigned in
 	dbgprintf(("snd_p16v_pcm_prepare_playback enter\n"));
 	snd_emu_set_spdif_freq(card,freq);
 
-	for(i=0; i<AUDIGY2_P16V_PERIODS; i++) {
+	for(i = 0; i < AUDIGY2_P16V_PERIODS; i++) {
 		//table_base[i*2] = (uint32_t)((char *)card->pcmout_buffer + ( i * period_size_bytes));
 		table_base[i*2] = pds_cardmem_physicalptr(card->dm,(char *)card->pcmout_buffer + ( i * period_size_bytes));
 		table_base[i*2+1] = period_size_bytes << 16;
@@ -1087,8 +1089,9 @@ static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s 
 					aui->freq_card = 192000;
 		}
 
-	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,AUDIGY2_P16V_DMABUF_ALIGN,0);
-	card->period_size = (dmabufsize / AUDIGY2_P16V_PERIODS);
+	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN,0);
+	//card->period_size = (dmabufsize / AUDIGY2_P16V_PERIODS);
+	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / AUDIGY2_P16V_PERIODS);
 	dbgprintf(("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));
 
 	snd_p16v_pcm_prepare_playback(card,aui->freq_card);
@@ -1212,6 +1215,8 @@ static const struct pci_device_s creative_devices[] = {
  { NULL,0,0 }
 };
 
+/* list of variants that are supported */
+
 static const struct emu_card_version_s emucard_versions[] = {
  {"Audigy 4 [SB0610]"          ,0x0008,0,0x10211102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
  {"Audigy 2 Value [SB0400]"    ,0x0008,0,0x10011102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
@@ -1271,10 +1276,10 @@ extern struct emu_driver_func_s emu_driver_audigyls_funcs;
 extern struct emu_driver_func_s emu_driver_live24_funcs;
 
 static const struct emu_driver_func_s *emu_driver_all_funcs[] = {
- &emu_driver_10k1_funcs,
- &emu_driver_10k2_funcs,
- &emu_driver_p16v_funcs,
- &emu_driver_audigyls_funcs,
+ &emu_driver_10k1_funcs, /* SB Live */
+ &emu_driver_10k2_funcs, /* SB Audigy */
+ &emu_driver_p16v_funcs, /* SB Audigy 2 */
+ &emu_driver_audigyls_funcs, /* SB Audify LS */
  &emu_driver_live24_funcs,
 };
 
@@ -1293,6 +1298,8 @@ static void SBLIVE_show_info( struct audioout_info_s *aui )
 #endif
 }
 
+/* autodetect for all SoundBlasters - Live, Audigy, AudigyLS, Live24 */
+
 static int SBLIVE_adetect( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {
@@ -1310,14 +1317,17 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	if(!card->pci_dev)
 		goto err_adetect;
 
-	if(pcibios_search_devices( creative_devices, card->pci_dev) != PCI_SUCCESSFUL )
+	if(pcibios_search_devices( creative_devices, card->pci_dev) != PCI_SUCCESSFUL ) {
+		dbgprintf(("SBLIVE_adetect: pcibios_search_devices failed\n"));
 		goto err_adetect;
-
+	}
 	pcibios_enable_BM_IO(card->pci_dev);
 
 	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
-	if(!card->iobase)
+	if(!card->iobase) {
+		dbgprintf(("SBLIVE_adetect: no IO port in PCI address bar\n"));
 		goto err_adetect;
+	}
 
 	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
 	card->chiprev= pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID); /* revision ID */
@@ -1335,8 +1345,10 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 			}
 	}
 
-	if(!card->card_capabilities)
+	if(!card->card_capabilities) {
+		dbgprintf(("SBLIVE_adetect: SB variant dev=%X, subsys=%u, rev=%u unknown\n", card->pci_dev->device_id, card->serial, card->chiprev ));
 		goto err_adetect;
+	}
 
 	card->chip_select = card->chips = card->card_capabilities->chips;
 
@@ -1347,11 +1359,15 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 			break;
 	}
 
-	if( i == 5 )
+	if( i == 5 ) {
+		dbgprintf(("SBLIVE_adetect: no selector function accepted card\n" ));
 		goto err_adetect;
+	}
 
-	if(!card->driver_funcs->buffer_init(card,aui))
+	if(!card->driver_funcs->buffer_init(card,aui)) {
+		dbgprintf(("SBLIVE_adetect: buffer_init() failed\n" ));
 		goto err_adetect;
+	}
 
 	aui->card_DMABUFF = card->pcmout_buffer;
 
