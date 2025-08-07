@@ -899,13 +899,15 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 
 	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,EMUPAGESIZE,0);
 
-	if(aui->freq_card == 44100)
-		snd_emu_set_spdif_freq(card,44100);
+	/* v1.7: exlude 22050 and 11025 from 48k sampling as well ! */
+	//if( aui->freq_card == 44100 )
+	if( aui->freq_card == 44100 || aui->freq_card == 22050 || aui->freq_card == 11025 )
+		aui->freq_card = 44100;
 	else {
 		/* v1.7: update freq_card member! */
 		aui->freq_card = (aui->freq_card <= 48000 ? 48000 : 96000 );
-		snd_emu_set_spdif_freq( card, aui->freq_card );
 	}
+	snd_emu_set_spdif_freq( card, aui->freq_card );
 
 	card->voice_initial_pitch = emu10k1_srToPitch(aui->freq_card) >> 8;
 	card->voice_pitch_target  = emu10k1_samplerate_to_linearpitch(aui->freq_card);
@@ -1298,6 +1300,8 @@ static void SBLIVE_show_info( struct audioout_info_s *aui )
 #endif
 }
 
+struct sndcard_info_s SBLIVE_sndcard_info;
+
 /* autodetect for all SoundBlasters - Live, Audigy, AudigyLS, Live24 */
 
 static int SBLIVE_adetect( struct audioout_info_s *aui )
@@ -1334,6 +1338,7 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
 	card->serial = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
 
+    /* check for the SB variants that are supported */
 	for ( emucv = emucard_versions; emucv->longname; emucv++ ) {
 		if( emucv->device == card->pci_dev->device_id )
 			if( (emucv->subsystem == card->serial)
@@ -1368,6 +1373,9 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 		dbgprintf(("SBLIVE_adetect: buffer_init() failed\n" ));
 		goto err_adetect;
 	}
+
+	/* v1.7: set the detailed card name */
+	SBLIVE_sndcard_info.shortname = emucv->longname;
 
 	aui->card_DMABUFF = card->pcmout_buffer;
 
@@ -1495,7 +1503,9 @@ static int SBLIVE_IRQRoutine( struct audioout_info_s *aui )
 }
 #endif
 
-/* sndcard_info_s can't be const, since field card_mixerchans will be modified */
+/* sndcard_info_s can't be const, since field card_mixerchans will be modified;
+ * v1.7: member shortname now may also be modified.
+ */
 
 struct sndcard_info_s SBLIVE_sndcard_info = {
  "SB Live!/Audigy",

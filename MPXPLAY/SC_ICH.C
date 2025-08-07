@@ -14,6 +14,7 @@
 //**************************************************************************
 //function: Intel ICH audiocards low level routines
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
+//v1.7: SiS 7012 support; copied from SBEMU, impl. by Thomas Perl (m@thp.io), 09/2023
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -48,6 +49,7 @@
 #define ICH_PO_LVI_REG    0x15  // PCM out Last Valid Index (set it)
 #define ICH_PO_CIV_REG    0x14  // PCM out current Index value (RO?)
 #define ICH_PO_PICB_REG   0x18  // PCM out position in current buffer(RO) (remaining, not processed pos)
+#define ICH_PO_PICB_REG_SIS 0x16
 
 #define ICH_PO_CR_REG     0x1b  // PCM out Control Register
 #define ICH_PO_CR_START   0x01  // 1=start BM op, 0=pause BM op
@@ -56,6 +58,7 @@
 #define ICH_PO_CR_IOCE    0x10  // 1=IOC enable
 
 #define ICH_PO_SR_REG     0x16  // PCM out Status register
+#define ICH_PO_SR_REG_SIS 0x18  // PCM out Status register for SiS 7012
 #define ICH_PO_SR_DCH     0x01  // DMA controller: 1=halted, 0=running
 #define ICH_PO_SR_LVBCI   0x04  // last valid buffer completion interrupt (R/WC)
 #define ICH_PO_SR_BCIS    0x08  // buffer completion interrupt status (IOC) (R/WC)
@@ -67,8 +70,9 @@
 #define ICH_GLOB_CNT_AC97COLD  0x00000002 // AC'97 cold reset ( writing a 0 )
 #define ICH_GLOB_CNT_GIE       0x00000001 // 1=GPI change causes interrupt
 
-#define ICH_PCM_246_MASK  0x00300000 // bits 20-21: 00=2, 01=4, 02=6 channel mode (not all chips)
-#define ICH_PCM_20BIT     0x00400000 // bits 22-23: 00=16, 01=20-bit samples (ICH4)
+#define ICH_PCM_246_MASK     0x00300000 // bits 20-21: 00=2, 01=4, 02=6 channel mode (not all chips)
+#define ICH_PCM_246_MASK_SIS 0x000000C0 // bits 6-7: 00=2, 01=4, 02=6 channel mode
+#define ICH_PCM_20BIT        0x00400000 // bits 22-23: 00=16, 01=20-bit samples (ICH4)
 
 #define ICH_GLOB_STAT_REG  0x30       // Global Status register (RO)
 #define ICH_GLOB_STAT_PCR  0x00000100 // Primary codec is ready for action (software must check these bits before starting the codec!)
@@ -99,6 +103,7 @@ struct intel_card_s {
  unsigned long   baseport_codec;    // mixer baseport
  unsigned int    irq;
  unsigned char   device_type;
+ unsigned char   sr_reg;
  struct pci_config_s  *pci_dev;
 
  struct cardmem_s *dm; /* XMS memory struct */
@@ -120,9 +125,10 @@ struct intel_card_s {
  float ac97_clock_corrector;
 };
 
-enum { DEVICE_INTEL, DEVICE_INTEL_ICH4, DEVICE_NFORCE };
-static const char *ich_devnames[3]={"ICH","ICH4","NForce"};
-
+enum { DEVICE_INTEL, DEVICE_INTEL_ICH4, DEVICE_NFORCE, DEVICE_SIS };
+#ifdef _DEBUG
+static const char *ich_devnames[]={"ICH","ICH4","NForce", "SIS 7012" };
+#endif
 static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui );
 
 //-------------------------------------------------------------------------
@@ -236,12 +242,17 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 	unsigned int cmd,retry;
 
 	dbgprintf(("intel_chip_init: enter\n"));
+
 	cmd = snd_intel_read_32( card, ICH_GLOB_STAT_REG);
 	cmd &= ICH_GLOB_STAT_RCS; // ???
 	snd_intel_write_32( card, ICH_GLOB_STAT_REG, cmd);
 
 	cmd = snd_intel_read_32(card, ICH_GLOB_CNT_REG);
-	cmd &= ~(ICH_GLOB_CNT_ACLINKOFF | ICH_PCM_246_MASK);
+	/* v1.7: support for SiS 7012 */
+	if ( card->device_type == DEVICE_SIS )
+		cmd &= ~(ICH_GLOB_CNT_ACLINKOFF | ICH_PCM_246_MASK_SIS);
+	else
+		cmd &= ~(ICH_GLOB_CNT_ACLINKOFF | ICH_PCM_246_MASK);
 	// finish cold or do warm reset
 	cmd |= ((cmd & ICH_GLOB_CNT_AC97COLD) == 0) ? ICH_GLOB_CNT_AC97COLD : ICH_GLOB_CNT_AC97WARM;
 	snd_intel_write_32(card, ICH_GLOB_CNT_REG, cmd);
@@ -264,10 +275,16 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 
 	//snd_intel_codec_read( card, 0); // clear semaphore flag (removed for ICH0)
 	snd_intel_write_8( card, ICH_PO_CR_REG, ICH_PO_CR_RESET); // reset channels
-#ifdef SBEMU
-	pds_delay_10us(2000);
-	snd_intel_write_8( card, ICH_PO_CR_REG, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
+#if 1 //def SBEMU
+	//pds_delay_10us(2000);
+	//snd_intel_write_8( card, ICH_PO_CR_REG, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
 #endif
+	/* v1.7: support for SiS 7012 */
+	card->sr_reg = ICH_PO_SR_REG;
+	if ( card->device_type == DEVICE_SIS ) {
+		card->sr_reg = ICH_PO_SR_REG_SIS;
+		snd_intel_write_16( card, 0x4C, snd_intel_read_16( card, 0x4C ) | 1 ); /* unmute? */
+	}
 
 	dbgprintf(("snd_intel_chip_init: exit\n"));
 }
@@ -310,7 +327,7 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 
 	// wait until DMA stopped ???
 	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
-		if(snd_intel_read_8(card,ICH_PO_SR_REG) & ICH_PO_SR_DCH)
+		if(snd_intel_read_8(card,card->sr_reg) & ICH_PO_SR_DCH)
 			break;
 		pds_delay_10us(1);
 	}
@@ -324,7 +341,10 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 
 	// set channels (2) and bits (16/32)
 	cmd = snd_intel_read_32( card, ICH_GLOB_CNT_REG );
-	cmd &= ~(ICH_PCM_246_MASK | ICH_PCM_20BIT);
+	if ( card->device_type == DEVICE_SIS )
+		cmd &= ~(ICH_PCM_246_MASK_SIS | ICH_PCM_20BIT);
+	else
+		cmd &= ~(ICH_PCM_246_MASK | ICH_PCM_20BIT);
 	if( aui->bits_set > 16 ) {
 		if((card->device_type == DEVICE_INTEL_ICH4) && ((snd_intel_read_32(card,ICH_GLOB_STAT_REG) & ICH_SAMPLE_CAP) == ICH_SAMPLE_16_20 )) {
 			aui->bits_card = 32;
@@ -358,10 +378,14 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 
 	//set period table
 	table_base = card->virtualpagetable;
-	period_size_samples = card->period_size_bytes / (aui->bits_card >> 3);
+	/* v1.7: support for SiS 7012 */
+	if (card->device_type == DEVICE_SIS )
+		period_size_samples = card->period_size_bytes;
+	else
+		period_size_samples = card->period_size_bytes / (aui->bits_card >> 3);
 	for( i = 0; i < ICH_DMABUF_PERIODS; i++ ) {
 		table_base[i*2] = pds_cardmem_physicalptr(card->dm, (char *)card->pcmout_buffer + ( i * card->period_size_bytes ));
-#ifdef SBEMU
+#if 1 //def SBEMU
 		table_base[i*2+1] = period_size_samples | (ICH_INT_INTERVAL && ((i % ICH_INT_INTERVAL == ICH_INT_INTERVAL-1)) ? (ICH_BD_IOC<<16) : 0);
 #else
 		table_base[i*2+1] = period_size_samples;
@@ -388,7 +412,7 @@ static const struct pci_device_s ich_devices[] = {
  {"ICH7"   ,0x8086,0x27de, DEVICE_INTEL_ICH4},
  {"ESB2"   ,0x8086,0x2698, DEVICE_INTEL_ICH4},
  {"440MX"  ,0x8086,0x7195, DEVICE_INTEL}, // maybe doesn't work (needs extra pci hack)
- //{"SI7012" ,0x1039,0x7012, DEVICE_SIS}, // needs extra code
+ {"SI7012" ,0x1039,0x7012, DEVICE_SIS}, // needs extra code
  {"NFORCE" ,0x10de,0x01b1, DEVICE_NFORCE},
  {"MCP04"  ,0x10de,0x003a, DEVICE_NFORCE},
  {"NFORCE2",0x10de,0x006a, DEVICE_NFORCE},
@@ -414,6 +438,8 @@ static void ICH_show_card_info( struct audioout_info_s *aui )
 			ich_devnames[card->device_type],((card->device_type == DEVICE_INTEL_ICH4) ? ",20":"")));
 #endif
 }
+
+struct sndcard_info_s ICH_sndcard_info;
 
 static int ICH_adetect( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////
@@ -507,6 +533,9 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #endif
  
 	card->device_type = card->pci_dev->device_type;
+	/* v1.7: set more exact name of card found */
+	//ICH_sndcard_info.shortname = (char *)ich_devnames[card->device_type];
+	ICH_sndcard_info.shortname = card->pci_dev->device_name;
 
 	dbgprintf(("vend/dev_id=%X/%X devtype:%s bmport:%4X mixport:%4X irq:%d\n",
 			  card->pci_dev->vendor_id, card->pci_dev->device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
@@ -571,10 +600,14 @@ static void ICH_start( struct audioout_info_s *aui )
 	unsigned char cmd;
 
 	snd_intel_codec_ready(card,ICH_GLOB_STAT_PCR);
-
+#if 0
 	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
 	cmd |= ICH_PO_CR_START;
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
+#else
+	/* v1.7: bit ICH_PO_CR_IOCE now set here, also ICH_PO_CR_LVBIE ? */
+	snd_intel_write_8( card, ICH_PO_CR_REG, ICH_PO_CR_START | ICH_PO_CR_IOCE /* | ICH_PO_CR_LVBIE */ );
+#endif
 }
 
 static void ICH_stop( struct audioout_info_s *aui )
@@ -582,10 +615,13 @@ static void ICH_stop( struct audioout_info_s *aui )
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
-
+#if 0
 	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
 	cmd &= ~ICH_PO_CR_START;
 	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
+#else
+	snd_intel_write_8(card,ICH_PO_CR_REG,snd_intel_read_8( card, ICH_PO_CR_REG ) & ~ICH_PO_CR_START );
+#endif
 }
 
 /* get time in microsecs */
@@ -700,8 +736,13 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 		}
 #endif
 
-		pcmpos = snd_intel_read_16(card,ICH_PO_PICB_REG); // position in the current period (remaining unprocessed in SAMPLEs)
-		pcmpos *= aui->bits_card >> 3;
+		/* v1.7: support for SiS 7012 */
+		if ( card->device_type == DEVICE_SIS ) {
+			pcmpos = snd_intel_read_16(card, ICH_PO_PICB_REG_SIS); // position in the current period (remaining unprocessed in SAMPLEs)
+		} else {
+			pcmpos = snd_intel_read_16(card, ICH_PO_PICB_REG ); // position in the current period (remaining unprocessed in SAMPLEs)
+			pcmpos *= aui->bits_card >> 3;
+		}
 		//pcmpos*=aui->chan_card;
 		//printf("%d %d %d %d\n",aui->bits_card, aui->chan_card, pcmpos, card->period_size_bytes);
 		//dbgprintf(("ICH_getbufpos: pcmpos=%d\n",pcmpos));
@@ -758,15 +799,16 @@ static int ICH_IRQRoutine( struct audioout_info_s* aui )
 ////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
-	int status = snd_intel_read_8(card,ICH_PO_SR_REG);
+	int status = snd_intel_read_8(card,card->sr_reg);
 	status &= ICH_PO_SR_LVBCI | ICH_PO_SR_BCIS | ICH_PO_SR_FIFO;
 	if(status)
-		snd_intel_write_8(card, ICH_PO_SR_REG, status); //ack
+		snd_intel_write_8(card, card->sr_reg, status); //ack
 	return status != 0;
 }
 #endif
 
-const struct sndcard_info_s ICH_sndcard_info = {
+/* v1.7: const attribute removed, since shortname member must be r/w now */
+struct sndcard_info_s ICH_sndcard_info = {
  "ICH AC97",
  0,
  NULL,

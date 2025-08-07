@@ -5,9 +5,9 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
 
 Supported Sound cards:
  * HDA ( Intel High Definition Audio )
- * Intel ICH / nForce
+ * Intel ICH, Nvidia nForce, SiS 7012
  * VIA VT82C686, VT8233/35/37
- * SB Live/SB Audigy
+ * SB Live, SB Audigy
  * SB based on ES1371/1373 (Ensoniq)
 
 Emulated modes/cards:

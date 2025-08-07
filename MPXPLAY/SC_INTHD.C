@@ -1334,6 +1334,8 @@ static void HDA_cardclose( struct intelhd_card_s *card )
 
 static void HDA_close( struct audioout_info_s *aui );
 
+struct sndcard_info_s HDA_sndcard_info;
+
 static int HDA_adetect( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////
 {
@@ -1419,6 +1421,9 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			if( card->codec_mask & ( 1 << i) ) {
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
+					/* v1.7 set the specific device name if there's one */
+					if ( card->pci_dev->device_name )
+						HDA_sndcard_info.shortname = card->pci_dev->device_name;
 					dbgprintf(("HDA_adetect: exit, found mixer for codec %u\n", i ));
 					printf("HDA widgets to be used: DAC=%d Pin=%d Volume=%d\n",
 						(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
@@ -1638,7 +1643,7 @@ static const struct aucards_mixerchan_s *hda_mixerset[] = {
 	NULL
 };
 
-const struct sndcard_info_s HDA_sndcard_info = {
+struct sndcard_info_s HDA_sndcard_info = {
     "Intel HDA",
     0,               /* infobits */
     NULL,            /* card_config */
