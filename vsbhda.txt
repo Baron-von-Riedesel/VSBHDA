@@ -92,7 +92,7 @@
      /VOL    : Set master volume
      /BS     : Set PCM buffer size
      /SD     : Set slowdown factor
-     /O      : Set output widget (HDA only)
+     /O      : Set output connector (HDA & SB Live! only)
      /DEV    : Set start index for device scan (HDA only)
      /DIVE   : Set "Runtime Error 200" fix for Borland apps (VSBHDA16 only)
      /PS     : Set period size
@@ -129,6 +129,8 @@
      BLASTER variable or the /P cmdline option.
    - /MV: setting a voice limit of 0 will trigger dynamic allocation - this
      may not work for all applications.
+   - /O: for the SB Live card, /O1 enables the "speaker" connector; /O2
+     has no meaning for this card.
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
             0 = interrupt will be triggered delayed (default).

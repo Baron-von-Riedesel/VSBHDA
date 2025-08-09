@@ -2,9 +2,10 @@
 #define AC97_H
 
 /* AC97 1.0 */
-#define  AC97_RESET               0x0000      //
+#define  AC97_RESET               0x0000      // write any value resets 
 #define  AC97_MASTER_VOL_STEREO   0x0002      // Line Out
-#define  AC97_HEADPHONE_VOL       0x0004      // 
+#define  AC97_HEADPHONE_VOL       0x0004      // v1
+#define  AC97_AUXOUT_VOL          0x0004      // v2; AUX (LNLVL/HP/4CH)
 #define  AC97_MASTER_VOL_MONO     0x0006      // TAD Output
 #define  AC97_MASTER_TONE         0x0008      //
 #define  AC97_PCBEEP_VOL          0x000a      // none
@@ -13,14 +14,14 @@
 #define  AC97_LINEIN_VOL          0x0010      // Line Input (stereo)
 #define  AC97_CD_VOL              0x0012      // CD Input (stereo)
 #define  AC97_VIDEO_VOL           0x0014      // none
-#define  AC97_AUX_VOL             0x0016      // Aux Input (stereo)
+#define  AC97_AUXIN_VOL           0x0016      // Aux Input (stereo); v1.7: renamed, was AC97_AUX_VOL
 #define  AC97_PCMOUT_VOL          0x0018      // Wave Output (stereo)
 #define  AC97_RECORD_SELECT       0x001a      //
 #define  AC97_RECORD_GAIN         0x001c
 #define  AC97_RECORD_GAIN_MIC     0x001e
 #define  AC97_GENERAL_PURPOSE     0x0020
 #define  AC97_3D_CONTROL          0x0022
-#define  AC97_MODEM_RATE          0x0024
+#define  AC97_MODEM_RATE          0x0024       /* in v2.3, it's "Audio Interrupt and Paging Mechanism */
 #define  AC97_POWER_CONTROL       0x0026
 
 /* AC'97 2.0 */
@@ -55,10 +56,45 @@
 #define AC97_MISC_MODEM_STAT      0x0056
 #define AC97_RESERVED_58          0x0058
 
-/* registers 0x005a - 0x007a are vendor reserved */
+/* registers 0x005a - 0x007a are vendor reserved;
+ * since AC'97 v2.3, just 0x005a - 0x005F and 0x0070 - 0x007a are reserved;
+ * as for registers 0x0060 - 0x006F, just page 00 is vendor reserved,
+ * while page 01 is the "extended codec register page".
+ * the page is selected by register 0x24, bits 0-3.
+ */
+/* Discovery Descriptor Definition */
+#define AC97_EXTCODEC_CC          0x0060 /* codec class/revision */
+#define AC97_EXTCODEC_SVID        0x0062 /* PCI SVID */
+#define AC97_EXTCODEC_SID         0x0064 /* PCI SID */
+/* Audio I/O capabilities registers */
+#define AC97_EXTCODEC_FS          0x0066 /* function select */
+#define AC97_EXTCODEC_FI          0x0068 /* function information */
+#define AC97_EXTCODEC_SD          0x006A /* sense details */
+/* Slot mapping descriptor */
+#define AC97_EXTCODEC_DSM         0x006C /* DAC slot mapping */
+#define AC97_EXTCODEC_ASM         0x006E /* ADC slot mapping */
 
 #define AC97_VENDOR_ID1           0x007c
 #define AC97_VENDOR_ID2           0x007e
+
+/* AC97_RESET: read
+ * 0: 1=dedicated Mic PCM in channel
+ * 1: reserved
+ * 2: 1=Bass & Treble support
+ * 3: 1=simulated stereo
+ * 4: 1=HeadPhone out support ( not LNLVL or 4Ch )
+ * 5: 1=Loudness support
+ * 6: 1=18-bit DAC res
+ * 7: 1=20-bit DAC res
+ * 8: 1=18-bit ADC res
+ * 9: 1=20-bit ADC res
+ * 10-14: SE0-SE4, 3D Stereo Enhancement
+ * AC97_AUX_OUT_VOL:
+ * if default == 8000 (read after reset), LNLVL & 4CH are NOT supported;
+ * LNLVL = true line level
+ * 4CH: volume is controlled via reg 38h, powered down via Reg 2Ah, PRJ;
+ * can be detected via reg 28h (Extended ID), bit SDAC
+ */
 
 /* volume control bit defines */
 #define AC97_MUTE                 0x8000
@@ -87,21 +123,47 @@
 #define AC97_GP_ST                0x4000       /* Stereo Enhancement 1=on */
 #define AC97_GP_POP               0x8000       /* Pcm Out Path, 0=pre 3D, 1=post 3D */
 
-/* extended audio status and control bit defines */
+/* extended audio ID register bits (reg 0x28);
+ * r/o, except for bits DSA0-DSA1
+*/
+#define AC97_EA_ID_VRA            0x0001       /* Variable bit rate supported */
+#define AC97_EA_ID_DRA            0x0002       /* Double-rate audio supported */
+#define AC97_EA_ID_SPDIF          0x0004       /* S/PDIF Enable supported */
+#define AC97_EA_ID_VRM            0x0008       /* Variable bit rate for MIC supported */
+#define AC97_EA_ID_DSA0           0x0010       /* r/w: slot assignment, see below */
+#define AC97_EA_ID_DSA1           0x0020       /* r/w: slot assignment, see below */
+#define AC97_EA_ID_CDAC           0x0040       /* PCM Center DAC supported */
+#define AC97_EA_ID_SDAC           0x0080       /* PCM Surround DACs supported */
+#define AC97_EA_ID_LDAC           0x0100       /* PCM LFE DAC supported */
+#define AC97_EA_ID_AMAP           0x0200       /* slot/DAC mappings based on ID supported */ 
+#define AC97_EA_ID_REV0           0x0400       /* revision: 00=2.1, 01=2.2, 10=2.3, 11=rsvd */ 
+#define AC97_EA_ID_REV1           0x0800       /*  */ 
+#define AC97_EA_ID_ID0            0x4000       /* codec config */ 
+#define AC97_EA_ID_ID1            0x8000
+/* codec config, DSA0-DSA1:
+ * 00=dac 1/2->slot 3&4;   3/4->7&8;   5/6->6&9
+ * 01=dac 1/2->slot 7/8;   3/4->6&9;   5/6->10&11
+ * 02=dac 1/2->slot 6/9;   3/4->10&11; 5/6->3&4
+ * 03=dac 1/2->slot 10/11; 3/4->3&4;   5/6->7&8
+ */ 
+
+/* extended audio status and control bit (reg 0x2A) defines;
+ */
 #define AC97_EA_VRA               0x0001       /* Variable bit rate enable bit */
 #define AC97_EA_DRA               0x0002       /* Double-rate audio enable bit */
 #define AC97_EA_SPDIF             0x0004       /* S/PDIF Enable bit */
 #define AC97_EA_VRM               0x0008       /* Variable bit rate for MIC enable bit */
 #define AC97_EA_CDAC              0x0040       /* PCM Center DAC is ready (Read only) */
-#define AC97_EA_SDAC              0x0040       /* PCM Surround DACs are ready (Read only) */
-#define AC97_EA_LDAC              0x0080       /* PCM LFE DAC is ready (Read only) */
-#define AC97_EA_MDAC              0x0100       /* MIC ADC is ready (Read only) */
+#define AC97_EA_SDAC              0x0080       /* PCM Surround DACs are ready (Read only) */
+#define AC97_EA_LDAC              0x0100       /* PCM LFE DAC is ready (Read only) */
+#define AC97_EA_MADC              0x0200       /* MIC ADC is ready (Read only) */
 #define AC97_EA_SPCV              0x0400       /* S/PDIF configuration valid (Read only) */
 #define AC97_EA_PRI               0x0800       /* Turns the PCM Center DAC off */
 #define AC97_EA_PRJ               0x1000       /* Turns the PCM Surround DACs off */
 #define AC97_EA_PRK               0x2000       /* Turns the PCM LFE DAC off */
 #define AC97_EA_PRL               0x4000       /* Turns the MIC ADC off */
-#define AC97_EA_SLOT_MASK         0xffcf       /* Mask for slot assignment bits */
+#define AC97_EA_VCFG              0x8000       /* S/P-DIF transmitter behavior */
+#define AC97_EA_SLOT_MASK         0xffcf       /* Mask for S/PDIF slot assignment bits */
 #define AC97_EA_SPSA_3_4          0x0000       /* Slot assigned to 3 & 4 */
 #define AC97_EA_SPSA_7_8          0x0010       /* Slot assigned to 7 & 8 */
 #define AC97_EA_SPSA_6_9          0x0020       /* Slot assigned to 6 & 9 */

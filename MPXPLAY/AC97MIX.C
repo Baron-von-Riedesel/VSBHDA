@@ -63,8 +63,8 @@ static const struct aucards_mixerchan_s aucards_ac97chan_cdin_vol = {
 
 static const struct aucards_mixerchan_s aucards_ac97chan_auxin_vol = {
 	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_AUXIN,AU_MIXCHANFUNC_VOLUME),2, {
-		{ AC97_AUX_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
-		{ AC97_AUX_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+		{ AC97_AUXIN_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_AUXIN_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
 	}};
 
 /* vsbhda: todo: check if this definition is correct; the order in AU_CARDS.H is:

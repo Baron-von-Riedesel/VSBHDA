@@ -26,7 +26,7 @@ struct emu10k1_card;
 
 struct emu_driver_func_s{
  unsigned int (*selector)   ( struct emu10k1_card *card, struct audioout_info_s *aui);
- void         (*hw_init)    ( struct emu10k1_card *card);
+ void         (*hw_init)    ( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*hw_close)   ( struct emu10k1_card *card);
  unsigned int (*buffer_init)( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*setrate)    ( struct emu10k1_card *card, struct audioout_info_s *aui);

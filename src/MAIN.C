@@ -152,12 +152,12 @@ static const struct {
 #if SLOWDOWN
     "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
 #endif
-    "O",  "Set output (HDA only) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
+    "O",  "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
 #ifdef NOTFLAT
     "DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
 #endif
-    "PS", "Set period size (HDA/ES1371 only) [def 512]", &gvars.period_size,
+    "PS", "Set period size [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
     "MV", "Set voice limit [1-256, def 64]", &gvars.voices,

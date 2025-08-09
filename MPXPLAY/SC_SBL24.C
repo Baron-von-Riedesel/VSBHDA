@@ -182,8 +182,8 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 	outl(card->iobase+GPIO, 0x0);
 }
 
-static void snd_audigyls_hw_init( struct emu10k1_card *card)
-////////////////////////////////////////////////////////////
+static void snd_audigyls_hw_init( struct emu10k1_card *card, struct audioout_info_s *aui)
+/////////////////////////////////////////////////////////////////////////////////////////
 {
 	dbgprintf(("snd_audigyls_hw_init\n"));
 	snd_ca0106_hw_init(card);
@@ -201,8 +201,8 @@ static void snd_audigyls_hw_init( struct emu10k1_card *card)
 	dbgprintf(("snd_audigys_hw init: exit\n"));
 }
 
-static void snd_live24_hw_init( struct emu10k1_card *card)
-//////////////////////////////////////////////////////////
+static void snd_live24_hw_init( struct emu10k1_card *card, struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	dbgprintf(("snd_live24_hw_init\n"));
 	snd_ca0106_hw_init(card);
@@ -294,6 +294,8 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 	snd_ca0106_ptr_write(card, 0x07, channel, 0x0);
 	snd_ca0106_ptr_write(card, 0x08, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0x0, 0x0); // unmute output
+	/* v1.7: added */
+	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, channel, snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, channel ) | 0x00000010); /* full period interrupt */
 
 	dbgprintf(("snd_ca0106_pcm_prepare playback: exit\n"));
 }
@@ -391,15 +393,32 @@ static void snd_live24_mixer_write( struct emu10k1_card *card,unsigned int reg,u
 }
 
 #if 1 /* vsbhda */
+
+#define RESETIPR 0
+
 static int snd_live24_isr( struct emu10k1_card *card)
 /////////////////////////////////////////////////////
 {
 	//const uint32_t channel = 0;
-	int intmask = snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0);
+# if RESETIPR
+	int intmask1;
+# endif
+	int intmask2;
 
-	dbgprintf(("snd_live24_isr\n"));
-	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, intmask); //ack
-	return intmask;
+	//dbgprintf(("snd_live24_isr\n"));
+# if RESETIPR
+	intmask1 = inl(card->iobase + IPR );
+	outl( card->iobase + IPR, intmask1 );
+# endif
+
+	/* v1.7:  todo: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK. */
+	intmask2 = snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0);
+	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, intmask2); //ack
+# if RESETIPR
+	return intmask1 | intmask2;
+# else
+	return intmask2;
+# endif
 }
 #endif
 
