@@ -532,7 +532,9 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card, struct globalvars co
 			A_OP(iMAC0, A_EXTOUT(A_EXTOUT_REAR_R),   0xc0, A_GPR(9), A_FXBUS(FXBUS_PCM_RIGHT));
 		}
 
-		for( ; pc < 1024; pc++)
+		/* v1.7: pc is incremented by A_OP() macro */
+		//for( ; pc < 1024; pc++)
+		while( pc < 1024 )
 			A_OP(0xf, 0xc0, 0xc0, 0xcf, 0xc0);
 
 		emu10k1_writeptr(card, A_DBG, 0, 0); // start fx
@@ -568,11 +570,6 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card, struct globalvars co
 		L_OP(iACC3, EXTOUT(EXTOUT_AC97_REAR_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
 		L_OP(iACC3, EXTOUT(EXTOUT_AC97_REAR_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
 
-		// v1.7: enable rear "speaker" connection on SB Live if /O1 option is set
-		if (gvars->pin == 1) {
-			L_OP(iACC3, EXTOUT(EXTOUT_REAR_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
-			L_OP(iACC3, EXTOUT(EXTOUT_REAR_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
-		}
 		// digital out
 		L_OP(iACC3, EXTOUT(EXTOUT_TOSLINK_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
 		L_OP(iACC3, EXTOUT(EXTOUT_TOSLINK_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
@@ -581,7 +578,15 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card, struct globalvars co
 		L_OP(iACC3, EXTOUT(EXTOUT_HEADPHONE_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
 		L_OP(iACC3, EXTOUT(EXTOUT_HEADPHONE_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
 
-		for( ; pc < 512 ; pc++)
+		// v1.7: enable rear "speaker" connection on SB Live if /O1 option is set
+		if (gvars->pin == 1) {
+			L_OP(iACC3, EXTOUT(EXTOUT_REAR_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
+			L_OP(iACC3, EXTOUT(EXTOUT_REAR_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
+		}
+
+		/* v1.7: pc is incremented by L_OP() macro! */
+		//for( ; pc < 512 ; pc++)
+		while ( pc < 512 )
 			L_OP(iACC3, 0x40, 0x40, 0x40, 0x40);
 
 		emu10k1_writeptr(card, DBG, 0, 0); // start fx

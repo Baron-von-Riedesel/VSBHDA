@@ -14,6 +14,8 @@
   - fixed: ES1371 audio driver.
   - /F cmdline option now accepts 11025 as argument.
   - added support for SiS 7012.
+  - cmdline option /O1 for SBLive enables speaker connector.
+  - fixed: SB Live/SB Audigy FX8010 initialization.
 
   v1.6, 10.6.2025
   - fixed: some port trap variables weren't initialized if real-mode port
