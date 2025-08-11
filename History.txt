@@ -1,5 +1,5 @@
 
-  v1.7, __._.2025
+  v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
   - added soundfont support from VSBHDASF; new cmdline options /SF, /MV, /PS.
   - fixed: array bounds check in vopl3.cpp added (& 0xff).
@@ -14,7 +14,7 @@
   - fixed: ES1371 audio driver.
   - /F cmdline option now accepts 11025 as argument.
   - added support for SiS 7012.
-  - cmdline option /O1 for SBLive enables speaker connector.
+  - cmdline option /O1 for SBLive enables speaker jack.
   - fixed: SB Live/SB Audigy FX8010 initialization.
 
   v1.6, 10.6.2025

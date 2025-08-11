@@ -160,7 +160,7 @@ static const struct {
     "PS", "Set period size [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
-    "MV", "Set voice limit [1-256, def 64]", &gvars.voices,
+    "MV", "Set voice limit [0-256, def 64]", &gvars.voices,
 #endif
     "CF", "Set compatibility flags [def 0]", &gvars.compatflags,
     NULL, NULL, 0,

@@ -14,6 +14,8 @@
 //**************************************************************************
 //function: Ensoniq 1371/1373 low level routines (for SB PCI 16/64/128 cards)
 //based on ALSA (http://www.alsa-project.org)
+//v1.7 fix: 5880 variants weren't enabled, since the "enable" bit was set
+//in ES_REG_SERIAL, but has to be set in ES_REG_STATUS (fix by mkarcher).
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -28,7 +30,7 @@
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 
-#if 0
+#if 0 /* v1.7: generally use 512 as default period_size */
 #define ES1371_DMABUF_PERIODS  32
 #define ES1371_MAX_CHANNELS     2
 #define ES1371_MAX_BYTES        4
@@ -37,17 +39,20 @@
 #define ES1371_DMABUF_ALIGN 512
 #endif
 
-/* 00-07 interrupt/chip select
+/* v1.7: poll count reduced */
+//#define POLL_COUNT      0x8000
+#define POLL_COUNT      0x1000
+
+/* ports:
+ * 00-07 interrupt/chip select
  * 08-0B UART
- * 0C-0F host interface	- memory page
+ * 0C-0F host interface - memory page
  * 10-13 sample rate converter
  * 14-17 codec
  * 18-1F legacy
  * 20-2F serial interface
  * 30-3F host interface - memory
  */
-
-#define POLL_COUNT      0x1000
 
 #define ES_REG_CONTROL    0x00    /* R/W: Interrupt/Chip select control register */
 #define  ES_1371_GPIO_OUT(o) (((o)&0x0f)<<16)/* GPIO out [3:0] pins - W/R */
@@ -187,6 +192,9 @@
 
 #define ENSONIQ_CARD_INFOBIT_AC97RESETHACK 0x01
 
+/* sample rate converter (SRC) mask for status check;
+ * bits 16-18, although used here, are documented as "undefined"!
+ */
 #define SRC_MASK 0x870000UL
 
 struct ensoniq_card_s
@@ -228,7 +236,6 @@ static unsigned int snd_es1371_wait_src_rdy(struct ensoniq_card_s *card)
 }
 
 /* read "sample rate converter" data
- * it's undocumented what purpose bit 16 has ( neither is bit 17/18 explained )
  */
 
 static unsigned short snd_es1371_src_read(struct ensoniq_card_s *card, unsigned short reg)
@@ -463,8 +470,9 @@ static unsigned int snd_es1371_buffer_init( struct ensoniq_card_s *card, struct 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bytes_per_sample = 2; // 16 bit
+	/* v1.7: use /PS cmdline option if set */
 	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
-    card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
 	card->dm = MDma_alloc_cardmem( card->pcmout_bufsize );
 	if (!card->dm)
 		return 0;
@@ -566,6 +574,7 @@ static void snd_es1371_prepare_playback( struct ensoniq_card_s *card, struct aud
 	/* for DAC1: FRAME=port 30h, SIZE=port 34h, COUNT=port 24h */
 	outl((card->port + ES_REG_DAC_FRAME), (unsigned long) pds_cardmem_physicalptr(card->dm, card->pcmout_buffer));
 	outl((card->port + ES_REG_DAC_SIZE), (aui->card_dmasize >> 2) - 1);
+	/* v1.7: use /PS cmdline option if set */
 	//outl((card->port + ES_REG_DAC_COUNT), (aui->card_dmasize >> 2) - 1);
 	outl((card->port + ES_REG_DAC_COUNT), aui->gvars->period_size ? (aui->gvars->period_size >> 2) - 1 : (512>>2) - 1);
 
@@ -636,6 +645,7 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 		|| ((card->pci_dev->device_id == 0x5880) && ((card->chiprev == CT5880REV_CT5880_C) || (card->chiprev == CT5880REV_CT5880_D) || (card->chiprev == CT5880REV_CT5880_E)))
 	   ) ) {
 		card->infobits |= ENSONIQ_CARD_INFOBIT_AC97RESETHACK;
+		/* v1.7 fix: to enable 5880, bit 29 has to be set IN THE STATUS register */
 		//card->sctrl |= ES_1371_ST_AC97_RST;
 		card->cssr |= ES_1371_ST_AC97_RST;
 		dbgprintf(("ES1371_adetect: INFOBIT_AC97RESETHACK set\n"));
@@ -680,6 +690,7 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
+	/* v1.7: use /PS cmdline option if set */
 	unsigned int pagesize = aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN;
 
 	dbgprintf(("ES1371_setrate\n"));
