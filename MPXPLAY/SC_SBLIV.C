@@ -1351,7 +1351,9 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	}
 	pcibios_enable_BM_IO(card->pci_dev);
 
-	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
+	/* v1.8: according to PCI specs, an I/O base address may have bits 2-3 set! */
+	//card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
+	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfffc;
 	if(!card->iobase) {
 		dbgprintf(("SBLIVE_adetect: no IO port in PCI address bar\n"));
 		goto err_adetect;

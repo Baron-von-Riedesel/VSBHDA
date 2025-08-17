@@ -33,7 +33,7 @@ extern "C" {
 //#define SNDCARD_IGNORE_STARTUP 64 // ignore startup (do not restore songpos) (ie: wav out)
 //#define SNDCARD_FLAGS_DISKWRITER (SNDCARD_SELECT_ONLY|SNDCARD_SETRATE|SNDCARD_IGNORE_STARTUP)
 
-//au_cards mixer channels
+//au_cards mixer channels - see AC97.C, aucards_ac97_chan_mixerset[]
 #define AU_MIXCHAN_MASTER       0  // master out
 #define AU_MIXCHAN_PCM          1  // pcm out
 #define AU_MIXCHAN_HEADPHONE    2  // headphone out

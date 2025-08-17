@@ -21,6 +21,10 @@ externdef _dynend:dword
 memset proto c p:ptr, value:dword, size_:dword
 __brk proto c :dword
 
+ifdef OW19 ;if Open Watcom v1.9 is to be used; avoids linker error.
+	public _nmalloc
+_nmalloc:
+endif
 malloc proc c public amnt:dword
 
 if 0;def _DEBUG

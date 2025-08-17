@@ -32,6 +32,10 @@ static const struct aucards_mixerchan_s aucards_ac97chan_master_vol = {
 #endif
 	}};
 
+/* v1.8: PCMOUT_VOL is 5 bits only, according to AC'97 v2.3;
+ * it's questionable if this register is to be set at all...
+ * or perhaps it should be set to 0x808? (default value is 0x8808).
+ */
 static const struct aucards_mixerchan_s aucards_ac97chan_pcm_vol = {
 	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME),2,{
 		{ AC97_PCMOUT_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },

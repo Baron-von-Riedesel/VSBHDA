@@ -18,6 +18,9 @@
 # will be searched by the linker in the current directory
 # or in any directory contained in the PATH environment var.
 
+# if OW v1.9 is used instead of v2.0, module startup\malloc.asm
+# needs equate OW19 to be defined.
+
 !ifndef DEBUG
 DEBUG=0
 !endif

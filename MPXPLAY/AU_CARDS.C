@@ -402,8 +402,8 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int mixchannu
 }
 
 /*
- * called by AU_setmixer_all()
- * describe what's done here!
+ * called by AU_setmixer_all(); however, that function isn't used currently,
+ * so this function is also unused.
  */
 
 static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum )
@@ -468,7 +468,7 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 
 #define AU_MIXCHANS_OUTS 4
 
-/* for AC97, there's a fifth out channel, AU_MIXCHAN_SYNTH */
+/* for AC97, there's another out channel, AU_MIXCHAN_SYNTH (see AU_CARDS.H) */
 
 static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
 	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
@@ -489,7 +489,9 @@ void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode,
 	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER];
 }
 
-/* get/set the volumes of the output "channels"???? */
+/* get/set the volumes of the output "channels"????
+ * currently NOT used.
+ */
 
 void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////
