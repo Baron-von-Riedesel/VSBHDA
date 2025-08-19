@@ -15,6 +15,8 @@
 //function: Intel ICH audiocards low level routines
 //based on: ALSA (http://www.alsa-project.org) and ICH-DOS wav player from Jeff Leyda
 //v1.7: SiS 7012 support; copied from SBEMU, impl. by Thomas Perl (m@thp.io), 09/2023
+//v1.8: removed snd_intel_measure_ac97_clock(), called for
+//      INTEL ICH (82801AA) and ICH0|2|3 (82801AB,82801BA,82801CA)
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -45,24 +47,28 @@
  * 50-5F PCM2 in
  * 60-6F S/PDIF
  */
-#define ICH_PO_BDBAR_REG  0x10  // PCM out buffer descriptor BAR (32-bit)
-#define ICH_PO_LVI_REG    0x15  // PCM out Last Valid Index (set it; 8-bit)
-#define ICH_PO_CIV_REG    0x14  // PCM out Current Index Value (RO?; 8-bit)
-#define ICH_PO_PICB_REG   0x18  // PCM out Position In Current Buffer(RO; 16-bit; remaining, not processed pos)
-#define ICH_PO_PICB_REG_SIS 0x16 /* 16-bit */
+/* PCM out registers */
+#define ICH_PO_BDBAR  0x10  // BDBAR - Buffer Descriptor Base Address (32-bit)
+#define ICH_PO_CIV    0x14  // CIV - Current Index Value (ro; 8-bit)
+#define ICH_PO_LVI    0x15  // LVI - Last Valid Index (rw; 8-bit)
+#define ICH_PO_SR     0x16  // SR - Status (ro,r/wc; 16-bit)
+#define ICH_PO_PICB   0x18  // PICB - Position In Current Buffer (ro; 16-bit; remaining, not processed pos)
+#define ICH_PO_PIV    0x1a  // PIV - Prefetched Index Value (ro; 8-bit; not used)
+#define ICH_PO_CR     0x1b  // CR - Control (rw; 8-bit)
 
-#define ICH_PO_SR_REG     0x16  // PCM out Status register (16-bit)
-#define ICH_PO_SR_REG_SIS 0x18  // PCM out Status register for SiS 7012 (16-bit)
-#define ICH_PO_SR_DCH     0x01  // DMA controller: 1=halted, 0=running
-#define ICH_PO_SR_LVBCI   0x04  // last valid buffer completion interrupt (R/WC)
-#define ICH_PO_SR_BCIS    0x08  // buffer completion interrupt status (IOC) (R/WC)
+#define ICH_PO_PICB_SIS 0x16 /* for SiS, SR and PICB are exchanged */
+#define ICH_PO_SR_SIS   0x18 /* PCM out Status register (16-bit) */
+
+#define ICH_PO_SR_DCH     0x01  // DMA Controller Halted: 1=halted, 0=running (RO)
+#define ICH_PO_SR_LVBCI   0x04  // Last Valid Buffer Completion Interrupt (R/WC)
+#define ICH_PO_SR_BCIS    0x08  // Buffer Completion Interrupt Status (IOC) (R/WC)
 #define ICH_PO_SR_FIFO    0x10  // FIFO error interrupt (R/WC)
 
-#define ICH_PO_CR_REG     0x1b  // PCM out Control Register (8-bit)
 #define ICH_PO_CR_START   0x01  // 1=start BM op, 0=pause BM op
 #define ICH_PO_CR_RESET   0x02  // 1=reset all BM related regs ( autoclears to 0 )
-#define ICH_PO_CR_LVBIE   0x04  // 1=last valid buffer interrupt enable
-#define ICH_PO_CR_IOCE    0x10  // 1=IOC enable
+#define ICH_PO_CR_LVBIE   0x04  // 1=Last Valid Buffer Interrupt enable
+#define ICH_PO_CR_FEIE    0x08  // 1=FIFO Error Interrupt enable (unused)
+#define ICH_PO_CR_IOCE    0x10  // 1=Interrupt On Completion enable
 
 #define ICH_GBL_CTL_REG       0x2c  // Global control register (32-bit)
 #define ICH_GBL_CTL_ACLINKOFF 0x00000008 // 1=turn off ac97 link
@@ -97,30 +103,29 @@
 #define ICH_DEFAULT_RETRY 1000
 
 struct intel_card_s {
- unsigned long   baseport_bm;       // busmaster baseport
- unsigned long   baseport_codec;    // mixer baseport
- unsigned int    irq;
- unsigned char   device_type;
- unsigned char   sr_reg;
- struct pci_config_s  *pci_dev;
+    unsigned long   baseport_bm;       // busmaster baseport
+    unsigned long   baseport_codec;    // mixer baseport
+    unsigned int    irq;
+    unsigned char   device_type;
+    unsigned char   sr_reg;
+    struct pci_config_s  *pci_dev;
 
- struct cardmem_s *dm; /* XMS memory struct */
+    struct cardmem_s *dm; /* XMS memory struct */
 
- /* must be aligned to 8 bytes.
-  * consists of ICH_DMABUF_PERIODS elements, each element has
-  * 2 dwords, first is physical address, second is size (in "samples")
-  */
- uint32_t *virtualpagetable;
- char *pcmout_buffer;
- long pcmout_bufsize;
+    /* must be aligned to 8 bytes.
+     * consists of ICH_DMABUF_PERIODS elements, each element has
+     * 2 dwords, first is physical address, second is size (in "samples")
+     */
+    uint32_t *virtualpagetable;
+    char *pcmout_buffer;
+    long pcmout_bufsize;
 
- //unsigned int dma_size;
- unsigned int period_size_bytes;
+    //unsigned int dma_size;
+    unsigned int period_size_bytes;
 
- unsigned char vra;
- //unsigned char dra;
- unsigned int ac97_clock_detected;
- float ac97_clock_corrector;
+    unsigned char vra;
+    //unsigned char dra;
+    unsigned int ac97_clock_detected;
 };
 
 enum { DEVICE_INTEL, DEVICE_INTEL_ICH4567, DEVICE_NFORCE, DEVICE_SIS };
@@ -214,7 +219,10 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
 
-    card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
+	/* v1.8 restrict buffer to period_size * 32 */
+	card->pcmout_bufsize = min( card->pcmout_bufsize, ( aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN ) * ICH_DMABUF_PERIODS );
+
 	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
 	if (!card->dm) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
@@ -265,18 +273,21 @@ static void snd_intel_chip_init(struct intel_card_s *card)
 #endif
 	// wait for primary codec ready status
 	retry = snd_intel_codec_rdy(card,ICH_GBL_ST_PCR);
-	dbgprintf(("snd_intel_chip_init: primary codec reset timeout:%d\n",retry));
+#ifdef _DEBUG
+	if ( !retry ) dbgprintf(("snd_intel_chip_init: primary codec not ready\n"));
+#endif
 
 	//snd_intel_codec_read( card, 0); // clear semaphore flag (removed for ICH0)
-	snd_intel_write_8( card, ICH_PO_CR_REG, ICH_PO_CR_RESET); // reset channels
+	snd_intel_write_8( card, ICH_PO_CR, ICH_PO_CR_RESET); // reset channels
 #if 1 //def SBEMU
 	//pds_delay_10us(2000);
-	//snd_intel_write_8( card, ICH_PO_CR_REG, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
+	//snd_intel_write_8( card, ICH_PO_CR, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
 #endif
 	/* v1.7: support for SiS 7012 */
-	card->sr_reg = ICH_PO_SR_REG;
+	card->sr_reg = ICH_PO_SR;
 	if ( card->device_type == DEVICE_SIS ) {
-		card->sr_reg = ICH_PO_SR_REG_SIS;
+		card->sr_reg = ICH_PO_SR_SIS;
+		/* 04x is the DMA engine for the Mic 2; last field is MC2_CR at offset 0x4B, though.  */
 		snd_intel_write_16( card, 0x4C, snd_intel_read_16( card, 0x4C ) | 1 ); /* unmute? */
 	}
 
@@ -287,7 +298,7 @@ static void snd_intel_chip_close(struct intel_card_s *card)
 ///////////////////////////////////////////////////////////
 {
 	if(card->baseport_bm)
-		snd_intel_write_8(card,ICH_PO_CR_REG,ICH_PO_CR_RESET); // reset codec
+		snd_intel_write_8(card,ICH_PO_CR,ICH_PO_CR_RESET); // reset codec
 }
 
 static void snd_intel_ac97_init(struct intel_card_s *card, unsigned int freq_set)
@@ -312,7 +323,6 @@ static void snd_intel_ac97_init(struct intel_card_s *card, unsigned int freq_set
 
 /*
  * called by ICH_setrate()
- * and snd_intel_measure_ac97_clock()
  */
 static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -333,7 +343,7 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 	if (!retry) { dbgprintf(("intel_prepare_playback: dma stop timeout=%d\n",retry)); }
 #endif
 	// reset codec
-	snd_intel_write_8(card,ICH_PO_CR_REG, snd_intel_read_8(card, ICH_PO_CR_REG) | ICH_PO_CR_RESET);
+	snd_intel_write_8(card,ICH_PO_CR, snd_intel_read_8(card, ICH_PO_CR) | ICH_PO_CR_RESET);
 
 	// set channels (2) and bits (16/32)
 	cmd = snd_intel_read_32( card, ICH_GBL_CTL_REG );
@@ -363,19 +373,12 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 
 	//set analog ac97 freq
 	dbgprintf(("intel_prepare_playback: AC97 front dac freq=%d\n",aui->freq_card));
-	if( card->ac97_clock_corrector ){
-		if( card->vra ) {
-			snd_intel_codec_write(card,AC97_PCM_FRONT_DAC_RATE,(long)((float)aui->freq_card * card->ac97_clock_corrector));
-			dbgprintf(("intel_prepare_playback: SRC used, set freq=%u\n", (int)((float)aui->freq_card * card->ac97_clock_corrector)));
-		} else {
-			aui->freq_card = (int)((float)aui->freq_card / card->ac97_clock_corrector);
-			dbgprintf(("intel_prepare_playback: no SRC, corrected freq=%u\n", aui->freq_card));
-		}
-	} else {
+	if( card->vra ) {
 		snd_intel_codec_write( card, AC97_PCM_FRONT_DAC_RATE, aui->freq_card);
-		dbgprintf(("intel_prepare_playback: no clock corrector, freq=%u\n", aui->freq_card));
+		aui->freq_card = snd_intel_codec_read( card, AC97_PCM_FRONT_DAC_RATE);
+		dbgprintf(("intel_prepare_playback: SRC used, freq now %u\n", aui->freq_card ));
+		pds_delay_10us(1600);
 	}
-	pds_delay_10us(1600);
 
 	//set period table
 	table_base = card->virtualpagetable;
@@ -392,10 +395,10 @@ static void snd_intel_prepare_playback( struct intel_card_s *card, struct audioo
 		table_base[i*2+1] = period_size_samples;
 #endif
 	}
-	snd_intel_write_32(card,ICH_PO_BDBAR_REG, pds_cardmem_physicalptr(card->dm,table_base));
+	snd_intel_write_32(card,ICH_PO_BDBAR, pds_cardmem_physicalptr(card->dm,table_base));
 
-	snd_intel_write_8(card,ICH_PO_LVI_REG,(ICH_DMABUF_PERIODS - 1)); // set last index
-	snd_intel_write_8(card,ICH_PO_CIV_REG,0); // reset current index
+	snd_intel_write_8(card,ICH_PO_LVI,(ICH_DMABUF_PERIODS - 1)); // last valid index
+	snd_intel_write_8(card,ICH_PO_CIV,0); // reset current index (is ro!)
 
 	dbgprintf(("intel_prepare playback exit\n"));
 }
@@ -566,8 +569,6 @@ static void ICH_close( struct audioout_info_s *aui )
 	}
 }
 
-static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui );
-
 static void ICH_setrate( struct audioout_info_s *aui )
 //////////////////////////////////////////////////////
 {
@@ -575,8 +576,6 @@ static void ICH_setrate( struct audioout_info_s *aui )
 	unsigned int dmabufsize;
 
 	dbgprintf(("ICH_setrate() enter\n"));
-	if((card->device_type == DEVICE_INTEL) && !card->ac97_clock_detected )
-		snd_intel_measure_ac97_clock(aui);
 
 	aui->card_wave_id = WAVEID_PCM_SLE;
 	aui->chan_card = 2;
@@ -592,7 +591,7 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, 0);
+	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
 
 	snd_intel_prepare_playback(card,aui);
@@ -607,12 +606,12 @@ static void ICH_start( struct audioout_info_s *aui )
 
 	snd_intel_codec_rdy(card,ICH_GBL_ST_PCR);
 #if 0
-	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
+	cmd = snd_intel_read_8(card,ICH_PO_CR);
 	cmd |= ICH_PO_CR_START;
-	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
+	snd_intel_write_8(card,ICH_PO_CR,cmd);
 #else
 	/* v1.7: bit ICH_PO_CR_IOCE now set here, also ICH_PO_CR_LVBIE ? */
-	snd_intel_write_8( card, ICH_PO_CR_REG, ICH_PO_CR_START | ICH_PO_CR_IOCE /* | ICH_PO_CR_LVBIE */ );
+	snd_intel_write_8( card, ICH_PO_CR, ICH_PO_CR_START | ICH_PO_CR_IOCE /* | ICH_PO_CR_LVBIE */ );
 #endif
 }
 
@@ -622,11 +621,11 @@ static void ICH_stop( struct audioout_info_s *aui )
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned char cmd;
 #if 0
-	cmd = snd_intel_read_8(card,ICH_PO_CR_REG);
+	cmd = snd_intel_read_8(card,ICH_PO_CR);
 	cmd &= ~ICH_PO_CR_START;
-	snd_intel_write_8(card,ICH_PO_CR_REG,cmd);
+	snd_intel_write_8(card,ICH_PO_CR,cmd);
 #else
-	snd_intel_write_8(card,ICH_PO_CR_REG,snd_intel_read_8( card, ICH_PO_CR_REG ) & ~ICH_PO_CR_START );
+	snd_intel_write_8(card,ICH_PO_CR,snd_intel_read_8( card, ICH_PO_CR ) & ~ICH_PO_CR_START );
 #endif
 }
 
@@ -640,70 +639,6 @@ static int64_t gettimeu(void)
 	return time_ms;
 }
 
-/* called by ICH_setrate() if device_type == DEVICE_INTEL (ICH, ICH0, ??? )
- * out: ac97_clock_corrector
- */
-
-static void snd_intel_measure_ac97_clock( struct audioout_info_s *aui )
-///////////////////////////////////////////////////////////////////////
-{
-	struct intel_card_s *card = aui->card_private_data;
-    int64_t starttime,endtime;
-    int timelen; // in usecs
-    int freq_save = aui->freq_card;
-    unsigned int dmabufsize;
-    int cr;
-
-	aui->freq_card = 48000;
-	aui->chan_card = 2;
-	aui->bits_card = 16;
-
-    /* dmabufsize min = 32kB */
-	dmabufsize = min( card->pcmout_bufsize, AUCARDS_DMABUFSIZE_NORMAL );
-	dmabufsize = MDma_init_pcmoutbuf( aui, dmabufsize, ICH_DMABUF_ALIGN, 0);
-	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
-	snd_intel_prepare_playback( card, aui);
-	MDma_clearbuf(aui);
-
-#if 1//def SBEMU
-	cr = snd_intel_read_8( card, ICH_PO_CR_REG);
-	snd_intel_write_8( card, ICH_PO_CR_REG, 0); //disable LVBIE/IOCE
-#endif
-	ICH_start(aui);
-	starttime = gettimeu();
-	do {
-		if(snd_intel_read_8(card,ICH_PO_CIV_REG) >= (ICH_DMABUF_PERIODS - 1)) // current index has reached last index
-			if(snd_intel_read_8(card,ICH_PO_CIV_REG) >= (ICH_DMABUF_PERIODS - 1)) // verifying
-				break;
-	} while (gettimeu() <= (starttime + 1000000)); // abort after 1 sec (btw. the test should run less than 0.2 sec only)
-	endtime = gettimeu();
-	if(endtime > starttime)
-		timelen = endtime - starttime;
-	else
-		timelen = 0;
-	ICH_stop(aui);
-#if 1//def SBEMU
-	snd_intel_write_8(card,ICH_PO_CR_REG, cr);
-#endif
-
-	if(timelen && (timelen < 1000000)){
-		dmabufsize = card->period_size_bytes * (ICH_DMABUF_PERIODS - 1); // the test buflen
-		card->ac97_clock_corrector =
-			((float)aui->freq_card * aui->chan_card * (aui->bits_card / 8)) // dataspeed (have to be)
-			/((float)dmabufsize * 1000000.0 / (float)timelen);            // sentspeed (the measured) (bytes/sec)
-		if((card->ac97_clock_corrector > 0.99) && (card->ac97_clock_corrector < 1.01)) // dataspeed==sentspeed
-			card->ac97_clock_corrector = 0.0;
-		if((card->ac97_clock_corrector < 0.60) || (card->ac97_clock_corrector > 1.5)) // we assume that the result is false
-			card->ac97_clock_corrector = 0.0;
-	}
-	aui->freq_card = freq_save;
-	card->ac97_clock_detected = 1;
-	dbgprintf(("snd_intel_measure_ac97_clock: vra=%u corrector=%u%% timelen:%u microsec\n",card->vra,(int)(card->ac97_clock_corrector * 100.0),timelen));
-#ifdef _DEBUG
-    _asm int 3;
-#endif
-}
-
 //------------------------------------------------------------------------
 
 static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
@@ -715,10 +650,10 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 	MDma_writedata(aui,src,left);
 
 #if 1//def SBEMU
-	snd_intel_write_8(card,ICH_PO_LVI_REG,(snd_intel_read_8(card, ICH_PO_CIV_REG)-1) % ICH_DMABUF_PERIODS);
+	snd_intel_write_8(card,ICH_PO_LVI,(snd_intel_read_8(card, ICH_PO_CIV)-1) % ICH_DMABUF_PERIODS);
 #else
 	index = aui->card_dmalastput / card->period_size_bytes;
-	snd_intel_write_8(card,ICH_PO_LVI_REG,(index-1) % ICH_DMABUF_PERIODS); // set stop position (to keep playing in an endless loop)
+	snd_intel_write_8(card,ICH_PO_LVI,(index-1) % ICH_DMABUF_PERIODS); // set stop position (to keep playing in an endless loop)
 #endif
 	//dbgprintf(("ICH_writedata: index=%d\n",index));
 }
@@ -733,15 +668,15 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 	unsigned int index,pcmpos,retry = 3;
 
 	do{
-		index = snd_intel_read_8( card, ICH_PO_CIV_REG );  // number of current period
+		index = snd_intel_read_8( card, ICH_PO_CIV );  // number of current period
 #if 0//ndef SBEMU
 		//dbgprintf(("index1: %d\n",index));
 		if(index >= ICH_DMABUF_PERIODS){
 			if(retry > 1)
 				continue;
 			MDma_clearbuf(aui);
-			snd_intel_write_8( card, ICH_PO_LVI_REG, (ICH_DMABUF_PERIODS - 1) );
-			snd_intel_write_8( card, ICH_PO_CIV_REG, 0);
+			snd_intel_write_8( card, ICH_PO_LVI, (ICH_DMABUF_PERIODS - 1) );
+			snd_intel_write_8( card, ICH_PO_CIV, 0);
 			aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			continue;
 		}
@@ -749,19 +684,19 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 
 		/* v1.7: support for SiS 7012 */
 		if ( card->device_type == DEVICE_SIS ) {
-			pcmpos = snd_intel_read_16(card, ICH_PO_PICB_REG_SIS); // position in the current period (remaining unprocessed in SAMPLEs)
+			pcmpos = snd_intel_read_16(card, ICH_PO_PICB_SIS); // position in the current period (remaining unprocessed in SAMPLEs)
 		} else {
-			pcmpos = snd_intel_read_16(card, ICH_PO_PICB_REG ); // position in the current period (remaining unprocessed in SAMPLEs)
+			pcmpos = snd_intel_read_16(card, ICH_PO_PICB ); // position in the current period (remaining unprocessed in SAMPLEs)
 			pcmpos *= aui->bits_card >> 3;
 		}
 		//pcmpos*=aui->chan_card;
 		//printf("%d %d %d %d\n",aui->bits_card, aui->chan_card, pcmpos, card->period_size_bytes);
 		//dbgprintf(("ICH_getbufpos: pcmpos=%d\n",pcmpos));
 		if(!pcmpos || pcmpos > card->period_size_bytes){
-			if( snd_intel_read_8(card,ICH_PO_LVI_REG) == index ) {
+			if( snd_intel_read_8(card,ICH_PO_LVI) == index ) {
 				MDma_clearbuf(aui);
-				snd_intel_write_8(card,ICH_PO_LVI_REG,(index-1) % ICH_DMABUF_PERIODS); // to keep playing in an endless loop
-				//snd_intel_write_8(card,ICH_PO_CIV_REG,index); // ??? -RO
+				snd_intel_write_8(card,ICH_PO_LVI,(index-1) % ICH_DMABUF_PERIODS); // to keep playing in an endless loop
+				//snd_intel_write_8(card,ICH_PO_CIV,index); // ??? -RO
 				aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 			}
 #if 0//ndef SBEMU
@@ -769,7 +704,7 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 #endif
 		}
 #if 0//ndef SBEMU
-		if(snd_intel_read_8(card,ICH_PO_CIV_REG) != index) // verifying
+		if(snd_intel_read_8(card,ICH_PO_CIV) != index) // verifying
 			continue;
 #endif
 

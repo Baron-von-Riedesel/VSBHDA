@@ -793,8 +793,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	for( timeout = 100; (chip->hdac->corbctl & 2) && timeout; timeout--, pds_delay_10us(10));
 
 	/* STATESTS decides what codecs will be tried.
-	 * Since this fields is writeable ( write '1' to clear bits ),
-	 * it might be a good idea to reset the HDA if STATESTS is 0.
+	 * This field is wc ( writing '1' clears the bit );
 	 */
 	chip->codec_mask = chip->hdac->statests;
 
@@ -841,10 +840,9 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	/* reset int errors by writing '1's in SD_STS */
 	card->sd->bSts = SD_INT_MASK;
 
-	/* should not be written - writing '1' clears bits.
-     * and STATESTS_INT_MASK is 0x7?
-	 */
+    /* v1.8: statests bit 0-3 are now cleared - makes vsbhda compatible with vmware */
 	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
+	card->hdac->statests = card->hdac->statests & 0xf;
 
 	card->hdac->rirbsts = RIRB_INT_MASK;
 
@@ -1629,12 +1627,16 @@ static int HDA_IRQRoutine( struct audioout_info_s* aui )
 		card->sd->bSts = status; //ack all
 
 	//ack CORB/RIRB status
-	corbsts = card->hdac->corbsts & 0x1;
-	rirbsts = card->hdac->rirbsts & RIRB_INT_MASK; /* bits 0 & 2 */
+	corbsts = card->hdac->corbsts & 0x1; /* b0 = CMEI - CORB Memory Error Indication */
+    /* v1.8: rirbsts b0 may be set, but if b0 in rirbctl isn't set, it didn't
+     * generate an interrupt:
+     */
+	//rirbsts = card->hdac->rirbsts & RIRB_INT_MASK; /* b0 & b2 */
+	rirbsts = card->hdac->rirbsts & card->hdac->rirbctl & RIRB_INT_MASK; /* b0 & b2 */
 	if(corbsts)
-		card->hdac->corbsts = corbsts; /* by writing 0 the bits are cleared */
+		card->hdac->corbsts = corbsts; /* wc; 1 clears the bits */
 	if(rirbsts)
-		card->hdac->rirbsts = rirbsts; /* by writing 0 the bits are cleared */
+		card->hdac->rirbsts = rirbsts; /* wc; 1 clears the bits */
 	return status | corbsts | rirbsts;
 }
 

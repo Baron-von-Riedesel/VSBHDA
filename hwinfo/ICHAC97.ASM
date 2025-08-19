@@ -24,9 +24,22 @@ sym db text,0
 	exitm <offset sym>
 endm
 
+;--- defines for Extended Audio ID
+EAID_VRA   equ 1b
+EAID_DRA   equ 10b
+EAID_SPDIF equ 100b
+EAID_VRM   equ 1000b
+EAID_DSA0  equ 10000b
+EAID_DSA1  equ 100000b
+EAID_CDAC  equ 1000000b
+EAID_SDAC  equ 10000000b
+EAID_LDAC  equ 100000000b
+EAID_AMAP  equ 1000000000b
+
 	.data
 
-names label word
+
+names label word	;20 registers, 00h-26h
 	dw DStr("Reset")
 	dw DStr("Master Vol")
 	dw DStr("AUX Out Vol")
@@ -49,9 +62,9 @@ names label word
 	dw DStr("Power Down Ctrl/Stat")
 endnames equ $
 
-namesExt label word
+namesExt label word	;10 registers, 28h-3Ah
 	dw DStr("Extended Audio ID")
-	dw DStr("Extended Audio Stat/Ctrl")
+	dw DStr("Extended Audio Status & Control")
 	dw DStr("PCM Front DAC Rate")
 	dw DStr("PCM Surround DAC Rate")
 	dw DStr("PCM LFE DAC Rate")
@@ -62,7 +75,7 @@ namesExt label word
 	dw DStr("S/PDIF Ctrl")
 endnamesExt equ $
 
-namesExtPg0 label word
+namesExtPg0 label word	;8 registers, 60h-6Eh
 	dw DStr("Codec Class/Rev")
 	dw DStr("PCI SVID")
 	dw DStr("PCI SID")
@@ -72,6 +85,38 @@ namesExtPg0 label word
 	dw DStr("DAC Slot Mapping")
 	dw DStr("ADC Slot Mapping")
 endnamesExtPg0 equ $
+
+eaidnames label word
+	dw DStr("VRA")
+	dw DStr("DRA")
+	dw DStr("SPDIF")
+	dw DStr("VRM")
+	dw DStr("DSA0")
+	dw DStr("DSA1")
+	dw DStr("CDAC")
+	dw DStr("SDAC")
+	dw DStr("LDAC")
+	dw DStr("AMAP")
+endeaidnames equ $
+
+eascnames label word
+	dw DStr("VRA")
+	dw DStr("DRA")
+	dw DStr("SPDIF")
+	dw DStr("VRM")
+	dw DStr("SPSA0")
+	dw DStr("SPSA1")
+	dw DStr("CDAC")
+	dw DStr("SDAC")
+	dw DStr("LDAC")
+	dw DStr("MADC")
+	dw DStr("SPCV")
+	dw DStr("PRI")
+	dw DStr("PRJ")
+	dw DStr("PRK")
+	dw DStr("PRL")
+	dw DStr("VCFG")
+endeascnames equ $
 
 	.data?
 
@@ -183,6 +228,7 @@ local dwSubSys:dword
 
 	invoke printf, CStr("PCI Config Space:",10)
 
+;--- PCI registers
 ;--- bx holds bus/device/func
 
 	mov di,2		;device ID
@@ -240,7 +286,7 @@ local dwSubSys:dword
 	jz err2
 	and cx,0fffch
 	mov wBaseCtrl,cx
-	invoke printf, CStr("14 NABMBAR (Bus Master I/O Base): %X",10),wBaseCtrl
+	invoke printf, CStr("14 NABMBAR (DMA Controller I/O Base): %X",10),wBaseCtrl
 
 	mov ax,0b10Ah
 	mov di,18h		;mem address 1
@@ -253,7 +299,7 @@ local dwSubSys:dword
 	int 1Ah
 	cmp ah,0
 	jnz err1
-	invoke printf, CStr("1C MBBAR (Bus Master Memory Base): %lX",10),ecx
+	invoke printf, CStr("1C MBBAR (DMA Controller Memory Base): %lX",10),ecx
 
 	mov ax,0b10Ah
 	mov di,2Ch		;subsys vendor ID/device ID
@@ -286,6 +332,8 @@ local dwSubSys:dword
 	jnz err1
 	mov ch,0
 	invoke printf, CStr("41 CFG: %X",10),cx
+
+;--- AC'97 Mixer registers
 
 	invoke printf, CStr(10,"Mixer",10)
 	invoke printf, CStr(10,"Base Regs:",10)
@@ -329,6 +377,36 @@ nextregExt:
 	add bx,2
 	cmp bx,offset endnamesExt
 	jb nextregExt
+
+;--- print EA ID bits
+
+	invoke printf, CStr(10,"EA ID:")
+	mov si,offset eaidnames
+	mov bx,[buffer+28h]
+nexteaid:
+	lodsw
+	shr bx,1
+	jnc @F
+	invoke printf, CStr(" %s"), ax
+@@:
+	cmp si, offset endeaidnames
+	jb nexteaid
+	invoke printf, CStr(10)
+
+;--- print EA status and control bits
+
+	invoke printf, CStr("EA Status & Control:")
+	mov si,offset eascnames
+	mov bx,[buffer+2Ah]
+nexteasc:
+	lodsw
+	shr bx,1
+	jnc @F
+	invoke printf, CStr(" %s"), ax
+@@:
+	cmp si, offset endeascnames
+	jb nexteasc
+	invoke printf, CStr(10)
 
 	mov ax,[buffer+28h]	;extended audio ID
 	shr ax,10
