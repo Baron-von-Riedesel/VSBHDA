@@ -694,9 +694,9 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 	unsigned int pagesize = aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN;
 
 	dbgprintf(("ES1371_setrate\n"));
-	aui->card_wave_id = WAVEID_PCM_SLE;
-	aui->chan_card = 2;
-	aui->bits_card = 16;
+	//aui->card_wave_id = WAVEID_PCM_SLE;
+	//aui->chan_card = 2;
+	//aui->bits_card = 16;
 
 	if(aui->freq_card < 3000)
 		aui->freq_card = 3000;

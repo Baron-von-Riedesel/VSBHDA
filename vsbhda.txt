@@ -292,3 +292,5 @@
     - "The Flight of the Amazon Queen": requires SETPVI.
     - Lemmings 2: Uses direct disk access ( Int 25h ) - hence the binary
       has to be located on a FAT12/FAT16 disk.
+    - Creative's SB16 diagnose.exe: needs cmdline option /CF1, else it won't
+      find a "free" interrupt.

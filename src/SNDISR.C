@@ -34,6 +34,8 @@ void tsf_render_short(void *, short *, int, int);
 
 #define MIXERROUTINE 0
 
+#define VOICELR 1
+
 bool _SND_InstallISR( uint8_t, int(*ISR)(void) );
 bool _SND_UninstallISR( uint8_t );
 
@@ -254,6 +256,10 @@ static int SNDISR_Interrupt( void )
     uint32_t mastervol;
     uint32_t voicevol;
     uint32_t midivol;
+#if VOICELR
+    uint32_t mastervol2;
+    uint32_t voicevol2;
+#endif
     int16_t* pPCMOPL;
     uint8_t* pDirect;
     int samples;
@@ -280,12 +286,20 @@ static int SNDISR_Interrupt( void )
         mastervol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) & 0xF) << 4; /* 3 bits (1-3) */
         voicevol  = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL)  & 0x7) << 5; /* 2 bits (1-2) */
         midivol   = (VSB_GetMixerReg( SB_MIXERREG_MIDIVOL)   & 0xF) << 4; /* 3 bits (1-3) */
+#if VOICELR
+        mastervol2 = mastervol;
+        voicevol2  = voicevol;
+#endif
     } else {
         /* SBPro: L&R, bits 1-3/5-7, bits 0,3=1 */
         /* SB16:  L&R, bits 0-3/4-7 */
         mastervol = VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) & 0xF0; /* 00,10,...F0 */
         voicevol  = VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO)  & 0xF0;
         midivol   = VSB_GetMixerReg( SB_MIXERREG_MIDISTEREO)   & 0xF0;
+#if VOICELR
+        mastervol2 = (VSB_GetMixerReg( SB_MIXERREG_MASTERSTEREO) & 0xF) << 4;
+        voicevol2  = (VSB_GetMixerReg( SB_MIXERREG_VOICESTEREO) & 0xF ) << 4;
+#endif
     }
 #if SETABSVOL
     if( isr.SB_VOL != mastervol * gvars.vol / 9) {
@@ -324,15 +338,16 @@ static int SNDISR_Interrupt( void )
         int dmachannel = VSB_GetDMA();
         uint32_t freq = AU_getfreq( isr.hAU );
         int samplesize = max( 1, VSB_GetBits() / 8 );
-        int channels = VSB_GetChannels();
         int IdxSm = 0; /* sample index in 16bit PCM buffer */
         int count; /* samples to handle in this turn */
         bool resample; //don't resample if sample rates are close
         int bytes;
+        int channels;
 #ifdef _DEBUG
         int loop = 0;
         isr.cntDigital++;
 #endif
+        channels = VSB_GetChannels();
         /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         while (1) {
             uint32_t DMA_Base = VDMA_GetBase(dmachannel);
@@ -490,11 +505,22 @@ static int SNDISR_Interrupt( void )
 
         if( digital ) {
 # if MIXERROUTINE==0
+#  if VOICELR
+            voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
+            if ( voicevol2 == 0xff ) voicevol2 = 0x100;
+#  endif
             for( i = 0; i < samples * 2; i++ ) {
                 int a = (*(isr.pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (*(pPCMOPL+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
                 *(isr.pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
+#  if VOICERL
+                i++;
+                a = (*(isr.pPCM+i) * (int)voicevol2 / 256) + 32768;    /* convert to 0-65535 */
+                b = (*(pPCMOPL+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
+                mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
+                *(isr.pPCM+i) = (mixed > 65535 ) ? 0x7fff : mixed - 32768;
+#  endif
             }
 # elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
@@ -512,10 +538,19 @@ static int SNDISR_Interrupt( void )
     } else {
 #endif
         if( digital ) {
-            for( i = 0, pPCMOPL = isr.pPCM; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
-            //dbgprintf(("+"));
+# if VOICELR
+            voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
+            if ( voicevol2 == 0xff ) voicevol2 = 0x100;
+# endif
+            for( i = 0, pPCMOPL = isr.pPCM; i < samples * 2; i++, pPCMOPL++ ) {
+                *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
+# if VOICELR
+                pPCMOPL++; i++;
+                *pPCMOPL = ( *pPCMOPL * voicevol2 ) >> 8;
+# endif
+            }
 #ifdef _LOGBUFFMAX
-            if ( (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
+            if ( ( pPCMOPL - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
                 isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
 #endif
         } else

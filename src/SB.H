@@ -63,30 +63,30 @@
 // 0x24 and 0x2A don't exist ( are 0x04/0x0A )
 
 #if SB16
-#define SB16_MIXERREG_MASTERL      0x30 /* 3x, 4x: SB16 */
+#define SB16_MIXERREG_MASTERL      0x30 /* bits 3-7; connected with 22h */
 #define SB16_MIXERREG_MASTERR      0x31
-#define SB16_MIXERREG_VOICEL       0x32
+#define SB16_MIXERREG_VOICEL       0x32 /* bits 3-7; connected with 24h (rather 04?) */
 #define SB16_MIXERREG_VOICER       0x33
-#define SB16_MIXERREG_MIDIL        0x34
+#define SB16_MIXERREG_MIDIL        0x34 /* bits 3-7; connected with 26h */
 #define SB16_MIXERREG_MIDIR        0x35
-#define SB16_MIXERREG_CDL          0x36
+#define SB16_MIXERREG_CDL          0x36 /* bits 3-7; CD level; connected with 28h */
 #define SB16_MIXERREG_CDR          0x37
-#define SB16_MIXERREG_LINEINL      0x38
+#define SB16_MIXERREG_LINEINL      0x38 /* bits 3-7; linein level; connected with 2Eh */
 #define SB16_MIXERREG_LINEINR      0x39
-#define SB16_MIXERREG_MIC          0x3A
-#define SB16_MIXERREG_SPEAKER      0x3B
-#define SB16_MIXERREG_OUTCTRL      0x3C
-#define SB16_MIXERREG_INPCTRLL     0x3D
+#define SB16_MIXERREG_MIC          0x3A /* bits 3-7; mic level */
+#define SB16_MIXERREG_SPEAKER      0x3B /* bits 6-7; speaker level */
+#define SB16_MIXERREG_OUTCTRL      0x3C /* 0=Mic; 1,2=CD, 3,4=LineIn */
+#define SB16_MIXERREG_INPCTRLL     0x3D /* 0=Mic; 1,2=CD; 3,4=LineIn; 5,6=FM */
 #define SB16_MIXERREG_INPCTRLR     0x3E
-#define SB16_MIXERREG_INPGAINCTRLL 0x3F
-#define SB16_MIXERREG_INPGAINCTRLR 0x40
-#define SB16_MIXERREG_OUTGAINCTRLL 0x41
-#define SB16_MIXERREG_OUTGAINCTRLR 0x42
+#define SB16_MIXERREG_INPGAINCTRLL 0x3F /* bits 6-7, def 0x00 */
+#define SB16_MIXERREG_INPGAINCTRLR 0x40 /* bits 6-7, def 0x00 */
+#define SB16_MIXERREG_OUTGAINCTRLL 0x41 /* bits 6-7, def 0x00 */
+#define SB16_MIXERREG_OUTGAINCTRLR 0x42 /* bits 6-7, def 0x00 */
 #define SB16_MIXERREG_AUTOGAINCTRL 0x43
-#define SB16_MIXERREG_TREBLEL      0x44
-#define SB16_MIXERREG_TREBLER      0x45
-#define SB16_MIXERREG_BASSL        0x46
-#define SB16_MIXERREG_BASSR        0x47
+#define SB16_MIXERREG_TREBLEL      0x44 /* bits 4-7, def 0x80 */
+#define SB16_MIXERREG_TREBLER      0x45 /* bits 4-7, def 0x80 */
+#define SB16_MIXERREG_BASSL        0x46 /* bits 4-7, def 0x80 */
+#define SB16_MIXERREG_BASSR        0x47 /* bits 4-7, def 0x80 */
 #endif
 #define SB_MIXERREG_INT_SETUP    0x80 /* IRQ select, bits 0-3; SB16 only, but used internally */
 #define SB_MIXERREG_DMA_SETUP    0x81 /* DMA select, bits 0-7; SB16 only, but used internally */

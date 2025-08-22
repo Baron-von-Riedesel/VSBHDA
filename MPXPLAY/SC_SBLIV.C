@@ -902,8 +902,8 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 {
 	unsigned int dmabufsize;
 
-	aui->chan_card = 2;
-	aui->bits_card = 16;
+	//aui->chan_card = 2;
+	//aui->bits_card = 16;
 
 	dbgprintf(("snd_emu10kx_setrate(%u) enter\n", aui->freq_card));
 	if( aui->freq_card < 4000 )
@@ -990,9 +990,9 @@ static const struct emu_driver_func_s emu_driver_10k1_funcs = {
 
 #ifndef AUDIGY1_USE_AC97
 static const struct aucards_mixerchan_s emu_10k2_master_vol = {
- AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,{
-  { 8, 0x7fffffff, 0, 0},
-  { 9, 0x7fffffff, 0, 0}
+    AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME,2,{
+  { 8, 31, 0, 0},
+  { 9, 31, 0, 0}
  }
 };
 
@@ -1191,22 +1191,22 @@ static int snd_p16v_isr( struct emu10k1_card *card)
 
 
 static struct aucards_mixerchan_s emu_p16v_analog_out_vol = {
-	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME),2,
+	AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME,2,
 	{
-		{PLAYBACK_VOLUME_MIXER9, 0xff, 8 , SUBMIXCH_INFOBIT_REVERSEDVALUE},// front left
-		{PLAYBACK_VOLUME_MIXER9, 0xff, 0 , SUBMIXCH_INFOBIT_REVERSEDVALUE} // front right
-		//{PLAYBACK_VOLUME_MIXER10, 0xff, 24, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // rear
-		//{PLAYBACK_VOLUME_MIXER10, 0xff, 16, SUBMIXCH_INFOBIT_REVERSEDVALUE}
+		{PLAYBACK_VOLUME_MIXER9, 8, 8 , SUBMIXCH_INFOBIT_REVERSEDVALUE},// front left
+		{PLAYBACK_VOLUME_MIXER9, 8, 0 , SUBMIXCH_INFOBIT_REVERSEDVALUE} // front right
+		//{PLAYBACK_VOLUME_MIXER10, 8, 24, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // rear
+		//{PLAYBACK_VOLUME_MIXER10, 8, 16, SUBMIXCH_INFOBIT_REVERSEDVALUE}
 	}
 };
 
 static struct aucards_mixerchan_s emu_p16v_spdif_out_vol = {
-	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_SPDIFOUT,AU_MIXCHANFUNC_VOLUME),2,
+	AU_MIXCHAN_SPDIFOUT,AU_MIXCHANFUNC_VOLUME,2,
 	{
-		{PLAYBACK_VOLUME_MIXER7, 0xff, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // front
-		{PLAYBACK_VOLUME_MIXER7, 0xff, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE}
-		//{PLAYBACK_VOLUME_MIXER8, 0xff, 24, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // rear
-		//{PLAYBACK_VOLUME_MIXER8, 0xff, 16, SUBMIXCH_INFOBIT_REVERSEDVALUE}
+		{PLAYBACK_VOLUME_MIXER7, 8, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // front
+		{PLAYBACK_VOLUME_MIXER7, 8, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE}
+		//{PLAYBACK_VOLUME_MIXER8, 8, 24, SUBMIXCH_INFOBIT_REVERSEDVALUE}, // rear
+		//{PLAYBACK_VOLUME_MIXER8, 8, 16, SUBMIXCH_INFOBIT_REVERSEDVALUE}
 	}
 };
 
@@ -1441,7 +1441,7 @@ static void SBLIVE_setrate( struct audioout_info_s *aui )
 {
 	struct emu10k1_card *card = aui->card_private_data;
 
-	aui->card_wave_id = WAVEID_PCM_SLE;
+	//aui->card_wave_id = WAVEID_PCM_SLE;
 
 	if( card->driver_funcs->setrate )
 		card->driver_funcs->setrate( card, aui );

@@ -193,9 +193,9 @@ static void VSB_MixerReset( void )
 	/* todo: SB_MIXERREG_VOICEVOL is for SB20 only, for SBPro+ it's MIC level 2/3 bits */
 	vsb.MixerRegs[SB_MIXERREG_VOICEVOL] = 0x6;  /* 0A: bits 1-2, default ? */
 
-	vsb.MixerRegs[SB_MIXERREG_VOICESTEREO] = 0xDD;  /* 04: */
-	vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xDD; /* 22: */
-	vsb.MixerRegs[SB_MIXERREG_MIDISTEREO] = 0xDD;   /* 26: */
+	vsb.MixerRegs[SB_MIXERREG_VOICESTEREO] = 0xCC;  /* 04: */
+	vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xCC; /* 22: */
+	vsb.MixerRegs[SB_MIXERREG_MIDISTEREO] = 0xCC;   /* 26: */
 #if SB16
 	if(vsb.DSPVER >= 0x0400) { //SB16
 		vsb.MixerRegs[SB16_MIXERREG_MASTERL] = 0xC0; /* 5 bits only (3-7) */
@@ -204,6 +204,9 @@ static void VSB_MixerReset( void )
 		vsb.MixerRegs[SB16_MIXERREG_VOICER] = 0xC0;
 		vsb.MixerRegs[SB16_MIXERREG_MIDIL] = 0xC0;
 		vsb.MixerRegs[SB16_MIXERREG_MIDIR] = 0xC0;
+		vsb.MixerRegs[SB16_MIXERREG_OUTCTRL] = 0x1F; /* v1.8 */
+		vsb.MixerRegs[SB16_MIXERREG_INPCTRLL] = 0x15; /* v1.8 */
+		vsb.MixerRegs[SB16_MIXERREG_INPCTRLR] = 0x0B; /* v1.8 */
 		vsb.MixerRegs[SB16_MIXERREG_TREBLEL] = 0x80;
 		vsb.MixerRegs[SB16_MIXERREG_TREBLER] = 0x80;
 		vsb.MixerRegs[SB16_MIXERREG_BASSL] = 0x80;
@@ -352,8 +355,9 @@ static void DSP_Reset( uint8_t value )
 #if FASTCMD14
         vsb.Cmd14Cnt = 4;
 #endif
-        VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
-        VSB_Mixer_Write( 1 );
+        /* v1.8: no auto-reset of the mixer */
+        //VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
+        //VSB_Mixer_Write( 1 );
 #if REINITOPL
         MAIN_ReinitOPL();
 #endif

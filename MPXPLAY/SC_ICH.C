@@ -488,7 +488,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	 * Better approach may be to set PnP OS in BIOS to "NO".
 	 */
 	if( card->baseport_bm == 0 ) {
-#if 0//def SBEMU
+#if 0
 		int iobase = 0xF000;
 		iobase &= ~0x3F;
 		pcibios_WriteConfig_Dword(card->pci_dev, PCIR_NABMBAR, iobase);
@@ -508,7 +508,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	}
 	card->baseport_codec &= ~1; /* just mask out bit 0; bits 1-7 should be 0, since IO space is 256 ports */
 	if( card->baseport_codec == 0 ) {
-#if 0 //def SBEMU
+#if 0
 		/* see comment above for PCIR_NABMBAR! */
 		iobase -= 256;
 		iobase &= ~0xFF;
@@ -577,9 +577,9 @@ static void ICH_setrate( struct audioout_info_s *aui )
 
 	dbgprintf(("ICH_setrate() enter\n"));
 
-	aui->card_wave_id = WAVEID_PCM_SLE;
-	aui->chan_card = 2;
-	aui->bits_card = 16;
+	//aui->card_wave_id = WAVEID_PCM_SLE; /* done in AU_setrate() */
+	//aui->chan_card = 2;
+	//aui->bits_card = 16;
 
 	if(!card->vra){
 		aui->freq_card = 48000;

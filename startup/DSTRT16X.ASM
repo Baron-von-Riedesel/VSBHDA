@@ -206,9 +206,9 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	mov dword ptr _Envptr+0,esi ; save offset of environment strings
 	mov word ptr _Envptr+4,cx	; save segment of environment area
 ;
-	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
-	mov __no87,bl				; set state of "no87" enironment var
-	and __uselfn,bh 			; set "LFN" support status
+;	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
+	mov __no87,0				; set state of "no87" environment var
+	and __uselfn,0				; set "LFN" support status
 
 	mov ebx, _STACKTOP
 	mov _dynend,ebx 			; set top of dynamic memory area

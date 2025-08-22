@@ -305,7 +305,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	card->virtualpagetable = (void *)(((uint32_t)card->dm->pMem + 4095) & (~4095));
 	card->pcmout_buffer = (char *)card->virtualpagetable + VIRTUALPAGETABLESIZE;
 
-#ifdef SBEMU
+#if 1 //def SBEMU
 	memset(card->virtualpagetable, 0, VIRTUALPAGETABLESIZE);
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
@@ -355,9 +355,9 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 			aui->freq_card = 48000;
 	}
 
-	aui->chan_card = 2;
-	aui->bits_card = 16;
-	aui->card_wave_id = WAVEID_PCM_SLE;
+	//aui->chan_card = 2;
+	//aui->bits_card = 16;
+	//aui->card_wave_id = WAVEID_PCM_SLE;
 
 	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize, 0);
 
@@ -411,7 +411,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 		if(aui->freq_card == 48000)
 			rbits = 0xfffff;
 		else
-#ifdef SBEMU
+#if 1//def SBEMU
 			rbits = (0x100000 / 48000) * aui->freq_card;
 #else
 			rbits = (0x100000 / 48000) * aui->freq_card + ((0x100000 % 48000) * aui->freq_card) / 48000;
@@ -428,12 +428,12 @@ static void VIA82XX_start(struct audioout_info_s *aui)
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf(("VIA82XX_start\n"));
 	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686) {
-#ifdef SBEMU
+#if 1//def SBEMU
 		outb(card->iobase + VIA686_REG_OFFSET_TYPE, inb( card->iobase + VIA686_REG_OFFSET_TYPE ) | VIA686_REG_TYPE_INT_LSAMPLE | VIA686_REG_TYPE_INT_EOL | VIA686_REG_TYPE_INT_FLAG);
 #endif
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START);
 	} else
-#ifdef SBEMU
+#if 1//def SBEMU
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START | VIA_REG_CTRL_AUTOSTART | VIA_REG_CTRL_INT_FLAG | VIA_REG_CTRL_INT_EOL );
 #else
 		outb(card->iobase + VIA_REG_OFFSET_CONTROL, VIA_REG_CTRL_START | VIA_REG_CTRL_AUTOSTART);
@@ -628,26 +628,26 @@ static int VIA82XX_IRQRoutine(struct audioout_info_s* aui)
  */
 
 static const struct aucards_mixerchan_s via82xx_master_vol = {
-	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME), 2, {
-		{ AC97_MASTER_VOL_STEREO, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // left
-		{ AC97_MASTER_VOL_STEREO, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // right
-		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
-		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+	AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME, 2, {
+		{ AC97_MASTER_VOL_STEREO, 6, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // left
+		{ AC97_MASTER_VOL_STEREO, 6, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE }, // right
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE},
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
 	}};
 
 #if SETPCMVOL
 static const struct aucards_mixerchan_s via82xx_pcm_vol = {
-	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME), 2, {
-		{ AC97_PCMOUT_VOL, 0x3f, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE },
-		{ AC97_PCMOUT_VOL, 0x3f, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE },
-		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
-		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),0x1f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
+	AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME, 2, {
+		{ AC97_PCMOUT_VOL, 6, 8, SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_PCMOUT_VOL, 6, 0, SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_L << 8),5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}, // DXS channels
+		//{(VIA_REG_OFS_PLAYBACK_VOLUME_R << 8),5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE}
 	}};
 
 static const struct aucards_mixerchan_s via82xx_headphone_vol = {
-	AU_MIXCHANFUNCS_PACK(AU_MIXCHAN_HEADPHONE,AU_MIXCHANFUNC_VOLUME), 2, {
-		{ AC97_HEADPHONE_VOL,0x3f,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
-		{ AC97_HEADPHONE_VOL,0x3f,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	AU_MIXCHAN_HEADPHONE,AU_MIXCHANFUNC_VOLUME, 2, {
+		{ AC97_HEADPHONE_VOL,6,8,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AC97_HEADPHONE_VOL,6,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
 	}};
 #endif
 

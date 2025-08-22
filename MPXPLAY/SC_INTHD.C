@@ -30,6 +30,8 @@
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 1 /* todo: explain the benefits! */
 
+#define PCM_CHANNELS_DEFAULT 2
+
 /* config_select: bits 0-1: out device */
 #define AUCARDSCONFIG_IHD_OUT_DEV_MASK   0x3     /* 00=lineout, 01=speaker, 02=hp */
 #define AUCARDSCONFIG_IHD_USE_FIXED_SDO  (1<<2) // don't read stream offset (for sd_addr) from GCAP (use 0x100)
@@ -134,9 +136,9 @@ static const struct hda_rate_tbl rate_bits[] = {
 };
 
 static struct aucards_mixerchan_s hda_master_vol = {
-    AU_MIXCHANFUNCS_PACK( AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME), MAX_PCM_VOLS, {
-        {0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[0] register, max, shift, infobits
-        {0, 0x00, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
+    AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME, MAX_PCM_VOLS, {
+        {0, 0, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[0] register, max, shift, infobits
+        {0, 0, 0, SUBMIXCH_INFOBIT_CARD_SETVOL}, // card->pcm_vols[1]
     }
 };
 
@@ -1050,10 +1052,6 @@ static void azx_setup_stream(struct intelhd_card_s *card)
 	card->sd->dwBDLLow = pds_cardmem_physicalptr(card->dm, card->table_buffer);
 	card->sd->dwBDLHigh = 0; // upper 32 bit
 	//card->sd->wCtl = card->sd->wCtl | SD_INT_MASK;
-#ifdef SBEMU
-	/* set stream int mask; now done later in setrate() */
-	//card->sd->wCtl = card->sd->wCtl | SD_INT_COMPLETE;
-#endif
 	pds_delay_10us(100);
 
 	if(card->dac_node[0])
@@ -1477,8 +1475,8 @@ static void HDA_setrate( struct audioout_info_s *aui )
 	struct intelhd_card_s *card = aui->card_private_data;
 
 	dbgprintf(("HDA_setrate: freq_card=%u\n", aui->freq_card ));
-	aui->card_wave_id = WAVEID_PCM_SLE;
-	aui->chan_card = (aui->chan_set) ? aui->chan_set : PCM_CHANNELS_DEFAULT;
+	//aui->card_wave_id = WAVEID_PCM_SLE;
+	//aui->chan_card = (aui->chan_set) ? aui->chan_set : PCM_CHANNELS_DEFAULT;
 	if( aui->chan_card > INTHD_MAX_CHANNELS )
 		aui->chan_card = INTHD_MAX_CHANNELS;
 	if(!card->dacout_num_bits) // first initialization

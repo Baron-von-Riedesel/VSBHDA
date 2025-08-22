@@ -57,6 +57,8 @@ static  uint16_t gettimercnt(void);
     modify exact[ax dx]
 #endif
 
+#define PIT_DIVISOR_DEFAULT  65536
+
 void pds_delay_10us(unsigned int ticks) //each tick is 10us
 ///////////////////////////////////////
 {

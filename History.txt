@@ -1,4 +1,8 @@
 
+  v1.8, __._.____
+  - fixed: HDA in VmWare.
+  - fixed: SB DSP reset isn't supposed to reset SB mixer.
+
   v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
   - added soundfont support from VSBHDASF; new cmdline options /SF, /MV, /PS.

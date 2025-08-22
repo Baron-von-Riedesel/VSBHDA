@@ -33,7 +33,7 @@
 #define AC97_PCM_LR_ADC_RATE      0x0032       /* PCM LR DAC Rate */
 #define AC97_PCM_MIC_ADC_RATE     0x0034       /* PCM MIC ADC Rate */
 #define AC97_CENTER_LFE_MASTER    0x0036       /* Center + LFE Master Volume */
-#define AC97_SURROUND_MASTER      0x0038       /* Surround (Rear) Master Volume */
+#define AC97_SURROUND_MASTER      0x0038       /* Surround (Rear) Master Volume if AUX is 4CH */
 #define AC97_RESERVED_3A          0x003A       /* Reserved in AC '97 < 2.2 */
 
 /* AC'97 2.2 */
@@ -89,11 +89,11 @@
  * 8: 1=18-bit ADC res
  * 9: 1=20-bit ADC res
  * 10-14: SE0-SE4, 3D Stereo Enhancement
- * AC97_AUX_OUT_VOL:
- * if default == 8000 (read after reset), LNLVL & 4CH are NOT supported;
- * LNLVL = true line level
- * 4CH: volume is controlled via reg 38h, powered down via Reg 2Ah, PRJ;
- * can be detected via reg 28h (Extended ID), bit SDAC
+ * HP support: AC97_RESET bit4=1 and AUX_OUT_VOL == 8000h
+ * 4CH: detected via reg 28h (Extended ID), bit SDAC
+ *  volume is controlled via reg 38h (SURROUND_MASTER),
+ *  powered down via Reg 2Ah (Extended Status/Control), bit PRJ.
+ * LNLVL: default (neither HP nor 4CH are set; AUX_OUT_VOL==0.
  */
 
 /* volume control bit defines */
@@ -158,10 +158,10 @@
 #define AC97_EA_LDAC              0x0100       /* PCM LFE DAC is ready (Read only) */
 #define AC97_EA_MADC              0x0200       /* MIC ADC is ready (Read only) */
 #define AC97_EA_SPCV              0x0400       /* S/PDIF configuration valid (Read only) */
-#define AC97_EA_PRI               0x0800       /* Turns the PCM Center DAC off */
-#define AC97_EA_PRJ               0x1000       /* Turns the PCM Surround DACs off */
-#define AC97_EA_PRK               0x2000       /* Turns the PCM LFE DAC off */
-#define AC97_EA_PRL               0x4000       /* Turns the MIC ADC off */
+#define AC97_EA_PRI               0x0800       /* 1=Turns the PCM Center DAC off */
+#define AC97_EA_PRJ               0x1000       /* 1=Turns the PCM Surround DACs off */
+#define AC97_EA_PRK               0x2000       /* 1=Turns the PCM LFE DAC off */
+#define AC97_EA_PRL               0x4000       /* 1=Turns the MIC ADC off */
 #define AC97_EA_VCFG              0x8000       /* S/P-DIF transmitter behavior */
 #define AC97_EA_SLOT_MASK         0xffcf       /* Mask for S/PDIF slot assignment bits */
 #define AC97_EA_SPSA_3_4          0x0000       /* Slot assigned to 3 & 4 */
