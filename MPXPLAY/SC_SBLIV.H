@@ -48,11 +48,11 @@ struct emu10k1_card {
  unsigned long   serial;
  unsigned char   chips;
  unsigned char   chip_select;
- struct pci_config_s  *pci_dev;
+ struct pci_config_s pci_dev;
  const struct emu_card_version_s *card_capabilities;
  const struct emu_driver_func_s *driver_funcs;
 
- struct cardmem_s *dm;     // now it's ca. 72k only
+ struct cardmem_s dm;     // now it's ca. 72k only
  uint32_t *virtualpagetable;
  void *silentpage;
  unsigned long period_size;

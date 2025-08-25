@@ -21,49 +21,46 @@
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
-#include "DMAIRQ.H"
+#include "DMABUFF.H"
 #include "PHYSMEM.H"
 #include "LINEAR.H"
+
+#define AUCARDS_DMABUFSIZE_NORMAL 32768
+#define AUCARDS_DMABUFSIZE_MAX    131072
+#define AUCARDS_DMABUFSIZE_BLOCK  4096   // default page (block) size
 
 /* 1152 * 4 = 4608 = 0x1200; this is somehow related to 44100 */
 #define PCM_OUTSAMPLES 1152
 
 /* alloc physical memory block (it's always an XMS EMB, aligned to 1kB ) */
 
-struct cardmem_s *MDma_alloc_cardmem(unsigned int buffsize)
-///////////////////////////////////////////////////////////
+int MDma_alloc_cardmem( struct cardmem_s *dm, unsigned int buffsize)
+////////////////////////////////////////////////////////////////////
 {
-	struct cardmem_s *dm;
 	dbgprintf(("MDma_alloc_cardmem(0x%X)\n", buffsize));
-	dm = calloc( 1, sizeof(struct cardmem_s) );
-	if(!dm)
-		return NULL;
 	/* alloc & map physical memory */
 	if(!_alloc_physical_memory( dm, buffsize )) {
-		free(dm);
-		return NULL;
+		return 0;
 	}
 	dm->pMem = NearPtr( dm->dwLinear ); /* convert linear address to near ptr */
 	memset( dm->pMem, 0, buffsize );
 	dbgprintf(("MDma_alloc_cardmem: %X\n", dm->pMem));
-	return dm;
+	return 1;
 }
 
 void MDma_free_cardmem(struct cardmem_s *dm)
 ////////////////////////////////////////////
 {
 	dbgprintf(("MDma_free_cardmem(%x)\n", dm));
-	if( dm ){
-		/* convert the near ptr back to a linear address */
-		dm->dwLinear = LinearAddr( dm->pMem );
-		/* unmap & free physical memory */
-		_free_physical_memory(dm);
-		free(dm);
-	}
+	/* convert the near ptr back to a linear address */
+	dm->dwLinear = LinearAddr( dm->pMem );
+	/* unmap & free physical memory */
+	_free_physical_memory(dm);
 }
 
 /* usually called by card during adetect(), before card is initialized.
- * max_bufsize should be 0 then, pagesize should be "period size", samplesize is 2,
+ * max_bufsize should be 0 then, pagesize should be "period size",
+ * samplesize is 2 ( for SB Audigy 2 it's 4 ),
  * freq_config is 0 except for HDA.
  */
 
@@ -141,7 +138,7 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 
 	aui->card_dmasize = dmabufsize;
 
-#if 0
+#if 0 /* v1.8: useless here; set by AU_setoutbytes() */
 	if(!aui->card_outbytes)
 		aui->card_outbytes = PCM_OUTSAMPLES * aui->card_bytespersign; // not exact
 #endif

@@ -16,6 +16,10 @@ extern "C" {
 //struct sndcard_info_s->infobits
 #define SNDCARD_CARDBUF_SPACE     4 // routine gives back the cardbuf space, not the bufpos
 
+//#define WAVEID_UNKNOWN   0x0000
+#define WAVEID_PCM_SLE   0x0001 // signed little endian
+#define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
+
 //au_cards mixer channels - see AC97.C, aucards_ac97_chan_mixerset[]
     enum MIXCHAN {
         AU_MIXCHAN_MASTER = 0,  // master out
@@ -74,11 +78,11 @@ struct audioout_info_s {
  unsigned int  bits_set;  /* ??? */
  unsigned char bits_card; /* set in AU_setrate */
 
- unsigned int   card_wave_id;    // 0x0001,0x0003,0x0055,0x2000,etc.
+ unsigned int   card_wave_id;    // 0x0001,0x0003; see WAVEID_xxx
  unsigned long  card_controlbits;  // card control flags
  unsigned long  card_infobits;     // card info flags
  unsigned long  card_outbytes;     // samplenum * bytespersample_card
- unsigned long  card_dmasize;      /* card's dma buffer size in bytes; set in dmairq.c */
+ unsigned long  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
  unsigned long  card_dmalastput;
  unsigned long  card_dmaspace;     /* should be "free" dma buffer size in bytes, but changed for sbemu... */
  unsigned long  card_dmafilled;    /* ??? */

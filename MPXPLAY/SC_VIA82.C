@@ -25,7 +25,7 @@
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
-#include "DMAIRQ.H"
+#include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97.H"
 
@@ -128,9 +128,8 @@ struct via82xx_card
  unsigned short  model;
  unsigned int    irq;
  unsigned char   chiprev;
- struct pci_config_s  *pci_dev;
-
- struct cardmem_s *dm;
+ struct pci_config_s pci_dev;
+ struct cardmem_s dm;
  unsigned long *virtualpagetable;
  char *pcmout_buffer;
  long pcmout_bufsize;
@@ -154,7 +153,7 @@ static void via82xx_channel_reset(struct via82xx_card *card)
 	pds_delay_10us(5);
 	outb(baseport + VIA_REG_OFFSET_CONTROL, 0x00);
 	outb(baseport + VIA_REG_OFFSET_STATUS, 0xFF);
-	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686)
+	if(card->pci_dev.device_id == PCI_DEVICE_ID_VT82C686)
 		outb(baseport + VIA686_REG_OFFSET_TYPE, 0x00);
 	outl(baseport + VIA_REG_OFFSET_CURR_PTR, 0);
 }
@@ -165,36 +164,36 @@ static void via82xx_chip_init(struct via82xx_card *card)
 	unsigned int data,retry;
 
 	/* deassert ACLink reset, force SYNC */
-	pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_ENABLE | VIA_ACLINK_CTRL_RESET | VIA_ACLINK_CTRL_SYNC); // 0xe0
+	pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_ENABLE | VIA_ACLINK_CTRL_RESET | VIA_ACLINK_CTRL_SYNC); // 0xe0
 	pds_delay_10us(10);
-	if( card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686 ) {
+	if( card->pci_dev.device_id == PCI_DEVICE_ID_VT82C686 ) {
 		// full reset
-		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, 0x00);
+		pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, 0x00);
 		pds_delay_10us(10);
 		/* ACLink on, deassert ACLink reset, VSR, SGD data out */
 		/* note - FM data out has trouble with non VRA codecs !! */
-		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);// ??? SB   (0xCD)
+		pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);// ??? SB   (0xCD)
 		pds_delay_10us(10);
 	}else{
 		/* deassert ACLink reset, force SYNC (warm AC'97 reset) */
-		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_RESET | VIA_ACLINK_CTRL_SYNC); // 0x60
+		pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_RESET | VIA_ACLINK_CTRL_SYNC); // 0x60
 		pds_delay_10us(1);
 		/* ACLink on, deassert ACLink reset, VSR, SGD data out */
-		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT); // 0xcc
+		pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT); // 0xcc
 		pds_delay_10us(10);
 	}
 
 	// Make sure VRA is enabled, in case we didn't do a complete codec reset, above
-	data = pcibios_ReadConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL);
+	data = pcibios_ReadConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL);
 	if((data & VIA_ACLINK_CTRL_INIT) != VIA_ACLINK_CTRL_INIT) {
-		pcibios_WriteConfig_Byte(card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);
+		pcibios_WriteConfig_Byte(&card->pci_dev, VIA_ACLINK_CTRL, VIA_ACLINK_CTRL_INIT);
 		pds_delay_10us(10);
 	}
 
 	// wait until codec ready
 	retry = 65536;
 	do{
-		data = pcibios_ReadConfig_Byte(card->pci_dev, VIA_ACLINK_STAT);
+		data = pcibios_ReadConfig_Byte(&card->pci_dev, VIA_ACLINK_STAT);
 		if(data & VIA_ACLINK_C00_READY) /* primary codec ready */
 			break;
 		pds_delay_10us(1);
@@ -207,7 +206,7 @@ static void via82xx_chip_init(struct via82xx_card *card)
 
 	via82xx_channel_reset( card );
 
-	if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686){
+	if(card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686){
 		// Workaround for Award BIOS bug:
 		// DXS channels don't work properly with VRA if MC97 is disabled.
 		struct pci_config_s pci;
@@ -253,7 +252,7 @@ static void VIA82XX_card_info(struct audioout_info_s *aui)
 {
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf(("VIA : %s soundcard found on port:%4X irq:%d chiprev:%2X model:%4X\n",
-		   card->pci_dev->device_name,card->iobase,card->irq,card->chiprev,card->model));
+		   card->pci_dev.device_name,card->iobase,card->irq,card->chiprev,card->model));
 }
 
 static int VIA82XX_adetect(struct audioout_info_s *aui)
@@ -266,30 +265,26 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
-	if(!card->pci_dev)
+	if(pcibios_search_devices(via_devices, &card->pci_dev) != PCI_SUCCESSFUL)
 		goto err_adetect;
+	pcibios_enable_BM_IO(&card->pci_dev);
 
-	if(pcibios_search_devices(via_devices,card->pci_dev) != PCI_SUCCESSFUL)
-		goto err_adetect;
-	pcibios_enable_BM_IO(card->pci_dev);
-
-	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR);
+	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	if( !( card->iobase & 1) || !(card->iobase & 0xfff0 ) ) {
 		printf("VIA 82XX: no base port set for AC97 controller\n");
 		goto err_adetect;
 	}
     card->iobase &= 0xFFF0;
-	card->irq    = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-	card->chiprev= pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID);
-	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
+	card->irq    = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID);
+	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);
 #if 1 /* modifying the IRQ? */
 	aui->card_irq = card->irq;
 	dbgprintf(("VIA82XX_adetect: irq=%d\n",aui->card_irq));
 	if(aui->card_irq == 0 || aui->card_irq == 0xFF) {
 		printf("VIA82XX_adetect: no IRQ set, setting to 10\n");
 		aui->card_irq = card->irq = 10;
-		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_INTR_LN, aui->card_irq); //RW
+		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, aui->card_irq); //RW
 	}
 #endif
 
@@ -298,14 +293,12 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	// alloc buffers
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pagesize, 2, 0 );
 
-	card->dm = MDma_alloc_cardmem( VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 );
-	if (!card->dm)
-		return 0;
+	if (!MDma_alloc_cardmem( &card->dm, VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 )) return 0;
 
-	card->virtualpagetable = (void *)(((uint32_t)card->dm->pMem + 4095) & (~4095));
+	card->virtualpagetable = (void *)(((uint32_t)card->dm.pMem + 4095) & (~4095));
 	card->pcmout_buffer = (char *)card->virtualpagetable + VIRTUALPAGETABLESIZE;
 
-#if 1 //def SBEMU
+#if 0 //v1.8: memory already cleared by MDma_alloc_cardmem()
 	memset(card->virtualpagetable, 0, VIRTUALPAGETABLESIZE);
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
@@ -331,9 +324,7 @@ static void VIA82XX_close(struct audioout_info_s *aui)
 	if(card){
 		if(card->iobase)
 			via82xx_chip_close(card);
-		MDma_free_cardmem(card->dm);
-		if(card->pci_dev)
-			free(card->pci_dev);
+		MDma_free_cardmem(&card->dm);
 		free(card);
 		aui->card_private_data = NULL;
 	}
@@ -399,7 +390,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	via82xx_channel_reset(card);
 	via82xx_set_table_ptr(card);
 
-	if( card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686 ) {
+	if( card->pci_dev.device_id == PCI_DEVICE_ID_VT82C686 ) {
 		outb(card->iobase + VIA686_REG_OFFSET_TYPE,
 			 VIA_REG_TYPE_AUTOSTART | VIA_REG_TYPE_16BIT | VIA_REG_TYPE_STEREO );
 	} else { // VT8233
@@ -427,7 +418,7 @@ static void VIA82XX_start(struct audioout_info_s *aui)
 {
 	struct via82xx_card *card = aui->card_private_data;
 	dbgprintf(("VIA82XX_start\n"));
-	if(card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686) {
+	if(card->pci_dev.device_id == PCI_DEVICE_ID_VT82C686) {
 #if 1//def SBEMU
 		outb(card->iobase + VIA686_REG_OFFSET_TYPE, inb( card->iobase + VIA686_REG_OFFSET_TYPE ) | VIA686_REG_TYPE_INT_LSAMPLE | VIA686_REG_TYPE_INT_EOL | VIA686_REG_TYPE_INT_FLAG);
 #endif
@@ -457,7 +448,7 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 	unsigned int baseport = card->iobase;
 	unsigned long idx,count,bufpos;
 
-	if( card->pci_dev->device_id == PCI_DEVICE_ID_VT82C686 ){
+	if( card->pci_dev.device_id == PCI_DEVICE_ID_VT82C686 ){
 		count = inl(baseport + VIA_REG_PLAYBACK_CURR_COUNT);
 		idx   = inl(baseport + VIA_REG_OFFSET_CURR_PTR);
 		if(idx <= (unsigned long)card->virtualpagetable)
@@ -476,7 +467,7 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 
 	/* vsbhda: count may be 0 */
 	//if(count && (count <= PCMBUFFERPAGESIZE)){
-	if ( ( card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686 ) || ( count && ( count <= card->pagesize ))) {
+	if ( ( card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686 ) || ( count && ( count <= card->pagesize ))) {
 
 		bufpos = (idx * card->pagesize) + card->pagesize - count;
 
@@ -583,7 +574,7 @@ static void VIA82XX_writeMIXER(struct audioout_info_s *aui,unsigned long reg, un
 
 	//if((reg == VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg == VIA_REG_OFS_PLAYBACK_VOLUME_R)){
 	if( reg >= 256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
-		if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686)
+		if(card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686)
 			via82xx_dxs_write(card->iobase,(reg >> 8),val);
 	}else
 		via82xx_ac97_write(card->iobase,reg,val);
@@ -597,7 +588,7 @@ static unsigned long VIA82XX_readMIXER(struct audioout_info_s *aui,unsigned long
 
 	//if((reg == VIA_REG_OFS_PLAYBACK_VOLUME_L) || (reg == VIA_REG_OFS_PLAYBACK_VOLUME_R)){
 	if(reg >= 256){ // VIA_REG_OFS_PLAYBACK_VOLUME_X
-		if(card->pci_dev->device_id != PCI_DEVICE_ID_VT82C686)
+		if(card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686)
 			retval = via82xx_dxs_read(card->iobase,(reg >> 8));
 	}else
 		retval = via82xx_ac97_read(card->iobase,reg);

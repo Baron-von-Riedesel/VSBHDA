@@ -30,7 +30,7 @@ struct xmsmem_s{
 };
 
 #define cardmem_s xmsmem_s
-#define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem)->physicalptr + ((char*)(ptr) - (cardmem)->pMem))
+#define pds_cardmem_physicalptr(cardmem, ptr) ((cardmem).physicalptr + ((char*)(ptr) - (cardmem).pMem))
 
 //physmem.c
 extern int  _alloc_physical_memory( struct xmsmem_s *, uint32_t size);

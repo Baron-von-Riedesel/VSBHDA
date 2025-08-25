@@ -22,7 +22,9 @@
 
 #define MASTERSUBMIXCHAN 2
 
-static const struct aucards_mixerchan_s aucards_ac97chan_master_vol = {
+/* v1.8: bits for master volume must be r/w */
+//static const struct aucards_mixerchan_s aucards_ac97chan_master_vol = {
+static struct aucards_mixerchan_s aucards_ac97chan_master_vol = {
 	AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME, MASTERSUBMIXCHAN, {
 		{ AC97_MASTER_VOL_STEREO,6,8,SUBMIXCH_INFOBIT_REVERSEDVALUE }, // left
 		{ AC97_MASTER_VOL_STEREO,6,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }, // right

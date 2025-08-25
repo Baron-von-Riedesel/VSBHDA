@@ -25,7 +25,7 @@
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
-#include "DMAIRQ.H"
+#include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 #include "EMU10K1.H"
@@ -868,16 +868,17 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 
 	dbgprintf(("snd_emu10kx_buffer_init enter\n"));
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, EMUPAGESIZE, 2, 0);
-	card->dm = MDma_alloc_cardmem( MAXPAGES * sizeof(uint32_t)    // virtualpage
-								+ EMUPAGESIZE                     // silentpage
-								+ card->pcmout_bufsize            // pcm output
-								+ 0x1000 );                       // to round
+	if (! MDma_alloc_cardmem( &card->dm, MAXPAGES * sizeof(uint32_t)  // virtualpage
+							 + EMUPAGESIZE					// silentpage
+							 + card->pcmout_bufsize 		// pcm output
+							 + 0x1000 ))					// to round
+		return 0;
 
-	card->silentpage = (void *)(((uint32_t)card->dm->pMem + 0x0fff) & 0xfffff000); // buffer begins on page boundary
+	card->silentpage = (void *)(((uint32_t)card->dm.pMem + 0x0fff) & 0xfffff000); // buffer begins on page boundary
 	card->virtualpagetable = (uint32_t *)((uint32_t)card->silentpage + EMUPAGESIZE);
 	card->pcmout_buffer = (char *)(card->virtualpagetable + MAXPAGES);
 	//dbgprintf(("snd_emu10kx_buffer_init: silentpage=%X, vpt=%X, pcmout=%X\n", card->silentpage, card->virtualpagetable, card->pcmout_buffer ));
-	//dbgprintf(("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm->physicalptr, card->dm->linearptr ));
+	//dbgprintf(("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm.physicalptr, card->dm.linearptr ));
 
 	pcmbufp = (uint32_t)card->pcmout_buffer;
 	//pcmbufp <<= 1;
@@ -1046,8 +1047,8 @@ static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audi
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN, AUDIGY2_P16V_BYTES_PER_SAMPLE, 0);
-	card->dm = MDma_alloc_cardmem(AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize);
-	card->virtualpagetable = (uint32_t *)card->dm->pMem;
+	if (!MDma_alloc_cardmem(&card->dm, AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t)+card->pcmout_bufsize)) return 0;
+	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t);
 	dbgprintf(("snd_p16v_selector: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
@@ -1318,7 +1319,7 @@ static void SBLIVE_show_info( struct audioout_info_s *aui )
 #if 0
 	struct emu10k1_card *card = aui->card_private_data;
 	printf("SBA : SB %s (%8.8X)(bits:16%s) on port:%4.4X irq:%d\n",
-			((card->card_capabilities->longname) ? card->card_capabilities->longname : card->pci_dev->device_name),
+			((card->card_capabilities->longname) ? card->card_capabilities->longname : card->pci_dev.device_name),
 			card->serial,((card->chips&EMU_CHIPS_24BIT)? ",24":""),
 			(int)card->iobase,(int)card->irq);
 #endif
@@ -1341,32 +1342,28 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
-	if(!card->pci_dev)
-		goto err_adetect;
-
-	if(pcibios_search_devices( creative_devices, card->pci_dev) != PCI_SUCCESSFUL ) {
+	if(pcibios_search_devices( creative_devices, &card->pci_dev) != PCI_SUCCESSFUL ) {
 		dbgprintf(("SBLIVE_adetect: pcibios_search_devices failed\n"));
 		goto err_adetect;
 	}
-	pcibios_enable_BM_IO(card->pci_dev);
+	pcibios_enable_BM_IO(&card->pci_dev);
 
 	/* v1.8: according to PCI specs, an I/O base address may have bits 2-3 set! */
 	//card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
-	card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfffc;
+	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) & 0xfffc;
 	if(!card->iobase) {
 		dbgprintf(("SBLIVE_adetect: no IO port in PCI address bar\n"));
 		goto err_adetect;
 	}
 
-	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
-	card->chiprev= pcibios_ReadConfig_Byte(card->pci_dev, PCIR_RID); /* revision ID */
-	card->model  = pcibios_ReadConfig_Word(card->pci_dev, PCIR_SSID);
-	card->serial = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_SSVID);
+	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID); /* revision ID */
+	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);
+	card->serial = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_SSVID);
 
     /* check for the SB variants that are supported */
 	for ( emucv = emucard_versions; emucv->longname; emucv++ ) {
-		if( emucv->device == card->pci_dev->device_id )
+		if( emucv->device == card->pci_dev.device_id )
 			if( (emucv->subsystem == card->serial)
 			   || (emucv->revision && (emucv->revision == card->chiprev))
 			   || (!emucv->revision && !emucv->subsystem) // unknown but supported card
@@ -1377,7 +1374,7 @@ static int SBLIVE_adetect( struct audioout_info_s *aui )
 	}
 
 	if(!card->card_capabilities) {
-		dbgprintf(("SBLIVE_adetect: SB variant dev=%X, subsys=%u, rev=%u unknown\n", card->pci_dev->device_id, card->serial, card->chiprev ));
+		dbgprintf(("SBLIVE_adetect: SB variant dev=%X, subsys=%u, rev=%u unknown\n", card->pci_dev.device_id, card->serial, card->chiprev ));
 		goto err_adetect;
 	}
 
@@ -1428,9 +1425,7 @@ static void SBLIVE_close( struct audioout_info_s *aui )
 		if(card->iobase)
 			if( card->driver_funcs->hw_close )
 				card->driver_funcs->hw_close( card );
-		MDma_free_cardmem( card->dm );
-		if( card->pci_dev )
-			free( card->pci_dev );
+		MDma_free_cardmem( &card->dm );
 		free(card);
 		aui->card_private_data = NULL;
 	}

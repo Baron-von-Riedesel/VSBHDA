@@ -1,5 +1,5 @@
 
-;--- get SBLive register contents
+;--- get ICHx register contents (DMA & AC'97 controller)
 
 	.286
 	.MODEL small, stdcall

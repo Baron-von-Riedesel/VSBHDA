@@ -16,16 +16,6 @@
 #ifndef mpxplay_h
 #define mpxplay_h
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-//#define WAVEID_UNKNOWN   0x0000
-#define WAVEID_PCM_SLE   0x0001 // signed little endian
-#define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
-
-//------------------------------------------------------------------------
-
 #ifndef max
 #define max(a,b) (((a)>(b))? (a):(b))
 #endif
@@ -40,13 +30,8 @@ extern "C" {
 #define outpd outportl
 #endif
 
-#include <string.h>
 #include "PHYSMEM.H"
 #include "TIMER.H"
 #include "AU_CARDS.H"
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // mpxplay_h

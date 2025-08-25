@@ -20,7 +20,7 @@
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
-#include "DMAIRQ.H"
+#include "DMABUFF.H"
 
 #ifdef NOTFLAT
 uint8_t bOMode = 1;

@@ -102,6 +102,7 @@ int _alloc_physical_memory( struct xmsmem_s * mem, uint32_t size)
 			return 1;
 		}
 		xms_free( mem->handle );
+		mem->handle = 0;
 	}
 	dbgprintf(("No XMS memory.\n"));
 	return 0;
@@ -111,7 +112,10 @@ void _free_physical_memory( struct xmsmem_s * mem)
 //////////////////////////////////////////////////
 {
 	__dpmi_meminfo info;
-	info.address = mem->dwLinear;
-	__dpmi_free_physical_address_mapping( &info );
-	xms_free( mem->handle );
+	if (mem->handle) {
+		info.address = mem->dwLinear;
+		__dpmi_free_physical_address_mapping( &info );
+		xms_free( mem->handle );
+		mem->handle = 0;
+	}
 }

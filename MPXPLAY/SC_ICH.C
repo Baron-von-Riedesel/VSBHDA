@@ -32,7 +32,7 @@
 
 #include "CONFIG.H"
 #include "MPXPLAY.H"
-#include "DMAIRQ.H"
+#include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 
@@ -108,9 +108,8 @@ struct intel_card_s {
     unsigned int    irq;
     unsigned char   device_type;
     unsigned char   sr_reg;
-    struct pci_config_s  *pci_dev;
-
-    struct cardmem_s *dm; /* XMS memory struct */
+    struct pci_config_s pci_dev;
+    struct cardmem_s dm; /* XMS memory struct */
 
     /* must be aligned to 8 bytes.
      * consists of ICH_DMABUF_PERIODS elements, each element has
@@ -125,7 +124,7 @@ struct intel_card_s {
 
     unsigned char vra;
     //unsigned char dra;
-    unsigned int ac97_clock_detected;
+    //unsigned int ac97_clock_detected; /* v1.8: removed */
 };
 
 enum { DEVICE_INTEL, DEVICE_INTEL_ICH4567, DEVICE_NFORCE, DEVICE_SIS };
@@ -223,13 +222,12 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 	/* v1.8 restrict buffer to period_size * 32 */
 	card->pcmout_bufsize = min( card->pcmout_bufsize, ( aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN ) * ICH_DMABUF_PERIODS );
 
-	card->dm = MDma_alloc_cardmem(ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize );
-	if (!card->dm) return 0;
+	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
-	card->virtualpagetable = (uint32_t *)card->dm->pMem;
+	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t);
 	aui->card_DMABUFF = card->pcmout_buffer;
-#if 1//def SBEMU
+#if 0//v1.8: memory cleared by MDma_alloc_cardmem()
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
 	dbgprintf(("snd_intel_buffer init: pagetable:%X pcmoutbuf:%X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
@@ -304,20 +302,36 @@ static void snd_intel_chip_close(struct intel_card_s *card)
 static void snd_intel_ac97_init(struct intel_card_s *card, unsigned int freq_set)
 /////////////////////////////////////////////////////////////////////////////////
 {
+	uint16_t eastat;
+#if 1
+	/* v1.8: master volume may be 5 bit only; so check if 6 bits can be written -
+	 * if no, reduce volume to 5 bits.
+	 */
+	snd_intel_codec_write(card, AC97_MASTER_VOL_STEREO, 0x3F3F);
+	if (snd_intel_codec_read(card, AC97_MASTER_VOL_STEREO) != 0x3F3F) {
+		struct aucards_mixerchan_s *onechi = (struct aucards_mixerchan_s *)*aucards_ac97chan_mixerset;
+		onechi->submixerchans[0].submixch_bits = 5;
+		onechi->submixerchans[1].submixch_bits = 5;
+	}
+#endif
 	// initial ac97 volumes (and clear mute flag)
 	snd_intel_codec_write(card, AC97_MASTER_VOL_STEREO, 0x0202);
 	snd_intel_codec_write(card, AC97_PCMOUT_VOL,        0x0202);
 	snd_intel_codec_write(card, AC97_HEADPHONE_VOL,     0x0202);
-	snd_intel_codec_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
+	/* v1.8: preserve the other bits of extended status reg */
+	//snd_intel_codec_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
+	eastat = snd_intel_codec_read(card, AC97_EXTENDED_STATUS);
+	eastat |= AC97_EA_SPDIF;
 
 	// set/check variable bit rate bit
-	if( freq_set != 48000 ){
-		if(snd_intel_codec_read( card, AC97_EXTENDED_ID) & AC97_EA_VRA) {
-			snd_intel_codec_write( card, AC97_EXTENDED_STATUS, snd_intel_codec_read(card, AC97_EXTENDED_STATUS ) | AC97_EA_VRA);
-			if(snd_intel_codec_read( card, AC97_EXTENDED_STATUS) & AC97_EA_VRA)
-				card->vra = 1;
-		}
-	}
+	if( freq_set != 48000 )
+		if(snd_intel_codec_read( card, AC97_EXTENDED_ID ) & AC97_EA_VRA )
+			eastat |= AC97_EA_VRA;
+
+	snd_intel_codec_write( card, AC97_EXTENDED_STATUS, eastat );
+	if( snd_intel_codec_read( card, AC97_EXTENDED_STATUS ) & AC97_EA_VRA )
+		card->vra = 1;
+
 	dbgprintf(("intel_ac97_init: end (vra:%d)\n",card->vra));
 }
 
@@ -438,7 +452,7 @@ static void ICH_show_card_info( struct audioout_info_s *aui )
 #if 0
 	struct intel_card_s *card = aui->card_private_data;
 	dbgprintf(("ICH : Intel %s found on port:X irq:%d (type:%s, bits:16%s)\n",
-			card->pci_dev->device_name,card->baseport_bm,card->irq,
+			card->pci_dev.device_name,card->baseport_bm,card->irq,
 			ich_devnames[card->device_type],((card->device_type == DEVICE_INTEL_ICH4567) ? ",20":"")));
 #endif
 }
@@ -455,27 +469,23 @@ static int ICH_adetect( struct audioout_info_s *aui )
 		return 0;
 	aui->card_private_data = card;
 
-	card->pci_dev = (struct pci_config_s *)calloc(1,sizeof(struct pci_config_s));
-	if(!card->pci_dev)
-		goto err_adetect;
-
-	if(pcibios_search_devices(ich_devices,card->pci_dev) != PCI_SUCCESSFUL)
+	if(pcibios_search_devices(ich_devices,&card->pci_dev) != PCI_SUCCESSFUL)
 		goto err_adetect;
 
 #if 1 //def SBEMU
-	if( card->pci_dev->device_type == DEVICE_INTEL_ICH4567 ) {
+	if( card->pci_dev.device_type == DEVICE_INTEL_ICH4567 ) {
 		/*
 		 * enable legacy IO space; makes values at ofs 04h/10h/14h R/W.
 		 */
-		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_CFG, 1); //IOSE:enable IO space
+		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_CFG, 1); //IOSE:enable IO space
 		dbgprintf(("ICH_adetect: enable legacy IO space for ICH4-7 (PCI reg 41h).\n"));
 	}
 #endif
 
 	dbgprintf(("ICH_adetect: enable PCI io and busmaster\n"));
-	pcibios_enable_BM_IO(card->pci_dev);
+	pcibios_enable_BM_IO(&card->pci_dev);
 
-	card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR); /* PCI offset 0x14 */
+	card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NABMBAR); /* PCI offset 0x14 */
 	if (!(card->baseport_bm & 1 )) {/* must be an IO address */
 		dbgprintf(("ICH_adetect: no IO port for DMA engine set\n"));
 		goto err_adetect;
@@ -491,8 +501,8 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #if 0
 		int iobase = 0xF000;
 		iobase &= ~0x3F;
-		pcibios_WriteConfig_Dword(card->pci_dev, PCIR_NABMBAR, iobase);
-		card->baseport_bm = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NABMBAR) & 0xfff0;
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NABMBAR, iobase);
+		card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NABMBAR) & 0xfff0;
 		if(!card->baseport_bm)
 			goto err_adetect;
 #else
@@ -501,7 +511,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #endif
 	}
 
-	card->baseport_codec = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR); /* PCI offset 0x10 */
+	card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR); /* PCI offset 0x10 */
 	if (!(card->baseport_codec & 1 )) { /* must be an IO address */
 		dbgprintf(("ICH_adetect: no IO port for Native Audio Mixer set\n"));
 		goto err_adetect;
@@ -512,8 +522,8 @@ static int ICH_adetect( struct audioout_info_s *aui )
 		/* see comment above for PCIR_NABMBAR! */
 		iobase -= 256;
 		iobase &= ~0xFF;
-		pcibios_WriteConfig_Dword(card->pci_dev, PCIR_NAMBAR, iobase);
-		card->baseport_codec = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NAMBAR, iobase);
+		card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) & 0xfff0;
 		if(!card->baseport_codec)
 			goto err_adetect;
 #else
@@ -522,7 +532,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #endif
 	}
 
-	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
+	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 #if 1
 	/* if no interrupt assigned, assign #11?
 	 * Also a doubtful action - BIOS should know better what IRQs are to be used.
@@ -531,18 +541,18 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	 */
 	if( aui->card_irq == 0xFF ) {
 		printf(("Intel ICH: no IRQ set in PCI config space, trying to set it to 11\n"));
-		pcibios_WriteConfig_Byte(card->pci_dev, PCIR_INTR_LN, 11);
-		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(card->pci_dev, PCIR_INTR_LN);
+		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 11);
+		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	}
 #endif
  
-	card->device_type = card->pci_dev->device_type;
+	card->device_type = card->pci_dev.device_type;
 	/* v1.7: set more exact name of card found */
 	//ICH_sndcard_info.shortname = (char *)ich_devnames[card->device_type];
-	ICH_sndcard_info.shortname = card->pci_dev->device_name;
+	ICH_sndcard_info.shortname = card->pci_dev.device_name;
 
 	dbgprintf(("vend/dev_id=%X/%X devtype:%s bmport:%4X mixport:%4X irq:%d\n",
-			  card->pci_dev->vendor_id, card->pci_dev->device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
+			  card->pci_dev.vendor_id, card->pci_dev.device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
 
 	if( !snd_intel_buffer_init( card, aui ) )
 		goto err_adetect;
@@ -561,9 +571,7 @@ static void ICH_close( struct audioout_info_s *aui )
 	struct intel_card_s *card = aui->card_private_data;
 	if(card){
 		snd_intel_chip_close(card);
-		MDma_free_cardmem(card->dm);
-		if(card->pci_dev)
-			free(card->pci_dev);
+		MDma_free_cardmem(&card->dm);
 		free(card);
 		aui->card_private_data = NULL;
 	}
