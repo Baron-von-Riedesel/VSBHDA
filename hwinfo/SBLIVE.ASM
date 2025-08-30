@@ -199,7 +199,7 @@ nextreg3:
 	mov si,400h	;sb live
 	cmp wModel,2
 	jz @F
-	mov si,600h	;audify
+	mov si,600h	;audigy
 @@:
 	lea di,[si+200h]
 nextreg4:
