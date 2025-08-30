@@ -21,7 +21,7 @@
  * Option b) is implemented by setting HOSTRT=0 in sbisr.asm - should
  * be changed to a cmdline option.
  */
-#define MASKSBIRQ 1
+#define MASKSBIRQ 0
 
 //#define SetBorder(x) _SetBorder(x)
 #define SetBorder(x)

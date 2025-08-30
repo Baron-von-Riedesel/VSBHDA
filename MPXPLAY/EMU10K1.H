@@ -170,10 +170,10 @@
 #define HCFG_LEGACYFUNC_MASK    0xe0000000    /* Legacy function number */
 #define HCFG_LEGACYFUNC_MPU     0x00000000    /* Legacy MPU */
 #define HCFG_LEGACYFUNC_SB      0x40000000    /* Legacy SB */
-#define HCFG_LEGACYFUNC_AD      0x60000000    /* Legacy AD */
+#define HCFG_LEGACYFUNC_ADLIB   0x60000000    /* Legacy ADLIB */
 #define HCFG_LEGACYFUNC_MPIC    0x80000000    /* Legacy MPIC */
 #define HCFG_LEGACYFUNC_MDMA    0xa0000000    /* Legacy MDMA */
-#define HCFG_LEGACYFUNC_SPCI    0xc0000000    /* Legacy SPCI */
+#define HCFG_LEGACYFUNC_SPIC    0xc0000000    /* Legacy SPIC */
 #define HCFG_LEGACYFUNC_SDMA    0xe0000000    /* Legacy SDMA */
 #define HCFG_IOCAPTUREADDR      0x1f000000    /* The 4 LSBs of the captured I/O address. */
 #define HCFG_LEGACYWRITE        0x00800000    /* 1 = write, 0 = read */

@@ -1,18 +1,22 @@
 
-;--- handle SB emulated interrupt
-;--- since this interrupt is emulated, there shouldn't
-;--- be any real interrupt hooking.
+;--- handle SB emulated interrupt.
 
 	.386
 	.MODEL ?MODEL, c
 	option casemap:none
 	option proc:private
 
-;--- 1. currently, WATCHSB = 1 works (for DOS/4GW) with SB IRQ 7 only if HOSTRT = 1.
-;--- 2. if HOSTRT = 0, MASKSBIRQ in virq.c should be set to 0.
+;--- HOSTRT:
+;--- if 1, SB irq isn't modified - this was the setting in vsbhda v1.7 and v1.6.
+;----      However, it's a problem if the SB irq is used by a PCI device.
+;--- if 0, SB irq is modified (proc realsbisr) and the client will get/set a virtual
+;---       address only.
+;---       With this setting, MASKSBIRQ in virq.c should be set to 0.
 
-WATCHSB   equ 1	; 1=watch SB int
-HOSTRT    equ 1	; 1=route get/set pm vector calls to DPMI host
+WATCHSB   equ 1	; 1=watch get/set SB int
+HOSTRT    equ 0	; 1=route get/set pm vector calls for irq 2/5/7 to DPMI host.
+                ; 0=install own handler and intercept DPMI/DOS calls, so the
+                ;   vector isn't modified.
 ife HOSTRT
 RTIVT     equ 1	; 1=route interrupt requests to (old) real-mode IV directly.
 endif
@@ -51,7 +55,9 @@ ifdef NOTFLAT
 
 	.code
 
+ if WATCHSB
 currSBvec  PFAR ?	; current vector SB ISR
+ endif
  ife HOSTRT
 oldSBvec   PFAR ?	; original vector SB ISR
  endif
@@ -61,7 +67,9 @@ else
 
 	.data
 
+ if WATCHSB
 currSBvec  PFAR ?	; current vector SB ISR
+ endif
 	align 4
  ife HOSTRT
 oldSBvec   PFAR ?	; original vector SB ISR
@@ -134,7 +142,10 @@ endif
 _SBIsrCall endp
 
 ife HOSTRT
-sbisr proc
+
+;--- real PL3 IRQ 2/5/7 
+
+realsbisr proc
  ife RTIVT
 	jmp cs:[oldSBvec]
  else
@@ -168,7 +179,7 @@ sbisr proc
 	insIRET
  endif
 	align 4
-sbisr endp
+realsbisr endp
 endif
 
 if TRAPINT21
@@ -302,7 +313,7 @@ if WATCHSB
  ife HOSTRT
 	call saveorgvec
 	mov ecx, cs
-	mov edx, offset sbisr
+	mov edx, offset realsbisr
 	mov ax, 205h
 	int 31h
   if RTIVT
