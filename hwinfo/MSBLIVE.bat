@@ -1,3 +1,2 @@
 @echo off
-if not exist ..\ow\NUL mkdir ..\ow
-jwasm -mz -Fo..\ow\ SBLIVE.ASM
+jwasm -nologo -mz -Fl SBLIVE.ASM

@@ -277,7 +277,7 @@ static int SNDISR_Interrupt( void )
     /* since the client context is now restored when a SB IRQ is emulated,
      * it's safe to call VIRQ_Invoke here. This will happen only for
      * DSP cmds 0xF2/0xF3 (trigger IRQ).
-     * Todo: check is SB emulated Irq is masked; if yes, don't trigger!
+     * Todo: check if SB emulated Irq is masked; if yes, don't trigger!
      */
     if ( VSB_GetIRQStatus() )
         VIRQ_Invoke();
@@ -345,6 +345,7 @@ static int SNDISR_Interrupt( void )
         int channels;
 #ifdef _DEBUG
         int loop = 0;
+        int ocnt;
         isr.cntDigital++;
 #endif
         channels = VSB_GetChannels();
@@ -381,24 +382,39 @@ static int SNDISR_Interrupt( void )
                 }
             }
             count = samples - IdxSm;
-            /* don't resample if sample rates are close.
-             */
-            resample = true;
-            if( SB_Rate < freq )
+            /* don't resample if sample rates are close? */
+            if( SB_Rate != freq ) {
+                resample = true;
                 //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
-                count = max( 1, count * SB_Rate / freq );
-            else if( SB_Rate > freq )
-                //count *= (SB_Rate + aui.freq_card/2)/aui.freq_card;
                 count = count * SB_Rate / freq;
-            else
+                if ( SB_Rate % freq ) count++;
+            }else
                 resample = false;
-            /* ensure count won't exceed DMA buffer def */
-            count = min( count, max(1, DMA_Count / samplesize / channels));
-            /* ensure count won't exceed SB buffer def */
-            count = min( count, max(1,(SB_BuffSize - SB_Pos) / samplesize / channels ));
+#ifdef _DEBUG
+            ocnt = count; 
+#endif
+            /* ensure
+             * 1. count won't exceed DMA buffer size;
+            /* 2. count won't exceed SB buffer size;
+             * v1.8: removed max() - count may become 0;
+             */
+            //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
+            //count = min( count, max(1, (SB_BuffSize - SB_Pos) / (samplesize * channels) ) );
+            count = min( count, DMA_Count / (samplesize * channels) );
+            count = min( count, (SB_BuffSize - SB_Pos) / (samplesize * channels) );
             /* adjust count if sample size is < 8 (ADPCM) */
             if( VSB_GetBits() < 8 )
-                count = max(1, count / (9 / VSB_GetBits()));
+                count = count / (9 / VSB_GetBits());
+
+			/* v1.8: exit if count is 0; stop digital sound if single-cycle */
+			if (!count) {
+				dbgprintf(("isr(%u): count=0, ocnt=0x%X, DMA_Count=0x%X\n", loop, ocnt, DMA_Count ));
+				if ( !VSB_GetAuto() )
+					VSB_Stop();
+				if (!IdxSm) digital = 0;
+				break;
+			}
+
             bytes = count * samplesize * channels;
 
             /* copy samples to our PCM buffer */
@@ -406,6 +422,16 @@ static int SNDISR_Interrupt( void )
                 memset( isr.pPCM + IdxSm * 2, 0, bytes);
             } else
                 memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
+
+            /* set new values for DMA and SB buffer;
+             * in case the end of SB buffer is reached, an interrupt
+             * will be triggered and this loop will run again.
+             */
+            if ( !IsSilent ) {
+                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
+                //DMA_Count = VDMA_GetCount( dmachannel ); /* v1.8: not needed */
+            }
+            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
 
             /* format conversion needed? */
 #if ADPCM
@@ -423,35 +449,29 @@ static int SNDISR_Interrupt( void )
             if( channels == 1) //should be the last step
                 cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
 
-            /* conversion done; now set new values for DMA and SB buffer;
-             * in case the end of SB buffer is reached, emulate an interrupt
-             * and run this loop a second time.
-             */
             IdxSm += count;
-            //dbgprintf(("isr: samples:%d %d %d\n", count, IdxSm, samples));
-            if ( !IsSilent ) {
-                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
-                DMA_Count = VDMA_GetCount( dmachannel );
-            }
-            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
+
             if( VSB_GetIRQStatus() ) {
-                //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X samples/count=%u/%u bytes=%u dmaIdx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+                //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X dma Idx/Cnt=%X/%X\n", loop, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+#ifdef _DEBUG
+                loop++;
+#endif                
                 if ( VSB_GetAuto() )
                     VSB_SetPos(0);
                 else
-                    VSB_Stop(); /* VSB_Stop() will set position to 0 */
+                    VSB_Stop(); /* v1.8: does no longer reset SB position */
                 VIRQ_Invoke();
                 /* v1.7: calling VDMA_GetAuto() may be problematic. The SB ISR may
                  *       have setup a new transfer with DSP cmd 0x14; then the DMA
-                 *       channel isn't in autoinit mode, but it would still be a good
-                 *       idea to get a few bytes from the (new) data stream.
+                 *       channel isn't in autoinit mode, but it's still a good idea
+                 *       to fill missing samples from the (new) data stream.
                  */
                 //if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
                 if ( (IdxSm < samples) && VSB_Running() ) continue;
             }
 #if 0//def _DEBUG
             else
-                dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X bytes=%u silent=%u\n", loop++, SB_Pos, SB_BuffSize, bytes, IsSilent ));
+                dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X\n", loop, samples, count, bytes ));
 #endif
             /* we can safely exit if no SB irq has been emulated. if IdxSm is < samples, then it's due to integer math used above */
             break;
@@ -460,13 +480,16 @@ static int SNDISR_Interrupt( void )
         /* in case there weren't enough samples copied, fill the rest with silence.
          * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,
          * the program may want to instantly initiate another DSP play cmd.
+         * v1.8: returned to filling the rest with silence...
          */
-#if 0
-        for( i = IdxSm; i < samples; i++ )
-            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+        if (digital) {
+#if 1
+            for( i = IdxSm; i < samples; i++ )
+                *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
 #else
-        samples = IdxSm;
+            samples = IdxSm;
 #endif
+        }
 
     } else if ( i = VSB_GetDirectCount( &pDirect ) ) {
 

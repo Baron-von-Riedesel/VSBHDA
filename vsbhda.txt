@@ -294,3 +294,5 @@
       has to be located on a FAT12/FAT16 disk.
     - Creative's SB16 diagnose.exe: needs cmdline option /CF1, else it won't
       find a "free" interrupt.
+    - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
+

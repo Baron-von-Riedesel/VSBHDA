@@ -44,10 +44,10 @@ copyrmcode proto c :ptr, :dword
 
 	.data
 
-dwOldIV0F dd 0
+dwOldIV0F dd 0		;IVT vector INT 0Fh (IRQ 7)
 ife HOSTRT
  if RTIVT
-dwOldIV   dd 0
+dwOldIV   dd 0		;IVT vector irq 2/5/7
  endif
 endif
 
@@ -132,7 +132,7 @@ if 1
 	pop eax
 	test ah, 2	; IF==1
 	jnz @F
-	mov ax, 901h; enable ints
+	mov ax, 901h; reenable ints
 	insPUSHF
 	call cs:[oldint31]
 @@:
@@ -153,27 +153,31 @@ realsbisr proc
 	pushad
 	sub esp, 34h
 	mov edi, esp
-	push ss
-	pop es
 	xor bx, bx
 	xor ecx, ecx
   ifdef NOTFLAT
-	push ds
-	mov ds, cs:[dwDS]
-	mov eax, [dwOldIV]
-	pop ds
+	mov es, cs:[dwDS]
+	mov eax, es:[dwOldIV]
   else
 	mov eax, cs:[dwOldIV]
   endif
-	mov es:[edi].RMCS.rFlags, 2
+	push ss
+	pop es
+	mov es:[edi].RMCS.rFlags, 202h
 	mov es:[edi].RMCS.rCSIP, eax
 	shr eax, 16
 	mov es:[edi].RMCS.rES, ax
 	mov es:[edi].RMCS.rDS, ax
 	mov es:[edi].RMCS.rSSSP, ecx
 	mov ax, 302h
-	int 31h
+	insPUSHF    ; avoid using a true INT 31h - it may be intercepted by the current program
+	call cs:[oldint31]
 	add esp, 34h
+  if 1
+	mov ax,901h ; since it's a real ISR, reenable interrupts
+	insPUSHF
+	call cs:[oldint31]
+  endif
 	popad
 	pop es
 	insIRET
@@ -218,7 +222,7 @@ is_25:
  endif
 	mov dword ptr es:[currSBvec+0], edx
 	mov  word ptr es:[currSBvec+SEGOFS], ds
-	@dprintf CStr("SB_Notify21: DS:EDX=%X:%X",10),ds,edx
+	@dprintf CStr("SB_Notify21 ah=25: DS:EDX=%X:%X",10),ds,edx
 	pop es
  ifdef NOTFLAT
 	assume es:DGROUP
@@ -287,14 +291,12 @@ savevector::
  endif
 	mov dword ptr [currSBvec+0], edx
 	mov word ptr [currSBvec+SEGOFS], cx
-	@dprintf CStr("SB_Notify31: CX:EDX=%X:%X",10),cx,edx
-
 	mov [bIntSB], bl	; activate notifications
-
 	pop ds
  ifdef NOTFLAT
 	assume ds:DGROUP
  endif
+	@dprintf CStr("SB_Notify31: CX:EDX=%X:%X",10),cx,edx
 	retn
 endif
 	align 4
@@ -307,6 +309,14 @@ _SB_InstallISR proc public uses ebx interrupt:byte, pDosHeap:ptr, dwPart:dword
 	@dprintf CStr("SB_InstallISR enter",10)
 if WATCHSB
 	mov bl, interrupt
+ ife HOSTRT
+  if RTIVT
+	mov ax, 200h
+	int 31h
+	mov word ptr [dwOldIV+0], dx
+	mov word ptr [dwOldIV+2], cx
+  endif
+ endif
 	mov ax, 204h
 	int 31h
 	call savevector
@@ -316,12 +326,6 @@ if WATCHSB
 	mov edx, offset realsbisr
 	mov ax, 205h
 	int 31h
-  if RTIVT
-	mov ax, 200h
-	int 31h
-	mov word ptr [dwOldIV+0], dx
-	mov word ptr [dwOldIV+2], cx
-  endif
  endif
 endif
 

@@ -150,7 +150,8 @@ _cstart_ proc near public
 __csalias dw 0
 
 around:
-	@dprintf CStr("vsbhda16: entry, esp=%X",10), esp
+	;v1.8: dprintf needs a working __GETDS()
+	;@dprintf CStr("vsbhda16: entry, esp=%X",10), esp
 	mov _psp, es
 	mov _STACKTOP, esp
 	mov _STACKLOW, offset _end

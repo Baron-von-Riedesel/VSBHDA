@@ -1,5 +1,6 @@
 
 TRAPINT21 equ 1	; 1=hook int 21h
+SETIF     equ 1	; 1=enable interrupts inside sound isr (setting should match the one in config.h)
 
 ifdef NOTFLAT
 

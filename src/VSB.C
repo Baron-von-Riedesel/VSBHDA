@@ -829,7 +829,8 @@ void VSB_Stop()
 {
     vsb.Started = false;
     vsb.HighSpeed = false;
-    vsb.Position = 0;
+    /* v1.8: no need to reset position */
+    //vsb.Position = 0;
 }
 
 #if 0

@@ -86,9 +86,16 @@ endif
 	pop ds
 	popad
 	jz prevhdlr
-;--- v1.6: interrupts are enabled on entry to sound ISR if SETIF is 1
-;---       hence it should NOT be necessary to enable interrupts here;
+if not SETIF
+;--- v1.6: if SETIF is 1, then interrupts were enabled inside the sound ISR;
+;---       else they must be reenabled now.
+	push eax
+	insPUSHF
+	mov ax,901h
+	call cs:[oldint31]
+	pop eax
 ;	sti
+endif
 	insIRET
 prevhdlr:
 	jmp cs:[dfOldSndVec]

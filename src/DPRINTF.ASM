@@ -13,6 +13,10 @@ ifdef DJGPP
 	assume ds:_DATA
 endif
 
+ifndef DJGPP
+__GETDS proto near
+endif
+
 VioPutChar proto
 
 	.data
@@ -249,13 +253,18 @@ vprintf endp
 
 ifdef _DEBUG
 
-;--- DS must be dgroup.
 ;--- VioOut expects ES=dgroup.
-;--- SS is unknown.
+;--- OW: DS & SS unknown.
+;--- DJGPP: DS assumed DGROUP
 
 	alias <___dprintf> = <_dprintf>
 
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
+
+ ifndef DJGPP
+	push ds
+	call __GETDS
+ endif
 
 	cmp bInit, 1
 	jz @F
@@ -273,6 +282,9 @@ _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 	pop edx
 	pop ecx
 	pop eax
+ ifndef DJGPP
+	pop ds
+ endif
 	ret
 
 _dprintf ENDP
