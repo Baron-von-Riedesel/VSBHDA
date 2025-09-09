@@ -29,8 +29,10 @@
    quite a bit of processing power, such a cpu very likely isn't sufficient.
    Tests revealed that a Pentium II with 266 MHz is able to handle simple games;
    a Pentium III with 500 MHz gave the impression that it could handle both
-   voice and music output smoothly. Setting the frequency ( /F cmdline option )
-   to the minimum should reduce cpu overstrain.
+   voice and music output smoothly. Note that the MPU synthesizer needs a lot
+   of FPU power - reducing the voice maximum ( see option /MV below ) may be
+   needed. Adjusting the frequency ( /F cmdline option ) to the minimum may
+   also reduce cpu overstrain.
 
 
    3. Usage
@@ -135,6 +137,8 @@
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
             0 = interrupt will be triggered delayed (default).
+     Bit 1: 1 = enable interrupts when EOI to be sent to master/slave PIC
+                is detected.
 
 
    4. Details/Hints

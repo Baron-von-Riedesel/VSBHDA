@@ -95,6 +95,8 @@
 #define SB_MIXERREG_IRQ_STAT16BIT 2
 #define SB_MIXERREG_IRQ_STATMPU   4
 /* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */
+/* mixer regs 0x84-0xff always return 0xff */
+#define SB_MIXERREG_MAX          0x83
 
 //DSP commands
 //time constant used

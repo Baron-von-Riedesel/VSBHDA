@@ -17,9 +17,14 @@ TRAPF_OUT  equ 4
 
 IRQCOMPAT  equ 0	; 1=generate a compatible stack frame so VIRQ_Invoke can be called
 
-;--- todo: detailed description for what apps this setting is needed.
+;--- description for what apps the following setting may be needed:
+;--- tyrian 2000?
 
-IRETFIX16  equ 1	; 1=hackish fix for "interrupts remain disabled after IRET" problem (16-bit)
+IRETFIX    equ 1	; 1=support cmdline option /CF2 (fix for "interrupts remain disabled after IRET" problem)
+
+if IRETFIX
+externdef gvars:GLOBALVARS
+endif
 
 PTRAP_PM_TrapHandler proto :word, :dword, :dword
 
@@ -99,20 +104,27 @@ endif
 	cld
 	mov ds, cs:[dwDS]
 
-ifdef NOTFLAT
- if IRETFIX16
-	cmp dx, 20h ; port 20h?
+	assume ds:ASSUMEDS
+
+;--- v1.8: IRETFIX now for both 32- and 16-bit;
+;---       also: to become active, /CF2 has to be set!
+if IRETFIX
+	cmp dx, 20h ; master PIC?
 	jnz @F
-	cmp al, 20h	; just the unspecific EOI is detected!?
-	jnz @F
-	test cl, TRAPF_OUT	; out instr? so it's an EOI sent to master PIC
+	test cl, TRAPF_OUT	; OUT instr?
 	jz @F
+ if 0
+	cmp al, 20h	; just the unspecific EOI is detected!
+	jnz @F
+ else
+	test al, 20h; v1.8: all EOIs are detected!
+	jz @F
+ endif
+	bt gvars.compatflags,1	;watch EOIs (for both master & slave)?
+	jnc @F
 	or byte ptr [ebp].IOEXCFR._fl+1, 2	; set IF=1
 @@:
- endif
 endif
-
-	assume ds:ASSUMEDS
 
 	mov ch, byte ptr [ebp].IOEXCFR._fl+1   ;v1.7: CH[1] holds IF
 

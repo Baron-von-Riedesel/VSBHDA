@@ -1,4 +1,9 @@
 
+SB16      equ 1	; 1=SB16 supported
+VMPU      equ 1	; 1=VMPU supported
+SLOWDOWN  equ 1	; 1=SL option supported
+SOUNDFONT equ 1	; 1=Soundfonts supported
+
 TRAPINT21 equ 1	; 1=hook int 21h
 SETIF     equ 1	; 1=enable interrupts inside sound isr (setting should match the one in config.h)
 
@@ -108,4 +113,28 @@ ends
 RMCS ends
 
 externdef oldint31:PFAR
+
+GLOBALVARS struct
+	dd 3 dup (?)
+if SB16
+	dd ?
+endif
+	dd ?
+if VMPU
+	dd ?
+endif
+	dd 5 dup (?)
+if SLOWDOWN
+	dd ?
+endif
+ifdef NOTFLAT
+	dd ?
+endif
+if SOUNDFONT
+	dd ?
+	dd ?
+endif
+compatflags	dd ?	; /* compatibility flags */
+	dd 3 dup (?)
+GLOBALVARS ends
 

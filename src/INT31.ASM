@@ -188,7 +188,6 @@ isSB:
 	call _SB_Notify21
 	jc prevint
 	insIRET
-
 	align 4
 
 myint21 endp
@@ -204,6 +203,7 @@ _InstallInt31 proc public uses ebx
 endif
 
 	@dprintf CStr("_InstallInt31 enter",10)
+
 ifdef NOTFLAT
  if FIXEXC00
 	cmp bDivErr, 0

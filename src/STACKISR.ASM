@@ -58,9 +58,10 @@ SwitchStackISR proc
 	pushad
 	push ds
 	push es
-	mov ds, cs:[dwDS]
-	mov es, [dwDS]
 	cld
+	mov ebx, cs:[dwDS]
+	mov ds, ebx
+	mov es, ebx
 	mov edx, ss
 	mov ecx, esp
 
@@ -74,7 +75,7 @@ ifdef _DEBUG
 	mov eax, [__djgpp_stack_top]	; test if the new stack is writable before ss is changed
 	mov [eax-4], eax
 endif
-	mov ss, [dwDS]
+	mov ss, ebx
 	mov esp, [__djgpp_stack_top]
 	push edx
 	push ecx
@@ -94,7 +95,6 @@ if not SETIF
 	mov ax,901h
 	call cs:[oldint31]
 	pop eax
-;	sti
 endif
 	insIRET
 prevhdlr:
@@ -188,13 +188,14 @@ _SND_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
 	@dprintf CStr("SND_InstallISR enter",10)
 
-	mov eax, isr
-	mov dwISR, eax
-
 	mov bl, interrupt
 	mov ax, 204h
 	int 31h
 	jc error
+
+	mov eax, isr
+	mov dwISR, eax
+
 ifdef NOTFLAT
 	push ds
 	mov ds, cs:[_csalias]
@@ -212,11 +213,6 @@ ifdef NOTFLAT
 	pop ds
 	assume ds:DGROUP
 endif
-	mov ecx, cs
-	mov edx, offset SwitchStackISR
-	mov ax, 205h
-	int 31h
-	jc error
 
 if STACKCHECK
 	mov eax, [__djgpp_stack_top]
@@ -224,10 +220,13 @@ if STACKCHECK
 	mov [dwStackBottom], eax
 endif
 
-	mov eax, 1
-	ret
+	mov ecx, cs
+	mov edx, offset SwitchStackISR
+	mov ax, 205h
+	int 31h
 error:
-	xor eax, eax
+	sbb eax,eax
+	inc eax
 	ret
 _SND_InstallISR endp
 
@@ -239,11 +238,8 @@ _SND_UninstallISR proc public uses ebx interrupt:byte
 	mov bl, interrupt
 	mov ax, 205h
 	int 31h
-	jc error
-	mov eax, 1
-	ret
-error:
-	xor eax, eax
+	sbb eax,eax
+	inc eax
 	ret
 
 _SND_UninstallISR endp

@@ -10,6 +10,7 @@
   - fixed: debug displays in 16-bit variant.
   - fixed: case "DMA buffer < SB buffer" in single-cycle mode now handled
     correctly.
+  - value 2 for cmdline option /CF added.
 
   v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).

@@ -20,6 +20,10 @@
 #include <stdio.h>
 #endif
 
+#ifdef _DEBUG
+//#define SNDISRLOG
+#endif
+
 #include "AU.H"
 
 #if SOUNDFONT
@@ -262,17 +266,14 @@ static int SNDISR_Interrupt( void )
 #endif
     int16_t* pPCMOPL;
     uint8_t* pDirect;
+    uint32_t freq;
     int samples;
-    bool digital;
+    int IdxSm; /* sample index in 16bit PCM buffer */
     int i;
 
     /* check if the sound hw does request an interrupt. */
     if( !AU_isirq( isr.hAU ) )
         return(0);
-
-#if SETIF
-    _enable_ints();
-#endif
 
     /* since the client context is now restored when a SB IRQ is emulated,
      * it's safe to call VIRQ_Invoke here. This will happen only for
@@ -281,6 +282,184 @@ static int SNDISR_Interrupt( void )
      */
     if ( VSB_GetIRQStatus() )
         VIRQ_Invoke();
+
+#if SETIF
+    _enable_ints();
+#endif
+
+    AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
+    samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
+        PIC_SendEOI( AU_getirq( isr.hAU ) );
+        return(1);
+    }
+    freq = AU_getfreq( isr.hAU );
+#ifdef _DEBUG
+    if (samples > isr.max_samples)
+        isr.max_samples = samples;
+    isr.total_samples += samples;
+    isr.cntTotal++;
+    //dbgprintf(("isr: samples:%u ",samples));
+#endif
+    for ( IdxSm = 0; VSB_Running() && IdxSm < samples; ) {
+        int i,j;
+        int dmachannel = VSB_GetDMA();
+        int samplesize = max( 1, VSB_GetBits() / 8 );
+        int count = samples - IdxSm; /* samples to handle in this turn */
+        bool resample;
+        int bytes;
+        int channels = VSB_GetChannels();
+        uint32_t DMA_Base;
+        uint32_t DMA_Index;
+        int32_t DMA_Count;
+        uint32_t SB_BuffSize = VSB_GetSampleBufferSize(); /* buffer size in bytes */
+        uint32_t SB_Pos = VSB_GetPos();
+        uint32_t SB_Rate = VSB_GetSampleRate();
+        int IsSilent = VSB_IsSilent();
+#ifdef _DEBUG
+        int loop = 0;
+        int ocnt;
+        isr.cntDigital++;
+#endif
+        /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
+        if ( IsSilent ) {
+            DMA_Count = SB_BuffSize;
+        } else {
+            DMA_Base = VDMA_GetBase(dmachannel);
+            DMA_Index = VDMA_GetIndex(dmachannel);
+            DMA_Count = VDMA_GetCount(dmachannel);
+            /* check if the current DMA buffer is within the mapped region. */
+            if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
+                isr.DMA_linearBase = -1;
+            }
+            /* if there's no mapped region, create one that covers current DMA op. */
+            if( isr.DMA_linearBase == -1 ) {
+                isr.DMA_Base = DMA_Base;
+                isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
+                if ( DMA_Base < 0x100000 )
+                    isr.DMA_linearBase = DMA_Base;
+                else {
+                    /* size is in pages, phys. address must have bits 0-11 cleared */
+                    if( __dpmi_map_physical_device(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
+                        fatal_error( 2 );
+                    isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
+                }
+                dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
+                           dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
+            }
+        }
+        /* don't resample if sample rates are close? */
+        if( SB_Rate != freq ) {
+            resample = true;
+            //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
+            count = count * SB_Rate / freq;
+            if ( SB_Rate < freq && SB_Rate % freq ) count++;
+        } else
+            resample = false;
+#ifdef _DEBUG
+        ocnt = count;
+#endif
+        /* adjust count if sample size is < 8 (ADPCM) */
+        if( VSB_GetBits() < 8 )
+            count = count / (9 / VSB_GetBits());
+        /* ensure count won't exceed DMA buffer size;
+         * v1.8: removed max();
+         */
+        //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
+        count = min( count, DMA_Count / (samplesize * channels) );
+        /* v1.8: exit if count is 0; stop digital sound if single-cycle */
+        if (!count) {
+            dbgprintf(("isr(%u): count=0, ocnt=0x%X, DMA_Count=0x%X\n", loop, ocnt, DMA_Count ));
+            if ( !VSB_GetAuto() )
+                VSB_Stop();
+            break;
+        }
+        count = min( count, max(1,(SB_BuffSize - SB_Pos) / (samplesize * channels) ) );
+
+        bytes = count * samplesize * channels;
+
+        /* copy samples to our PCM buffer */
+        if( isr.DMA_linearBase == -1 || IsSilent ) { /* map failed or silent? */
+            memset( isr.pPCM + IdxSm * 2, 0, bytes);
+        } else
+            memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
+
+        /* set new values for DMA and SB buffer;
+         * in case the end of SB buffer is reached, an interrupt
+         * will be triggered and this loop will run again.
+         */
+        if ( !IsSilent ) {
+            DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
+            //DMA_Count = VDMA_GetCount( dmachannel ); /* v1.8: not needed */
+        }
+        SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
+
+        /* format conversion needed? */
+#if ADPCM
+        if( VSB_GetBits() < 8)
+            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
+#endif
+        if( samplesize != 2 )
+            cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
+#if SUP16BITUNSIGNED
+        else if ( !VSB_IsSigned() )
+            for ( i = IdxSm * 2, j = i + count * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
+#endif
+        if( resample ) /* SB_Rate != freq */
+            count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
+        if( channels == 1) //should be the last step
+            cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
+
+        if( VSB_GetIRQStatus() ) {
+#ifdef SNDISRLOG
+            dbgprintf(("isr(%u): SB Pos/Size=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+#endif
+            if ( VSB_GetAuto() )
+                VSB_SetPos(0);
+            else
+                VSB_Stop(); /* v1.8: does no longer reset SB position */
+            VIRQ_Invoke();
+#ifdef SNDISRLOG
+        } else {
+            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop++, samples, count, bytes, ocnt, SB_Pos ));
+#endif
+        }
+        IdxSm += count;
+    };
+
+    if (IdxSm) {
+        /* in case there weren't enough samples copied, fill the rest with silence.
+         * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,
+         * the program may want to instantly initiate another DSP play cmd.
+         * v1.8: returned to filling the rest with silence...
+         */
+#if 1
+        for( i = IdxSm; i < samples; i++ )
+            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+#else
+        samples = IdxSm;
+#endif
+    } else if ( IdxSm = VSB_GetDirectCount( &pDirect ) ) {
+
+        uint32_t freq = AU_getfreq( isr.hAU );
+
+        /* calc the src frequency by formula:
+         * x / dst-freq = src-smpls / dst-smpls
+         * x = src-smpl * dst-freq / dst-smpls
+         */
+        uint32_t SB_Rate = IdxSm * freq / samples;
+
+        //dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
+        memcpy( isr.pPCM, pDirect, IdxSm );
+        VSB_ResetDirectCount();
+        cv_bits_8_to_16( isr.pPCM, IdxSm, 0 );
+        IdxSm = cv_rate( isr.pPCM, IdxSm, 1, SB_Rate, freq );
+        cv_channels_1_to_2( isr.pPCM, IdxSm );
+        for( i = IdxSm; i < samples; i++ )
+            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+    }
+
+    /* get volumes for software mixer */
 
     if( gvars.type < 4) { //SB2.0 and before
         mastervol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) & 0xF) << 4; /* 3 bits (1-3) */
@@ -317,201 +496,6 @@ static int SNDISR_Interrupt( void )
     midivol  = ( (midivol  | 0xF + 1) * (mastervol | 0xF + 1) - 1) >> 8;
     if ( midivol == 0xff ) midivol = 0x100;
 #endif
-    AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
-    samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
-#ifdef _DEBUG
-    if (samples > isr.max_samples)
-        isr.max_samples = samples;
-    isr.total_samples += samples;
-    isr.cntTotal++;
-    //dbgprintf(("isr: samples:%u ",samples));
-#endif
-    if(samples == 0) { /* no free space in DMA buffer? */
-        PIC_SendEOI( AU_getirq( isr.hAU ) );
-        return(1);
-    }
-
-    digital = VSB_Running();
-
-    if( digital ) {
-        int i,j;
-        int dmachannel = VSB_GetDMA();
-        uint32_t freq = AU_getfreq( isr.hAU );
-        int samplesize = max( 1, VSB_GetBits() / 8 );
-        int IdxSm = 0; /* sample index in 16bit PCM buffer */
-        int count; /* samples to handle in this turn */
-        bool resample; //don't resample if sample rates are close
-        int bytes;
-        int channels;
-#ifdef _DEBUG
-        int loop = 0;
-        int ocnt;
-        isr.cntDigital++;
-#endif
-        channels = VSB_GetChannels();
-        /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
-        while (1) {
-            uint32_t DMA_Base = VDMA_GetBase(dmachannel);
-            uint32_t DMA_Index = VDMA_GetIndex(dmachannel);
-            int32_t DMA_Count = VDMA_GetCount(dmachannel);
-            uint32_t SB_BuffSize = VSB_GetSampleBufferSize(); /* buffer size in bytes */
-            uint32_t SB_Pos = VSB_GetPos();
-            uint32_t SB_Rate = VSB_GetSampleRate();
-            int IsSilent = VSB_IsSilent();
-            if ( IsSilent ) {
-                DMA_Count = SB_BuffSize;
-            } else {
-                /* check if the current DMA buffer is within the mapped region. */
-                if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
-                    isr.DMA_linearBase = -1;
-                }
-                /* if there's no mapped region, create one that covers current DMA op. */
-                if( isr.DMA_linearBase == -1 ) {
-                    isr.DMA_Base = DMA_Base;
-                    isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
-                    if ( DMA_Base < 0x100000 )
-                        isr.DMA_linearBase = DMA_Base;
-                    else {
-                        /* size is in pages, phys. address must have bits 0-11 cleared */
-                        if( __dpmi_map_physical_device(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
-                            fatal_error( 2 );
-                        isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
-                    }
-                    dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
-                               dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
-                }
-            }
-            count = samples - IdxSm;
-            /* don't resample if sample rates are close? */
-            if( SB_Rate != freq ) {
-                resample = true;
-                //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
-                count = count * SB_Rate / freq;
-                if ( SB_Rate % freq ) count++;
-            }else
-                resample = false;
-#ifdef _DEBUG
-            ocnt = count; 
-#endif
-            /* ensure
-             * 1. count won't exceed DMA buffer size;
-            /* 2. count won't exceed SB buffer size;
-             * v1.8: removed max() - count may become 0;
-             */
-            //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
-            //count = min( count, max(1, (SB_BuffSize - SB_Pos) / (samplesize * channels) ) );
-            count = min( count, DMA_Count / (samplesize * channels) );
-            count = min( count, (SB_BuffSize - SB_Pos) / (samplesize * channels) );
-            /* adjust count if sample size is < 8 (ADPCM) */
-            if( VSB_GetBits() < 8 )
-                count = count / (9 / VSB_GetBits());
-
-			/* v1.8: exit if count is 0; stop digital sound if single-cycle */
-			if (!count) {
-				dbgprintf(("isr(%u): count=0, ocnt=0x%X, DMA_Count=0x%X\n", loop, ocnt, DMA_Count ));
-				if ( !VSB_GetAuto() )
-					VSB_Stop();
-				if (!IdxSm) digital = 0;
-				break;
-			}
-
-            bytes = count * samplesize * channels;
-
-            /* copy samples to our PCM buffer */
-            if( isr.DMA_linearBase == -1 || IsSilent ) {//map failed?
-                memset( isr.pPCM + IdxSm * 2, 0, bytes);
-            } else
-                memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
-
-            /* set new values for DMA and SB buffer;
-             * in case the end of SB buffer is reached, an interrupt
-             * will be triggered and this loop will run again.
-             */
-            if ( !IsSilent ) {
-                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
-                //DMA_Count = VDMA_GetCount( dmachannel ); /* v1.8: not needed */
-            }
-            SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
-
-            /* format conversion needed? */
-#if ADPCM
-            if( VSB_GetBits() < 8)
-                count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
-#endif
-            if( samplesize != 2 )
-                cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
-#if SUP16BITUNSIGNED
-            else if ( !VSB_IsSigned() )
-                for ( i = IdxSm * 2, j = i + count * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
-#endif
-            if( resample ) /* SB_Rate != freq */
-                count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
-            if( channels == 1) //should be the last step
-                cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
-
-            IdxSm += count;
-
-            if( VSB_GetIRQStatus() ) {
-                //dbgprintf(("isr(%u): Pos/BuffSize=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X dma Idx/Cnt=%X/%X\n", loop, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
-#ifdef _DEBUG
-                loop++;
-#endif                
-                if ( VSB_GetAuto() )
-                    VSB_SetPos(0);
-                else
-                    VSB_Stop(); /* v1.8: does no longer reset SB position */
-                VIRQ_Invoke();
-                /* v1.7: calling VDMA_GetAuto() may be problematic. The SB ISR may
-                 *       have setup a new transfer with DSP cmd 0x14; then the DMA
-                 *       channel isn't in autoinit mode, but it's still a good idea
-                 *       to fill missing samples from the (new) data stream.
-                 */
-                //if (VDMA_GetAuto(dmachannel) && (IdxSm < samples) && VSB_Running()) continue;
-                if ( (IdxSm < samples) && VSB_Running() ) continue;
-            }
-#if 0//def _DEBUG
-            else
-                dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X\n", loop, samples, count, bytes ));
-#endif
-            /* we can safely exit if no SB irq has been emulated. if IdxSm is < samples, then it's due to integer math used above */
-            break;
-        };
-
-        /* in case there weren't enough samples copied, fill the rest with silence.
-         * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,
-         * the program may want to instantly initiate another DSP play cmd.
-         * v1.8: returned to filling the rest with silence...
-         */
-        if (digital) {
-#if 1
-            for( i = IdxSm; i < samples; i++ )
-                *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
-#else
-            samples = IdxSm;
-#endif
-        }
-
-    } else if ( i = VSB_GetDirectCount( &pDirect ) ) {
-
-        int count = i;
-        uint32_t freq = AU_getfreq( isr.hAU );
-
-        /* calc the src frequency by formula:
-         * x / dst-freq = src-smpls / dst-smpls
-         * x = src-smpl * dst-freq / dst-smpls
-         */
-        uint32_t SB_Rate = count * freq / samples;
-
-        //dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
-        memcpy( isr.pPCM, pDirect, count );
-        cv_bits_8_to_16( isr.pPCM, count, 0 );
-        count = cv_rate( isr.pPCM, count, 1, SB_Rate, freq );
-        cv_channels_1_to_2( isr.pPCM, count );
-        for( i = count; i < samples; i++ )
-            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
-        VSB_ResetDirectCount();
-        digital = true;
-    }
 
     /* software mixer: very simple implemented - but should work quite well */
 
@@ -519,14 +503,14 @@ static int SNDISR_Interrupt( void )
 #ifndef NOFM
     if( VOPL3_IsActive() ) {
         int channels;
-        pPCMOPL = digital ? isr.pPCM + samples * 2 : isr.pPCM;
+        pPCMOPL = IdxSm ? isr.pPCM + samples * 2 : isr.pPCM;
         VOPL3_GenSamples( pPCMOPL, samples ); //will generate samples*2 if stereo
         //always use 2 channels
         channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
             cv_channels_1_to_2( pPCMOPL, samples );
 
-        if( digital ) {
+        if( IdxSm ) {
 # if MIXERROUTINE==0
 #  if VOICELR
             voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
@@ -560,7 +544,7 @@ static int SNDISR_Interrupt( void )
             for( i = 0; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * midivol ) >> 8;
     } else {
 #endif
-        if( digital ) {
+        if( IdxSm ) {
 # if VOICELR
             voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
             if ( voicevol2 == 0xff ) voicevol2 = 0x100;
@@ -596,7 +580,7 @@ static int SNDISR_Interrupt( void )
     AU_writedata( isr.hAU, samples * 2, isr.pPCM );
 
 #if DISPSTAT
-    if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, digital=%u\n", samples, digital );
+    if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, IdxSm=%u\n", samples, IdxSm );
 #endif
 
     PIC_SendEOI( AU_getirq( isr.hAU ) );

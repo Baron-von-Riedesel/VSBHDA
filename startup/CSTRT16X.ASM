@@ -15,6 +15,8 @@ X_PHARLAP_V1  equ 2
 XS_RATIONAL_NONZEROBASE equ 1
 XS_PHARLAP_NORMAL       equ 0
 
+LFN equ 0	;1=support LFN (here not needed for C)
+
 DOS_PSP_ENV_SEG equ 2Ch
 FLG_NO87        equ 1
 FLG_LFN         equ 1
@@ -45,7 +47,9 @@ endm
         extern c  _osminor           : byte
         extern c  _STACKLOW          : dword
         extern c  _STACKTOP          : dword
+if LFN
         extern c  __uselfn           : byte
+endif
         extern c  _Extender          : byte
         extern c  _ExtenderSubtype   : byte
         extern c  _Envptr            : fword
@@ -249,7 +253,11 @@ around:
 	push edx                    ; save ds(stored in dx)
 	mov ds,word ptr es:_Envptr+4; get segment addr of environment area
 	assume ds:nothing
-	mov bx,FLG_LFN*256          ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
+if LFN
+	mov bx,FLG_LFN shl 8        ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
+else
+	xor bx,bx
+endif
 nextitem:
 	mov eax,[esi]               ; get first 4 characters
 	or eax,20202020h            ; map to lower case
@@ -260,6 +268,7 @@ nextitem:
 	or bl,FLG_NO87              ; - indicate 'no87' was present
 	jmp L4
 @@:
+if LFN
 	cmp eax,"=nfl"              ; check for 'lfn='
 	jne L4                      ; skip if not 'lfn='
 	mov al,[esi][4]             ; get next character
@@ -267,6 +276,7 @@ nextitem:
 	cmp al,'n'                  ; make sure next char is 'n'
 	jne L4                      ; no
 	and bh,not FLG_LFN          ; indicate no 'lfn=n' present
+endif
 L4:
 	cmp byte ptr [esi],0        ; end of string ?
 	lodsb
@@ -287,8 +297,9 @@ L4:
 	assume ds:DGROUP
 	pop esi                     ; restore address of pgm name
 	mov __no87,bl               ; set state of "no87" enironment var
+if LFN
 	and __uselfn,bh             ; set "LFN" support status
-
+endif
 	mov ebx, _STACKTOP
 	mov _dynend, ebx            ; set top of dynamic memory area
 	mov eax, edi

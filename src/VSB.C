@@ -156,7 +156,7 @@ struct VSB_Status {
     uint8_t bDispStat;
 #endif
     uint8_t bTimeConst;
-    uint8_t MixerRegs[256];
+    uint8_t MixerRegs[SB_MIXERREG_MAX+1];
 
     uint8_t DirectBuffer[VSB_DIRECTBUFFER_SIZE];
 };
@@ -221,12 +221,14 @@ static void VSB_Mixer_Write( uint8_t value )
 ////////////////////////////////////////////
 {
     dbgprintf(("VSB_Mixer_Write[%u]: value=%x\n", vsb.MixerRegIndex, value));
-    vsb.MixerRegs[vsb.MixerRegIndex] = value;
+    if ( vsb.MixerRegIndex > SB_MIXERREG_MAX )
+        return;
     if ( vsb.MixerRegIndex == SB_MIXERREG_RESET )
         VSB_MixerReset();
     /* INT and DMA setup are readonly */
     if ( vsb.MixerRegIndex == SB_MIXERREG_INT_SETUP || vsb.MixerRegIndex == SB_MIXERREG_DMA_SETUP )
         return;
+    vsb.MixerRegs[vsb.MixerRegIndex] = value;
 #if SB16
     if( vsb.DSPVER >= 0x0400 ) { //SB16
         if( vsb.MixerRegIndex >= SB16_MIXERREG_MASTERL && vsb.MixerRegIndex <= SB16_MIXERREG_MIDIR ) {
@@ -294,7 +296,12 @@ static uint8_t VSB_Mixer_Read( void )
 /////////////////////////////////////
 {
     //dbgprintf(("VSB_Mixer_Read(%u): %x\n", vsb.MixerRegIndex, vsb.MixerRegs[vsb.MixerRegIndex]));
-    return vsb.MixerRegs[vsb.MixerRegIndex];
+    /* v1.8: mixer reg 1 returns value of last (valid) register read op */
+    if ( vsb.MixerRegIndex <= SB_MIXERREG_MAX ) {
+        vsb.MixerRegs[1] = vsb.MixerRegs[vsb.MixerRegIndex];
+        return vsb.MixerRegs[vsb.MixerRegIndex];
+    }
+    return(0xFF);
 }
 
 static void DSP_AddData( uint8_t data )
@@ -942,7 +949,7 @@ uint8_t VSB_GetMixerReg(uint8_t index)
 uint32_t VSB_MixerAddr( uint32_t port, uint32_t val, uint32_t flags )
 /////////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (VSB_Mixer_SetIndex( val ), val) : val;
+    return (flags & TRAPF_OUT) ? (VSB_Mixer_SetIndex( val ), val) : 0xff;
 }
 uint32_t VSB_MixerData( uint32_t port, uint32_t val, uint32_t flags )
 /////////////////////////////////////////////////////////////////////

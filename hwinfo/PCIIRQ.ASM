@@ -215,7 +215,7 @@ nextport:
 	mov si, word ptr dwEax+2
 	mov di, word ptr dwEax+2
 	mov bp, word ptr dwEax+0
-	mov ax, word ptr dwEax+0
+	mov ax, bp
 	shr si, 8		; class
 	shr bp, 8		; programming interface
 	and di, 0ffh

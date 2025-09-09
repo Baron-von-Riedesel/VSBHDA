@@ -152,4 +152,11 @@ setdesc:
 endif
 fread endp
 
+;--- v1.8: no need for CRT _flush() since the buffered file system isn't used.
+
+_flush proc file:ptr
+	xor eax,eax
+	ret
+_flush endp
+
 	END
