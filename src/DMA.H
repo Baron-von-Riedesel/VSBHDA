@@ -20,13 +20,17 @@
 #define DMA_REG_MASK_RESET     0x0E //any write unmasks all 4 channels
 #define DMA_REG_MULTIMASK      0x0F //bits 0-3 set status of channel0-3 ( reading this port may not return the status! )
 
-/* bits in DMA_REG_MODE */
+/* DMA_REG_MODE bits */
+/* bit 0-1: channel */
+/* bit 2-3: operation */
 #define DMA_REG_MODE_OPERATION 0x0C
 #define DMA_REG_MODE_OP_VERIFY 0x00
 #define DMA_REG_MODE_OP_WRITE  0x04
 #define DMA_REG_MODE_OP_READ   0x08
+/* bit 4: auto init */
 #define DMA_REG_MODE_AUTO      0x10
-/* bits 6-7: 00=demand, 01=single, 10=block, 11=cascade */
+/* bit 5: incr/decr */
+/* bit 6-7: 00=demand, 01=single, 10=block, 11=cascade */
 
 #define DMA_REG_CH0_PAGEADDR   0x87
 #define DMA_REG_CH1_PAGEADDR   0x83

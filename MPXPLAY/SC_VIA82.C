@@ -247,14 +247,6 @@ static const struct pci_device_s via_devices[] = {
 
 static void VIA82XX_close(struct audioout_info_s *aui);
 
-static void VIA82XX_card_info(struct audioout_info_s *aui)
-//////////////////////////////////////////////////////////
-{
-	struct via82xx_card *card = aui->card_private_data;
-	dbgprintf(("VIA : %s soundcard found on port:%4X irq:%d chiprev:%2X model:%4X\n",
-		   card->pci_dev.device_name,card->iobase,card->irq,card->chiprev,card->model));
-}
-
 static int VIA82XX_adetect(struct audioout_info_s *aui)
 ///////////////////////////////////////////////////////
 {
@@ -654,10 +646,7 @@ static const struct aucards_mixerchan_s *via82xx_mixerset[] = {
 const struct sndcard_info_s VIA82XX_sndcard_info = {
  "VIA VT82XX AC97",
  0,
- NULL,
- NULL,                  // no init
- &VIA82XX_adetect,      // only autodetect
- &VIA82XX_card_info,
+ &VIA82XX_adetect,
  &VIA82XX_start,
  &VIA82XX_stop,
  &VIA82XX_close,
@@ -666,8 +655,7 @@ const struct sndcard_info_s VIA82XX_sndcard_info = {
  &MDma_writedata,
  &VIA82XX_getbufpos,
  &VIA82XX_clearbuf,
- &VIA82XX_IRQRoutine, /* vsbhda */
-
+ &VIA82XX_IRQRoutine,
  &VIA82XX_writeMIXER,
  &VIA82XX_readMIXER,
  via82xx_mixerset

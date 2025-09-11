@@ -127,11 +127,7 @@ struct aucards_mixerchan_s {
 struct sndcard_info_s {
  char *shortname;
  unsigned long infobits;
-
- int  (*card_config)(struct audioout_info_s *); // not used yet
- int  (*card_init)(struct audioout_info_s *);   // always NULL here
  int  (*card_detect)(struct audioout_info_s *); // try to autodetect the card
- void (*card_shinfo)(struct audioout_info_s *); // show card infos
  void (*card_start)(struct audioout_info_s *);  // start playing
  void (*card_stop)(struct audioout_info_s *);   // stop playing (immediately)
  void (*card_close)(struct audioout_info_s *);  // close soundcard
@@ -155,7 +151,7 @@ struct sndcard_info_s {
 #endif
 
 //main soundcard routines
-extern int  FAREXP AU_init( const struct globalvars * );
+extern void *FAREXP AU_init( const struct globalvars * );
 extern int  FAREXP AU_getirq( struct audioout_info_s * );
 //extern void FAREXP AU_prestart( struct audioout_info_s * );
 extern void FAREXP AU_start( struct audioout_info_s * );

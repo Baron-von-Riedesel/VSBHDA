@@ -93,7 +93,7 @@ extern uint32_t STACKTOP;
 uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
 
 struct MAIN_s {
-	int hAU;    /* handle audioout_info; we don't want to know mpxplay internals */
+	void *hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
 	int freq;   /* default value for AU_setrate() */
 	bool bISR;  /* 1=ISR installed */
 	bool bQemm; /* 1=QPI API found */

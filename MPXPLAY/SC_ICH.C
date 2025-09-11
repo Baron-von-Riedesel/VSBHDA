@@ -446,17 +446,6 @@ static const struct pci_device_s ich_devices[] = {
 
 static void ICH_close( struct audioout_info_s *aui );
 
-static void ICH_show_card_info( struct audioout_info_s *aui )
-/////////////////////////////////////////////////////////////
-{
-#if 0
-	struct intel_card_s *card = aui->card_private_data;
-	dbgprintf(("ICH : Intel %s found on port:X irq:%d (type:%s, bits:16%s)\n",
-			card->pci_dev.device_name,card->baseport_bm,card->irq,
-			ich_devnames[card->device_type],((card->device_type == DEVICE_INTEL_ICH4567) ? ",20":"")));
-#endif
-}
-
 struct sndcard_info_s ICH_sndcard_info;
 
 static int ICH_adetect( struct audioout_info_s *aui )
@@ -777,10 +766,7 @@ static int ICH_IRQRoutine( struct audioout_info_s* aui )
 struct sndcard_info_s ICH_sndcard_info = {
  "ICH AC97",
  0,
- NULL,
- NULL,              // no init
- &ICH_adetect,      // only autodetect
- &ICH_show_card_info,
+ &ICH_adetect,      /* autodetect */
  &ICH_start,
  &ICH_stop,
  &ICH_close,
@@ -789,7 +775,7 @@ struct sndcard_info_s ICH_sndcard_info = {
  &ICH_writedata,
  &ICH_getbufpos,
  &MDma_clearbuf,
- &ICH_IRQRoutine, /* vsbhda */
+ &ICH_IRQRoutine,
  &ICH_writeMIXER,
  &ICH_readMIXER,
  aucards_ac97chan_mixerset

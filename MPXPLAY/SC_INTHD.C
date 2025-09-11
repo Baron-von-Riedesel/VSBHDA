@@ -1297,13 +1297,6 @@ static char *hda_search_vendorname(unsigned int vendorid)
 }
 #endif
 
-/* display card status */
-
-static void HDA_card_info( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
-{
-}
-
 /* called by HDA_adetect() if card isn't selected */
 
 static void HDA_cardclose( struct intelhd_card_s *card )
@@ -1616,10 +1609,7 @@ static const struct aucards_mixerchan_s *hda_mixerset[] = {
 struct sndcard_info_s HDA_sndcard_info = {
     "Intel HDA",
     0,               /* infobits */
-    NULL,            /* card_config */
-    NULL,            /* no init */
-    &HDA_adetect,    /* only autodetect */
-    &HDA_card_info,
+    &HDA_adetect,    /* autodetect */
     &HDA_start,
     &HDA_stop,
     &HDA_close,
@@ -1628,7 +1618,7 @@ struct sndcard_info_s HDA_sndcard_info = {
     &MDma_writedata, /* =cardbuf_writedata() */
     &HDA_getbufpos,  /* =cardbuf_getpos() */
     &MDma_clearbuf,  /* =cardbuf_clear() */
-    &HDA_IRQRoutine, /* vsbhda */
+    &HDA_IRQRoutine,
     &HDA_writeMIXER, /* =card_writemixer() */
     &HDA_readMIXER,  /* =card_readmixer() */
     hda_mixerset     /* =card_mixerchans */

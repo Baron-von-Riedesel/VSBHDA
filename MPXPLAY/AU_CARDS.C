@@ -41,7 +41,7 @@ extern struct sndcard_info_s HDA_sndcard_info;
 extern struct sndcard_info_s VIA82XX_sndcard_info;
 #endif
 #ifndef NOSBLIVE
-extern struct sndcard_info_s SBLIVE_sndcard_info;
+extern struct sndcard_info_s SBALL_sndcard_info;
 #endif
 
 static const struct sndcard_info_s *all_sndcard_info[] = {
@@ -55,7 +55,7 @@ static const struct sndcard_info_s *all_sndcard_info[] = {
 	&HDA_sndcard_info,
 #endif
 #ifndef NOSBLIVE
-	&SBLIVE_sndcard_info,
+	&SBALL_sndcard_info,
 #endif
 #ifndef NOVIA82
 	&VIA82XX_sndcard_info,
@@ -65,20 +65,20 @@ static const struct sndcard_info_s *all_sndcard_info[] = {
 
 /* scan for audio devices */
 
-int FAREXP AU_init( const struct globalvars *gvars )
-////////////////////////////////////////////////////
+void * FAREXP AU_init( const struct globalvars *gvars )
+///////////////////////////////////////////////////////
 {
-    struct audioout_info_s *aui;
+	struct audioout_info_s *aui;
 	int i;
 
 	dbgprintf(("AU_init\n"));
 	if ( !( aui = (struct audioout_info_s *)calloc( 1, sizeof( struct audioout_info_s ) ) ) ) {
 		dbgprintf(("AU_init: out of memory\n"));
-		return(0);
+		return(NULL);
 	}
-    /* 65535=maxbufsize, 4608=pagesize? 2=samplesize */
-    //aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
-    /* v1.7: global settings can be accessed directly - card_select_ variables removed */
+	/* 65535=maxbufsize, 4608=pagesize? 2=samplesize */
+	//aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
+	/* v1.7: global settings can be accessed directly - card_select_ variables removed */
 	//aui->card_select_devicenum = gvars->device;
 	//aui->card_select_config = gvars->pin;
 	aui->gvars = gvars;
@@ -96,14 +96,14 @@ int FAREXP AU_init( const struct globalvars *gvars )
 			if ( aui->card_handler->card_detect(aui) ) {
 				aui->freq_card = aui->chan_card = aui->bits_card = 0;
 				dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
-				return((int)aui);
+				return(aui);
 			}
 		}
 	}
 
 	dbgprintf(("AU_init: no card found\n"));
 	free( aui );
-	return(0);
+	return(NULL);
 
 }
 

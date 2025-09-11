@@ -82,6 +82,14 @@ endif
 	call [dwISR]
 	lss esp, [esp]
 	add [__djgpp_stack_top], STACKCORR
+if COMPAT4
+	test al,2       ; PIT masked?
+	jz @F
+	mov al,ah
+	out 21h,al
+	mov al,1
+@@:
+endif
 	and eax, eax	; interrupt handled?
 	pop es
 	pop ds

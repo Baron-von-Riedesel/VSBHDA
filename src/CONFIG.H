@@ -7,6 +7,7 @@
 #define SB16 1        /* 1=support SB16 */
 #define ADPCM 1       /* 1=support ADPCM */
 #define SETIF 1       /* 1=enable interrupts when ISR is entered (also see config.inc!) */
+#define COMPAT4 1     /* 1=support /CF4 - mask PIT interrupt during snd interrupt */
 #ifndef NOFM
 #define REINITOPL 1   /* 1=reinit OPL during RESET */
 #else

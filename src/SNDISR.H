@@ -9,7 +9,7 @@ extern "C"
 #endif
 
 //int  SNDISR_Interrupt( void );
-bool SNDISR_Init( int hAudio, uint16_t vol );
+bool SNDISR_Init( void *hAudio, uint16_t vol );
 bool SNDISR_Exit( void );
 
 #ifdef __cplusplus

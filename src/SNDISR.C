@@ -57,7 +57,7 @@ struct SNDISR_s {
 	uint32_t DMA_Size;       /* size of DMA buffer at last remapping */
 	uint32_t Block_Handle;   /* handle of remapping block */
 	uint32_t Block_Addr;     /* linear base of remapping block ( page aligned ) */
-	int hAU;
+	void *hAU;
 #if SETABSVOL
 	uint16_t SB_VOL;
 #endif
@@ -270,11 +270,24 @@ static int SNDISR_Interrupt( void )
     int samples;
     int IdxSm; /* sample index in 16bit PCM buffer */
     int i;
+#if COMPAT4
+    uint16_t mask;
+#endif
+#ifdef _DEBUG
+    int loop;
+#endif
 
     /* check if the sound hw does request an interrupt. */
     if( !AU_isirq( isr.hAU ) )
         return(0);
 
+#if COMPAT4
+    /* v1.8: /CF4 */
+    if (gvars.compatflags & 4 ) {
+        mask = PIC_GetIRQMask();
+        PIC_SetIRQMask(mask | 1);
+    }
+#endif
     /* since the client context is now restored when a SB IRQ is emulated,
      * it's safe to call VIRQ_Invoke here. This will happen only for
      * DSP cmds 0xF2/0xF3 (trigger IRQ).
@@ -300,8 +313,12 @@ static int SNDISR_Interrupt( void )
     isr.total_samples += samples;
     isr.cntTotal++;
     //dbgprintf(("isr: samples:%u ",samples));
-#endif
+    loop = 0;
+    for ( IdxSm = 0, isr.cntDigital++; VSB_Running() && IdxSm < samples; loop++ ) {
+        int ocnt;
+#else
     for ( IdxSm = 0; VSB_Running() && IdxSm < samples; ) {
+#endif
         int i,j;
         int dmachannel = VSB_GetDMA();
         int samplesize = max( 1, VSB_GetBits() / 8 );
@@ -316,15 +333,9 @@ static int SNDISR_Interrupt( void )
         uint32_t SB_Pos = VSB_GetPos();
         uint32_t SB_Rate = VSB_GetSampleRate();
         int IsSilent = VSB_IsSilent();
-#ifdef _DEBUG
-        int loop = 0;
-        int ocnt;
-        isr.cntDigital++;
-#endif
+
         /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
-        if ( IsSilent ) {
-            DMA_Count = SB_BuffSize;
-        } else {
+        if ( !IsSilent ) {
             DMA_Base = VDMA_GetBase(dmachannel);
             DMA_Index = VDMA_GetIndex(dmachannel);
             DMA_Count = VDMA_GetCount(dmachannel);
@@ -359,39 +370,41 @@ static int SNDISR_Interrupt( void )
 #ifdef _DEBUG
         ocnt = count;
 #endif
-        /* adjust count if sample size is < 8 (ADPCM) */
-        if( VSB_GetBits() < 8 )
-            count = count / (9 / VSB_GetBits());
         /* ensure count won't exceed DMA buffer size;
-         * v1.8: removed max();
+         * v1.8: check DMA only if not silent;
          */
-        //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
-        count = min( count, DMA_Count / (samplesize * channels) );
-        /* v1.8: exit if count is 0; stop digital sound if single-cycle */
-        if (!count) {
-            dbgprintf(("isr(%u): count=0, ocnt=0x%X, DMA_Count=0x%X\n", loop, ocnt, DMA_Count ));
-            if ( !VSB_GetAuto() )
-                VSB_Stop();
-            break;
+        if (!IsSilent) {
+            /* adjust count if sample size is < 8 (ADPCM) */
+            if( VSB_GetBits() < 8 )
+                count = count / (9 / VSB_GetBits());
+            if ( DMA_Count < (samplesize * channels )) {
+                dbgprintf(("isr(%u): DMA_Count=0x%X, samplesize=%u, channels=%u\n", loop, DMA_Count, samplesize, channels ));
+                /* v1.8: if dma autoinit then restart dma; else exit & stop digital sound. */
+                if ( !VDMA_GetAuto(dmachannel) || DMA_Index == 0 ) {
+                    VSB_Stop();
+                    break;
+                }
+                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index, 0 );
+                DMA_Count = VDMA_GetCount(dmachannel );
+            }
+            /* v1.8: removed max() */
+            //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
+            count = min( count, DMA_Count / (samplesize * channels) );
         }
         count = min( count, max(1,(SB_BuffSize - SB_Pos) / (samplesize * channels) ) );
 
         bytes = count * samplesize * channels;
 
         /* copy samples to our PCM buffer */
-        if( isr.DMA_linearBase == -1 || IsSilent ) { /* map failed or silent? */
+        if( IsSilent ) {
             memset( isr.pPCM + IdxSm * 2, 0, bytes);
-        } else
+        } else {
             memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
-
-        /* set new values for DMA and SB buffer;
-         * in case the end of SB buffer is reached, an interrupt
-         * will be triggered and this loop will run again.
-         */
-        if ( !IsSilent ) {
             DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
             //DMA_Count = VDMA_GetCount( dmachannel ); /* v1.8: not needed */
         }
+
+        /* update DSP regs */
         SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
 
         /* format conversion needed? */
@@ -412,7 +425,7 @@ static int SNDISR_Interrupt( void )
 
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): SB Pos/Size=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop++, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): SB Pos/Size=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
 #endif
             if ( VSB_GetAuto() )
                 VSB_SetPos(0);
@@ -421,7 +434,7 @@ static int SNDISR_Interrupt( void )
             VIRQ_Invoke();
 #ifdef SNDISRLOG
         } else {
-            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop++, samples, count, bytes, ocnt, SB_Pos ));
+            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos ));
 #endif
         }
         IdxSm += count;
@@ -589,12 +602,16 @@ static int SNDISR_Interrupt( void )
     if ( gvars.slowdown )
         delay_10us(gvars.slowdown);
 #endif
+#if COMPAT4
+    if ( gvars.compatflags & 4 )
+        return( 2 | (mask << 8 ));
+#endif
 
     return(1);
 }
 
-bool SNDISR_Init( int hAU, uint16_t vol )
-/////////////////////////////////////////
+bool SNDISR_Init( void *hAU, uint16_t vol )
+///////////////////////////////////////////
 {
     __dpmi_meminfo info;
     info.address = 0;
@@ -620,7 +637,6 @@ bool SNDISR_Init( int hAU, uint16_t vol )
 #if SETABSVOL
     isr.SB_VOL = vol;
 #endif
-
     return _SND_InstallISR( PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );
 }
 

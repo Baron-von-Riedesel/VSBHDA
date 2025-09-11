@@ -318,8 +318,9 @@ endif
 	jnz unchanged
 enable:
 	push eax
+	insPUSHF
 	mov ax,901h
-	int 31h
+	call cs:[oldint31]
 	pop eax
 unchanged:
 	pop esi

@@ -18,6 +18,8 @@
 /* compatibility switches */
 #define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
 
+#define SBMIDIUART 1 /* support DSP cmds 0x34-0x37 */
+
 extern struct globalvars gvars;
 
 #if REINITOPL
@@ -143,6 +145,10 @@ struct VSB_Status {
     uint8_t Silent;
     uint8_t Signed;
     uint8_t HighSpeed;
+#if SBMIDIUART
+    uint8_t UARTMode;
+    //uint8_t SavedStarted;
+#endif
     uint8_t ResetState; /* 1=VSB_RESET_START, 0=VSB_RESET_END */
     uint8_t TestReg;
     uint8_t WS;  /* bit 7: register 0C status (0=cmd/data may be written) */
@@ -336,6 +342,14 @@ static void DSP_Reset( uint8_t value )
 {
     dbgprintf(("DSP_Reset: %u\n",value));
     if(value == 1) {
+#if SBMIDIUART
+        /* DSP reset does nothing specific if UART mode is on */
+        //if (vsb.UARTMode) {
+            vsb.UARTMode = false;
+            //vsb.Started = vsb.SavedStarted;
+            //return;
+        //}
+#endif
         vsb.ResetState = VSB_RESET_START;
         /* v1.5: bits 4-7 are rsvd, set to 1? DosBox sets to 0 - check a real SB16! */
         /* v1.7: now done in VSB_Init() - INT_SETUP and DMA_SETUP are r/o registers */
@@ -425,6 +439,12 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
             return;
         }
+#if SBMIDIUART
+        if ( vsb.UARTMode ) {
+            VMPU_SBMidi_RawWrite( value );
+            return;
+        }
+#endif
         vsb.dsp_cmd = value;
 #if SB16
         if (vsb.DSPVER >= 0x400)
@@ -624,6 +644,15 @@ static void DSP_DoCommand( uint32_t flags )
         dbgprintf(("DSP_DoCommand(%X): databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
 #if VMPU
+# if SBMIDIUART
+    case 0x34: case 0x35: case 0x36: case 0x37:
+        dbgprintf(("DSP_DoCommand(%X): enter SBMIDI UART mode\n", vsb.dsp_cmd ));
+        vsb.UARTMode = true;
+        /* a running DMA op is NOT interrupted by SBMIDI UART mode! */
+        //vsb.SavedStarted = vsb.Started;
+        //vsb.Started = false;
+        break;
+# endif
     case 0x38: /* write SB MIDI data ("normal" mode) */
         VMPU_SBMidi_RawWrite( vsb.dsp_in_data[0] );
         break;

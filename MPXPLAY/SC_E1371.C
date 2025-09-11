@@ -603,14 +603,6 @@ static const struct pci_device_s amplifier_hack_devices[] = {
 
 static void ES1371_close( struct audioout_info_s *aui );
 
-static void ES1371_card_info( struct audioout_info_s *aui )
-///////////////////////////////////////////////////////////
-{
-	//struct ensoniq_card_s *card = aui->card_private_data;
-	//printf("ENS : Ensoniq %s found on port:%X irq:%d rev:%X\n",
-	//   card->pci_dev->device_name, card->port, aui->card_irq, card->chiprev);
-}
-
 static int ES1371_adetect( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {
@@ -780,10 +772,7 @@ static int ES1371_IRQRoutine( struct audioout_info_s *aui )
 const struct sndcard_info_s ES1371_sndcard_info = {
  "ENS",
  0,
- NULL,
- NULL,                 // no init
- &ES1371_adetect,      // only autodetect
- &ES1371_card_info,
+ &ES1371_adetect,
  &ES1371_start,
  &ES1371_stop,
  &ES1371_close,
@@ -792,9 +781,7 @@ const struct sndcard_info_s ES1371_sndcard_info = {
  &MDma_writedata,
  &ES1371_getbufpos,
  &MDma_clearbuf,
- //&MDma_interrupt_monitor,
- &ES1371_IRQRoutine, /* vsbhda */
-
+ &ES1371_IRQRoutine,
  &ES1371_writeMIXER,
  &ES1371_readMIXER,
  aucards_ac97chan_mixerset

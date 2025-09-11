@@ -139,6 +139,7 @@
             0 = interrupt will be triggered delayed (default).
      Bit 1: 1 = enable interrupts when EOI to be sent to master/slave PIC
                 is detected.
+     Bit 2: 1 = mask PIT interrupt during sound hardware interrupt.
 
 
    4. Details/Hints
@@ -299,4 +300,5 @@
     - Creative's SB16 diagnose.exe: needs cmdline option /CF1, else it won't
       find a "free" interrupt.
     - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
+    - FastTracker 2: requires Jemm's NOVCPI option AND option /CF4.
 
