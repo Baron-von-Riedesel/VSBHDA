@@ -1442,10 +1442,12 @@ static void SBALL_start( struct audioout_info_s *aui )
 
 	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB );
 	/* v1.8: the 0x200 value was selected by trial & error in 04/2023;
-	 * it "worked", but FastTracker II revealed problems.
+	 * it "worked", but it has turned out that FastTracker 2 was "too slow".
+	 * OTOH, value TIMER_RATE seems "too fast" ( and is a 32-bit value! ).
+	 * value 0x30 is the value found after Win9x has restarted into "MS-DOS mode".
 	 */
 	//outw(card->iobase + TIMER, 0x200); /* vsbhda: default of 0 seems too "slow" */
-	outw(card->iobase + TIMER, TIMER_RATE & 0xffff);
+	outw(card->iobase + TIMER, 0x30);
 
 	if( card->driver_funcs->start_playback )
 		card->driver_funcs->start_playback( card );

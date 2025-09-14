@@ -12,6 +12,7 @@
     correctly.
   - values 2 and 4 for cmdline option /CF added.
   - fixed: SB Live/Audigy timer value (FastTracker 2).
+  - option /DIVE replaced by /CF8.
 
   v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).

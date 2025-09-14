@@ -6,6 +6,7 @@
 
 	.386
 	.model small
+	.dosseg
 
 FINI_PRIORITY_EXIT equ 16
 
@@ -35,8 +36,10 @@ endm
         extrn   __CMain              : near
         extrn   __InitRtns           : near
         extrn   __FiniRtns           : near
-        extrn   __DOSseg__           : near
+;        extrn   __DOSseg__           : near
+ifndef OW19
         extrn    __child             : dword
+endif
         extrn    __no87              : byte
         extrn   _end                 : near  ; end of BSS (start of STACK)
 
@@ -321,6 +324,9 @@ endif
 
 	public EXITCC __exit
 	public __do_exit_with_msg_
+ifdef OW19
+	public __do_exit_with_msg__
+endif
 
 __exit  proc near EXITCC
 
@@ -331,6 +337,9 @@ endif
 
 ; input: ( char *msg, int rc )  always in registers
 
+ifdef OW19
+__do_exit_with_msg__::
+endif
 __do_exit_with_msg_::
 	push edx                     ; save return code
 	push eax                     ; save address of msg

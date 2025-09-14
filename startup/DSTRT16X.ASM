@@ -6,6 +6,9 @@
 
 	.386
 	.model small
+	.dosseg
+
+LFN equ 0
 
 FINI_PRIORITY_EXIT equ 16
 
@@ -26,8 +29,10 @@ FLG_LFN         equ     1
 	externdef _end               : near  ; end of BSS (start of STACK)
 	extern    __InitRtns         : near
 	extern    __FiniRtns         : near
-	extern    __DOSseg__         : near
+;	extern    __DOSseg__         : near
+ifndef OW19
 	extern    __child            : dword
+endif
 	extern    __no87             : byte
 	extern c  _dynend            : dword
 	extern c  _curbrk            : dword
@@ -36,7 +41,9 @@ FLG_LFN         equ     1
 	extern c  _osminor           : byte
 	extern c  _STACKLOW          : dword
 	extern c  _STACKTOP          : dword
+if LFN
 	extern c  __uselfn           : byte
+endif
 	extern c  _Extender          : byte
 	extern c  _ExtenderSubtype   : byte
 	extern c  _Envptr            : fword
@@ -208,8 +215,9 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 ;
 ;	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 	mov __no87,0				; set state of "no87" environment var
+if LFN
 	and __uselfn,0				; set "LFN" support status
-
+endif
 	mov ebx, _STACKTOP
 	mov _dynend,ebx 			; set top of dynamic memory area
 	mov eax,0FFH				; run all initalizers

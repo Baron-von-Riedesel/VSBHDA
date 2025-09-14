@@ -128,9 +128,6 @@ endif
 if SLOWDOWN
 	dd ?
 endif
-ifdef NOTFLAT
-	dd ?
-endif
 if SOUNDFONT
 	dd ?
 	dd ?

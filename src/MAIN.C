@@ -40,11 +40,7 @@
 #endif
 #define VOL_DEFAULT 7
 
-#ifdef NOTFLAT
-bool _InstallInt31( int );
-#else
-bool _InstallInt31( void );
-#endif
+bool _InstallInt31( struct globalvars * );
 bool _UninstallInt31( void );
 
 #ifdef DJGPP
@@ -115,9 +111,6 @@ true, true, true, VOL_DEFAULT, 16, /* /OPL3, /RM, /PM, /VOL, /BS */
 #if SLOWDOWN
 0, /* /SD */
 #endif
-#ifdef NOTFLAT
-0, /* /DIVE */
-#endif
 #if SOUNDFONT
 NULL, /* /SF: */
 VOICES_DEFAULT, /* /MV */
@@ -154,9 +147,6 @@ static const struct {
 #endif
     "O",  "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
-#ifdef NOTFLAT
-    "DIVE", "Set Borland 'Runtime Error 200' fix [def 0]", &gvars.diverr,
-#endif
     "PS", "Set period size [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
@@ -565,11 +555,7 @@ int main(int argc, char* argv[])
 
     if ( gm.bISR ) {
         VIRQ_Init( gvars.irq );
-#ifdef NOTFLAT
-        _InstallInt31(gvars.diverr);
-#else
-        _InstallInt31();
-#endif
+        _InstallInt31( &gvars );
     }
 
 #if VMPU

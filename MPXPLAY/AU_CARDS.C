@@ -60,8 +60,9 @@ static const struct sndcard_info_s *all_sndcard_info[] = {
 #ifndef NOVIA82
 	&VIA82XX_sndcard_info,
 #endif
-	NULL
 };
+
+#define NUMCARDS sizeof(all_sndcard_info)/sizeof(all_sndcard_info[0])
 
 /* scan for audio devices */
 
@@ -83,7 +84,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	//aui->card_select_config = gvars->pin;
 	aui->gvars = gvars;
 
-	for ( i = 0; all_sndcard_info[i]; i++ ) {
+	for ( i = 0; i < NUMCARDS; i++ ) {
 		aui->card_handler = all_sndcard_info[i];
 		if( aui->card_handler->card_detect ) {
 			dbgprintf(("AU_init: checking card %s\n", aui->card_handler->shortname));
@@ -129,7 +130,7 @@ int FAREXP AU_isirq( struct audioout_info_s *aui )
 //////////////////////////////////////////////////
 {
     /* check if the irq belongs to the sound card */
-    return( aui->card_handler->irq_routine && aui->card_handler->irq_routine(aui));
+    return( aui->card_handler->irq_routine(aui) );
 }
 
 void FAREXP AU_setoutbytes( struct audioout_info_s *aui )
@@ -154,6 +155,7 @@ void FAREXP AU_prestart( struct audioout_info_s *aui )
 {
 	if(aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR)
 		AU_clearbuffs(aui);
+	return;
 }
 #endif
 
@@ -171,6 +173,7 @@ void FAREXP AU_start( struct audioout_info_s *aui )
 #ifdef NOTFLAT
 	if ( bOMode & 1 ) bOMode = 2;  /* no DOS output anymore */
 #endif
+	return;
 }
 
 void FAREXP AU_stop( struct audioout_info_s *aui )
@@ -186,6 +189,7 @@ void FAREXP AU_stop( struct audioout_info_s *aui )
 		aui->card_dmaspace = aui->card_dmasize - aui->card_dmafilled;
 		aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
 	}
+	return;
 }
 
 void FAREXP AU_close( struct audioout_info_s *aui )
@@ -204,6 +208,7 @@ void FAREXP AU_close( struct audioout_info_s *aui )
 	AU_stop(aui);
 	if(aui->card_handler && aui->card_handler->card_close)
 		aui->card_handler->card_close(aui);
+	return;
 }
 
 static void AU_clearbuffs( struct audioout_info_s *aui )
@@ -212,6 +217,7 @@ static void AU_clearbuffs( struct audioout_info_s *aui )
 	if(aui->card_handler->cardbuf_clear)
 		aui->card_handler->cardbuf_clear(aui);
 	aui->card_controlbits &= ~AUINFOS_CARDCTRLBIT_DMACLEAR;
+	return;
 }
 
 /* AU_setrate() is called by main(), not during interrupt time! */
@@ -270,6 +276,7 @@ void FAREXP AU_setmixer_init( struct audioout_info_s *aui )
 
 	for( i = 0; i < AU_MIXCHANS_NUM; i++ )
 		aui->card_mixer_values[i] = -1;
+	return;
 }
 
 static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucards_mixerchan_s *mixeri[], unsigned int mixchannum )
@@ -392,6 +399,8 @@ static void AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 
 	if( function == AU_MIXCHANFUNC_VOLUME )
 		aui->card_mixer_values[channel] = newpercentval;
+
+	return;
 }
 
 #define AU_MIXCHANS_OUTS 4
@@ -415,6 +424,8 @@ void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode,
 		AU_setmixer_one( aui, au_mixchan_outs[i], AU_MIXCHANFUNC_VOLUME, setmode, newvalue );
 
 	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER];
+
+	return;
 }
 
 #if 0
@@ -511,6 +522,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 				aui->card_mixer_values[i] = vol;
 		}
 	}
+	return;
 }
 #endif
 

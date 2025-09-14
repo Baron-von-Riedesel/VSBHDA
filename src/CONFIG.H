@@ -46,9 +46,6 @@ struct globalvars {
 #if SLOWDOWN
 	int slowdown;
 #endif
-#ifdef NOTFLAT
-	int diverr; /* /DIVE value */
-#endif
 #if SOUNDFONT
 	char *soundfont;
 	int voices;

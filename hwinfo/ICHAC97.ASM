@@ -2,7 +2,7 @@
 ;--- get ICHx register contents (DMA & AC'97 controller)
 
 	.286
-	.MODEL small, stdcall
+	.MODEL small
 	option casemap:none
 	.dosseg
 	.stack 2048
@@ -171,7 +171,7 @@ getpci endp
 
 ;--- display registers of a DMA device
 
-bmitem proc wBaseCtrl:word
+bmitem proc stdcall wBaseCtrl:word
 
 	mov dx,wBaseCtrl
 	add dx,si

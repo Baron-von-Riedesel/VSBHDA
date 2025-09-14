@@ -196,17 +196,14 @@ endif
 
 ;--- install int 31h handler; also int 21h, if TRAPINT21==1
 
-ifdef NOTFLAT
-_InstallInt31 proc public uses ebx bDivErr:dword
-else
-_InstallInt31 proc public uses ebx
-endif
+_InstallInt31 proc public uses ebx pGVars:ptr GLOBALVARS
 
 	@dprintf CStr("_InstallInt31 enter",10)
 
 ifdef NOTFLAT
  if FIXEXC00
-	cmp bDivErr, 0
+	mov ebx,pGVars
+	test [ebx.GLOBALVARS.compatflags],8
 	jz @F
 	call InstallExc00
 @@:

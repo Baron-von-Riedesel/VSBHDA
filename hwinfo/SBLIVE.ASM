@@ -2,7 +2,7 @@
 ;--- get SBLive register contents
 
 	.286
-	.MODEL small, stdcall
+	.MODEL small
 	option casemap:none
 	.dosseg
 	.stack 2048
@@ -16,7 +16,69 @@ sym db text,0
 	exitm <offset sym>
 endm
 
-	.data
+	.const
+
+sPtr       db "PTR",0
+sData      db "DATA",0
+sIPR       db "IPR",0
+sIntEnable db "INTEnable",0
+sWC        db "WC",0
+sHCFG      db "HCFG",0
+sMPUData   db "MPUData",0
+sMPUCmd    db "MPUCmd",0
+sIOCFG     db "IOCFG",0
+sTimer     db "Timer",0
+sAC97Data  db "AC97Data",0
+sAC97Addr  db "AC97Addr",0
+sPtr2      db "PTR2",0
+sData2     db "DATA2",0
+sIPR2      db "IPR2",0
+sP16VIntEnable db "P16VINTEnable",0
+sUnknown   db "???",0
+sHCFG2     db "HCFG2",0
+sIPR3      db "IPR3",0
+sINTE3     db "INTE3",0
+
+regsizesLive label byte    
+	db 4,4,4,4,4,4,1,1,2,2,1,0
+regsizesAudigy label byte    
+	db 4,4,4,4,4,4,2,2,2,1,1
+	db 4,4,4,4,4,4,4,4,0
+
+	align 2
+
+regnamesLive label word
+	dw offset sPtr
+	dw offset sData
+	dw offset sIPR
+	dw offset sIntEnable
+	dw offset sWC
+	dw offset sHCFG
+	dw offset sMPUData
+	dw offset sMPUCmd
+	dw offset sTimer
+	dw offset sAC97Data
+	dw offset sAC97Addr
+regnamesAudigy label word
+	dw offset sPtr
+	dw offset sData
+	dw offset sIPR
+	dw offset sIntEnable
+	dw offset sWC
+	dw offset sHCFG
+	dw offset sIOCFG
+	dw offset sTimer
+	dw offset sAC97Data
+	dw offset sAC97Addr
+	dw 0
+	dw offset sPtr2
+	dw offset sData2
+	dw offset sIPR2
+	dw offset sP16VIntEnable
+	dw offset sUnknown
+	dw offset sHCFG2
+	dw offset sIPR3
+	dw offset sINTE3
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 	.CODE
@@ -142,20 +204,39 @@ local dwSubSys:dword
 	mov wBase,cx
 	invoke printf, CStr("I/O Base: %X",10),wBase
 
-	mov si,0
-	mov di,20h
+	mov si,offset regsizesLive
+	mov di,offset regnamesLive
 	cmp wModel,2
 	jz @F
-	mov di,40h
+	mov si,offset regsizesAudigy
+	mov di,offset regnamesAudigy
 @@:
-nextreg:
 	mov dx,wBase
-	add dx,si
-	in eax,dx
-	invoke printf, CStr("%X: %lX",10), dx, eax
-	add si,4
-	cmp si,di
-	jb nextreg
+nextreg:
+	lodsb
+	cmp al,0
+	jz regsdone
+	mov ah,0
+	mov bx,ax
+	mov cx,[di]
+	jcxz @F
+	.if al==1
+		in al,dx
+		movzx eax,al
+	.elseif al==2
+		in ax,dx
+		movzx eax,ax
+	.else
+		in eax,dx
+	.endif
+	push dx
+	invoke printf, CStr("%X (%s): %lX",10), dx, cx, eax
+	pop dx
+@@:
+	add dx,bx
+	add di,2
+	jmp nextreg
+regsdone:
 
 ;--- display the 256 Emu80k1 regs
 	mov si,0

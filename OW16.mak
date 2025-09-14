@@ -1,5 +1,5 @@
 
-# create vsbhda16.exe with Open Watcom v2.0 and JWasm.
+# create vsbhda16.exe with Open Watcom and JWasm.
 # to create the binary, enter
 #   wmake -f ow16.mak
 # optionally, for a debug version, enter
@@ -10,6 +10,9 @@ DEBUG=0
 !endif
 
 WATCOM=\ow20
+# use OW v2 (0) or OW v1.9 (1)
+USE19=0
+
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
@@ -31,6 +34,10 @@ A_DEBUG_FLAGS=-D_DEBUG -Fl=$*
 OUTD=ow16
 C_DEBUG_FLAGS=-D_LOG
 A_DEBUG_FLAGS=
+!endif
+
+!if $(USE19)
+OW19=-DOW19
 !endif
 
 OBJFILES = &
@@ -75,7 +82,7 @@ LIBS=
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
 
 {startup}.asm{$(OUTD)}.obj
-	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {startup}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
