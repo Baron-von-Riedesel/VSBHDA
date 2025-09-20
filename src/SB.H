@@ -58,7 +58,7 @@
 #define SB_MIXERREG_VOICESTEREO  0x04 /* SBPro+, DAC level, 3/4 bit L & R */
 #define SB_MIXERREG_MASTERSTEREO 0x22 /* SBPro+, Master level, 3/4 bit, L & R */
 #define SB_MIXERREG_MIDISTEREO   0x26 /* SBPro+, FM Level, 3/4 bit, L & R */
-// 0x28 CD Level ( 3/4 bit, L & R )
+#define SB_MIXERREG_CDSTEREO     0x28 /* SBPro+, CD Level, 3/4 bit, L & R */
 // 0x2E line-in Level ( 3/4 bit, L & R )
 // 0x24 and 0x2A don't exist ( are 0x04/0x0A )
 

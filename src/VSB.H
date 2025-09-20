@@ -28,7 +28,7 @@ uint32_t VSB_DSP_Acc0C(uint32_t port, uint32_t val, uint32_t flags);
 uint32_t VSB_DSP_Acc0E(uint32_t port, uint32_t val, uint32_t flags);
 uint32_t VSB_DSP_Acc0F(uint32_t port, uint32_t val, uint32_t flags);
 
-void VSB_Init(int irq, int dma, int hdma, int DSPVer );
+void VSB_Init(int irq, int dma, int hdma, int DSPVer, void *hAU );
 uint8_t VSB_GetIRQ( void );
 int VSB_GetDMA( void );
 //int VSB_GetHDMA( void );
@@ -50,9 +50,6 @@ int VSB_GetIRQStatus( void );
 uint8_t VSB_GetMixerReg(uint8_t index);
 int VSB_GetDirectCount(uint8_t * *);
 void VSB_ResetDirectCount( void );
-#if DISPSTAT
-int VSB_GetDispStat( void );
-#endif
 
 #ifdef __cplusplus
 }

@@ -130,8 +130,8 @@
      BLASTER variable or the /P cmdline option.
    - /MV: setting a voice limit of 0 will trigger dynamic allocation - this
      is the most flexible setting, but may not work for all applications.
-   - /O: for the SB Live card, /O1 enables the "speaker" connector; /O2
-     has no meaning for this card.
+   - /O: for SB Live/Audify cards, /O1 enables the "speaker" or "rear" jack;
+     value /O2 has no meaning for these cards.
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
             0 = interrupt will be triggered delayed (default).
@@ -285,21 +285,24 @@
     - Aladdin: requires EMS, max. XMS memory is 31MB (XMSRes 31).
     - Blood: setting SB IRQ to 2 or 5 may be required. Generally, on some
       machines the DOS/4GW DOS extender has problems with IRQ 7.
-    - Jungle Book: needs SETPVI.EXE to be run before launched.
-    - Screamer: set max. XMS memory to 31MB (XMSRes 31).
-    - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option.
-    - System Shock: set max. XMS memory to 31MB (XMSRes 31) before running
-      HDPMI32i.
-    - "Sword and Fairy 1" (Chinese Paladin): allocates a sound buffer in
-      extended memory - see notes in 4.3.2).
-    - "Legend of Kyrandia 2": allocates a sound buffer in extended memory -
-      see notes in 4.3.2).
-    - "The Flight of the Amazon Queen": requires SETPVI.
-    - Lemmings 2: Uses direct disk access ( Int 25h ) - hence the binary
-      has to be located on a FAT12/FAT16 disk.
-    - Creative's SB16 diagnose.exe: needs cmdline option /CF1, else it won't
-      find a "free" interrupt.
-    - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
+    - Creative's SB16 diagnose.exe: needs cmdline option /CF1.
     - FastTracker 2: requires Jemm's NOVCPI option AND option /CF4.
     - Jazz Jackrabbit: unpatched version requires /CF8.
+    - Jungle Book: needs SETPVI.EXE to be run before launched.
+    - "Legend of Kyrandia 2": allocates a sound buffer in extended memory -
+      see notes in 4.3.2).
+    - Lemmings 2: Uses direct disk access ( Int 25h ) - hence the binary
+      has to be located on a FAT12/FAT16 disk.
+    - MDK: requires option /CF4.
+    - Screamer: set max. XMS memory to 31MB (XMSRes 31).
+    - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option; the game
+      doesn't restore the SB interrupt vector - it may be necessary to reload
+      vsbhda after the program has been run.
+    - "Sword and Fairy 1" (Chinese Paladin): allocates a sound buffer in
+      extended memory - see notes in 4.3.2).
+    - System Shock: set max. XMS memory to 31MB (XMSRes 31) before running
+      HDPMI32i.
+    - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
+    - "The Flight of the Amazon Queen": requires SETPVI.
+    - X128 (Sinclair Spectrum Emulator): requires Jemm's NOVCPI option.
 

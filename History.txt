@@ -1,7 +1,7 @@
 
   v1.8, __._.____
   - fixed: HDA in VmWare.
-  - fixed: SB DSP reset isn't supposed to reset SB mixer.
+  - fixed: SB DSP reset no longer resets SB mixer.
   - interrupt handling for SB IRQ changed; switch HOSTRT in sbisr.asm now 0 -
     was 1 in v1.6-v1.7; this avoids crashes if SB IRQ is also used by PCI
     devices (esp. USB and IDE/SATA controllers).
@@ -10,9 +10,11 @@
   - fixed: debug displays in 16-bit variant.
   - fixed: case "DMA buffer < SB buffer" in single-cycle mode now handled
     correctly.
-  - values 2 and 4 for cmdline option /CF added.
+  - values 2,4,8 for cmdline option /CF added.
   - fixed: SB Live/Audigy timer value (FastTracker 2).
-  - option /DIVE replaced by /CF8.
+  - option /DIVE removed (replaced by /CF8).
+  - SB-MIDI UART modes supported.
+  - CD-IN gain changes now routed to sndcard mixer.
 
   v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).

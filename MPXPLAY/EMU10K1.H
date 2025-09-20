@@ -261,7 +261,7 @@
                         /* before the new rate is guaranteed accurate.    */
 #define TIMER_RATE_MASK        0x000003ff    /* Timer interrupt rate in sample periods    */
                         /* 0 == 1024 periods, [1..4] are not useful    */
-#define TIMER_RATE        0x0a00001a
+//#define TIMER_RATE        0x0a00001a
 
 #define AC97DATA        0x1c        /* AC97 register set data register (16 bit)    */
 

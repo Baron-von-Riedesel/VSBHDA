@@ -495,9 +495,9 @@ int main(int argc, char* argv[])
 	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0, AU_getirq( gm.hAU ) );
 #endif
 #if SB16
-    VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type );
+    VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type, gm.hAU );
 #else
-    VSB_Init( gvars.irq, gvars.dma, 0, gvars.type );
+    VSB_Init( gvars.irq, gvars.dma, 0, gvars.type, gm.hAU );
 #endif
     VDMA_Virtualize( gvars.dma, true );
 #if SB16

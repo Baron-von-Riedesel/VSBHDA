@@ -12,6 +12,8 @@
 ;--- if 0, SB irq is modified (proc realsbisr) and the client will get/set a virtual
 ;---       address only.
 ;---       With this setting, MASKSBIRQ in virq.c should be set to 0.
+;---       Problem: if the client doesn't restore IRQ 2/5/7 vector when it exits,
+;---       the current SB IRQ vector may become invalid (StarGunner)!
 
 WATCHSB   equ 1	; 1=watch get/set SB int
 HOSTRT    equ 0	; 1=route get/set pm vector calls for irq 2/5/7 to DPMI host.
@@ -184,6 +186,30 @@ realsbisr proc
  endif
 	align 4
 realsbisr endp
+
+VIRQ_Check proc public
+	verr word ptr cs:[currSBvec+SEGOFS]
+	jz exit
+ ifdef NOTFLAT
+	push ds
+	mov ds, cs:[_csalias]
+	assume ds:_TEXT
+ endif
+	mov eax, dword ptr [oldSBvec]
+	mov dword ptr [currSBvec], eax
+ ifndef NOTFLAT
+	mov ax, word ptr [oldSBvec+4]
+	mov word ptr [currSBvec+4], ax
+ endif
+ ifdef NOTFLAT
+	pop ds
+    assume ds:DGROUP
+ endif
+exit:
+	ret
+    align 4
+VIRQ_Check endp
+
 endif
 
 if TRAPINT21

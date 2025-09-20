@@ -42,7 +42,7 @@ AU_getshortname  dd ?
 AU_setoutbytes   dd ?
 AU_setrate       dd ?
 AU_setmixer_init dd ?
-;AU_setmixer_one  dd ?
+AU_setmixer_one  dd ?
 AU_setmixer_outs dd ?
 ;AU_setmixer_all  dd ?
 AU_writedata     dd ?
@@ -252,14 +252,12 @@ AU_setmixer_init proc c public a1:ptr
 
 AU_setmixer_init endp
 
-if 0
 AU_setmixer_one proc c public a1:ptr, a2:dword, a3:dword, a4:dword
 
 	@callexp AU_setmixer_one, 4
 	ret
 
 AU_setmixer_one endp
-endif
 
 AU_setmixer_outs proc c public a1:ptr, a2:dword, a3:dword
 

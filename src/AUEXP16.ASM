@@ -22,7 +22,7 @@ externdef _AU_getshortname  :near32
 externdef _AU_setoutbytes   :near32
 externdef _AU_setrate       :near32
 externdef _AU_setmixer_init :near32
-;externdef _AU_setmixer_one  :near32
+externdef _AU_setmixer_one  :near32
 externdef _AU_setmixer_outs :near32
 ;externdef _AU_setmixer_all  :near32
 externdef _AU_writedata     :near32
@@ -42,7 +42,7 @@ AU_getshortname  dd offset _AU_getshortname
 AU_setoutbytes   dd offset _AU_setoutbytes
 AU_setrate       dd offset _AU_setrate
 AU_setmixer_init dd offset _AU_setmixer_init
-;AU_setmixer_one  dd offset _AU_setmixer_one
+AU_setmixer_one  dd offset _AU_setmixer_one
 AU_setmixer_outs dd offset _AU_setmixer_outs
 ;AU_setmixer_all  dd offset _AU_setmixer_all
 AU_writedata     dd offset _AU_writedata

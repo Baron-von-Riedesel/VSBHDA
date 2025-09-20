@@ -17,6 +17,7 @@ void VIRQ_Invoke( void );
 void VIRQ_WaitForSndIrq( void );
 void VIRQ_Init( uint8_t );
 void VIRQ_Exit( uint8_t );
+void VIRQ_Check( void );
 
 #ifdef __cplusplus
 }

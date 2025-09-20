@@ -295,8 +295,8 @@ static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucar
  * defined by SC_xxx mixerset...
  */
 
-static void AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, unsigned int function, unsigned int setmode, int newvalue )
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, int function, unsigned int setmode, int newvalue )
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	const struct sndcard_info_s *cardi;
 	const struct aucards_mixerchan_s *onechi; // one mixer channel infos (master,pcm,etc.)

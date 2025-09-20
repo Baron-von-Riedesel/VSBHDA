@@ -61,6 +61,7 @@ struct SNDISR_s {
 #if SETABSVOL
 	uint16_t SB_VOL;
 #endif
+	uint8_t SndIrq;
 #ifdef _LOGBUFFMAX /* log the usage of the PCM buffer? */
 	uint32_t dwMaxBytes;
 #endif
@@ -303,7 +304,7 @@ static int SNDISR_Interrupt( void )
     AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
     samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
     if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
-        PIC_SendEOI( AU_getirq( isr.hAU ) );
+        PIC_SendEOI( isr.SndIrq );
         return(1);
     }
     freq = AU_getfreq( isr.hAU );
@@ -592,16 +593,11 @@ static int SNDISR_Interrupt( void )
 #endif
     AU_writedata( isr.hAU, samples * 2, isr.pPCM );
 
-#if DISPSTAT
-    if ( VSB_GetDispStat() ) printf("SNDISR_Interrupt: samples=%u, IdxSm=%u\n", samples, IdxSm );
-#endif
-
-    PIC_SendEOI( AU_getirq( isr.hAU ) );
-
 #if SLOWDOWN
     if ( gvars.slowdown )
         delay_10us(gvars.slowdown);
 #endif
+    PIC_SendEOI( isr.SndIrq );
 #if COMPAT4
     if ( gvars.compatflags & 4 )
         return( 2 | (mask << 8 ));
@@ -629,10 +625,11 @@ bool SNDISR_Init( void *hAU, uint16_t vol )
     if ( __dpmi_allocate_linear_memory( &info, 0 ) == -1 )
         return false;
 
-    isr.hAU = hAU;
-
     isr.Block_Handle = info.handle;
     isr.Block_Addr   = info.address;
+
+    isr.hAU = hAU;
+    isr.SndIrq = AU_getirq( hAU );
 
 #if SETABSVOL
     isr.SB_VOL = vol;

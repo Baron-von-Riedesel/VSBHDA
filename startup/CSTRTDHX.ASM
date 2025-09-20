@@ -60,6 +60,28 @@ YI  ends
 YIE segment word public 'DATA'
 YIE ends
 
+PEHDR struct
+sig                 dd ?
+fhdr                dd 5 dup (?)
+                    dd ?    ; magic, linker version
+codesize            dd ?
+initdatasize        dd ?
+bsssize             dd ?
+entry               dd ?
+codebaserva         dd ?
+databaserva         dd ?
+imagebaserva        dd ?
+SectionAlignment    dd ?
+alignment           dd ?
+                    dd ?,?,?,?
+imagesize           dd ?
+headersize          dd ?
+                    dd ?
+                    dd ?
+stacksize_rsvd      dd ?
+stacksize_commit    dd ?
+PEHDR ends
+
 ;include extender.inc
 
 DOS_PSP_ENV_SEG equ 2Ch
@@ -111,8 +133,8 @@ DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,
 ; This segment must be at least 4 bytes in size to avoid confusing the
 ; signal function.
 
-BEGTEXT  segment use32 para public 'CODE'
-        assume  cs:BEGTEXT
+BEGTEXT  segment para public 'CODE'
+
 forever label   near
         int     3h
         jmp     short forever
@@ -134,22 +156,18 @@ ___begtext label byte
         assume  cs:nothing
 BEGTEXT  ends
 
-_TEXT   segment use32 dword public 'CODE'
-
-        assume  ds:DGROUP
-
 _NULL   segment para public 'BEGDATA'
 __nullarea label word
         db      01h,01h,01h,00h
         public  __nullarea
 _NULL   ends
 
-_AFTERNULL segment word public 'BEGDATA'
+_AFTERNULL segment dword public 'BEGDATA'
 _AFTERNULL ends
 
-CONST   segment word public 'DATA'
+CONST   segment dword public 'DATA'
 CONST   ends
-CONST2  segment word public 'DATA'
+CONST2  segment dword public 'DATA'
 CONST2  ends
 
 _DATA    segment dword public 'DATA'
@@ -158,10 +176,10 @@ __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
         public  __x386_zero_base_selector
 _DATA    ends
 
-DATA    segment word public 'DATA'
+DATA    segment dword public 'DATA'
 DATA    ends
 
-_BSS    segment word public 'BSS'
+_BSS    segment dword public 'BSS'
 _BSS    ends
 
 STACK_SIZE      equ     10000h
@@ -170,31 +188,9 @@ STACK   segment para stack 'STACK'
         db      (STACK_SIZE) dup(?)
 STACK   ends
 
+		.code
 
-        assume  nothing
         public  _cstart_
-
-PEHDR struct
-sig                 dd ?
-fhdr                dd 5 dup (?)
-                    dd ?    ; magic, linker version
-codesize            dd ?
-initdatasize        dd ?
-bsssize             dd ?
-entry               dd ?
-codebaserva         dd ?
-databaserva         dd ?
-imagebaserva        dd ?
-SectionAlignment    dd ?
-alignment           dd ?
-                    dd ?,?,?,?
-imagesize           dd ?
-headersize          dd ?
-                    dd ?
-                    dd ?
-stacksize_rsvd      dd ?
-stacksize_commit    dd ?
-PEHDR ends
 
 _cstart_ proc near
         jmp   short around
@@ -397,7 +393,7 @@ L6:     lodsb                           ; get char
         mov     ah,040h                 ; write out the string
         int     021h                    ; . . .
         mov     edx,offset NewLine      ; write out the string
-        mov     ecx,sizeof NewLine      ; . . .
+        mov     cl,sizeof NewLine
         mov     ah,040h                 ; . . .
         int     021h                    ; . . .
 L7:
@@ -417,17 +413,15 @@ __exit endp
         @cpublic __GETDSStart_
         @cpublic __GETDSEnd_
 
+_DATA segment ; HX is generally flat, zero-based; code section may be r/o
+__saved_DS  dw  0                       ; DS save area for interrupt routines
+_DATA ends
+
 __GETDS proc    near
 __GETDSStart_ label near
         mov     ds,cs:__saved_DS        ; load saved DS value
         ret                             ; return
 __GETDS endp
 __GETDSEnd_ label near
-
-_DATA segment ; HX is generally flat, zero-based; code section may be r/o
-__saved_DS  dw  0                       ; DS save area for interrupt routines
-_DATA ends
-
-_TEXT   ends
 
         end     _cstart_

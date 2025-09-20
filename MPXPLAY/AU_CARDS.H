@@ -21,28 +21,28 @@ extern "C" {
 #define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
 
 //au_cards mixer channels - see AC97.C, aucards_ac97_chan_mixerset[]
-    enum MIXCHAN {
-        AU_MIXCHAN_MASTER = 0,  // master out
-        AU_MIXCHAN_PCM,         // pcm out
-        AU_MIXCHAN_HEADPHONE,   // headphone out
-        AU_MIXCHAN_SPDIFOUT,    // digital out
-        AU_MIXCHAN_SYNTH,       // midi/synth out (not used)
+enum MIXCHAN {
+    AU_MIXCHAN_MASTER = 0,  // master out
+    AU_MIXCHAN_PCM,         // pcm out
+    AU_MIXCHAN_HEADPHONE,   // headphone out
+    AU_MIXCHAN_SPDIFOUT,    // digital out
+    AU_MIXCHAN_SYNTH,       // midi/synth out (not used)
 
-        AU_MIXCHAN_MICIN,       // MIC input
-        AU_MIXCHAN_LINEIN,      // LINE in
-        AU_MIXCHAN_CDIN,        // CD in
-        AU_MIXCHAN_AUXIN,       // AUX in
-        AU_MIXCHAN_BASS,        // (not used)
-        AU_MIXCHAN_TREBLE,      // (not used)
-        AU_MIXCHANS_NUM
-    };
+    AU_MIXCHAN_MICIN,       // MIC input
+    AU_MIXCHAN_LINEIN,      // LINE in
+    AU_MIXCHAN_CDIN,        // CD in
+    AU_MIXCHAN_AUXIN,       // AUX in
+    AU_MIXCHAN_BASS,        // (not used)
+    AU_MIXCHAN_TREBLE,      // (not used)
+    AU_MIXCHANS_NUM
+};
 
 // aucards_mixchandata_s->channeltype
-    enum MIXFUNC {
-        AU_MIXCHANFUNC_VOLUME = 0,  // volume control (of master,pcm,etc.)
-        AU_MIXCHANFUNC_MUTE,        // mute switch (of master,pcm,etc.)
-        AU_MIXCHANFUNCS_NUM         // number of mixchanfuncs
-    };
+enum MIXFUNC {
+    AU_MIXCHANFUNC_VOLUME = 0,  // volume control (of master,pcm,etc.)
+    AU_MIXCHANFUNC_MUTE,        // mute switch (of master,pcm,etc.)
+    AU_MIXCHANFUNCS_NUM         // number of mixchanfuncs
+};
 
 #define AU_MIXCHAN_MAX_VALUE_VOLUME    100  // master, pcm, ...
 #define AU_MIXCHAN_MAX_VALUE_TONE      200  // bass, treble
@@ -61,9 +61,11 @@ typedef int8_t   PCM_CV_TYPE_C;  // 8-bit signed
 typedef uint8_t  PCM_CV_TYPE_UC; // 8-bit unsigned
 typedef PCM_CV_TYPE_F PCM_CV_TYPE_MAX;// largest datatype (currently)
 
-#define MIXER_SETMODE_RELATIVE 0 /* not used */
-#define MIXER_SETMODE_ABSOLUTE 1
-//#define MIXER_SETMODE_RESET    2
+enum MIXMODE {
+    MIXER_SETMODE_RELATIVE = 0, /* not used */
+    MIXER_SETMODE_ABSOLUTE = 1,
+    //MIXER_SETMODE_RESET    = 2
+};
 
 struct sndcard_info_s;
 
@@ -159,7 +161,7 @@ extern void FAREXP AU_stop( struct audioout_info_s * );
 extern void FAREXP AU_close( struct audioout_info_s * );
 extern int  FAREXP AU_setrate( struct audioout_info_s * , int, int, int );
 extern void FAREXP AU_setmixer_init( struct audioout_info_s * );
-//extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int mixch, unsigned int setmode, int value );
+extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int channel, int function, unsigned int setmode, int value );
 extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
 //extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
 static void AU_clearbuffs( struct audioout_info_s * );

@@ -1,12 +1,26 @@
 
-;--- get SB Live/Audigy register contents.
+;--- save/load SB Live/Audigy register contents.
 
 	.286
 	.MODEL small
 	option casemap:none
+	option proc:private
 	.dosseg
 	.stack 2048
 	.386
+
+M_SAVE equ 0
+M_LOAD equ 1
+
+INC00FF1 equ 0	;1=save/load ptr1 regs 0-ff
+INC007F2 equ 0	;1=save/load ptr2 regs 0-7f
+
+ifndef MODE
+MODE equ M_SAVE
+endif
+
+?32BIT equ 1	;run as 32-bit client
+?LOADSERVER equ 0	;don't load hdpmi
 
 L_FXGPREGBASE   equ 100h
 L_FXGPREGSIZE   equ 256
@@ -14,7 +28,7 @@ L_MICROCODEBASE equ 400h
 L_MICROCODESIZE equ 512 
 
 A_TANKMEMCTLREGBASE equ 100h
-A_TANKMEMCTLSIZE    equ 1*256
+A_TANKMEMCTLSIZE    equ 256
 A_FXGPREGBASE   equ 400h
 A_FXGPREGSIZE   equ 512
 A_MICROCODEBASE equ 600h
@@ -39,69 +53,20 @@ sym db text,0
 	exitm <offset sym>
 endm
 
+	.data?
+
+wBase  dw ?
+wOfs   dw ?
+wModel dw ?
+pData  dw ?
+buffer db 8000h dup (?)
+
 	.const
-
-sPtr       db "PTR",0
-sData      db "DATA",0
-sIPR       db "IPR",0
-sIntEnable db "INTEnable",0
-sWC        db "WC",0
-sHCFG      db "HCFG",0
-sMPUData   db "MPUData",0
-sMPUCmd    db "MPUCmd",0
-sIOCFG     db "IOCFG",0
-sTimer     db "Timer",0
-sAC97Data  db "AC97Data",0
-sAC97Addr  db "AC97Addr",0
-sPtr2      db "PTR2",0
-sData2     db "DATA2",0
-sIPR2      db "IPR2",0
-sP16VIntEnable db "P16VINTEnable",0
-sUnknown   db "???",0
-sHCFG2     db "HCFG2",0
-sIPR3      db "IPR3",0
-sINTE3     db "INTE3",0
-
 regsizesLive label byte    
 	db 4,4,4,4,4,4,1,1,2,2,1,0
 regsizesAudigy label byte    
 	db 4,4,4,4,4,4,2,2,2,1,1
 	db 4,4,4,4,4,4,4,4,0
-
-	align 2
-
-regnamesLive label word
-	dw offset sPtr
-	dw offset sData
-	dw offset sIPR
-	dw offset sIntEnable
-	dw offset sWC
-	dw offset sHCFG
-	dw offset sMPUData
-	dw offset sMPUCmd
-	dw offset sTimer
-	dw offset sAC97Data
-	dw offset sAC97Addr
-regnamesAudigy label word
-	dw offset sPtr
-	dw offset sData
-	dw offset sIPR
-	dw offset sIntEnable
-	dw offset sWC
-	dw offset sHCFG
-	dw offset sIOCFG
-	dw offset sTimer
-	dw offset sAC97Data
-	dw offset sAC97Addr
-	dw 0
-	dw offset sPtr2
-	dw offset sData2
-	dw offset sIPR2
-	dw offset sP16VIntEnable
-	dw offset sUnknown
-	dw offset sHCFG2
-	dw offset sIPR3
-	dw offset sINTE3
 
 	.data
 
@@ -114,13 +79,137 @@ liveregs label word
 audigyregs label word
 	dw DStr(10,"Audigy only: TankMemCtlRegs",10), A_TANKMEMCTLREGBASE, A_TANKMEMCTLSIZE
 	dw DStr(10,"TankMemDataRegs TankMemAddrRegs",10), TANKMEMREGBASE, TANKMEMSIZE
-	dw DStr(10,"FX GPRs",10), A_FXGPREGBASE, L_FXGPREGSIZE
+	dw DStr(10,"FX GPRs",10), A_FXGPREGBASE, A_FXGPREGSIZE
 	dw DStr(10,"Microcode",10), A_MICROCODEBASE, A_MICROCODESIZE
 	dw 0
 
-	.code
+_TEXT32 segment dword use32 public 'CODE'
+
+;--- PL0 32-bit proc
+;--- in: CS=FLAT, DS=DGROUP, FS=FLAT data
+
+rwregs proc far
+
+if 0
+	mov esi,offset regsizesLive
+	cmp wModel,2
+	jz @F
+	mov esi,offset regsizesAudigy
+@@:
+	mov dx,wBase
+	mov bx,pData
+nextreg:
+	lodsb
+	cmp al,0
+	jz regsdone
+	mov cl,al
+	mov ch,0
+	.if cl==1
+if MODE eq M_SAVE
+		in al,dx
+		mov [bx],al
+else
+		mov al,[bx]
+		out dx, al
+endif
+	.elseif cl==2
+if MODE eq M_SAVE
+		in ax,dx
+		mov [bx],ax
+else
+		mov ax,[bx]
+		out dx, ax
+endif
+	.else
+if MODE eq M_SAVE
+		in eax,dx
+		mov [bx],eax
+else
+		mov eax,[bx]
+		out dx, eax
+endif
+	.endif
+	add bx,cx
+	add dx,cx
+	add di,2
+	jmp nextreg
+regsdone:
+	mov pData,bx
+endif
+
+	mov wOfs,0
+
+;--- get the 256 Emu10kx regs
+
+if INC00FF1
+	mov si,0
+	lea di,[si+256]
+	call regsio
+endif
+
+;--- get the FX, TankMem, Microcode regs
+
+	mov bx, offset liveregs
+	cmp wModel, 2
+	jz @F
+	mov bx, offset audigyregs
+@@:
+	.while word ptr [bx]
+		mov si, [bx+2]
+		mov di, [bx+4]
+		add di, si
+		push bx
+		call regsio
+		pop bx
+		add bx, 3*2
+	.endw
+
+;--- Audigy 2: get the 128 Emu10k2 regs
+
+if INC007F2
+	cmp wModel,2
+	jz @F
+	mov wOfs,20h
+	mov si,0
+	lea di,[si+128]
+	call regsio
+@@:
+endif
+
+	ret
+
+regsio:
+	mov bx,pData
+nextptrreg:
+	movzx eax,si
+	shl eax,16
+	mov dx,wBase
+	add dx,wOfs
+	out dx,eax
+	add dx,4
+if MODE eq M_SAVE
+	in eax,dx
+	mov [bx],eax
+else
+	mov eax,[bx]
+	out dx, eax
+endif
+	add bx,4
+	inc si
+	cmp si,di
+	jb nextptrreg
+	mov pData,bx
+	retn
+
+rwregs endp
+
+_TEXT32 ends
+
+;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
+	.CODE
 
 	include printf.inc
+	include dpmihlp.inc
 
 ;--- check for vendor Creative, devices SB Live or SB Audigy
 ;--- BX holds bus/device/function
@@ -198,10 +287,9 @@ getpci endp
 
 main proc c
 
-local wModel:word
-local wBase:word
-local wOfs:word
-local dwSubSys:dword
+local wSel32: word
+local dwSubSys: dword
+local rc: dword
 
 	call getpci
 	jc exit
@@ -242,108 +330,86 @@ local dwSubSys:dword
 	mov wBase,cx
 	invoke printf, CStr("I/O Base: %X",10),wBase
 
-	mov si,offset regsizesLive
-	mov di,offset regnamesLive
-	cmp wModel,2
-	jz @F
-	mov si,offset regsizesAudigy
-	mov di,offset regnamesAudigy
-@@:
-	mov dx,wBase
-nextreg:
-	lodsb
-	cmp al,0
-	jz regsdone
-	mov ah,0
+if MODE eq M_LOAD
+	mov edx, CStr("EMU10K.DAT")
+	xor cx, cx
+	mov ax, 3D00h
+	int 21h
+	jc err3a
+	mov bx, ax
+	mov edx, offset buffer
+	mov ecx, sizeof buffer
+	mov ax, 3F00h
+	int 21h
+	jc err4a
+	mov ah, 3Eh
+	int 21h
+endif
+
+	mov pData,offset buffer
+
+	invoke GetDesc32, _TEXT32
+	and ax, ax
+	jz err5
+	mov wSel32,ax
 	mov bx,ax
-	mov cx,[di]
-	jcxz @F
-	.if al==1
-		in al,dx
-		movzx eax,al
-	.elseif al==2
-		in ax,dx
-		movzx eax,ax
-	.else
-		in eax,dx
-	.endif
-	push dx
-	invoke printf, CStr("%X (%s): %lX",10), dx, cx, eax
-	pop dx
-@@:
-	add dx,bx
-	add di,2
-	jmp nextreg
-regsdone:
+	add ax,8
+	mov fs,ax
+	mov edx, offset rwregs
+	invoke CallRing0Proc, bx::edx, addr rc
+	push ax
+	invoke FreeDesc32, wSel32
+	pop ax
+	and ax, ax
+	jz err6
 
-	mov wOfs,0
-
-;--- display the 256 Emu10kx regs
-
-	invoke printf, CStr(10,"PTR1 registers",10)
-	mov si,0
-	lea di,[si+256]
-	call regsout
-
-;--- display the FX, TankMem, Microcode regs
-
-	mov bx, offset liveregs
-	cmp wModel, 2
-	jz @F
-	mov bx, offset audigyregs
-@@:
-	.while word ptr [bx]
-		invoke printf, CStr("%s"), word ptr [bx+0]
-		mov si, [bx+2]
-		mov di, [bx+4]
-		add di, si
-		push bx
-		call regsout
-		pop bx
-		add bx, 3*2
-	.endw
-
-;--- Audigy: display the 128 Emu10k2 regs
-
-	cmp wModel,2
-	jz noptr2
-	mov wOfs,20h
-	invoke printf, CStr(10,"PTR2 registers",10)
-	mov si,0
-	lea di,[si+128]
-	call regsout
-noptr2:
+if MODE eq M_SAVE
+	mov edx, CStr("EMU10K.DAT")
+	xor cx, cx
+	mov ax, 3C00h
+	int 21h
+	jc err3b
+	mov bx, ax
+	mov edx, offset buffer
+	movzx ecx, pData
+	sub ecx, edx
+	mov ax, 4000h
+	int 21h
+	jc err4b
+	mov ah, 3Eh
+	int 21h
+endif
 
 exit:
 	ret
 err2:
 	invoke printf, CStr("no I/O base address",10)
-	ret
+	jmp exit
 err1:
 	invoke printf, CStr("PCI config space access error",10)
+	jmp exit
+err3a:
+	invoke printf, CStr("open file failed",10)
+	ret
+err3b:
+	invoke printf, CStr("create file failed",10)
+	ret
+err4a:
+	invoke printf, CStr("read file failed",10)
+	ret
+err4b:
+	invoke printf, CStr("write file failed",10)
+	ret
+err5:
+	invoke printf, CStr("out of descriptors",10)
+	ret
+err6:
+	invoke printf, CStr("calling PL0 proc failed",10)
 	ret
 
-regsout:
-nextptrreg:
-	test si,7
-	jnz @F
-	invoke printf, CStr(10,"%4X:"), si
-@@:
-	movzx eax,si
-	shl eax,16
-	mov dx,wBase
-	add dx,wOfs
-	out dx,eax
-	add dx,4
-	in eax,dx
-	invoke printf, CStr(" %8lX"), eax
-	inc si
-	cmp si,di
-	jb nextptrreg
-	invoke printf, CStr(10)
-	retn
-
 main endp
+
+	include initpm16.inc
 
 start:
 	mov ax, @data
@@ -353,6 +419,16 @@ start:
 	shl bx, 4
 	mov ss, ax
 	add sp, bx
+	mov bx, sp
+	shr bx, 4
+	mov cx, es
+	sub ax, cx
+	add bx, ax
+	mov ah, 4Ah
+	int 21h
+	movzx ebp,bp
+	movzx esi,si
+	call initpm
 	call main
 	mov ax,4c00h
 	int 21h
