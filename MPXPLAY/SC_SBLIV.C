@@ -375,16 +375,16 @@ static void snd_emu10k1_hw_close( struct emu10k1_card *card)
 	}
 
 	// reset recording buffers
-	emu10k1_writeptr(card, MICBS, 0, 0);
+	emu10k1_writeptr(card, MICBS, 0, ADCBS_BUFSIZE_NONE);
 	emu10k1_writeptr(card, MICBA, 0, 0);
-	emu10k1_writeptr(card, FXBS, 0, 0);
+	emu10k1_writeptr(card, FXBS, 0, ADCBS_BUFSIZE_NONE);
 	emu10k1_writeptr(card, FXBA, 0, 0);
 	emu10k1_writeptr(card, FXWC, 0, 0);
 	emu10k1_writeptr(card, ADCBS, 0, ADCBS_BUFSIZE_NONE);
 	emu10k1_writeptr(card, ADCBA, 0, 0);
 	emu10k1_writeptr(card, TCBS, 0, TCBS_BUFFSIZE_16K);
 	emu10k1_writeptr(card, TCB, 0, 0);
-	if(card->chips&EMU_CHIPS_10K2)
+	if(card->chips & EMU_CHIPS_10K2)
 		emu10k1_writeptr(card, A_DBG, 0, A_DBG_SINGLE_STEP);
 	else
 		emu10k1_writeptr(card, DBG, 0, EMU10K1_DBG_SINGLE_STEP);

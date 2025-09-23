@@ -145,7 +145,7 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 
 	aui->card_dma_lastgoodpos = 0; // !!! the soundcard also must to do this
 	tmp = aui->card_dmasize / 2;
-	tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm_samples
+	tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
 	aui->card_dmalastput = tmp;
 	aui->card_dmafilled = aui->card_dmalastput;
 	aui->card_dmaspace = aui->card_dmasize - aui->card_dmafilled;

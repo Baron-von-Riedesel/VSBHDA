@@ -5,25 +5,31 @@
 	.386
 	.model ?MODEL
 
-	.code
+	.const
 
-RMCode1:
+RMCodeTab label dword
+	dd offset RMCode1, RMCode1Size
+	dd offset RMCode2, RMCode2Size
+
+RMCode1 label byte
 %	incbin <OUTD\rmcode1.bin>
-RMCode1End equ $
-RMCode2:
+RMCode1Size equ $ - offset RMCode1
+RMCode2 label byte
 %	incbin <OUTD\rmcode2.bin>
-RMCode2End equ $
+RMCode2Size equ $ - offset RMCode2
+
+	.code
 
 copyrmcode proc c public uses esi edi pDst:ptr, nSrc:dword
 	mov edi, pDst
-	mov esi, offset RMCode1
-	mov ecx, RMCode1End - RMCode1
-	cmp nSrc, 1
-	jz @F
-	mov esi, offset RMCode2
-	mov ecx, RMCode2End - RMCode2
-@@:
-	rep movsb es:[edi], cs:[esi]
+	mov esi, nSrc
+	lea esi, [esi*8+RMCodeTab]
+	lodsd
+	mov ecx, eax
+	lodsd
+	mov esi, eax
+	xchg esi, ecx
+	rep movsb
 	mov eax, edi
 	ret
 copyrmcode endp

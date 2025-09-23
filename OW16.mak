@@ -175,7 +175,7 @@ $(OUTD)/libmain.obj:   startup\libmain.c
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode1.bin src\rmcode1.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode2.bin src\rmcode2.asm
-	@$(ASM) -q -DNOTFLAT -D?MODEL=small -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
+	@$(ASM) -q -DNOTFLAT -D?MODEL=small -Fl$(OUTD)\ -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).lib

@@ -285,7 +285,7 @@ void VMPU_Init( int freq )
             tsf_channel_midi_control(tsfrenderer, channel, 121, 0); /* 121 = reset controller */
         tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0); /* channel 9 set to 128 (percussion) */
     } else
-        printf("Failed loading soundfont %s\n", gvars.soundfont);
+        printf("Failed loading soundfont \"%s\"\n", gvars.soundfont);
 #endif
 }
 

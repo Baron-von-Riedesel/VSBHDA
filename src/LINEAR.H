@@ -16,18 +16,15 @@ extern uint32_t DSBase;
 #if defined(DJGPP) || defined(NOTFLAT)
 static inline uint32_t LinearAddr( void* ptr ) { return DSBase + (uint32_t)ptr; }
 static inline void    *NearPtr( uint32_t linaddr ) { return (void *)(linaddr - DSBase); }
-static inline uint16_t ReadLinearW(uint32_t addr) { return *(uint16_t*)NearPtr(addr); }
-static inline void     WriteLinearW(uint32_t addr, uint16_t val) { *(uint16_t*)NearPtr(addr) = val; }
-static inline uint32_t ReadLinearD(uint32_t addr) { return *(uint32_t*)NearPtr(addr); }
-static inline void     WriteLinearD(uint32_t addr, uint32_t val) { *(uint32_t*)NearPtr(addr) = val; }
 #else
 static inline uint32_t LinearAddr( void* ptr ) { return (uint32_t)ptr; }
 static inline void    *NearPtr( uint32_t linaddr ) { return (void *)linaddr; }
-static inline uint16_t ReadLinearW(uint32_t addr) { return *(uint16_t*)NearPtr(addr); }
-static inline void     WriteLinearW(uint32_t addr, uint16_t val) { *(uint16_t*)NearPtr(addr) = val; }
-static inline uint32_t ReadLinearD(uint32_t addr) { return *(uint32_t*)NearPtr(addr); }
-static inline void     WriteLinearD(uint32_t addr, uint32_t val) { *(uint32_t*)NearPtr(addr) = val; }
 #endif
+
+static inline uint16_t ReadLinearW(uint32_t addr) { return *(uint16_t*)NearPtr(addr); }
+static inline uint32_t ReadLinearD(uint32_t addr) { return *(uint32_t*)NearPtr(addr); }
+static inline void     WriteLinearW(uint32_t addr, uint16_t val) { *(uint16_t*)NearPtr(addr) = val; }
+static inline void     WriteLinearD(uint32_t addr, uint32_t val) { *(uint32_t*)NearPtr(addr) = val; }
 
 #ifdef __cplusplus
 }

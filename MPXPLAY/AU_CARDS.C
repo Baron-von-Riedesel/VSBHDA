@@ -608,10 +608,10 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 
 /* function called by AU_writedata() - during interrupt time! */
 
-static int aucards_writedata_intsound( struct audioout_info_s *aui, unsigned long outbytes_left )
-/////////////////////////////////////////////////////////////////////////////////////////////////
+static int aucards_writedata_intsound( struct audioout_info_s *aui, char *pcm_outdata, unsigned int outbytes_left )
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	char *pcm_outdata = (char *)aui->pcm_sample;
+	//char *pcm_outdata = (char *)aui->pcm_sample;
 	unsigned long buffer_protection,space;
 
 	/* example for bytes/sign = 4: 32 + 3 - 3 */
@@ -621,33 +621,24 @@ static int aucards_writedata_intsound( struct audioout_info_s *aui, unsigned lon
 
 	space = (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace - buffer_protection) : 0;
 
-	do{
-		if( space >= aui->card_bytespersign ) {
-			unsigned int outbytes_putblock = min( space, outbytes_left);
-			aui->card_handler->cardbuf_writedata( aui, pcm_outdata, outbytes_putblock );
-			pcm_outdata += outbytes_putblock;
-			outbytes_left -= outbytes_putblock;
-#if 1//def SBEMU
-			space -= outbytes_putblock;
-#endif
-			aui->card_dmafilled += outbytes_putblock;
-			if(aui->card_dmafilled > aui->card_dmasize)
-				aui->card_dmafilled = aui->card_dmasize;
-			if(aui->card_dmaspace > outbytes_putblock)
-				aui->card_dmaspace -= outbytes_putblock;
-			else
-				aui->card_dmaspace = 0;
-		}
-		if(!outbytes_left)
-			break;
-#if 0//ndef SBEMU
-		space = AU_cardbuf_space(aui); // post-checking (because aucards_interrupt_decoder also calls it)
-	} while ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING );
-	return 0;
-#else
-	} while ( space >= aui->card_bytespersign );
+	while ( ( space >= aui->card_bytespersign ) && outbytes_left ) {
+
+		unsigned int outbytes_putblock = min( space, outbytes_left);
+		aui->card_handler->cardbuf_writedata( aui, pcm_outdata, outbytes_putblock );
+		pcm_outdata += outbytes_putblock;
+		outbytes_left -= outbytes_putblock;
+
+		space -= outbytes_putblock;
+
+		aui->card_dmafilled += outbytes_putblock;
+		if(aui->card_dmafilled > aui->card_dmasize)
+			aui->card_dmafilled = aui->card_dmasize;
+		if(aui->card_dmaspace > outbytes_putblock)
+			aui->card_dmaspace -= outbytes_putblock;
+		else
+			aui->card_dmaspace = 0;
+	}
 	return outbytes_left;
-#endif
 }
 
 int FAREXP AU_writedata( struct audioout_info_s *aui, int samples, void *pcm_sample )
@@ -663,22 +654,21 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, int samples, void *pcm_sam
 	if( !samples )
 		return 0;
 
-	aui->samplenum = samples;
-	aui->pcm_sample = pcm_sample;
-	aui->samplenum -= (aui->samplenum % aui->chan_card); // if samplenum is buggy (round to chan_card)
-	outbytes_left = aui->samplenum * aui->bytespersample_card;
+	//aui->samplenum = samples;
+	//aui->pcm_sample = pcm_sample;
+	outbytes_left = samples * aui->bytespersample_card;
 
-#if 1//def SBEMU
-	aui->card_outbytes = min(outbytes_left,(aui->card_dmasize));
-#else
-	aui->card_outbytes = min(outbytes_left,(aui->card_dmasize/4));
-#endif
+	/* round to chan_card if samples is buggy (cannot happen with vsbhda) */
+	//aui->samplenum -= (aui->samplenum % aui->chan_card);
+	samples -= (samples % aui->chan_card);
+
+	aui->card_outbytes = min(outbytes_left, aui->card_dmasize);
 
 	aui->card_outbytes -= (aui->card_outbytes % aui->card_bytespersign);
 
-	left = aucards_writedata_intsound( aui, outbytes_left );
+	left = aucards_writedata_intsound( aui, (char *)pcm_sample, outbytes_left );
 
-	aui->samplenum = 0;
+	//aui->samplenum = 0;
 
 	return left / aui->bytespersample_card; /* return value is ignored! */
 }

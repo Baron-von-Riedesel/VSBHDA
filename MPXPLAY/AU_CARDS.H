@@ -70,8 +70,8 @@ enum MIXMODE {
 struct sndcard_info_s;
 
 struct audioout_info_s {
- short *pcm_sample;
- unsigned int  samplenum;
+ //short *pcm_sample;
+ //unsigned int  samplenum;
  unsigned char bytespersample_card;
  unsigned int  freq_set;  /* ??? */
  unsigned int  freq_card; /* set in AU_setrate */

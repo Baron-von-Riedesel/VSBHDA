@@ -21,6 +21,7 @@
 #if SOUNDFONT
 #define VOICES_DEFAULT 64
 #endif
+#define PT0V86 1      /* 1=support read access to v86 page table 0 */
 
 #ifdef __cplusplus
 extern "C"

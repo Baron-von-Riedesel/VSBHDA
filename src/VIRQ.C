@@ -231,7 +231,7 @@ void VIRQ_WaitForSndIrq( void )
 void VIRQ_Init( uint8_t virq )
 //////////////////////////////
 {
-    _SB_InstallISR( PIC_IRQ2VEC( virq ), dosheap, 2 );
+    _SB_InstallISR( PIC_IRQ2VEC( virq ), dosheap, 1 );
 }
 
 void VIRQ_Exit( uint8_t virq )

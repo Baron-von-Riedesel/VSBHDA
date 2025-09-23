@@ -53,9 +53,12 @@ typedef struct {
   unsigned long address;
 } __dpmi_meminfo;
 
-typedef struct {
-  unsigned short offset16;
-  unsigned short segment;
+typedef union {
+  struct {
+    unsigned short offset;
+    unsigned short segment;
+  } v86;
+  unsigned int segofs;
 } __dpmi_raddr;
 
 int __dpmi_get_segment_base_address(int _selector, unsigned long *_addr);

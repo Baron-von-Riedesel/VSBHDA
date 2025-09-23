@@ -15,6 +15,7 @@
 #include "VOPL3.H"
 #include "VSB.H"
 #include "CTADPCM.H"
+#include "PTRAP.H"
 
 #if DISPSTAT
 #include <stdio.h>
@@ -57,6 +58,9 @@ struct SNDISR_s {
 	uint32_t DMA_Size;       /* size of DMA buffer at last remapping */
 	uint32_t Block_Handle;   /* handle of remapping block */
 	uint32_t Block_Addr;     /* linear base of remapping block ( page aligned ) */
+#if PT0V86
+	uint32_t PageTab0v86;	 /* v1.8: linear address v86 pagetab 0 */
+#endif
 	void *hAU;
 #if SETABSVOL
 	uint16_t SB_VOL;
@@ -320,6 +324,7 @@ static int SNDISR_Interrupt( void )
 #else
     for ( IdxSm = 0; VSB_Running() && IdxSm < samples; ) {
 #endif
+        /* a loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         int i,j;
         int dmachannel = VSB_GetDMA();
         int samplesize = max( 1, VSB_GetBits() / 8 );
@@ -335,12 +340,23 @@ static int SNDISR_Interrupt( void )
         uint32_t SB_Rate = VSB_GetSampleRate();
         int IsSilent = VSB_IsSilent();
 
-        /* a while loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         if ( !IsSilent ) {
             DMA_Base = VDMA_GetBase(dmachannel);
             DMA_Index = VDMA_GetIndex(dmachannel);
             DMA_Count = VDMA_GetCount(dmachannel);
             /* check if the current DMA buffer is within the mapped region. */
+#if PT0V86
+            /* v1.8: if access to v86 pagetab 0 is installed, translate linear range C0000-FFFFF
+             * to a physical address ( mostly useful for SB sound buffer in EMS page frame ).
+             */
+            if ( DMA_Base < 0x100000 && DMA_Base >= 0xC0000 && isr.PageTab0v86 ) {
+#ifdef _DEBUG
+                uint32_t tmp = DMA_Base;
+#endif
+                DMA_Base = (*((uint32_t *)NearPtr(isr.PageTab0v86) + (DMA_Base >> 12 )) & ~0xfff) | (DMA_Base & 0xFFF);
+                dbgprintf(("isr(%u), conv address %X -> phys address %X [pgtab0=%X]\n", loop, tmp, DMA_Base, isr.PageTab0v86 ));
+            }
+#endif
             if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
                 isr.DMA_linearBase = -1;
             }
@@ -348,16 +364,16 @@ static int SNDISR_Interrupt( void )
             if( isr.DMA_linearBase == -1 ) {
                 isr.DMA_Base = DMA_Base;
                 isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
-                if ( DMA_Base < 0x100000 )
+                if ( DMA_Base < 0x100000 ) {
                     isr.DMA_linearBase = DMA_Base;
-                else {
+                } else {
                     /* size is in pages, phys. address must have bits 0-11 cleared */
                     if( __dpmi_map_physical_device(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
                         fatal_error( 2 );
                     isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
                 }
-                dbgprintf(("isr, ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
-                           dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
+                dbgprintf(("isr(%u), ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
+                           loop, dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
             }
         }
         /* don't resample if sample rates are close? */
@@ -424,6 +440,8 @@ static int SNDISR_Interrupt( void )
         if( channels == 1) //should be the last step
             cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
 
+        IdxSm += count;
+
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
             dbgprintf(("isr(%u): SB Pos/Size=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
@@ -433,12 +451,12 @@ static int SNDISR_Interrupt( void )
             else
                 VSB_Stop(); /* v1.8: does no longer reset SB position */
             VIRQ_Invoke();
-#ifdef SNDISRLOG
         } else {
-            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos ));
+#ifdef SNDISRLOG
+            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X ESP=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos, _my_esp() ));
 #endif
+            break;
         }
-        IdxSm += count;
     };
 
     if (IdxSm) {
@@ -606,10 +624,20 @@ static int SNDISR_Interrupt( void )
     return(1);
 }
 
+/* init sound hw - called by main() */
+
 bool SNDISR_Init( void *hAU, uint16_t vol )
 ///////////////////////////////////////////
 {
+#if PT0V86
+#define PT0SIZE 0x1000
+    uint32_t tmp;
+#else
+#define PT0SIZE 0
+#endif
     __dpmi_meminfo info;
+
+    /* allocate PCM buffer (def. 64k), used for format conversions */
     info.address = 0;
     info.size = ( gvars.buffsize + 1 ) * 4096;
     if (__dpmi_allocate_linear_memory( &info, 1 ) == -1 )
@@ -618,16 +646,29 @@ bool SNDISR_Init( void *hAU, uint16_t vol )
     /* uncommit the page behind the buffer so a buffer overflow will cause a page fault */
     __dpmi_set_page_attr( info.handle, gvars.buffsize * 4096, 1, 0);
     isr.pPCM = NearPtr( info.address );
-    dbgprintf(("SNDISR_InstallISR: pPCM=%X\n", isr.pPCM ));
+    dbgprintf(("SNDISR_Init: pPCM=%X\n", isr.pPCM ));
 
+    /* allocate a 128k uncommitted region used for DMA mappings */
     info.address = 0;
-    info.size = 0x20000 + 0x1000;
+    info.size = 0x20000 + 0x1000 + PT0SIZE;
     if ( __dpmi_allocate_linear_memory( &info, 0 ) == -1 )
         return false;
 
     isr.Block_Handle = info.handle;
     isr.Block_Addr   = info.address;
 
+#if PT0V86
+    /* v1.8: get phys. address of VCPI host's page table 0 and map it into
+     * protected-mode address space. This allows to access physical addresses
+     * within the v86 conventional address space (EMS page frame).
+     */
+    if ( tmp = PTRAP_GetPageTab0v86() ) {
+        if( __dpmi_map_physical_device(isr.Block_Handle, 0x20000 + 0x1000, 1, tmp ) == 0 ) {
+            isr.PageTab0v86 = info.address + 0x20000 + 0x1000;
+            dbgprintf(("SNDISR_Init: v86 PT0=%X mapped at %X\n", tmp, isr.PageTab0v86 ));
+        }
+    }
+#endif
     isr.hAU = hAU;
     isr.SndIrq = AU_getirq( hAU );
 

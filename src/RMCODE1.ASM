@@ -13,21 +13,26 @@ RMPICTRAPDYN            equ 0 ; std=0, must match #define in ptrap.c
 ;--- if RMPICTRAPDYN is 1, the PIC port 0020h is trapped only while SB IRQ 2/5/7
 ;--- is emulated. This is quite some overhead.
 
+;--- rmcode1 struct - if it's changed, PTRAP.C must be adjusted!
+
+rmcode1 struct
+rmcb  dd ?	; rmcb to vsbhda port trap handler
+_0004 db ?	; last 388h value written
+_0005 db ?
+wPICp dw ?	; PIC port to trap ( 0020h or 0ffffh )
+dwQPI dd ?	; QPI entry Jemm/Qemm, for "untrapped io"
+rmcode1 ends
+
 ;--- this code runs in real-mode.
 
 _TEXT segment word public 'CODE'
 
 	assume ds:nothing, ss:nothing
 
-;--- 12 bytes data - if this is changed, PTRAP.C must be adjusted!
-wRmcb dd 0	; rmcb to vsbhda port trap handler
-_0004 db 0	; last 388h value written
-_0005 db 0
-wPICp dw 20h; PIC port to trap ( 0020h or 0ffffh ) - must be at offset 6!
-dwQPI dd 0	; QPI entry Jemm/Qemm, for "untrapped io"
+vars rmcode1 <0,0,0,20h,0>
 
 ife RMPICTRAPDYN
-	cmp dx, [wPICp]
+	cmp dx, [vars.wPICp]
 	je is20
 endif
 
@@ -39,13 +44,13 @@ if HANDLE_IN_388H_DIRECTLY
 normal:
 endif
 
-	jmp [wRmcb]
+	jmp [vars.rmcb]
 
 if HANDLE_IN_388H_DIRECTLY
 is388:
 	test cl, 4			; OUT instr?
 	jnz is388out
-	mov al, [_0005]		; last timer value written to 389h
+	mov al, [vars._0005]; last timer value written to 389h
 	test al, 1
 	jz @F
 	mov al, 0C0h
@@ -59,14 +64,14 @@ is388:
 	xor al,al
 	retf
 is388out:
-	mov [_0004], al
+	mov [vars._0004], al
 	jmp normal
 is389:
 	test cl, 4			; OUT instr?
 	jz normal
-	cmp [_0004], 4		; timer reg?
+	cmp [vars._0004], 4		; timer reg?
 	jne normal
-	mov [_0005], al
+	mov [vars._0005], al
 	jmp normal
 endif
 
@@ -85,7 +90,7 @@ is20:
 	setnz al			; ax=1a00h is "sim IN", 1a01h = "sim OUT"
 	.286
 	mov ah, 1ah
-	call [dwQPI]		; call QPIEmu/Qemm
+	call [vars.dwQPI]	; call QPIEmu/Qemm
 	xchg ax, bx
 	pop bx
 	retf

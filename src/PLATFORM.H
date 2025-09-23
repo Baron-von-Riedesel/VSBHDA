@@ -39,6 +39,8 @@ static inline void  _enable_ints(void) { asm("movw $0x901, %%ax\n\t" "int $0x31"
 
 #else
 
+extern void (*oldint31)();
+
 unsigned int BSF(unsigned int);
 #pragma aux BSF = \
 	"bsf eax, edx" \
@@ -66,24 +68,54 @@ void fpu_restore(void *buffer);
 #define FPU_SRSIZE 108
 
 void _disable_ints(void);
+void  _enable_ints(void);
+
+#ifdef NOTFLAT
 #pragma aux _disable_ints = \
 	"mov ax, 900h" \
-	"int 31h" \
+	"pushf" \
+	"db 66h" \
+	"call fword ptr cs:[oldint31]" \
 	parm[] \
 	modify exact [ax]
 
-void  _enable_ints(void);
 #pragma aux _enable_ints = \
 	"mov ax, 901h" \
-	"int 31h" \
+	"pushf" \
+	"db 66h" \
+	"call fword ptr cs:[oldint31]" \
 	parm[] \
 	modify exact [ax]
+#else
+#pragma aux _disable_ints = \
+	"mov ax, 900h" \
+	"pushfd" \
+	"call fword ptr cs:[oldint31]" \
+	parm[] \
+	modify exact [ax]
+
+#pragma aux _enable_ints = \
+	"mov ax, 901h" \
+	"pushfd" \
+	"call fword ptr cs:[oldint31]" \
+	parm[] \
+	modify exact [ax]
+#endif
 
 unsigned int _my_ds();
 #pragma aux _my_ds = \
 	"mov eax, ds" \
 	parm [] \
 	modify exact [ eax ]
+
+#ifdef _DEBUG
+unsigned int _my_esp();
+#pragma aux _my_esp = \
+	"mov eax, esp" \
+	parm [] \
+	modify exact [ eax ]
+#endif
+
 extern unsigned int _linear_psp;
 extern unsigned int _linear_rmstack;
 //extern unsigned int _size_rmstack;
