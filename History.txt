@@ -15,6 +15,9 @@
   - option /DIVE removed (replaced by /CF8).
   - SB-MIDI UART modes supported.
   - CD-IN gain changes now routed to sndcard mixer.
+  - fixed: SB sound buffer in EMS page frame.
+  - qpiemu.dll: v1.2 - new function ax=5000h for read access v86 page table 0.
+  - fixed: /OPL0 didn't remove ports 0x228/0x229 from the trap list.
 
   v1.7, 11.8.2025
   - fixed: clear CF in case int 31h hook proc handles the function (ax=0x20x).
@@ -23,7 +26,7 @@
   - fixed: handling of DSP cmd E2 (DMA identification).
   - DSP cmd 14h with size < 32 will trigger an IRQ at once; this should make
     more detection routines to work.
-  - qpiemu.dll: bit 1 of register CH now holds IF.
+  - qpiemu.dll: v1.1 - bit 1 of register CH now holds IF.
   - XMSRes.exe: option -H added.
   - SB16: 8-bit signed PCM mode (C6h 10h) supported.
   - HDA: reset controller if no codecs are attached.

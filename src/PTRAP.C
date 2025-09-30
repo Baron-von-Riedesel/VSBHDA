@@ -33,7 +33,7 @@
 
 #define DOSMEMSTART 0x60 /* offset in PSP, bits 0-3 must be zero */
 
-// next 2 defines must match EQUs in rmwrap.asm!
+// next 2 defines must match EQUs in rmcode1.asm!
 #define HANDLE_IN_388H_DIRECTLY 0
 #define RMPICTRAPDYN 0 /* 1=trap PIC for v86-mode dynamically when needed */
 
@@ -43,20 +43,21 @@ void _hdpmi_CliHandler( void );
 void SwitchStackIOIn(  void );
 void SwitchStackIOOut( void );
 
-static __dpmi_raddr QPI_Entry; /* entry QPI (either Qemm's of QPIEMU's) */
+static __dpmi_regs QPI_regs;   /* used for QPI access (either Qemm's or QPIEMU's) */
 static __dpmi_raddr QPI_OldCallback;
-static __dpmi_raddr rmcb;
+static __dpmi_raddr rmcb;      /* realmode callback used to handle trapped port access in v86 mode */
 
 static int maxports;
 static int maxranges;
+#if RMPICTRAPDYN
 static int PICIndex;
-
+#endif
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
 extern void * copyrmcode( void *, int );
 void * dosheap;
 #endif
 
-static uint32_t traphdl[8+1] = {0}; /* hdpmi32i trap handles */
+static uint32_t traphdl[8+1]; /* hdpmi32i trap handles */
 
 
 struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
@@ -95,9 +96,9 @@ static uint16_t PortTable[] = {
 	0xC4, 0xC6,                   /* ch 5; will be modified if HDMA != 5 */
 	0xD0, 0xD2, 0xD4, 0xD6, 0xD8, 0xDA, 0xDC, 0xDE | 0x8000,
 #endif
-	0x220, 0x221, 0x222, 0x223,
-	0x224, 0x225,
-	0x226, 0x228, 0x229,
+	0x220, 0x221, 0x222, 0x223, /* FM */
+	0x224, 0x225, 0x226,
+	0x228, 0x229, /* FM */
 	0x22A, 0x22C,
 	0x22E, 0x22F | 0x8000,
 #if VMPU
@@ -124,7 +125,8 @@ static PORT_TRAP_HANDLER PortHandler[] = {
 #endif
 	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B, /* 0x220-0x223 */
 	VSB_MixerAddr, VSB_MixerData,               /* 0x224-0x225 */
-	VSB_DSP_Reset, VOPL3_388, VOPL3_389,        /* 0x226, 0x228, 0x229 */
+	VSB_DSP_Reset,                              /* 0x226 */
+	VOPL3_388, VOPL3_389,                       /* 0x228, 0x229 */
 	VSB_DSP_Acc0A, VSB_DSP_Acc0C,               /* 0x22a, 0x22c */
 	VSB_DSP_Acc0E, VSB_DSP_Acc0F,               /* 0x22e, 0x22f */
 #if VMPU
@@ -227,8 +229,8 @@ uint16_t PTRAP_GetQEMMVersion(void)
         int count = ioctl(fd, DOS_RCVDATA, 4, &entryfar);
         _dos_close(fd);
         if(count == 4) {
-            r.x.ip = entryfar & 0xFFFF;
-            r.x.cs = entryfar >> 16;
+            QPI_regs.x.ip = entryfar & 0xFFFF;
+            QPI_regs.x.cs = entryfar >> 16;
         }
     }
 #else
@@ -239,13 +241,13 @@ uint16_t PTRAP_GetQEMMVersion(void)
         r.x.ax = 0x3f00;
         __dpmi_simulate_real_mode_interrupt(0x67, &r);
         if ( r.h.ah == 0 && r.x.es ) {
-            r.x.ip = r.x.di;
-            r.x.cs = r.x.es;
+            QPI_regs.x.ip = r.x.di;
+            QPI_regs.x.cs = r.x.es;
         }
     }
 #endif
     /* if Qemm hasn't been found, try Jemm's QPIEMU ... */
-    if ( r.x.cs == 0 ) {
+    if ( QPI_regs.x.cs == 0 ) {
         /* QPIEMU installation check;
          * getting the entry point of QPIEMU is non-trivial in protected-mode, since
          * the int 2Fh must be executed as interrupt ( not just "simulated" ). Here
@@ -260,14 +262,12 @@ uint16_t PTRAP_GetQEMMVersion(void)
         r.x.ip = 0x5C;
         if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || r.h.al )
             return 0;
-        r.x.ip = r.x.di;
-        r.x.cs = r.x.es;
+        QPI_regs.x.ip = r.x.di;
+        QPI_regs.x.cs = r.x.es;
     }
-    r.h.ah = 0x03; /* get version */
-    if( __dpmi_simulate_real_mode_procedure_retf(&r) == 0 ) {
-        QPI_Entry.v86.offset  = r.x.ip;
-        QPI_Entry.v86.segment = r.x.cs;
-        return r.x.ax;
+    QPI_regs.h.ah = 0x03; /* get version */
+    if( __dpmi_simulate_real_mode_procedure_retf(&QPI_regs) == 0 ) {
+        return QPI_regs.x.ax;
     }
     return 0;
 }
@@ -312,30 +312,18 @@ struct rmcode1 {   /* structure must match definitions in rmcode1.asm! */
 bool PTRAP_Prepare_RM_PortTrap()
 ////////////////////////////////
 {
-#ifdef _DEBUG
-    int j;
-#endif
     static __dpmi_regs TrapHandlerREG; /* static RMCS for RMCB */
-    __dpmi_regs r = {0};
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
     struct rmcode1 *dosmem;
 #endif
 
-#ifdef _DEBUG
-    dbgprintf(("PTRAP_Prepare_RM_PortTrap: maxports=%u, maxranges=%u\n", maxports, maxranges ));
-    for( j = 0; j < maxranges; j++ ) {
-        dbgprintf(("PTRAP_Prepare_RM_PortTrap: range[%u]: ports %X-%X\n", j, PortTable[portranges[j]], PortTable[portranges[j+1]-1] ));
-    }
-#endif
-    r.x.ip = QPI_Entry.v86.offset;
-    r.x.cs = QPI_Entry.v86.segment;
-    r.x.ax = 0x1A06;
+    QPI_regs.x.ax = 0x1A06;
     /* get current trap handler */
-    if(__dpmi_simulate_real_mode_procedure_retf(&r) != 0 || (r.x.flags & CPU_CFLAG))
+    if(__dpmi_simulate_real_mode_procedure_retf(&QPI_regs) != 0 || (QPI_regs.x.flags & CPU_CFLAG))
         return false;
-    QPI_OldCallback.v86.offset  = r.x.di;
-    QPI_OldCallback.v86.segment = r.x.es;
-    dbgprintf(("PTRAP_Prepare_RM_PortTrap: old callback=%x:%x\n",r.x.es, r.x.di));
+    QPI_OldCallback.v86.offset  = QPI_regs.x.di;
+    QPI_OldCallback.v86.segment = QPI_regs.x.es;
+    dbgprintf(("PTRAP_Prepare_RM_PortTrap: old callback=%x:%x\n",QPI_OldCallback.v86.segment, QPI_OldCallback.v86.segment));
 
     /* get a realmode callback */
     if ( _hdpmi_rmcbIO( &RM_TrapHandler, &TrapHandlerREG, &rmcb ) == 0 )
@@ -349,18 +337,18 @@ bool PTRAP_Prepare_RM_PortTrap()
     /* the code starts with a rmcode1 struct, now to be initialized...  */
     dosmem->rmcb = rmcb.segofs;
 #if !RMPICTRAPDYN
-    dosmem->qpi = QPI_Entry.segofs;
+    dosmem->qpi = (QPI_regs.x.cs << 16) | QPI_regs.x.ip;
 #endif
     /* set new trap handler ES:DI */
     //r.x.di = 4+2+2+4;
-    r.x.di = offsetof(struct rmcode1, codev86);
-    r.x.es = (_my_psp() + DOSMEMSTART) >> 4;
+    QPI_regs.x.di = offsetof(struct rmcode1, codev86);
+    QPI_regs.x.es = (_my_psp() + DOSMEMSTART) >> 4;
 #else
-    r.x.di = rmcb.v86.offset;
-    r.x.es = rmcb.v86.segment;
+    QPI_regs.x.di = rmcb.v86.offset;
+    QPI_regs.x.es = rmcb.v86.segment;
 #endif
-    r.x.ax = 0x1A07; /* set trap handler */
-    if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || (r.x.flags & CPU_CFLAG))
+    QPI_regs.x.ax = 0x1A07; /* set trap handler */
+    if( __dpmi_simulate_real_mode_procedure_retf(&QPI_regs) != 0 || (QPI_regs.x.flags & CPU_CFLAG))
         return false;
     return true;
 }
@@ -370,11 +358,8 @@ bool PTRAP_Prepare_RM_PortTrap()
 static bool Install_RM_PortRangeTrap( uint16_t start, uint16_t end )
 ////////////////////////////////////////////////////////////////////
 {
-    __dpmi_regs r = {0};
     int i;
 
-    r.x.ip = QPI_Entry.v86.offset;
-    r.x.cs = QPI_Entry.v86.segment;
     for( i = start; i < end; i++ ) {
         if ( QPI_OldCallback.v86.segment ) {
             /* this is unreliable, since if the port was already trapped, there's no
@@ -382,14 +367,14 @@ static bool Install_RM_PortRangeTrap( uint16_t start, uint16_t end )
              * so it might be safer to ignore the old state and - on exit -
              * untrap the port in any case!
              */
-            r.x.ax = 0x1A08; /* get port status */
-            r.x.dx = PortTable[i] & 0x7fff;
-            __dpmi_simulate_real_mode_procedure_retf(&r);
-            PortState[i] |= (r.h.bl) << 8; //previously trapped state
+            QPI_regs.x.ax = 0x1A08; /* get port status */
+            QPI_regs.x.dx = PortTable[i] & 0x7fff;
+            __dpmi_simulate_real_mode_procedure_retf(&QPI_regs);
+            PortState[i] |= (QPI_regs.h.bl) << 8; //previously trapped state
         }
-        r.x.ax = 0x1A09; /* trap port */
-        r.x.dx = PortTable[i] & 0x7fff;
-        __dpmi_simulate_real_mode_procedure_retf(&r); /* trap port */
+        QPI_regs.x.ax = 0x1A09; /* trap port */
+        QPI_regs.x.dx = PortTable[i] & 0x7fff;
+        __dpmi_simulate_real_mode_procedure_retf(&QPI_regs); /* trap port */
         PortState[i] |= PDT_FLGS_RMINST;
     }
     return true;
@@ -402,7 +387,9 @@ bool PTRAP_Install_RM_PortTraps( void )
 {
     int i;
 
+    dbgprintf(("PTRAP_Install_RM_PortTraps: maxports=%u, maxranges=%u\n", maxports, maxranges ));
     for ( i = 0; i < maxranges; i++ ) {
+        dbgprintf(("PTRAP_Install_RM_PortTraps: range[%u]: ports %X-%X\n", i, PortTable[portranges[i]], PortTable[portranges[i+1]-1] ));
 #if RMPICTRAPDYN
         if ( PortTable[portranges[i]] == 0x20 ) {
             PICIndex = portranges[i];
@@ -426,20 +413,17 @@ void PTRAP_SetPICPortTrap( int bSet )
 /////////////////////////////////////
 {
     /* might be called even if support for v86 is disabled */
-    if ( QPI_Entry.v86.segment ) {
+    if ( QPI_regs.x.cs ) {
 #if RMPICTRAPDYN
-        __dpmi_regs r = {0};
-        r.x.ip = QPI_Entry.v86.offset;
-        r.x.cs = QPI_Entry.v86.segment;
-        r.x.dx = PDispTab[PICIndex].port;
+        QPI_regs.x.dx = PDispTab[PICIndex].port;
         if ( bSet ) {
-            r.x.ax = 0x1A09; /* trap */
+            QPI_regs.x.ax = 0x1A09; /* trap */
             PortState[PICIndex] |= PDT_FLGS_RMINST;
         } else {
-            r.x.ax = 0x1A0A; /* untrap */
+            QPI_regs.x.ax = 0x1A0A; /* untrap */
             PortState[PICIndex] &= ~PDT_FLGS_RMINST;
         }
-        __dpmi_simulate_real_mode_procedure_retf(&r); /* trap port */
+        __dpmi_simulate_real_mode_procedure_retf(&QPI_regs); /* trap port */
 #else
         /* patch the 16-bit real-mode code stored in the PSP;
          * see rmcode1.asm, wPICp.
@@ -456,25 +440,22 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 /////////////////////////////////////////
 {
     int i;
-    __dpmi_regs r = {0};
 
-    r.x.ip = QPI_Entry.v86.offset;
-    r.x.cs = QPI_Entry.v86.segment;
     for( i = 0; i < maxports; ++i ) {
         if ( !( PortState[i] & 0xff00 )) {
             if( PortState[i] & PDT_FLGS_RMINST ) {
-                r.x.ax = 0x1A0A; /* clear port trap */
-                r.x.dx = PortTable[i];
-                __dpmi_simulate_real_mode_procedure_retf(&r);
+                QPI_regs.x.ax = 0x1A0A; /* clear port trap */
+                QPI_regs.x.dx = PortTable[i];
+                __dpmi_simulate_real_mode_procedure_retf(&QPI_regs);
                 PortState[i] &= ~PDT_FLGS_RMINST;
                 //dbgprintf(("PTRAP_Uninstall_RM_PortTraps: port %X untrapped\n", PortTable[i] ));
             }
         }
     }
-    r.x.ax = 0x1A07; /* set trap handler */
-    r.x.di = QPI_OldCallback.v86.offset;
-    r.x.es = QPI_OldCallback.v86.segment;
-    if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0) //restore old handler
+    QPI_regs.x.ax = 0x1A07; /* set trap handler */
+    QPI_regs.x.di = QPI_OldCallback.v86.offset;
+    QPI_regs.x.es = QPI_OldCallback.v86.segment;
+    if( __dpmi_simulate_real_mode_procedure_retf(&QPI_regs) != 0) //restore old handler
         return false;
 
     __dpmi_free_real_mode_callback( &rmcb );
@@ -516,6 +497,26 @@ static uint32_t PTRAP_Int_Install_PM_Trap( int start, int end, void(*handlerIn)(
     return _hdpmi_install_trap( start, end - start + 1, &traphandler );
 }
 
+#if 0//def _DEBUG
+void PTRAP_PrintPorts( void )
+/////////////////////////////
+{
+    int start = 0;
+    int i;
+    dbgprintf(( "PTRAP_PrintPorts:\n" ));
+    for ( i = 0; i < maxports; i++ ) {
+        if ( i == ( maxports - 1 ) || ( PortTable[i+1] != PortTable[i]+1 || PortState[i+1] != PortState[i] ) ) {
+            if ( i == start )
+                dbgprintf(( "%X (%X)\n", PortTable[start], PortState[start] ));
+            else
+                dbgprintf(( "%X-%X (%X)\n", PortTable[start], PortTable[i], PortState[start] ));
+            start = i + 1;
+        }
+    }
+    return;
+}
+#endif
+
 bool PTRAP_Install_PM_PortTraps( void )
 ///////////////////////////////////////
 {
@@ -538,6 +539,9 @@ bool PTRAP_Install_PM_PortTraps( void )
                 return false;
         }
     }
+#if 0//def _DEBUG
+    PTRAP_PrintPorts();
+#endif
     return true;
 }
 
@@ -594,7 +598,7 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndirq )
     if ( gvars.mpu ) {
         PortTable[portranges[MPU_PDT] + 0] = gvars.mpu;
         PortTable[portranges[MPU_PDT] + 1] = gvars.mpu + 1;
-	} else {
+    } else {
         PDT_DelEntries( portranges[MPU_PDT], maxports, 2 );
     }
 #endif
@@ -603,10 +607,12 @@ void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndirq )
         for( i = portranges[SB_PDT]; i < portranges[SB_PDT+1]; i++ )
             PortTable[i] += sbaddr - 0x220;
 
-    /* if no OPL3 emulation, skip ports 0x388-0x38b and 0x220-0x223 */
+    /* if no OPL3 emulation, skip ports 0x388-0x38b, 0x220-0x223 and 0x228-0x229 */
     if ( !opl ) {
         PDT_DelEntries( portranges[OPL3_PDT], maxports, 4 );
         PDT_DelEntries( portranges[SB_PDT], maxports, 4 );
+        /* v1.8: also remove ports 0x228-0x229; +3 to skip ports 0x224,0x225,0x226 */
+        PDT_DelEntries( portranges[SB_PDT]+3, maxports, 2 );
     }
 
     /* delete empty port ranges */
@@ -659,40 +665,21 @@ uint8_t PTRAP_UntrappedIO_IN(uint16_t port)
 
 #if PT0V86
 
-/* v1.8: get physical address of v86 pagetab 0 */
+/* v1.8: get physical address of v86 pagetab 0;
+ * this is implemented by an addition to QPIEMU - it
+ * won't work for Qemm.
+ */
 
 uint32_t PTRAP_GetPageTab0v86( void )
 /////////////////////////////////////
 {
-    if ( QPI_Entry.v86.segment ) {
-        __dpmi_regs r = {0};
-        r.x.ip = QPI_Entry.v86.offset;
-        r.x.cs = QPI_Entry.v86.segment;
-        r.x.ax = 0x5000;
-        __dpmi_simulate_real_mode_procedure_retf(&r);
-        if ( 0 == ( r.x.flags & 1 ) )
-            return ( r.d.edx );
+    if ( QPI_regs.x.cs ) {
+        QPI_regs.x.ax = 0x5000;
+        __dpmi_simulate_real_mode_procedure_retf(&QPI_regs);
+        if ( 0 == ( QPI_regs.x.flags & 1 ) )
+            return ( QPI_regs.d.edx );
     }
     return 0;
 }
 #endif
 
-#ifdef _DEBUG
-void PTRAP_PrintPorts( void )
-/////////////////////////////
-{
-    int start = 0;
-    int i;
-    dbgprintf(( "ports:\n" ));
-    for ( i = 0; i < maxports; i++ ) {
-        if ( i < (maxports -1) && ( PortTable[i+1] != PortTable[i]+1 || PortState[i+1] != PortState[i] )) {
-            if ( i == start )
-                dbgprintf(( "%X (%X)\n", PortTable[start], PortState[start] ));
-            else
-                dbgprintf(( "%X-%X (%X)\n", PortTable[start], PortTable[i], PortState[start] ));
-            start = i + 1;
-        }
-    }
-    return;
-}
-#endif

@@ -22,25 +22,24 @@
 #include "CONFIG.H" /* for dbgprintf() */
 #include "PHYSMEM.H"
 
-static __dpmi_regs _xms_regs = {0};
+static __dpmi_regs regs;
 
-#define _xms_inited() ( _xms_regs.x.cs || _xms_regs.x.ip )
+#define _xms_inited() ( regs.x.cs || regs.x.ip )
 
 static int _xms_init(void)
 //////////////////////////
 {
 	if( _xms_inited() )
 		return 1;
-	//memset( &_xms_regs, 0, sizeof(_xms_regs) );
-	_xms_regs.x.ax = 0x4300;
-	__dpmi_simulate_real_mode_interrupt(0x2F, &_xms_regs);
-	if(_xms_regs.h.al != 0x80)
+	regs.x.ax = 0x4300;
+	__dpmi_simulate_real_mode_interrupt(0x2F, &regs);
+	if(regs.h.al != 0x80)
 		return  0;
-	_xms_regs.x.ax = 0x4310;
-	__dpmi_simulate_real_mode_interrupt(0x2F, &_xms_regs);    //control function in es:bx
-	_xms_regs.x.cs = _xms_regs.x.es;
-	_xms_regs.x.ip = _xms_regs.x.bx;
-	//_xms_regs.x.ss = _xms_regs.x.sp = 0;
+	regs.x.ax = 0x4310;
+	__dpmi_simulate_real_mode_interrupt(0x2F, &regs);    //control function in es:bx
+	regs.x.cs = regs.x.es;
+	regs.x.ip = regs.x.bx;
+	//regs.x.ss = regs.x.sp = 0;
 	return 1;
 }
 
@@ -55,20 +54,20 @@ static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
    
 	if(sizeKB == 0 || !_xms_init())
 		return 0;
-	_xms_regs.h.ah = 0x09;    //alloc memory block
-	_xms_regs.x.dx = sizeKB;
-	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	if ( _xms_regs.x.ax != 1 )
+	regs.h.ah = 0x09;    //alloc memory block
+	regs.x.dx = sizeKB;
+	__dpmi_simulate_real_mode_procedure_retf(&regs);
+	if ( regs.x.ax != 1 )
 		return 0;
-	handle = _xms_regs.x.dx;
-	_xms_regs.h.ah = 0x0C;    //lock memory block
-	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	if( _xms_regs.x.ax != 1 ) {
-		_xms_regs.h.ah = 0x0A; //free memory block
-		__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
+	handle = regs.x.dx;
+	regs.h.ah = 0x0C;    //lock memory block
+	__dpmi_simulate_real_mode_procedure_retf(&regs);
+	if( regs.x.ax != 1 ) {
+		regs.h.ah = 0x0A; //free memory block
+		__dpmi_simulate_real_mode_procedure_retf(&regs);
 		return 0;
 	}
-	*addr = ((uint32_t)_xms_regs.x.dx << 16) | _xms_regs.x.bx;
+	*addr = ((uint32_t)regs.x.dx << 16) | regs.x.bx;
 	return handle;
 }
 
@@ -77,15 +76,15 @@ static int xms_free( uint16_t handle )
 {
 	if(!_xms_inited())
 		return 0;
-	_xms_regs.h.ah = 0x0D; /* unlock memory block */
-	_xms_regs.x.dx = handle;
-	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	//if(_xms_regs.x.ax != 1)
+	regs.h.ah = 0x0D; /* unlock memory block */
+	regs.x.dx = handle;
+	__dpmi_simulate_real_mode_procedure_retf(&regs);
+	//if(regs.x.ax != 1)
 	//	return 0;
-	_xms_regs.h.ah = 0x0A; /* free memory block */
-	//_xms_regs.x.dx = handle;
-	__dpmi_simulate_real_mode_procedure_retf(&_xms_regs);
-	return _xms_regs.x.ax == 1;
+	regs.h.ah = 0x0A; /* free memory block */
+	//regs.x.dx = handle;
+	__dpmi_simulate_real_mode_procedure_retf(&regs);
+	return regs.x.ax == 1;
 }
 
 /* alloc XMS memory and map it into linear address space */

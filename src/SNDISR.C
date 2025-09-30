@@ -346,10 +346,11 @@ static int SNDISR_Interrupt( void )
             DMA_Count = VDMA_GetCount(dmachannel);
             /* check if the current DMA buffer is within the mapped region. */
 #if PT0V86
-            /* v1.8: if access to v86 pagetab 0 is installed, translate linear range C0000-FFFFF
-             * to a physical address ( mostly useful for SB sound buffer in EMS page frame ).
+            /* v1.8: if access to v86 pagetab 0 is installed, translate upper memory address
+             * to physical address; this is needed because hdpmi is a VCPI client, hence has
+             * no knowledge of the current v86 mappings.
              */
-            if ( DMA_Base < 0x100000 && DMA_Base >= 0xC0000 && isr.PageTab0v86 ) {
+            if ( DMA_Base < 0x100000 && DMA_Base >= 0xA0000 && isr.PageTab0v86 ) {
 #ifdef _DEBUG
                 uint32_t tmp = DMA_Base;
 #endif
@@ -664,6 +665,7 @@ bool SNDISR_Init( void *hAU, uint16_t vol )
      */
     if ( tmp = PTRAP_GetPageTab0v86() ) {
         if( __dpmi_map_physical_device(isr.Block_Handle, 0x20000 + 0x1000, 1, tmp ) == 0 ) {
+            __dpmi_set_page_attr(isr.Block_Handle, 0x20000 + 0x1000, 1, 3 ); /* 3 = set page to r/o */
             isr.PageTab0v86 = info.address + 0x20000 + 0x1000;
             dbgprintf(("SNDISR_Init: v86 PT0=%X mapped at %X\n", tmp, isr.PageTab0v86 ));
         }

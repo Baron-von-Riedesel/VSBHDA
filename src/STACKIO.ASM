@@ -33,7 +33,6 @@ ifdef NOTFLAT
 STACKCORR equ 2048
 ASSUMEDS textequ <DGROUP>
 insRETF  textequ <retw>
-insLODSW textequ <lodsw [si]>
 PRFXDS   textequ <cs:>
 
 else
@@ -41,7 +40,6 @@ else
 STACKCORR equ 4096
 ASSUMEDS textequ <_DATA>
 insRETF textequ <retd>
-insLODSW textequ <lodsw>
 PRFXDS  textequ <>
 
 endif
@@ -183,19 +181,15 @@ SwitchStackIOrmcb proc
 	cld
 ifdef NOTFLAT
 	movzx edi, di
+	mov eax, [si]
+else
+	mov eax, [esi]
 endif
-	insLODSW
-	mov es:[edi].RMCS.rIP, ax
-	insLODSW
-	mov es:[edi].RMCS.rCS, ax
+	mov es:[edi].RMCS.rCSIP, eax
 	add es:[edi].RMCS.rSP, 2+2
 
 ifdef _DEBUG ;v1.6: dwDS may not be set yet, at least in debug version
-	mov eax, cs:[dwDS]
-	and eax, eax
-	jnz @F
 	mov eax, es
-@@:
 	mov ds, eax
 else
 	mov ds, cs:[dwDS]
@@ -220,15 +214,15 @@ endif
 	push ebp
 if COPYRMCS
 	mov esi, edi
-	push es
-	pop ds
-	mov es, eax
+;	push es
+;	pop ds
+;	mov es, eax
 	sub esp, sizeof RMCS+2
 	mov ecx, (sizeof RMCS+2) shr 2
 	mov edi, esp
 	rep movsd
 	mov edi, esp
-	mov ds, eax
+;	mov ds, eax
 endif
 ife COPYRMCS
 	push es

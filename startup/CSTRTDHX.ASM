@@ -101,7 +101,7 @@ endm
         extrn   __CMain              : near
         extrn   __InitRtns           : near
         extrn   __FiniRtns           : near
-        extrn   __DOSseg__           : near
+;        extrn   __DOSseg__           : near
 
         extrn   _edata               : byte  ; end of DATA (start of BSS)
         extrn   _end                 : byte  ; end of BSS (start of STACK)

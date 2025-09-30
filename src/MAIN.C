@@ -550,7 +550,6 @@ int main(int argc, char* argv[])
     if ( gvars.pm ) {
         if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
             printf("Failed installing IO port trap for protected-mode\n");
-        //PTRAP_PrintPorts(); /* for debugging */
     }
 
     if ( gm.bISR ) {

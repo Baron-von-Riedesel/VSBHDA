@@ -407,6 +407,12 @@ static void DSP_Reset( uint8_t value )
     }
 }
 
+/* translate time constant to frequency
+ * magic values:
+ * 234: 45454
+ * 212: 22727
+ */
+
 static int CalcSampleRate( uint16_t value )
 ///////////////////////////////////////////
 {
@@ -428,8 +434,8 @@ static int CalcSampleRate( uint16_t value )
     }
 
     value = min(value, limit);
-    //rc = 1000000 / ( 256 - value ) / VSB_GetChannels();
-    rc = 256000000u / ( 65536u - (value << 8) ) / channels;
+    //rc = 1000000 / (( 256 - value ) * channels );
+    rc = 256000000u / (( 65536u - (value << 8) ) * channels );
     return rc;
 }
 

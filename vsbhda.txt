@@ -291,9 +291,13 @@
     - Jungle Book: needs SETPVI.EXE to be run before launched.
     - "Legend of Kyrandia 2": allocates a sound buffer in extended memory -
       see notes in 4.3.2).
-    - Lemmings 2: Uses direct disk access ( Int 25h ) - hence the binary
-      has to be located on a FAT12/FAT16 disk.
+    - Lemmings 2, a pretty sensitive game:
+      + uses direct disk access ( Int 25h ); the game has to be located on a
+        FAT12/FAT16 disk.
+      + for SFX to work, vsbhda option /CF1 has to be set.
+      + SB IRQ 5/7 may cause problems, IRQ 2 seems the best to work.
     - MDK: requires option /CF4.
+    - Monkey Island 2: requires option /CF1.
     - Screamer: set max. XMS memory to 31MB (XMSRes 31).
     - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option; the game
       doesn't restore the SB interrupt vector - it may be necessary to reload

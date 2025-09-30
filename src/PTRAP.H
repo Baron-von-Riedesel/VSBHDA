@@ -36,10 +36,6 @@ uint8_t PTRAP_UntrappedIO_IN(uint16_t port);
 uint32_t PTRAP_GetPageTab0v86( void );
 #endif
 
-#ifdef _DEBUG
-void PTRAP_PrintPorts( void ); /* display trapped ports in protected-mode */
-#endif
-
 extern void    (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value);
 extern uint8_t (*UntrappedIO_IN_Handler)(uint16_t port);
 

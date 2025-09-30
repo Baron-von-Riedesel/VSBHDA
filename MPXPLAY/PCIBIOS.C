@@ -42,26 +42,26 @@ extern void fatal_error( int );
 #define PCIFUNCNUM(bParam)     (bParam & 0x07)
 #define PCIDEVFUNC(bDev,bFunc) ((((uint32_t)bDev) << 3) | bFunc)
 
-#define pcibios_clear_regs(reg) memset(&reg,0,sizeof(reg))
+//#define pcibios_clear_regs(reg) memset(&regs,0,sizeof(reg))
 
 /* DPMI function 0x300 is used, with a custom
  * real-mode stack that is >= 1kB, as required by PCI BIOS specs.
  */
 
+static __dpmi_regs regs;
+
 static uint8_t pcibios_GetBus(void)
 ///////////////////////////////////
 {
-	__dpmi_regs reg = {0};
+	regs.h.ah = PCI_FUNCTION_ID;
+	regs.h.al = PCI_BIOS_PRESENT;
+	regs.x.flags = 0x203;
+	regs.x.sp = (uint16_t)_my_rmstksiz();
+	regs.x.ss = _my_rmstack() >> 4;
 
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_BIOS_PRESENT;
-	reg.x.flags = 0x203;
-	reg.x.sp = (uint16_t)_my_rmstksiz();
-	reg.x.ss = _my_rmstack() >> 4;
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &regs );
 
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
-
-	if(reg.x.flags & 1)
+	if(regs.x.flags & 1)
 		return 0;
 
 	return 1;
@@ -70,28 +70,26 @@ static uint8_t pcibios_GetBus(void)
 uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config_s *ppkey)
 //////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0};
+	regs.h.ah = PCI_FUNCTION_ID;
+	regs.h.al = PCI_FIND_DEVICE;
+	regs.x.cx = wDevice;
+	regs.x.dx = wVendor;
+	regs.x.si = 0;  //bIndex;
+	regs.x.flags = 0x202;
+	regs.x.sp = (uint16_t)_my_rmstksiz();
+	regs.x.ss = _my_rmstack() >> 4;
 
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_FIND_DEVICE;
-	reg.x.cx = wDevice;
-	reg.x.dx = wVendor;
-	reg.x.si = 0;  //bIndex;
-	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)_my_rmstksiz();
-	reg.x.ss = _my_rmstack() >> 4;
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &regs );
 
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
-
-	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
-		ppkey->bBus  = reg.h.bh;
-		ppkey->bDev  = PCIDEVNUM(reg.h.bl);
-		ppkey->bFunc = PCIFUNCNUM(reg.h.bl);
+	if(ppkey && (regs.h.ah == PCI_SUCCESSFUL)){
+		ppkey->bBus  = regs.h.bh;
+		ppkey->bDev  = PCIDEVNUM(regs.h.bl);
+		ppkey->bFunc = PCIFUNCNUM(regs.h.bl);
 		ppkey->vendor_id = wVendor;
 		ppkey->device_id = wDevice;
 	}
 
-	return reg.h.ah;
+	return regs.h.ah;
 }
 
 /* search for a specific device class ( used by SC_HDA ), including index.
@@ -103,23 +101,22 @@ uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config
 uint8_t pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-    int i;
-	__dpmi_regs reg = {0};
+	int i;
 
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = PCI_FIND_CLASS;
-	reg.d.ecx = bClass << 16 | bSubClass << 8 | bInterface;
-	reg.x.si = wIndex;
-	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)_my_rmstksiz();
-	reg.x.ss = _my_rmstack() >> 4;
+	regs.h.ah = PCI_FUNCTION_ID;
+	regs.h.al = PCI_FIND_CLASS;
+	regs.d.ecx = bClass << 16 | bSubClass << 8 | bInterface;
+	regs.x.si = wIndex;
+	regs.x.flags = 0x202;
+	regs.x.sp = (uint16_t)_my_rmstksiz();
+	regs.x.ss = _my_rmstack() >> 4;
 
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &regs );
 
-	if(ppkey && (reg.h.ah == PCI_SUCCESSFUL)){
-		ppkey->bBus  = reg.h.bh;
-		ppkey->bDev  = PCIDEVNUM(reg.h.bl);
-		ppkey->bFunc = PCIFUNCNUM(reg.h.bl);
+	if(ppkey && (regs.h.ah == PCI_SUCCESSFUL)){
+		ppkey->bBus  = regs.h.bh;
+		ppkey->bDev  = PCIDEVNUM(regs.h.bl);
+		ppkey->bFunc = PCIFUNCNUM(regs.h.bl);
 		ppkey->vendor_id = pcibios_ReadConfig_Word( ppkey, PCIR_VID );
 		ppkey->device_id = pcibios_ReadConfig_Word( ppkey, PCIR_DID );
 		for( i = 0; devices[i].vendor_id; i++ ){
@@ -160,23 +157,22 @@ uint8_t pcibios_search_devices(const struct pci_device_s devices[], struct pci_c
 static uint32_t access_config( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bFunc, uint32_t data )
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	__dpmi_regs reg = {0};
 #ifdef DJGPP
 	if ( _my_rmstksiz() == 0 )
         fatal_error( 1 );
 #endif
-	reg.h.ah = PCI_FUNCTION_ID;
-	reg.h.al = bFunc;
-	reg.h.bh = ppkey->bBus;
-	reg.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
-	reg.d.ecx = data;
-	reg.x.di = wAdr;
-	reg.x.flags = 0x202;
-	reg.x.sp = (uint16_t)_my_rmstksiz();
-	reg.x.ss = _my_rmstack() >> 4;
-	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &reg );
+	regs.h.ah = PCI_FUNCTION_ID;
+	regs.h.al = bFunc;
+	regs.h.bh = ppkey->bBus;
+	regs.h.bl = PCIDEVFUNC(ppkey->bDev, ppkey->bFunc);
+	regs.d.ecx = data;
+	regs.x.di = wAdr;
+	regs.x.flags = 0x202;
+	regs.x.sp = (uint16_t)_my_rmstksiz();
+	regs.x.ss = _my_rmstack() >> 4;
+	__dpmi_simulate_real_mode_interrupt( PCI_SERVICE, &regs );
 
-	return reg.d.ecx;
+	return regs.d.ecx;
 }
 
 uint8_t    pcibios_ReadConfig_Byte( struct pci_config_s * ppkey, uint16_t wAdr)
@@ -239,8 +235,7 @@ static uint8_t PCI_ReadByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 static uint16_t PCI_ReadWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 /////////////////////////////////////////////////////////////////////////////////
 {
-	if ((reg & 3) <= 2)
-	{
+	if ((reg & 3) <= 2) {
 		const int shift = ((reg & 3) * 8);
 		const uint32_t val = ENABLE_BIT |
 			((uint32_t)bus << 16) |
@@ -249,16 +244,14 @@ static uint16_t PCI_ReadWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg
 			((uint32_t)reg & 0xFC);
 		outpd(PCI_ADDR, val);
 		return (inpd(PCI_DATA) >> shift) & 0xFFFF;
-	}
-	else
+	} else
 		return (uint16_t)((PCI_ReadByte(bus, dev, func, (uint8_t)(reg + 1)) << 8) | PCI_ReadByte(bus, dev, func, reg));
 }
 
 static uint32_t PCI_ReadDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg)
 //////////////////////////////////////////////////////////////////////////////////
 {
-	if ((reg & 3) == 0)
-	{
+	if ((reg & 3) == 0) {
 		uint32_t val = ENABLE_BIT |
 			((uint32_t)bus << 16) |
 			((uint32_t)dev << 11) |
@@ -266,8 +259,7 @@ static uint32_t PCI_ReadDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t re
 			((uint32_t)reg & 0xFC);
 		outpd(PCI_ADDR, val);
 		return inpd(PCI_DATA);
-	}
-	else
+	} else
 		return ((uint32_t)PCI_ReadWord(bus, dev, func, (uint8_t)(reg + 2)) << 16L) | PCI_ReadWord(bus, dev, func, reg);
 }
 
@@ -288,8 +280,7 @@ static void PCI_WriteByte(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, u
 static void PCI_WriteWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint16_t value)
 //////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if ((reg & 3) <= 2)
-	{
+	if ((reg & 3) <= 2) {
 		int shift = ((reg & 3) * 8);
 		uint32_t val = ENABLE_BIT |
 			((uint32_t)bus << 16) |
@@ -298,9 +289,7 @@ static void PCI_WriteWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, u
 			((uint32_t)reg & 0xFC);
 		outpd(PCI_ADDR, val);
 		outpd(PCI_DATA, (inpd(PCI_DATA) & ~(0xFFFFU << shift)) | ((uint32_t)value << shift));
-	}
-	else
-	{
+	} else {
 		PCI_WriteByte(bus, dev, func, (uint8_t)(reg + 0), (uint8_t)(value & 0xFF));
 		PCI_WriteByte(bus, dev, func, (uint8_t)(reg + 1), (uint8_t)(value >> 8));
 	}
@@ -310,8 +299,7 @@ static void PCI_WriteWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, u
 static void PCI_WriteDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, uint32_t value)
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if ((reg & 3) == 0)
-	{
+	if ((reg & 3) == 0) {
 		uint32_t val = ENABLE_BIT |
 			((uint32_t)bus << 16) |
 			((uint32_t)dev << 11) |
@@ -319,9 +307,7 @@ static void PCI_WriteDWord(uint8_t bus, uint8_t dev, uint8_t func, uint8_t reg, 
 			((uint32_t)reg & 0xFC);
 		outpd(PCI_ADDR, val);
 		outpd(PCI_DATA, value);
-	}
-	else
-	{
+	} else {
 		PCI_WriteWord(bus, dev, func, (uint8_t)(reg + 0), (uint16_t)(value & 0xFFFF));
 		PCI_WriteWord(bus, dev, func, (uint8_t)(reg + 2), (uint16_t)(value >> 16));
 	}
