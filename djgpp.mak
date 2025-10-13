@@ -12,9 +12,11 @@ NAME=vsbhda
 ifeq ($(DEBUG),1)
 OUTD=djgppd
 C_DEBUG_FLAGS=-D_DEBUG
+A_DEBUG_FLAGS=-D_DEBUG -Fl=$(OUTD)/
 else
 OUTD=djgpp
 C_DEBUG_FLAGS=
+A_DEBUG_FLAGS=
 endif
 
 vpath_src=src mpxplay
@@ -46,7 +48,7 @@ LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))
 LIBS=$(addprefix -l,stdcxx m)
 
-COMPILE.asm.o=jwasm.exe -q -djgpp -Istartup -D?MODEL=small -DDJGPP -Fo$@ $<
+COMPILE.asm.o=jwasm.exe -q -djgpp -Istartup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
 COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 

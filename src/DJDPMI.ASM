@@ -77,6 +77,7 @@ __dpmi_simulate_real_mode_procedure_retf proc c public uses ebx edi pRegs:ptr
 	align 4
 __dpmi_simulate_real_mode_procedure_retf endp
 
+if 0
 __dpmi_simulate_real_mode_procedure_iret proc c public uses ebx edi pRegs:ptr
 	mov edi, pRegs
 	xor ebx, ebx
@@ -87,6 +88,7 @@ __dpmi_simulate_real_mode_procedure_iret proc c public uses ebx edi pRegs:ptr
 	ret
 	align 4
 __dpmi_simulate_real_mode_procedure_iret endp
+endif
 
 __dpmi_free_real_mode_callback proc c public pRMCB:ptr
 	mov eax, pRMCB

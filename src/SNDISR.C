@@ -159,8 +159,18 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
 #endif
 
 /* rate conversion.
- * src & dst are 16-bit
- * out: new sample cnt
+ * src & dst are 16-bit, channels is either 1 or 2; if it's 2, samplenum is even!
+ * out: new sample cnt.
+ * example with 16 samples, 1 channel, srcrate=4410, dstrate=44100:
+ * 1. instep = (0 << 12) | (((4096 * ( 4410 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
+ *           = (( 4096 * 4410 + 44100 - 1 ) / 44100 ) & 0xfff
+ *           = ( 181.074.459 / 44100 ) & 0xfff
+ *           = 410 & 0xfff -> 410
+ * 2. inend  = ( 16 / 1 ) << 12  -> 65536
+ * 3. do {} while loop: 65536 / 410 = 159 (interpolation steps)
+ *
+ * problem is same as with ADPCM: the last sample(s) should be saved and used as first
+ * in the next call...
  */
 
 static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int srcrate, unsigned int dstrate)
@@ -173,7 +183,7 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 	const unsigned int inend = (samplenum / channels) << 12;
 	PCM_CV_TYPE_S *pcmdst;
 	unsigned long ipi;
-	unsigned int inpos = 0;//(srcrate < dstrate) ? instep/2 : 0;
+	unsigned int inpos = 0;//(srcrate < dstrate) ? instep / 2 : 0;
 	int total;
 #if MALLOCSTATIC
 	static int maxsample = 0;
@@ -200,7 +210,7 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 	pcmdst = pcmsrc;
 	total = samplenum / channels;
 
-	do{
+	do {
 		int m1,m2;
 		unsigned int ipi,ch;
 		PCM_CV_TYPE_S *intmp1,*intmp2;
@@ -211,11 +221,11 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 		ipi *= ch;
 		intmp1 = buff + ipi;
 		intmp2 = ipi < total - ch ? intmp1 + ch : intmp1;
-		do{
+		do {
 			*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) / 4096;// >> 12; //don't use shift, signed right shift impl defined, maybe logical shift
-		}while (--ch);
+		} while (--ch);
 		inpos += instep;
-	}while( inpos < inend );
+	} while ( inpos < inend );
 
 	//dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, samplenum, instep, inend, pcmdst - pcmsrc ));
 
@@ -306,7 +316,7 @@ static int SNDISR_Interrupt( void )
 #endif
 
     AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
-    samples = AU_cardbuf_space( isr.hAU ) / sizeof(int16_t) / 2; //16 bit, 2 channels
+    samples = AU_cardbuf_space( isr.hAU ) / ( sizeof(int16_t) * 2 ); //16 bit, 2 channels
     if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
         PIC_SendEOI( isr.SndIrq );
         return(1);
@@ -474,7 +484,7 @@ static int SNDISR_Interrupt( void )
 #endif
     } else if ( IdxSm = VSB_GetDirectCount( &pDirect ) ) {
 
-        uint32_t freq = AU_getfreq( isr.hAU );
+        //uint32_t freq = AU_getfreq( isr.hAU );
 
         /* calc the src frequency by formula:
          * x / dst-freq = src-smpls / dst-smpls
@@ -482,9 +492,9 @@ static int SNDISR_Interrupt( void )
          */
         uint32_t SB_Rate = IdxSm * freq / samples;
 
-        //dbgprintf(("isr, direct samples: cnt=%d, samples=%d, rate%u\n", count, samples, SB_Rate ));
         memcpy( isr.pPCM, pDirect, IdxSm );
         VSB_ResetDirectCount();
+        //dbgprintf(("isr, direct samples: IdxSm=%d, samples=%d, rate=%u\n", IdxSm, samples, SB_Rate ));
         cv_bits_8_to_16( isr.pPCM, IdxSm, 0 );
         IdxSm = cv_rate( isr.pPCM, IdxSm, 1, SB_Rate, freq );
         cv_channels_1_to_2( isr.pPCM, IdxSm );

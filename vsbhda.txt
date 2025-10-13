@@ -65,12 +65,12 @@
    might look like. Also supplied are STARTL.BAT and START16L.BAT - these
    variants run VSBHDA(16) without JHDPMI.DLL.
 
-    File UNINST.COM may be used to unload VSBHDA. This must be done if one
+    File UNINST.EXE may be used to unload VSBHDA. This must be done if one
    wants to switch from 32-bit to 16-bit and vice versa; the programs
    themselves have problems to detect the presence of the other variant.
 
     As already mentioned, QPIEMU.DLL is needed for real-mode port trapping;
-   also, if it's not installed, UNINST.COM won't work.
+   also, if it's not installed, UNINST.EXE won't work.
 
     Vsbhda16.exe loads file sndcard.drv during initialization. Due to
    limitations of the 16-bit environment ( a module's code/data segments must
@@ -216,7 +216,18 @@
    be set *after* VSBHDA has been loaded and *before* the program is launched.
 
 
-   4.5 Windows 3.1
+   4.5 SoundBlaster IRQ Setting
+
+    The BLASTER environment variable will set the interrupt used by the emulated
+   SoundBlaster card. Most DOS programs assume that this interrupt isn't shared
+   with other devices - tool hwinfo\pciirq.exe will display all PCI devices that
+   use an interrupt, so one can verify that this is the case.
+    Since VSBHDA v1.8 most games will run with sound even if the SB interrupt is
+   shared; the SB interrupt emulation "protects" the SB interrupt routine from
+   receiving real interrupt requests. However, this protection isn't 100% safe.
+
+
+   4.6 Windows 3.1
 
     Windows 3.1 runs as a 16-bit DPMI client and is compatible with HDPMI in
    so-called Standard mode. A few things have to be considered, though:
@@ -248,7 +259,7 @@
      if the BIOS setting "Plug & Play OS" has been set to "Yes".
 
    - "SB found - probably VSBHDA already installed": a SoundBlaster was
-     detected. If it's due to an installed VSBHDA, use UNINST.COM to remove the
+     detected. If it's due to an installed VSBHDA, use UNINST.EXE to remove the
      running VSBHDA from memory.
 
    - "Jemm/Qemm not installed, or version below 7.03: x.x - disable real-mode
@@ -309,4 +320,14 @@
     - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
     - "The Flight of the Amazon Queen": requires SETPVI.
     - X128 (Sinclair Spectrum Emulator): requires Jemm's NOVCPI option.
+
+    The following (incomplete) list shows games that won't run with VSBHDA
+    because they are incompatible with either Jemm/Qemm or HDPMI:
+
+    - Comanche
+    - Privateer
+    - Rayman
+    - Strike Commander
+    - SuperFrog
+    - Zone 66
 

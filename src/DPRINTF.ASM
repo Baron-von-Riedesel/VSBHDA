@@ -1,5 +1,6 @@
 
-;--- debug printf
+;--- _dprintf - for debug output
+;--- printf() - for OW only
 ;--- for OW, assemble with -zcw
 
 	.386
@@ -22,10 +23,9 @@ VioPutChar proto
 	.data
 
 ;--- bOMode is 1 while the program runs as current program;
-;--- once it has made itself resident, bOMode will be 2, meaning
+;--- once it has made itself resident, bOMode will be 2 or 4, meaning
 ;--- stdout shouldn't be used anymore.
 
-bInit db 0
 externdef c bOMode:byte
 
 	.code
@@ -257,7 +257,12 @@ ifdef _DEBUG
 ;--- OW: DS & SS unknown.
 ;--- DJGPP: DS assumed DGROUP
 
+ ifndef DJGPP
 	alias <___dprintf> = <_dprintf>
+ else
+__dprintf proc c public 
+__dprintf endp
+ endif
 
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
@@ -265,16 +270,6 @@ _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 	push ds
 	call __GETDS
  endif
-
-	cmp bInit, 1
-	jz @F
-	mov bInit, 1
-	mov ax, 04Fh
-	int 41h
-	cmp ax, 0F386h
-	jnz @F
-	mov bOMode, 4	; output to debugger
-@@:
 	push eax
 	push ecx
 	push edx
@@ -333,5 +328,14 @@ dbgcondbrk proc c public pVoid:ptr
 	ret
 dbgcondbrk endp
 endif
+
+IsDebuggerPresent proc c public
+	mov ax, 04Fh
+	int 41h
+	cmp ax, 0F386h
+	setz al
+	movzx eax,al
+	ret
+IsDebuggerPresent endp
 
 	end

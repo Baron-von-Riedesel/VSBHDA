@@ -22,11 +22,7 @@
 #include "MPXPLAY.H"
 #include "DMABUFF.H"
 
-#ifdef NOTFLAT
-uint8_t bOMode = 1;
-#else
 extern uint8_t bOMode;
-#endif
 
 #ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
@@ -171,7 +167,7 @@ void FAREXP AU_start( struct audioout_info_s *aui )
 		aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAFULL;
 	}
 #ifdef NOTFLAT
-	if ( bOMode & 1 ) bOMode = 2;  /* no DOS output anymore */
+	if ( bOMode == 1 ) bOMode = 2;  /* no DOS output anymore */
 #endif
 	return;
 }
@@ -529,7 +525,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 #define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (required for PCI cards)
 
 /* this function is static in mpxplay;
- * calculates and returns aui->card_dmaspace - in "sample"-units!
+ * calculates and returns aui->card_dmaspace - byte units.
  */
 
 unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )

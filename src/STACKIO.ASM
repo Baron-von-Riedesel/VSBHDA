@@ -292,6 +292,8 @@ IRETDS ends
 endif
 
 _hdpmi_CliHandler proc public
+
+	assume ds:nothing
 	push ds
 	push esi
 
@@ -302,6 +304,8 @@ ifdef NOTFLAT
 	lds si, dword ptr [esp+2*4].IRETWS.rIp
 	movzx esi, si
 else
+;	bt cs:gvars.compatflags,16
+;	jc unchanged
 	lds esi, fword ptr [esp+2*4].IRETDS.rEip
 endif
 	cmp esi, 3

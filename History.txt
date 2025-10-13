@@ -1,5 +1,5 @@
 
-  v1.8, __._.____
+  v1.8, 13.10.2025
   - fixed: HDA in VmWare.
   - fixed: SB DSP reset no longer resets SB mixer.
   - interrupt handling for SB IRQ changed; switch HOSTRT in sbisr.asm now 0 -

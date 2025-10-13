@@ -86,7 +86,7 @@ extern uint32_t STACKTOP;
 
 #endif
 
-uint8_t bOMode = 1; /* 1=output DOS, 2=direct, 4=debugger */
+uint8_t bOMode; /* 1=output DOS, 2=direct, 4=debugger */
 
 struct MAIN_s {
 	void *hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
@@ -278,6 +278,8 @@ int main(int argc, char* argv[])
     void * p;
     int rmstksel;
     char* blaster = getenv("BLASTER");
+
+    bOMode = IsDebuggerPresent() ? 4 : 1;
 
     if(blaster != NULL) {
         char c;
@@ -569,7 +571,8 @@ int main(int argc, char* argv[])
 
     if( gm.bISR && ( gm.bQemm || (!gvars.rm) ) && ( gm.bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;
-        __dpmi_regs r = {0};
+        //__dpmi_regs r = {0};
+        __dpmi_regs r;
         __dpmi_set_coprocessor_emulation( 0 );
         psp = _my_psp();
         __dpmi_free_dos_memory( ReadLinearW( psp+0x2C ) );
@@ -588,8 +591,9 @@ int main(int argc, char* argv[])
 #else
         __dpmi_free_dos_memory( rmstksel ); /* free _linear_rmstack */
 #endif
-        r.x.dx= 0x10; /* only psp remains in conv. memory */
+        r.x.dx = 0x10; /* only psp remains in conv. memory */
         r.x.ax = 0x3100;
+        r.x.ss = r.x.sp = 0;
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }
     dbgprintf(("main: bISR=%u, bQemm=%u, bHdpmi=%u\n", gm.bISR, gm.bQemm, gm.bHdpmi ));

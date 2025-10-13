@@ -63,6 +63,7 @@ enum {
 };
 
 int _dprintf(const char *fmt, ... );
+int IsDebuggerPresent( void );
 void SetBorder( uint8_t );
 void fatal_error( int );
 

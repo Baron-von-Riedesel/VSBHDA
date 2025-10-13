@@ -20,6 +20,7 @@
 #define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
 
 #define SBMIDIUART 1 /* support DSP cmds 0x34-0x37 */
+#define DIRECTINSTANTDATA 1 /* 1=allow data to be added without delay after cmd 0x10 */
 
 extern struct globalvars gvars;
 
@@ -446,7 +447,7 @@ static void DSP_DoCommand( uint32_t );
 static void DSP_Write0C( uint8_t value, uint32_t flags )
 ////////////////////////////////////////////////////////
 {
-    vsb.WS |= 0x80;
+    vsb.WS |= 0x80;  /* set port 0x0C to "busy"; allegdly some progs want this flag to "toggle" when reading the cmd port */
     if ( vsb.dsp_cmd == SB_DSP_NOCMD ) {
         if( vsb.HighSpeed ) { /* highspeed mode rejects further cmds until reset (flag never set for SB16) */
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
@@ -459,6 +460,10 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
         }
 #endif
         vsb.dsp_cmd = value;
+#if DIRECTINSTANTDATA
+        /* for direct cmd, allow to add data instantly, cause this may be done during interrupt time */
+        if ( value == 0x10 ) vsb.WS &= 0x7F;
+#endif
 #if SB16
         if (vsb.DSPVER >= 0x400)
             vsb.dsp_cmd_len = DSP_cmd_len_sb16[value];
