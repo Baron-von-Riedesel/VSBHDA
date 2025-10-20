@@ -120,10 +120,10 @@ void VMPU_SBMidi_RawWrite( uint8_t value )
 
 /* access of MIDI ports 0x330/0x331 */
 
-uint32_t VMPU_Acc(uint32_t port, uint32_t val, uint32_t flags)
-//////////////////////////////////////////////////////////////
+uint8_t VMPU_Acc(uint16_t port, uint8_t val, uint16_t flags)
+////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (VMPU_Write(port, val), val) : ( val &= ~0xff, val |= VMPU_Read(port) );
+    return (flags & TRAPF_OUT) ? (VMPU_Write(port, val), val) : VMPU_Read(port);
 }
 
 #if SOUNDFONT

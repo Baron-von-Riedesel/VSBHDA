@@ -106,10 +106,10 @@ int VOPL3_GenSamples(int16_t* pcm16, int count)
     return rc;
 }
 
-static uint32_t VOPL3_PrimaryRead( )
-////////////////////////////////////
+static uint8_t VOPL3_PrimaryRead( void )
+////////////////////////////////////////
 {
-    uint32_t val = 0;
+    uint8_t val = 0;
     if ( ( opl3.TimerCtrlReg[0] & (VOPL3_TIMER1_MASK | VOPL3_TIMER1_START ) ) == VOPL3_TIMER1_START )
         val |= VOPL3_TIMER1_TIMEOUT;
     if ( ( opl3.TimerCtrlReg[1] & (VOPL3_TIMER2_MASK | VOPL3_TIMER2_START ) ) == VOPL3_TIMER2_START )
@@ -117,15 +117,15 @@ static uint32_t VOPL3_PrimaryRead( )
     return val;
 }
 
-static void VOPL3_PrimaryWriteIndex(uint32_t val)
-/////////////////////////////////////////////////
+static void VOPL3_PrimaryWriteIndex(uint8_t val)
+////////////////////////////////////////////////
 {
     opl3.IndexReg[VOPL3_PRIMARY] = (uint16_t)opl3.Chip->WriteAddr(0x388, val); /* returns val or 0 */
     return;
 }
 
-static void VOPL3_PrimaryWriteData(uint32_t val)
-////////////////////////////////////////////////////
+static void VOPL3_PrimaryWriteData(uint8_t val)
+///////////////////////////////////////////////
 {
     if ( opl3.IndexReg[VOPL3_PRIMARY] == VOPL3_TIMER_REG_INDEX ) {
         if ( val & (VOPL3_TIMER1_START | VOPL3_TIMER1_MASK ))
@@ -142,8 +142,8 @@ static void VOPL3_PrimaryWriteData(uint32_t val)
     return;
 }
 
-static uint32_t VOPL3_SecondaryRead( )
-//////////////////////////////////////
+static uint8_t VOPL3_SecondaryRead( void )
+//////////////////////////////////////////
 {
     /* v1.7: fixed access to opl3.ADLG_Volume[] */
     if( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) )
@@ -154,8 +154,8 @@ static uint32_t VOPL3_SecondaryRead( )
     return VOPL3_PrimaryRead();
 }
 
-static void VOPL3_SecondaryWriteIndex(uint32_t val)
-///////////////////////////////////////////////////
+static void VOPL3_SecondaryWriteIndex(uint8_t val)
+//////////////////////////////////////////////////
 {
     if(val == 0xFF)
         opl3.ADLG_CtrlEnable = 1;
@@ -166,8 +166,8 @@ static void VOPL3_SecondaryWriteIndex(uint32_t val)
     return;
 }
 
-static void VOPL3_SecondaryWriteData(uint32_t val)
-//////////////////////////////////////////////////
+static void VOPL3_SecondaryWriteData(uint8_t val)
+/////////////////////////////////////////////////
 {
     /* v1.7: fixed access to opl3.ADLG_Volume[] */
     if( opl3.IndexReg[VOPL3_SECONDARY] == ( 0x100 + VOPL3_ADLG_VOLL_REG_INDEX ) )
@@ -184,25 +184,25 @@ static void VOPL3_SecondaryWriteData(uint32_t val)
     return;
 }
 
-uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t flags)
-///////////////////////////////////////////////////////////////
+uint8_t VOPL3_388(uint16_t port, uint8_t val, uint16_t flags)
+/////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? VOPL3_PrimaryWriteIndex(val), val : VOPL3_PrimaryRead();
 }
 
-uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t flags)
-///////////////////////////////////////////////////////////////
+uint8_t VOPL3_389(uint16_t port, uint8_t val, uint16_t flags)
+/////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? VOPL3_PrimaryWriteData(val), val : VOPL3_PrimaryRead();
 }
 
-uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t flags)
-///////////////////////////////////////////////////////////////
+uint8_t VOPL3_38A(uint16_t port, uint8_t val, uint16_t flags)
+/////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? VOPL3_SecondaryWriteIndex(val), val : VOPL3_SecondaryRead();
 }
-uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t flags)
-///////////////////////////////////////////////////////////////
+uint8_t VOPL3_38B(uint16_t port, uint8_t val, uint16_t flags)
+/////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? VOPL3_SecondaryWriteData(val), val : VOPL3_SecondaryRead();
 }

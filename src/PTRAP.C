@@ -32,6 +32,7 @@
 #endif
 
 #define DOSMEMSTART 0x60 /* offset in PSP, bits 0-3 must be zero */
+#define HDPMI_MAXRANGE 8 /* hdpmi is restricted to 8 port ranges */
 
 // next 2 defines must match EQUs in rmcode1.asm!
 #define HANDLE_IN_388H_DIRECTLY 0
@@ -57,10 +58,10 @@ extern void * copyrmcode( void *, int );
 void * dosheap;
 #endif
 
-static uint32_t traphdl[8+1]; /* hdpmi32i trap handles */
+static uint32_t traphdl[HDPMI_MAXRANGE+1]; /* hdpmi32i trap handles */
+static int portranges[HDPMI_MAXRANGE+1]; /* contains index into PortTable/PortHandler */
 
-
-struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry */
+struct HDPMIAPI_ENTRY HDPMIAPI_Entry; /* vendor API entry (FAR32/FAR16) */
 
 void    (*UntrappedIO_OUT_Handler)(uint16_t port, uint8_t value) = (void (*)(uint16_t, uint8_t))&outp;
 uint8_t (*UntrappedIO_IN_Handler)(uint16_t port) = (uint8_t (*)(uint16_t))&inp;
@@ -134,10 +135,8 @@ static PORT_TRAP_HANDLER PortHandler[] = {
 #endif
 };
 
+/* state of trapped ports */
 static uint16_t PortState[countof(PortHandler)];
-
-/* hdpmi is restricted to 8 port ranges */
-static int portranges[8+1];
 
 /* real-mode port trap handler;
  * called by SwitchStackIOrmcb().
@@ -191,8 +190,8 @@ static void RM_TrapHandler( __dpmi_regs * regs)
  * called by SwitchStackIO();
  */
 
-uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
-//////////////////////////////////////////////////////////////////////////////
+uint8_t PTRAP_PM_TrapHandler( uint16_t port, uint16_t flags, uint8_t value )
+////////////////////////////////////////////////////////////////////////////
 {
     int i;
     for( i = 0; i < maxports; i++ )
@@ -207,7 +206,7 @@ uint32_t PTRAP_PM_TrapHandler( uint16_t port, uint32_t flags, uint32_t value )
         UntrappedIO_OUT( port, value );
         return value;
     } else
-        return UntrappedIO_IN( port ) | (value &= ~0xff);
+        return UntrappedIO_IN( port );
 }
 
 

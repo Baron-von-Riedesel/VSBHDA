@@ -336,8 +336,8 @@ void VDMA_WriteData(int channel, uint8_t data, uint8_t iscb)
     }
 }
 
-uint32_t VDMA_Acc(uint32_t port, uint32_t val, uint32_t flags)
-//////////////////////////////////////////////////////////////
+uint8_t VDMA_Acc(uint16_t port, uint8_t val, uint16_t flags)
+////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (VDMA_Write(port, val), val) : (val &= ~0xFF, val |= VDMA_Read(port));
+    return (flags & TRAPF_OUT) ? (VDMA_Write(port, val), val) : VDMA_Read(port);
 }

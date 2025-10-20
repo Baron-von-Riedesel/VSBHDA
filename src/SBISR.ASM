@@ -107,8 +107,12 @@ if WATCHSB
 	mov ax, 900h; disable ints
 	insPUSHF
 	call cs:[oldint31]
-
+ if 0;e HOSTRT ;v1.9: optional check added
+	verr word ptr cs:[currSBvec+SEGOFS]
+	jnz @F
+ endif
 	call cs:[currSBvec]
+@@:
 else
 
 	cmp [VIRQ_Irq], 5
@@ -155,7 +159,7 @@ realsbisr proc
 	pushad
 	sub esp, 34h
 	mov edi, esp
-	xor bx, bx
+	xor ebx, ebx
 	xor ecx, ecx
   ifdef NOTFLAT
 	mov es, cs:[dwDS]
@@ -186,6 +190,11 @@ realsbisr proc
  endif
 	align 4
 realsbisr endp
+
+;--- check if current SB interrupt routine is a valid address.
+;--- called by DSP reset routine.
+;--- This is necessary if HOSTRT equ 0, because in this case
+;--- the DPMI interrupt vector for the SB IRQ isn't modified at all.
 
 VIRQ_Check proc public
 	verr word ptr cs:[currSBvec+SEGOFS]

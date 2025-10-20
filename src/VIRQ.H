@@ -9,7 +9,7 @@ extern "C"
 {
 #endif
 
-uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t out);
+uint8_t VPIC_Acc(uint16_t port, uint8_t val, uint16_t out);
 void VPIC_Init( uint8_t );
 
 void VIRQ_Invoke( void );
@@ -17,7 +17,9 @@ void VIRQ_Invoke( void );
 void VIRQ_WaitForSndIrq( void );
 void VIRQ_Init( uint8_t );
 void VIRQ_Exit( uint8_t );
+#if !HOSTRT
 void VIRQ_Check( void );
+#endif
 
 #ifdef __cplusplus
 }

@@ -20,13 +20,13 @@ typedef struct
 #endif
 
 //generic IO functions
-uint32_t VSB_MixerAddr(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_MixerData(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_DSP_Reset(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_DSP_Acc0A(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_DSP_Acc0C(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_DSP_Acc0E(uint32_t port, uint32_t val, uint32_t flags);
-uint32_t VSB_DSP_Acc0F(uint32_t port, uint32_t val, uint32_t flags);
+uint8_t VSB_MixerAddr(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_MixerData(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_DSP_Reset(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_DSP_Acc0A(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_DSP_Acc0C(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_DSP_Acc0E(uint16_t port, uint8_t val, uint16_t flags);
+uint8_t VSB_DSP_Acc0F(uint16_t port, uint8_t val, uint16_t flags);
 
 void VSB_Init(int irq, int dma, int hdma, int DSPVer, void *hAU );
 uint8_t VSB_GetIRQ( void );
@@ -48,8 +48,7 @@ int VSB_GetAuto( void );
 void VSB_SetIRQStatus( uint8_t );
 int VSB_GetIRQStatus( void );
 uint8_t VSB_GetMixerReg(uint8_t index);
-int VSB_GetDirectCount(uint8_t * *);
-void VSB_ResetDirectCount( void );
+int VSB_ReadDirectSamples(uint8_t *);
 
 #ifdef __cplusplus
 }

@@ -86,6 +86,7 @@ endif
 	jz is204
 	cmp ax, 205h	; set int vector
 	jz is205
+
 prevint:
 	jmp cs:[oldint31]
 is204:

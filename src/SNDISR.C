@@ -280,7 +280,6 @@ static int SNDISR_Interrupt( void )
     uint32_t voicevol2;
 #endif
     int16_t* pPCMOPL;
-    uint8_t* pDirect;
     uint32_t freq;
     int samples;
     int IdxSm; /* sample index in 16bit PCM buffer */
@@ -482,7 +481,7 @@ static int SNDISR_Interrupt( void )
 #else
         samples = IdxSm;
 #endif
-    } else if ( IdxSm = VSB_GetDirectCount( &pDirect ) ) {
+    } else if ( IdxSm = VSB_ReadDirectSamples( (uint8_t *)isr.pPCM ) ) {
 
         //uint32_t freq = AU_getfreq( isr.hAU );
 
@@ -492,8 +491,6 @@ static int SNDISR_Interrupt( void )
          */
         uint32_t SB_Rate = IdxSm * freq / samples;
 
-        memcpy( isr.pPCM, pDirect, IdxSm );
-        VSB_ResetDirectCount();
         //dbgprintf(("isr, direct samples: IdxSm=%d, samples=%d, rate=%u\n", IdxSm, samples, SB_Rate ));
         cv_bits_8_to_16( isr.pPCM, IdxSm, 0 );
         IdxSm = cv_rate( isr.pPCM, IdxSm, 1, SB_Rate, freq );

@@ -16,15 +16,15 @@ int VOPL3_GetMode();
 int VOPL3_GenSamples(int16_t* pcm16, int count);
 
 #ifndef NOFM
-uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t out);
-uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t out);
-uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t out);
-uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t out);
+uint8_t VOPL3_388(uint16_t port, uint8_t val, uint16_t out);
+uint8_t VOPL3_389(uint16_t port, uint8_t val, uint16_t out);
+uint8_t VOPL3_38A(uint16_t port, uint8_t val, uint16_t out);
+uint8_t VOPL3_38B(uint16_t port, uint8_t val, uint16_t out);
 #else
-static inline uint32_t VOPL3_388(uint32_t port, uint32_t val, uint32_t out) { return val; }
-static inline uint32_t VOPL3_389(uint32_t port, uint32_t val, uint32_t out) { return val; }
-static inline uint32_t VOPL3_38A(uint32_t port, uint32_t val, uint32_t out) { return val; }
-static inline uint32_t VOPL3_38B(uint32_t port, uint32_t val, uint32_t out) { return val; }
+static inline uint8_t VOPL3_388(uint16_t port, uint8_t val, uint16_t out) { return val; }
+static inline uint8_t VOPL3_389(uint16_t port, uint8_t val, uint16_t out) { return val; }
+static inline uint8_t VOPL3_38A(uint16_t port, uint8_t val, uint16_t out) { return val; }
+static inline uint8_t VOPL3_38B(uint16_t port, uint8_t val, uint16_t out) { return val; }
 #endif
 bool VOPL3_IsActive( void );
 

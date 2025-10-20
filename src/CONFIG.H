@@ -22,6 +22,7 @@
 #define VOICES_DEFAULT 64
 #endif
 #define PT0V86 1      /* 1=support read access to v86 page table 0 */
+#define HOSTRT 0      /* 0=protect SB irq, so it's not modified by programs; must match setting in SBISR.ASM */
 
 #ifdef __cplusplus
 extern "C"

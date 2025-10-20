@@ -146,10 +146,10 @@ static uint8_t VPIC_Read(uint16_t port)
     return rc;
 }
 
-uint32_t VPIC_Acc(uint32_t port, uint32_t val, uint32_t flags)
-//////////////////////////////////////////////////////////////
+uint8_t VPIC_Acc(uint16_t port, uint8_t val, uint16_t flags)
+////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? (VPIC_Write(port, val), val) : (val &=~0xFF, val |= VPIC_Read(port));
+    return (flags & TRAPF_OUT) ? (VPIC_Write(port, val), val) : VPIC_Read(port);
 }
 
 void VPIC_Init( uint8_t hwirq )

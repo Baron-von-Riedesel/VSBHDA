@@ -6,7 +6,7 @@ extern "C"
 {
 #endif
 
-typedef uint32_t (*PORT_TRAP_HANDLER)(uint32_t port, uint32_t val, uint32_t out);
+typedef uint8_t (*PORT_TRAP_HANDLER)(uint16_t port, uint8_t val, uint16_t flags);
 
 #define PDT_FLGS_RMINST 1
 #define PDT_FLGS_PMINST 2

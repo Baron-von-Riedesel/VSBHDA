@@ -94,7 +94,7 @@
      /VOL    : Set master volume
      /BS     : Set PCM buffer size
      /SD     : Set slowdown factor
-     /O      : Set output connector (HDA & SB Live! only)
+     /O      : Set output connector (HDA & SB Live/Audigy only)
      /DEV    : Set start index for device scan (HDA only)
      /PS     : Set period size
      /SF:fn  : Set sound font filename to load
@@ -157,7 +157,7 @@
    4.2 SETPVI/RESPVI
 
     A few protected-mode games may "freeze" with the default settings of VSBHDA;
-   or, it the game uses the Rational DOS extender (DOS4/GW), a register dump may
+   or, if the game uses the Rational DOS extender (DOS4/GW), a register dump may
    be displayed, with the error message "Transfer buffer overflow". Then there's
    a chance that running SETPVI may fix that. Note that SETPVI won't work with
    Qemm.
@@ -310,9 +310,9 @@
     - MDK: requires option /CF4.
     - Monkey Island 2: requires option /CF1.
     - Screamer: set max. XMS memory to 31MB (XMSRes 31).
-    - Stargunner: to run SETUP.EXE requires Jemm's NOVCPI option; the game
-      doesn't restore the SB interrupt vector - it may be necessary to reload
-      vsbhda after the program has been run.
+    - Stargunner: requires Jemm's NOVCPI option; the game doesn't restore the
+      SB interrupt vector - it may be necessary to reload vsbhda after the
+      program has been run.
     - "Sword and Fairy 1" (Chinese Paladin): allocates a sound buffer in
       extended memory - see notes in 4.3.2).
     - System Shock: set max. XMS memory to 31MB (XMSRes 31) before running

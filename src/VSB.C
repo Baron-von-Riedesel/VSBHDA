@@ -21,6 +21,7 @@
 
 #define SBMIDIUART 1 /* support DSP cmds 0x34-0x37 */
 #define DIRECTINSTANTDATA 1 /* 1=allow data to be added without delay after cmd 0x10 */
+#define DIRECTLASTSMPL 1 /* 1=save last sample and supply it as first in next read */
 
 extern struct globalvars gvars;
 
@@ -52,12 +53,13 @@ static const int VSB_TimeConstantMapMono[][2] = {
 // number of bytes in input for commands (sb1/sb2/sbpro)
 static const uint8_t DSP_cmd_len_sb[256] = {
   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x00
-//  1,0,0,0, 2,0,2,2, 0,0,0,0, 0,0,0,0,  // 0x10
+//1,0,0,0, 2,0,2,2, 0,0,0,0, 0,0,0,0,  // 0x10
   1,0,0,0, 2,2,2,2, 0,0,0,0, 0,0,0,0,  // 0x10 Wari hack
   0,0,0,0, 2,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x20
   0,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0,  // 0x30
 
-  1,2,2,0, 0,0,0,0, 2,0,0,0, 0,0,0,0,  // 0x40
+//1,2,2,0, 0,0,0,0, 2,0,0,0, 0,0,0,0,  // 0x40
+  1,0,0,0, 0,0,0,0, 2,0,0,0, 0,0,0,0,  // 0x40 v1.9 (cmds 41/42 are SB16 only)
   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x50
   0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x60
   0,0,0,0, 2,2,2,2, 0,0,0,0, 0,0,0,0,  // 0x70
@@ -121,7 +123,7 @@ extern ADPCM_STATE ISR_adpcm_state;
 
 #define VSB_RESET_END 0
 #define VSB_RESET_START 1
-#define VSB_DIRECTBUFFER_SIZE 1024
+#define VSB_DIRECTBUFFER_SIZE 256  /* max is 256 so long as DirIdxR/W is uint8_t */
 
 struct VSB_Status {
     int SampleRate;        /* sample rate current op */
@@ -142,7 +144,11 @@ struct VSB_Status {
     uint8_t Dma8;     /* 8-bit DMA channel */
     uint8_t Dma16;    /* 16-bit DMA channel */
     uint8_t MixerRegIndex;
-    uint8_t DirectIdx; /* current index for writes to DirectBuffer */
+    uint8_t DirIdxW; /* current write index to DirectBuffer */
+    uint8_t DirIdxR; /* v1.9: current read index to DirectBuffer */
+#if DIRECTLASTSMPL
+    uint8_t DirLastSmpl;
+#endif
     uint8_t Started;  /* 1=DMA transfer started */
     uint8_t Auto; /* 1=auto-initialize mode active */
     uint8_t Silent;
@@ -158,6 +164,7 @@ struct VSB_Status {
     uint8_t RS;  /* bit 7: register 0E status (1=data available for read at 0A) */
     uint8_t DMAID_A;
     uint8_t DMAID_X;
+    uint8_t last_dsp_cmd;
     uint8_t DataBytes; /* # of bytes to read from DataBuffer */
     uint8_t DataBuffer[48];
     uint8_t bSpeaker;
@@ -337,7 +344,9 @@ static void VSB_DispStatus( void )
     vsb.bDispStat = true;
 	printf("VSB_Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
 	printf("VSB_Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
-	VIRQ_Check();
+# if !HOSTRT
+    VIRQ_Check();
+# endif
 }
 #endif
 
@@ -375,18 +384,25 @@ static void DSP_Reset( uint8_t value )
         vsb.Bits = 8;
         vsb.DMAID_A = 0xAA;
         vsb.DMAID_X = 0x96;
-        vsb.DirectIdx = 0;
+        vsb.DirIdxW = 0;
+        vsb.DirIdxR = 0;
+#if DIRECTLASTSMPL
+        vsb.DirLastSmpl = 0x80;
+#endif
         vsb.WS = 0x7f; /* port 0c may be written */
         vsb.RS = 0x7f; /* no data at port 0a */
         vsb.bTimeConst = 0xD2; /* = 22050 */
 #if FASTCMD14
         vsb.Cmd14Cnt = 4;
 #endif
+        vsb.last_dsp_cmd = 0;
         /* v1.8: no auto-reset of the mixer */
         //VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
         //VSB_Mixer_Write( 1 );
         /* v1.8: check if SB int vector is still valid */
+#if !HOSTRT
         VIRQ_Check();
+#endif
 #if REINITOPL
         MAIN_ReinitOPL();
 #endif
@@ -621,14 +637,13 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.bTimeConst = vsb.dsp_in_data[0];
         dbgprintf(("DSP_DoCommand(%X): set time constant=%X\n", vsb.dsp_cmd, vsb.bTimeConst ));
         break;
-    case SB_DSP_SET_SAMPLERATE: /* 41 - set output sample rate; SB16 only */
-    case SB_DSP_SET_SAMPLERATE_I: SB16_ONLY(); /* 42 - set input sample rate; SB16 only */
+    case SB_DSP_SET_SAMPLERATE: /* 41 - SB16 only; set output sample rate */
+    case SB_DSP_SET_SAMPLERATE_I: SB16_ONLY(); /* 42 - SB16 only; set input sample rate */
         vsb.SampleRate = ( vsb.dsp_in_data[0] << 8 ) | vsb.dsp_in_data[1]; /* hibyte first */
         dbgprintf(("DSP_DoCommand(%X): set sample rate=%u\n", vsb.dsp_cmd, vsb.SampleRate ));
         break;
     case SB_DSP_8BIT_DIRECT: /* 10 */
-        vsb.DirectBuffer[vsb.DirectIdx++] = vsb.dsp_in_data[0];
-        vsb.DirectIdx %= VSB_DIRECTBUFFER_SIZE;
+        vsb.DirectBuffer[vsb.DirIdxW++] = vsb.dsp_in_data[0];
         dbgprintf(("DSP_DoCommand(%X): 8Bit Direct mode, data=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
         break;
     case SB_DSP_SET_SIZE: /* 48 - set DMA block size - used for autoinit cmds (and cmd 91?) */
@@ -695,7 +710,7 @@ static void DSP_DoCommand( uint32_t flags )
         dbgprintf(("DSP_DoCommand(%X): DMA ID, data=%X\n", vsb.dsp_cmd, vsb.DMAID_A ));
         VDMA_WriteData( vsb.Dma8, vsb.DMAID_A, 0 ); /* write to low dma channel */
         break;
-    case SB_DSP_COPYRIGHT: /* E3 */
+    case SB_DSP_COPYRIGHT: /* E3: supported by DSP v4.x; status v3 unclear */
         strcpy( vsb.DataBuffer, SB_Copyright );
         vsb.DataBytes = sizeof( SB_Copyright );
         dbgprintf(("DSP_DoCommand(%X): Copyright, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
@@ -717,17 +732,17 @@ static void DSP_DoCommand( uint32_t flags )
         if ( gvars.compatflags & CF_INSTANTIRQ )
             VIRQ_WaitForSndIrq();
         break;
-    case SB_DSP_TRIGGER_IRQ16: /* F3 */
+    case SB_DSP_TRIGGER_IRQ16: /* F3 - SB16 only */
         VSB_SetIRQStatus( SB_MIXERREG_IRQ_STAT16BIT );
         dbgprintf(("DSP_DoCommand(%X): trigger IRQ16, flags=%X\n", vsb.dsp_cmd, flags ));
         if ( gvars.compatflags & CF_INSTANTIRQ )
             VIRQ_WaitForSndIrq();
         break;
-    case SB_DSP_STATUS: /* FB */
+    case SB_DSP_STATUS: /* FB - SB16 only */
         DSP_AddData( vsb.Started ? (( vsb.Bits <= 8 ? 1 : 4 ) ) : 0 );
         dbgprintf(("DSP_DoCommand(%X): get status, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
-    case SB_DSP_DSP_AUX_STATUS: /* FC */
+    case SB_DSP_DSP_AUX_STATUS: /* FC - SB16 only */
         /* aux status:
          b1: DAC/ADC DMA
          b2: Autoinit 8-bit
@@ -736,13 +751,18 @@ static void DSP_DoCommand( uint32_t flags )
         DSP_AddData( (vsb.Bits > 8 ? (vsb.Auto << 4) : 0) | (vsb.Auto << 2) | (vsb.Started << 1) );
         dbgprintf(("DSP_DoCommand(%X): get aux status, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
+    case SB_DSP_DSP_CMD_STATUS: /* FD - SB16 only; added in v1.9 */
+        DSP_AddData( vsb.last_dsp_cmd );
+        dbgprintf(("DSP_DoCommand(%X): get cmd status, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
+        break;
     case 0x05: /* ASP cmd */
         dbgprintf(("DSP_DoCommand(%X): ASP cmd\n", vsb.dsp_cmd ));
         break;
     default:
         dbgprintf(("DSP_DoCommand(%X): unhandled cmd\n", vsb.dsp_cmd ));
-        break;
+        return; /* don't update last_dsp_cmd */
     }
+    vsb.last_dsp_cmd = vsb.dsp_cmd;
     return;
 }
 
@@ -975,17 +995,32 @@ int VSB_GetIRQStatus( void )
     return( vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] & ( SB_MIXERREG_IRQ_STAT8BIT | SB_MIXERREG_IRQ_STAT16BIT ) );
 }
 
-int VSB_GetDirectCount( uint8_t * *pBuffer )
-////////////////////////////////////////////
+/* v1.9: rewritten, now using a read and a write index
+ */
+
+int VSB_ReadDirectSamples( uint8_t *pBuffer )
+/////////////////////////////////////////////
 {
-    *pBuffer = vsb.DirectBuffer;
-    return vsb.DirectIdx;
-}
-void VSB_ResetDirectCount( void )
-/////////////////////////////////
-{
-    vsb.DirectIdx = 0;
-    return;
+    int rc;
+    uint8_t tmp = vsb.DirIdxW; /* the write pointer is volatile, may change */
+    if ( tmp == vsb.DirIdxR )
+        return 0;
+
+    rc = ( tmp > vsb.DirIdxR ? tmp : VSB_DIRECTBUFFER_SIZE ) - vsb.DirIdxR;
+#if DIRECTLASTSMPL
+    *pBuffer++ = vsb.DirLastSmpl;
+#endif
+    memcpy( pBuffer, &vsb.DirectBuffer[vsb.DirIdxR], rc );
+    if ( tmp && tmp < vsb.DirIdxR ) {
+        memcpy( pBuffer + rc, vsb.DirectBuffer, tmp );
+        rc += tmp;
+    }
+#if DIRECTLASTSMPL
+    vsb.DirLastSmpl = *(pBuffer+rc-1);
+    rc++; /* seems to reduce noise a bit */
+#endif
+    vsb.DirIdxR = tmp;
+    return rc;
 }
 
 uint8_t VSB_GetMixerReg(uint8_t index)
@@ -994,18 +1029,18 @@ uint8_t VSB_GetMixerReg(uint8_t index)
     return vsb.MixerRegs[index];
 }
 
-uint32_t VSB_MixerAddr( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_MixerAddr( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (VSB_Mixer_SetIndex( val ), val) : 0xff;
 }
-uint32_t VSB_MixerData( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_MixerData( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
-	return (flags & TRAPF_OUT) ? (VSB_Mixer_Write( val ), val) : (val &= ~0xFF, val |= VSB_Mixer_Read() );
+	return (flags & TRAPF_OUT) ? (VSB_Mixer_Write( val ), val) : VSB_Mixer_Read();
 }
-uint32_t VSB_DSP_Reset( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_DSP_Reset( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (DSP_Reset( val ), val) : 0xff;
 }
@@ -1015,18 +1050,18 @@ uint32_t VSB_DSP_Reset( uint32_t port, uint32_t val, uint32_t flags )
  * data is available if "read status" bit 7=1
  */
 
-uint32_t VSB_DSP_Acc0A( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_DSP_Acc0A( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? val : (val &=~0xFF, val |= DSP_Read0A());
+    return (flags & TRAPF_OUT) ? val : DSP_Read0A();
 }
 
 /* read/write DSP "write data or command"
  * port offset 0Ch
  */
 
-uint32_t VSB_DSP_Acc0C( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_DSP_Acc0C( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (DSP_Write0C( val, flags ), val) : DSP_Read0C();
 }
@@ -1036,13 +1071,13 @@ uint32_t VSB_DSP_Acc0C( uint32_t port, uint32_t val, uint32_t flags )
  * data is available if read status bit 7=1
  * a read also works as 8-bit "IRQ ack"
  */
-uint32_t VSB_DSP_Acc0E( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_DSP_Acc0E( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? val : (val &= ~0xFF, val |= DSP_Read0E());
+    return (flags & TRAPF_OUT) ? val : DSP_Read0E();
 }
-uint32_t VSB_DSP_Acc0F( uint32_t port, uint32_t val, uint32_t flags )
-/////////////////////////////////////////////////////////////////////
+uint8_t VSB_DSP_Acc0F( uint16_t port, uint8_t val, uint16_t flags )
+///////////////////////////////////////////////////////////////////
 {
-    return (flags & TRAPF_OUT) ? val : (val &= ~0xFF, val |= DSP_Read0F());
+    return (flags & TRAPF_OUT) ? val : DSP_Read0F();
 }
