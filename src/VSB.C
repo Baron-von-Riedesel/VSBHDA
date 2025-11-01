@@ -20,8 +20,8 @@
 #define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
 
 #define SBMIDIUART 1 /* support DSP cmds 0x34-0x37 */
-#define DIRECTINSTANTDATA 1 /* 1=allow data to be added without delay after cmd 0x10 */
-#define DIRECTLASTSMPL 1 /* 1=save last sample and supply it as first in next read */
+#define CMD10NOWAIT 1 /* 1=don't set busy flag if DSP cmd==0x10 (both cmd & data) */
+#define CMD10LASTSMPL 1 /* 1=save last sample and supply it as first in next read */
 
 extern struct globalvars gvars;
 
@@ -146,7 +146,7 @@ struct VSB_Status {
     uint8_t MixerRegIndex;
     uint8_t DirIdxW; /* current write index to DirectBuffer */
     uint8_t DirIdxR; /* v1.9: current read index to DirectBuffer */
-#if DIRECTLASTSMPL
+#if CMD10LASTSMPL
     uint8_t DirLastSmpl;
 #endif
     uint8_t Started;  /* 1=DMA transfer started */
@@ -160,8 +160,7 @@ struct VSB_Status {
 #endif
     uint8_t ResetState; /* 1=VSB_RESET_START, 0=VSB_RESET_END */
     uint8_t TestReg;
-    uint8_t WS;  /* bit 7: register 0C status (0=cmd/data may be written) */
-    uint8_t RS;  /* bit 7: register 0E status (1=data available for read at 0A) */
+    uint8_t bWS; /* bit 7: register 0C status (0=cmd/data may be written) */
     uint8_t DMAID_A;
     uint8_t DMAID_X;
     uint8_t last_dsp_cmd;
@@ -386,16 +385,15 @@ static void DSP_Reset( uint8_t value )
         vsb.DMAID_X = 0x96;
         vsb.DirIdxW = 0;
         vsb.DirIdxR = 0;
-#if DIRECTLASTSMPL
+#if CMD10LASTSMPL
         vsb.DirLastSmpl = 0x80;
 #endif
-        vsb.WS = 0x7f; /* port 0c may be written */
-        vsb.RS = 0x7f; /* no data at port 0a */
+        vsb.bWS = 0x7f; /* port 0c may be written */
         vsb.bTimeConst = 0xD2; /* = 22050 */
 #if FASTCMD14
         vsb.Cmd14Cnt = 4;
 #endif
-        vsb.last_dsp_cmd = 0;
+        vsb.last_dsp_cmd = SB_DSP_NOCMD;
         /* v1.8: no auto-reset of the mixer */
         //VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
         //VSB_Mixer_Write( 1 );
@@ -463,7 +461,7 @@ static void DSP_DoCommand( uint32_t );
 static void DSP_Write0C( uint8_t value, uint32_t flags )
 ////////////////////////////////////////////////////////
 {
-    vsb.WS |= 0x80;  /* set port 0x0C to "busy"; allegdly some progs want this flag to "toggle" when reading the cmd port */
+    vsb.bWS = 0xff;  /* set port 0x0C to "busy"; allegdly some progs want this flag to "toggle" when reading the cmd port */
     if ( vsb.dsp_cmd == SB_DSP_NOCMD ) {
         if( vsb.HighSpeed ) { /* highspeed mode rejects further cmds until reset (flag never set for SB16) */
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
@@ -476,9 +474,12 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
         }
 #endif
         vsb.dsp_cmd = value;
-#if DIRECTINSTANTDATA
-        /* for direct cmd, allow to add data instantly, cause this may be done during interrupt time */
-        if ( value == 0x10 ) vsb.WS &= 0x7F;
+#if CMD10NOWAIT
+        /* for direct cmd don't set busy flag; this cmd is (usually) handled during
+         * timer interrupts and if the program detects the busy flag set it may just
+         * exit.
+         */
+        if ( value == 0x10 ) vsb.bWS = 0x7f;
 #endif
 #if SB16
         if (vsb.DSPVER >= 0x400)
@@ -644,6 +645,9 @@ static void DSP_DoCommand( uint32_t flags )
         break;
     case SB_DSP_8BIT_DIRECT: /* 10 */
         vsb.DirectBuffer[vsb.DirIdxW++] = vsb.dsp_in_data[0];
+#if CMD10NOWAIT
+        vsb.bWS = 0x7f;
+#endif
         dbgprintf(("DSP_DoCommand(%X): 8Bit Direct mode, data=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
         break;
     case SB_DSP_SET_SIZE: /* 48 - set DMA block size - used for autoinit cmds (and cmd 91?) */
@@ -776,7 +780,6 @@ static uint8_t DSP_Read0A( void )
         rc = vsb.DataBuffer[0];
         vsb.DataBytes--;
         if (vsb.DataBytes) memcpy( vsb.DataBuffer, &vsb.DataBuffer[1], vsb.DataBytes );
-        vsb.RS &= 0x7F;
         return( rc );
     }
     dbgprintf(("DSP_Read0A: read buffer empty, returning %X\n", vsb.DataBuffer[0] ));
@@ -790,9 +793,9 @@ static uint8_t DSP_Read0A( void )
 static uint8_t DSP_Read0C( void )
 /////////////////////////////////
 {
-    uint8_t tmp = vsb.WS;
+    uint8_t tmp = vsb.bWS;
     //dbgprintf(("DSP_Read0C (bit 7=0 means DSP ready for cmd/data)\n"));
-    vsb.WS = 0x7F;
+    vsb.bWS = 0x7F;
     return tmp;
 }
 
@@ -805,11 +808,8 @@ static uint8_t DSP_Read0E( void )
 {
     vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~SB_MIXERREG_IRQ_STAT8BIT;
 
-    if ( vsb.DataBytes )
-        vsb.RS |= 0x80;
-
-    //dbgprintf(("DSP_ReadStatus=%X\n", vsb.RS ));
-    return vsb.RS;
+    /* bit 7=1 of port 0x0E indicates data available at port 0x0A */
+    return (vsb.DataBytes ? 0xff : 0x7f);
 }
 
 /* read port 02xF;
@@ -1007,7 +1007,7 @@ int VSB_ReadDirectSamples( uint8_t *pBuffer )
         return 0;
 
     rc = ( tmp > vsb.DirIdxR ? tmp : VSB_DIRECTBUFFER_SIZE ) - vsb.DirIdxR;
-#if DIRECTLASTSMPL
+#if CMD10LASTSMPL
     *pBuffer++ = vsb.DirLastSmpl;
 #endif
     memcpy( pBuffer, &vsb.DirectBuffer[vsb.DirIdxR], rc );
@@ -1015,7 +1015,7 @@ int VSB_ReadDirectSamples( uint8_t *pBuffer )
         memcpy( pBuffer + rc, vsb.DirectBuffer, tmp );
         rc += tmp;
     }
-#if DIRECTLASTSMPL
+#if CMD10LASTSMPL
     vsb.DirLastSmpl = *(pBuffer+rc-1);
     rc++; /* seems to reduce noise a bit */
 #endif

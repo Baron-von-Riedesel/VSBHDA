@@ -2,6 +2,13 @@
 # create vsbhdad.exe with DJGPP and JWasm.
 # to create a debug version, enter: make -f djgpp.mak DEBUG=1
 # note that JWasm v2.17+ is needed ( understands -djgpp option )
+#
+# Please note: DJGPP uses CWSDPMI as its DPMI host - this works
+# fine so long as just DJGPP tools are launched. However, JWasm is no
+# such tool - it expects to run under a "full" DPMI host, which CWSDPMI is not.
+# This may cause all sorts of errors if JWasm is launched by DJGPP's make.
+# The simplest workaround is to run HDPMI32.EXE with option -r before
+# DJGPP's make tool is executed.
 
 ifndef DEBUG
 DEBUG=0

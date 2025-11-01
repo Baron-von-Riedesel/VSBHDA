@@ -60,7 +60,10 @@ struct globalvars {
 
 /* compatflags bits */
 enum {
-    CF_INSTANTIRQ = 1,
+    CF_INSTANTIRQ = 1, /* "instant" SB interrupt triggered on DSP cmd 0xF2 */
+    CF_STIONEOI   = 2, /* run STI when OUT 20h,al (al=20h) is trapped */
+    CF_MASKPIT    = 4, /* mask PIT during Snd interrupt */
+    CF_NODIVERR   = 8, /* 16-bit pmode only: catch divide error (borland rtm bug) */
 };
 
 int _dprintf(const char *fmt, ... );

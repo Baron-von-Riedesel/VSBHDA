@@ -43,4 +43,6 @@ extern uint32_t _hdpmi_install_trap( int port, int cnt, struct _hdpmi_traphandle
 extern bool     _hdpmi_uninstall_trap( uint32_t handle );
 extern uint8_t  _hdpmi_simulate_byte_in( int port );
 extern void     _hdpmi_simulate_byte_out( int port, uint8_t value );
+#ifndef NOTFLAT
 extern void     _hdpmi_set_cli_handler( void (* hdlproc)(void) );
+#endif

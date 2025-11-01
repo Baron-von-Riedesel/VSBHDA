@@ -117,6 +117,7 @@ _hdpmi_simulate_byte_out proc c public uses ebx port:word, value:byte
 	ret
 _hdpmi_simulate_byte_out endp
 
+ifndef NOTFLAT
 ;--- install CLI handler
 ;--- just the offset is provided
 ;--- if it's 0, it's assumed that the handler is to be deinstalled!
@@ -133,5 +134,6 @@ _hdpmi_set_cli_handler proc c public uses ebx pHandler:ptr
 	@hdpmicall
 	ret
 _hdpmi_set_cli_handler endp
+endif
 
 	END

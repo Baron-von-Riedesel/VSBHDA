@@ -204,7 +204,7 @@ _InstallInt31 proc public uses ebx pGVars:ptr GLOBALVARS
 ifdef NOTFLAT
  if FIXEXC00
 	mov ebx,pGVars
-	test [ebx.GLOBALVARS.compatflags],8
+	test [ebx.GLOBALVARS.compatflags],CF_NODIVERR
 	jz @F
 	call InstallExc00
 @@:

@@ -118,8 +118,8 @@ if IRETFIX
 	test al, 20h; v1.8: all EOIs are detected!
 	jz @F
  endif
-	bt gvars.compatflags,1	;watch EOIs (for both master & slave)?
-	jnc @F
+	test byte ptr gvars.compatflags, CF_STIONEOI; auto STI on EOIs (for both master & slave)?
+	jz @F
 	or byte ptr [ebp].IOEXCFR._fl+1, 2	; set IF=1
 @@:
 endif
@@ -304,8 +304,6 @@ ifdef NOTFLAT
 	lds si, dword ptr [esp+2*4].IRETWS.rIp
 	movzx esi, si
 else
-;	bt cs:gvars.compatflags,16
-;	jc unchanged
 	lds esi, fword ptr [esp+2*4].IRETDS.rEip
 endif
 	cmp esi, 3

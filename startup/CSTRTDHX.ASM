@@ -200,6 +200,8 @@ _cstart_ proc near
 ;
 ConsoleName     db      "con",0
 NewLine         db      0Dh,0Ah
+szMSDOS         db      "MS-DOS",0
+szNoDosExt      db      "No DOS-Extender",13,10,0
 
         align   4
         dd      ___begtext              ; make sure dead code elimination
@@ -224,6 +226,26 @@ around:
 		sub eax, ebp
 		mov _STACKLOW, eax
 		xor ebp, ebp
+
+		mov ax,168ah
+		mov esi,offset szMSDOS
+		int 2Fh
+		cmp al,0
+		jz dosext
+		mov esi,offset szNoDOSExt	; __do_exit_with_msg() cannot be used without DOS extender!
+@@:
+		lodsb
+		and al,al
+		jz @F
+		mov dl,al
+		mov ah,2
+		int 21h
+		jmp @B
+@@:
+		mov ax,4C01h
+		int 21h
+dosext:
+
 ;
 ;       get DOS & Extender version number
 ;

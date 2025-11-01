@@ -297,7 +297,7 @@ static int SNDISR_Interrupt( void )
 
 #if COMPAT4
     /* v1.8: /CF4 */
-    if (gvars.compatflags & 4 ) {
+    if ( gvars.compatflags & CF_MASKPIT ) {
         mask = PIC_GetIRQMask();
         PIC_SetIRQMask(mask | 1);
     }
@@ -625,7 +625,7 @@ static int SNDISR_Interrupt( void )
 #endif
     PIC_SendEOI( isr.SndIrq );
 #if COMPAT4
-    if ( gvars.compatflags & 4 )
+    if ( gvars.compatflags & CF_MASKPIT )
         return( 2 | (mask << 8 ));
 #endif
 

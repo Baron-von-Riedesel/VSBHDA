@@ -8,6 +8,9 @@ TRAPINT21 equ 1	; 1=hook int 21h
 SETIF     equ 1	; 1=enable interrupts inside sound isr (setting should match the one in config.h)
 COMPAT4   equ 1	; 1=support /CF4
 
+CF_STIONEOI equ 2
+CF_NODIVERR equ 8
+
 ifdef NOTFLAT
 
 SEGOFS equ 2
