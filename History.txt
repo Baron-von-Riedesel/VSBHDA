@@ -2,6 +2,7 @@
   v1.9
   - added dsp cmd 0xFD (DSP cmd status).
   - handling DSP direct cmd (0x10) reworked.
+  - "busy" status of DSP cmd/data port reworked.
 
   v1.8, 13.10.2025
   - fixed: HDA in VmWare.

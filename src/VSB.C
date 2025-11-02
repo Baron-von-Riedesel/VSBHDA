@@ -23,6 +23,8 @@
 #define CMD10NOWAIT 1 /* 1=don't set busy flag if DSP cmd==0x10 (both cmd & data) */
 #define CMD10LASTSMPL 1 /* 1=save last sample and supply it as first in next read */
 
+#define CMDPORTMASK 0x3 /* mask to determine when a cmd port is to be "busy" */
+
 extern struct globalvars gvars;
 
 #if REINITOPL
@@ -160,7 +162,7 @@ struct VSB_Status {
 #endif
     uint8_t ResetState; /* 1=VSB_RESET_START, 0=VSB_RESET_END */
     uint8_t TestReg;
-    uint8_t bWS; /* bit 7: register 0C status (0=cmd/data may be written) */
+    uint8_t bWS;        /* count for cmd port status return value */
     uint8_t DMAID_A;
     uint8_t DMAID_X;
     uint8_t last_dsp_cmd;
@@ -388,7 +390,7 @@ static void DSP_Reset( uint8_t value )
 #if CMD10LASTSMPL
         vsb.DirLastSmpl = 0x80;
 #endif
-        vsb.bWS = 0x7f; /* port 0c may be written */
+        vsb.bWS = 0; /* init port 0c status count */
         vsb.bTimeConst = 0xD2; /* = 22050 */
 #if FASTCMD14
         vsb.Cmd14Cnt = 4;
@@ -461,7 +463,8 @@ static void DSP_DoCommand( uint32_t );
 static void DSP_Write0C( uint8_t value, uint32_t flags )
 ////////////////////////////////////////////////////////
 {
-    vsb.bWS = 0xff;  /* set port 0x0C to "busy"; allegdly some progs want this flag to "toggle" when reading the cmd port */
+    /* some progs want the cmd port 0x0C to be busy after the port has been written */
+    vsb.bWS = CMDPORTMASK;  /* v1.9: next read of port 0x0C will return status "busy" */
     if ( vsb.dsp_cmd == SB_DSP_NOCMD ) {
         if( vsb.HighSpeed ) { /* highspeed mode rejects further cmds until reset (flag never set for SB16) */
             dbgprintf(("DSP_Write: cmd %X ignored, HighSpeed active\n", value ));
@@ -479,7 +482,7 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
          * timer interrupts and if the program detects the busy flag set it may just
          * exit.
          */
-        if ( value == 0x10 ) vsb.bWS = 0x7f;
+        if ( value == 0x10 ) vsb.bWS = 0;
 #endif
 #if SB16
         if (vsb.DSPVER >= 0x400)
@@ -646,7 +649,7 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_8BIT_DIRECT: /* 10 */
         vsb.DirectBuffer[vsb.DirIdxW++] = vsb.dsp_in_data[0];
 #if CMD10NOWAIT
-        vsb.bWS = 0x7f;
+        vsb.bWS = 0;
 #endif
         dbgprintf(("DSP_DoCommand(%X): 8Bit Direct mode, data=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
         break;
@@ -793,10 +796,9 @@ static uint8_t DSP_Read0A( void )
 static uint8_t DSP_Read0C( void )
 /////////////////////////////////
 {
-    uint8_t tmp = vsb.bWS;
-    //dbgprintf(("DSP_Read0C (bit 7=0 means DSP ready for cmd/data)\n"));
-    vsb.bWS = 0x7F;
-    return tmp;
+    /* v1.9: cmd port status will be returned as busy "every now and then" */
+    vsb.bWS++;
+    return ((vsb.bWS & CMDPORTMASK) == 0 ) ? 0xff : 0x7f;
 }
 
 /* read status register 02xE;
