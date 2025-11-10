@@ -91,7 +91,7 @@
 #define SB_MIXERREG_INT_SETUP    0x80 /* IRQ select, bits 0-3; SB16 only, but used internally */
 #define SB_MIXERREG_DMA_SETUP    0x81 /* DMA select, bits 0-7; SB16 only, but used internally */
 #define SB_MIXERREG_IRQ_STATUS   0x82 /* IRQ status, bits 0-2; SB16 only, but used internally */
-#define SB_MIXERREG_IRQ_STAT8BIT  1
+#define SB_MIXERREG_IRQ_STAT8BIT  1 /* bit 0 is also used for SB-MIDI interrupt status */
 #define SB_MIXERREG_IRQ_STAT16BIT 2
 #define SB_MIXERREG_IRQ_STATMPU   4
 /* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */

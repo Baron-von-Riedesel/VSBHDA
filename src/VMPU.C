@@ -74,6 +74,7 @@ static uint8_t VMPU_Read(uint16_t port)
 {
 	/* data port? */
 	if ( port == gvars.mpu ) {
+		/* reading port 0x330 should reset MPU-401 interrupt status bit in mixer reg 0x82! */
 		if ( bReset ) {
 			dbgprintf(("VMPU_Read(%X)=0xfe (reset)\n", port ));
 			bReset = false;

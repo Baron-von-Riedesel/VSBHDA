@@ -5,7 +5,12 @@
 	.386
 	.model ?MODEL
 
+;--- OW v1.9 wlink has problems with class "CONST" if output format is PE.
+ifdef OW19
+	.data
+else
 	.const
+endif
 
 RMCodeTab label dword
 	dd offset RMCode1, RMCode1Size

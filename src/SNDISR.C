@@ -17,12 +17,9 @@
 #include "CTADPCM.H"
 #include "PTRAP.H"
 
-#if DISPSTAT
-#include <stdio.h>
-#endif
-
 #ifdef _DEBUG
 //#define SNDISRLOG
+#include <stdio.h>
 #endif
 
 #include "AU.H"

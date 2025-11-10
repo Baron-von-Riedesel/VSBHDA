@@ -84,9 +84,16 @@ PEHDR ends
 
 ;include extender.inc
 
+NO87 equ 0
+LFN  equ 0
+
 DOS_PSP_ENV_SEG equ 2Ch
+if NO87
 FLG_NO87        equ     1
+endif
+if LFN
 FLG_LFN         equ     1
+endif
 
 @cextrn macro x,y
 extern c x:y
@@ -116,8 +123,12 @@ endm
 ifndef OW19
         extrn    __child             : dword
 endif
+if NO87
         extrn    __no87              : byte
-;        @cextrn   __uselfn           , byte
+endif
+if LFN
+        @cextrn   __uselfn           , byte
+endif
         @cextrn   _Extender          , byte
         @cextrn   _ExtenderSubtype   , byte
         @cextrn   _Envptr            , dword
@@ -304,12 +315,17 @@ noparm: sub     al,al
         push    edi                     ; save pointer to pgm name
         push    edx                     ; save ds(stored in dx)
         mov     ds,word ptr es:_Envptr+4; get segment addr of environment area
+if LFN
         mov     bx,FLG_LFN*256          ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
-
+elseif NO87
+        xor     bx,bx
+endif
 L1:
-if 0
+if NO87 or LFN
         mov     eax,[esi]               ; get first 4 characters
         or      eax,20202020h           ; map to lower case
+endif
+if NO87
         cmp     eax,37386f6eh           ; check for "no87"
         jne     short L2                ; skip if not "no87"
         cmp     byte ptr 4[esi],'='     ; make sure next char is "="
@@ -317,6 +333,8 @@ if 0
         or      bl,FLG_NO87             ; - indicate 'no87' was present
         jmp     L4
 L2:
+endif
+if LFN
         cmp     eax,3d6e666ch           ; check for 'lfn='
         jne     short L4                ; skip if not 'lfn='
         mov     al,byte ptr 4[esi]      ; get next character
@@ -344,8 +362,12 @@ L5:     cmp     byte ptr [esi],0        ; end of pgm name ?
         pop     esi                     ; restore address of pgm name
 
         assume  ds:DGROUP
+if NO87
         mov     __no87,bl               ; set state of "no87" enironment var
-;        and     __uselfn,bh             ; set "LFN" support status
+endif
+if LFN
+        and     __uselfn,bh             ; set "LFN" support status
+endif
         mov     ebx,esp                 ; end of stack in data segment
         mov     _dynend,ebx             ; set top of dynamic memory area
         push edi

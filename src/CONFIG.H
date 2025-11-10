@@ -16,7 +16,6 @@
 #define SETABSVOL 0   /* 0=the master volume is set by /VOL cmdline option and isn't modified by the application */
 #define VMPU 1        /* 1=virtualize MPU at port 0x330-0x331 if BLASTER contains P=xxx */
 #define SLOWDOWN 1    /* 1=support /SD option */
-#define DISPSTAT 1    /* 1=display VSB status */
 #define SOUNDFONT 1   /* 1=support soundfonts if VMPU is on */
 #if SOUNDFONT
 #define VOICES_DEFAULT 64

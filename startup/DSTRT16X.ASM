@@ -19,8 +19,16 @@ XS_RATIONAL_NONZEROBASE equ 1
 XS_PHARLAP_NORMAL       equ 0
 
 DOS_PSP_ENV_SEG equ 2Ch
+
+NO87 equ 0
+LFN  equ 0
+
+if NO87
 FLG_NO87        equ     1
+endif
+if LFN
 FLG_LFN         equ     1
+endif
 
 	externdef c _DSBase          : dword
 	externdef c __linear_rmstack : dword
@@ -33,7 +41,9 @@ FLG_LFN         equ     1
 ifndef OW19
 	extern    __child            : dword
 endif
+if NO87
 	extern    __no87             : byte
+endif
 	extern c  _dynend            : dword
 	extern c  _curbrk            : dword
 	extern c  _psp               : word
@@ -214,7 +224,9 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	mov word ptr _Envptr+4,cx	; save segment of environment area
 ;
 ;	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
+if NO87
 	mov __no87,0				; set state of "no87" environment var
+endif
 if LFN
 	and __uselfn,0				; set "LFN" support status
 endif

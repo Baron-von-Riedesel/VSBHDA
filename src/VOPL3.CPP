@@ -110,6 +110,9 @@ static uint8_t VOPL3_PrimaryRead( void )
 ////////////////////////////////////////
 {
     uint8_t val = 0;
+    /* some programs may distinguish SB Pro 1 from SB Pro 2 by value read from port 0x388:
+     * 0x06 -> Pro1, 0x00 -> Pro 2.
+     */
     if ( ( opl3.TimerCtrlReg[0] & (VOPL3_TIMER1_MASK | VOPL3_TIMER1_START ) ) == VOPL3_TIMER1_START )
         val |= VOPL3_TIMER1_TIMEOUT;
     if ( ( opl3.TimerCtrlReg[1] & (VOPL3_TIMER2_MASK | VOPL3_TIMER2_START ) ) == VOPL3_TIMER2_START )

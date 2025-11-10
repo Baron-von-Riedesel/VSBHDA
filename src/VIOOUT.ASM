@@ -35,9 +35,9 @@ endm
 
 VioPutChar proc
 
-local	wCols:word
-local	bChar:byte
 local	bRows:byte
+local	bCols:byte
+local	bChar:byte
 
 	pushad
 
@@ -47,13 +47,12 @@ if @Model ne 7
 	sub edi, PREFIX[DSBase]
 endif
 	mov bChar, al
-	mov ch, [edi+84h]		; rows-1
 	mov cl, [edi+4Ah]		; cols
+	mov ch, [edi+84h]		; rows-1
+	mov bCols, cl
 	mov bRows, ch
 	@getcursorpos bx		; bh=row, bl=col
 	movzx eax, bh			; eax=row
-	movzx ecx, cl
-	mov wCols, cx
 	mul cl
 	add eax, eax
 	movzx ebx, bl			; ebx=col
@@ -84,6 +83,7 @@ endif
 @@:
 	cmp al, 10
 	jnz @F
+	movzx ecx, cl
 	add ebx, ecx
 	add ebx, ecx
 	jmp char_done
@@ -108,7 +108,7 @@ char_done:
 @@:
 	mov eax, ebx
 	push eax
-	mov cx, wCols
+	mov cl, bCols
 	shr eax, 1
 	div cl
 	xchg al, ah
@@ -133,19 +133,20 @@ cursorset:
 scrollup:			;scroll up one line
 	mov edi, esi
 	push edi
-	movzx esi, wCols
+	movzx ecx, bCols
+	mov esi, ecx
 	lea esi, [esi*2+edi]
-	mov cl, byte ptr wCols
 	mov al, bRows
 	mul cl
-	movzx ecx, ax
-	shr cx,1
-	rep movsd [edi], [esi]
+	mov cx, ax
+	shr ecx,1
+	cld
+	rep movsd
 	push edi
-	mov cx, wCols
+	mov cl, bCols
 	mov eax,07200720h
-	shr cx, 1
-	rep stosd [edi]
+	shr ecx, 1
+	rep stosd
 	pop eax
 	pop edi
 	sub eax, edi

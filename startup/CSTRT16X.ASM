@@ -16,11 +16,16 @@ X_PHARLAP_V1  equ 2
 XS_RATIONAL_NONZEROBASE equ 1
 XS_PHARLAP_NORMAL       equ 0
 
+NO87 equ 0
 LFN equ 0	;1=support LFN (here not needed for C)
 
 DOS_PSP_ENV_SEG equ 2Ch
+if NO87
 FLG_NO87        equ 1
+endif
+if LFN
 FLG_LFN         equ 1
+endif
 
 CStr macro text:vararg
 local sym
@@ -40,7 +45,9 @@ endm
 ifndef OW19
         extrn    __child             : dword
 endif
+if NO87
         extrn    __no87              : byte
+endif
         extrn   _end                 : near  ; end of BSS (start of STACK)
 
         extern c  _dynend            : dword
@@ -281,12 +288,15 @@ dosext:
 	assume ds:nothing
 if LFN
 	mov bx,FLG_LFN shl 8        ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
-else
+elseif NO87
 	xor bx,bx
 endif
 nextitem:
+if NO87 or LFN
 	mov eax,[esi]               ; get first 4 characters
 	or eax,20202020h            ; map to lower case
+endif
+if NO87
 	cmp eax,"78on"              ; check for "no87"
 	jne @F                      ; skip if not "no87"
 	cmp byte ptr [esi+4],'='    ; make sure next char is "="
@@ -294,6 +304,7 @@ nextitem:
 	or bl,FLG_NO87              ; - indicate 'no87' was present
 	jmp L4
 @@:
+endif
 if LFN
 	cmp eax,"=nfl"              ; check for 'lfn='
 	jne L4                      ; skip if not 'lfn='
@@ -322,7 +333,9 @@ L4:
 	pop ds
 	assume ds:DGROUP
 	pop esi                     ; restore address of pgm name
+if NO87
 	mov __no87,bl               ; set state of "no87" enironment var
+endif
 if LFN
 	and __uselfn,bh             ; set "LFN" support status
 endif

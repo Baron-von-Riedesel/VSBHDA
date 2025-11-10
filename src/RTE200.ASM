@@ -23,13 +23,18 @@ myexc00 proc
 	movzx ebx, [esp+2*4].EXCFRAME._ip
 	cmp word ptr es:[ebx], 0F1F7h	; F7 F1: "div cx"
 	jnz oldexc
+if 0 ; no need to check the "last instruction" - just test current CX
 	cmp bx, 3
 	jb oldexc
-	cmp word ptr es:[ebx-3], 037b9h	; B9 37 00: "mov cx, 0037"
+	cmp word ptr es:[ebx-3], 037b9h	; B9 37 00: "mov cx, 0037h"
 	jnz oldexc
 	cmp byte ptr es:[ebx-1], 0
 	jnz oldexc
-	mov dx, 35h	; anthing below 37h should do
+else
+	cmp cx,37h
+	jnz oldexc
+endif
+	mov dx, 36h	; anthing below 37h should do
 	pop ebx
 	pop es
 	retw

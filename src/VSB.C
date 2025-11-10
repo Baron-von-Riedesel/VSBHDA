@@ -24,6 +24,7 @@
 #define CMD10LASTSMPL 1 /* 1=save last sample and supply it as first in next read */
 
 #define CMDPORTMASK 0x3 /* mask to determine when a cmd port is to be "busy" */
+#define DISPSTAT 1 /* 1=support displaying DSP status */
 
 extern struct globalvars gvars;
 
@@ -169,9 +170,6 @@ struct VSB_Status {
     uint8_t DataBytes; /* # of bytes to read from DataBuffer */
     uint8_t DataBuffer[48];
     uint8_t bSpeaker;
-#if DISPSTAT
-    uint8_t bDispStat;
-#endif
     uint8_t bTimeConst;
     uint8_t MixerRegs[SB_MIXERREG_MAX+1];
 
@@ -342,7 +340,6 @@ static void DSP_AddData( uint8_t data )
 static void VSB_DispStatus( void )
 //////////////////////////////////
 {
-    vsb.bDispStat = true;
 	printf("VSB_Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
 	printf("VSB_Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
 # if !HOSTRT
@@ -410,7 +407,6 @@ static void DSP_Reset( uint8_t value )
         switch (value) {
         case 0:
             DSP_AddData( 0xAA );
-            vsb.ResetState = VSB_RESET_END;
             break;
         case 0x55:  /* uninstall */
             MAIN_Uninstall();
@@ -421,6 +417,7 @@ static void DSP_Reset( uint8_t value )
             break;
 #endif
         }
+        vsb.ResetState = VSB_RESET_END;
     }
 }
 

@@ -1,26 +1,43 @@
 
-# create vsbhda16.exe with Open Watcom and JWasm.
-# to create the binary, enter
+# Create vsbhda16.exe with Open Watcom and JWasm.
+# To create the binary, enter
 #   wmake -f ow16.mak
-# optionally, for a debug version, enter
+# Optionally, for a debug version, enter
 #   wmake -f ow16.mak debug=1
+#
+# The build process is supposed to be run in either Windows or DOS.
+# For DOS, however, it's necessary to install the HX runtime package
+# and setup HX for full Win32 emulation:
+#  C:\>HDPMI32 -a -r
+#  C:\>SET DPMILDR=8
+#  C:\>HXLDR32
 
 !ifndef DEBUG
 DEBUG=0
 !endif
 
+!ifndef WATCOM
 WATCOM=\ow20
+!endif
 # use OW v2 (0) or OW v1.9 (1)
+!ifndef USE19
 USE19=0
+!endif
+!ifndef USEJWL
+USEJWL=1
+!endif
 
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
-CC=$(WATCOM)\binnt\wcc386
-CPP=$(WATCOM)\binnt\wpp386
-LINK=$(WATCOM)\binnt\wlink
-#LINK=jwlink
-LIB=$(WATCOM)\binnt\wlib
+CC=$(WATCOM)\binnt\wcc386.exe
+CPP=$(WATCOM)\binnt\wpp386.exe
+!if $(USEJWL)
+LINK=jwlink.exe
+!else
+LINK=$(WATCOM)\binnt\wlink.exe
+!endif
+LIB=$(WATCOM)\binnt\wlib.exe
 ASM=jwasm.exe
 
 NAME=vsbhda16
@@ -175,7 +192,7 @@ $(OUTD)/libmain.obj:   startup\libmain.c
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode1.bin src\rmcode1.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode2.bin src\rmcode2.asm
-	@$(ASM) -q -DNOTFLAT -D?MODEL=small -Fl$(OUTD)\ -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
+	@$(ASM) -q -DNOTFLAT -D?MODEL=small $(OW19) -Fl$(OUTD)\ -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).lib

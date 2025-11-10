@@ -9,34 +9,38 @@
 # 2. Adjust USE19  - should be 1 if OW v1.9 is to be used.
 # 3. Adjust USEJWL - should be 0 if JWLink isn't available
 #                    and OW's WLink is to be used.
-# 4. Adjust similar settings in OW16.MAK.
-
-# The Makefile assumes that the OW Win32 branch is used for creating
-# vsbhda.exe. To use the DOS branch instead, all occurances of \binnt\
-# below have to be changed to \binw\.
-
-# A few modules from the HX DOS extender are used.
+#
+# The Makefile assumes that the OW Win32 branch is used.
+# To use it unmodified in DOS requires the HX DOS extender and
+# to setup HX for full Win32 emulation:
+#  C:\>HDPMI32 -a -r
+#  C:\>SET DPMILDR=8
+#  C:\>HXLDR32
+#
+# A few modules from the HX DOS extender development package are used.
 # They are included as binaries in directory res:
 #
 # 1. loadpero.bin  pe loader stub attached to binary.
 # 2. patchpe.exe   patches PE signature to PX; only needed if
 #                  OW WLink is used instead of JWLink.
-#
-# patchpe.exe is a Win32 application; to run it in DOS, the
-# HXRT package will be needed.
 
 !ifndef DEBUG
 DEBUG=0
 !endif
 
+!ifndef WATCOM
 WATCOM=\ow20
+!endif
 # use OW v2 (0) or OW v1.9 (1)
+!ifndef USE19
 USE19=0
+!endif
 # use jwlink (1) or wlink (0)
+!ifndef USEJWL
 USEJWL=1
+!endif
 # activate next line if FM synth should be deactivated
 #NOFM=1
-
 
 CC=$(WATCOM)\binnt\wcc386.exe
 CPP=$(WATCOM)\binnt\wpp386.exe
@@ -45,10 +49,12 @@ ASM=jwasm.exe
 
 !if $(USEJWL)
 LINK=jwlink.exe
-JWLHX=hx
+FMTHX=hx
+CONSTATTR=segment CONST readonly
+CONST2ATTR=segment CONST2 readonly
 !else
 LINK=$(WATCOM)\binnt\wlink.exe
-JWLHX=
+FMTHX=
 !endif
 
 NAME=vsbhda
@@ -117,23 +123,20 @@ $(OUTD):
 
 $(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrtdhx.obj
 	@$(LINK) @<<
-format win pe $(JWLHX) runtime console
+format win pe $(FMTHX) runtime console
 file $(OUTD)\cstrtdhx, $(OUTD)\main, $(OUTD)\linear
 name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $(OUTD)\$(NAME).lib
 op q,m=$(OUTD)\$(NAME).map,stub=res\loadpero.bin,stack=0x10000,heap=0x1000
-!if $(USEJWL)
-segment CONST readonly
-segment CONST2 readonly
-!endif
+$(CONSTATTR) $(CONST2ATTR)
 <<
-!if !$(USEJWL) 
-	res\@patchpe $*.exe
+!if !$(USEJWL)
+	@res\patchpe $*.exe
 !endif
 
 $(OUTD16)\$(NAME)16.exe: .always
-	@wmake -h -f OW16.mak debug=$(DEBUG)
+	@wmake -h -f OW16.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
@@ -187,7 +190,7 @@ $(OUTD)/sbrk.obj:      startup\sbrk.asm
 $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode1.bin src\rmcode1.asm
 	@$(ASM) -q -bin -Fl$(OUTD)\ -Fo$(OUTD)\rmcode2.bin src\rmcode2.asm
-	@$(ASM) -q -D?MODEL=flat -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
+	@$(ASM) -q -D?MODEL=flat $(OW19) -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
 	@wmake -h -f OW16.mak debug=$(DEBUG) clean
