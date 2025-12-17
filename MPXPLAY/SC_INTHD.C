@@ -724,7 +724,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
 	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, bytes_per_sample * aui->chan_card / 2, aui->freq_set);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, 2 );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE )) return 0;
 	card->table_buffer = (struct BDL_s *)card->dm.pMem;
 	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);

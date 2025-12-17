@@ -35,12 +35,7 @@
 /* ------------------- DEFINES -------------------- */
 
 #define EMUPAGESIZE     4096
-#define MAXREQVOICES    8
-#define MAXPAGES        8192
-#define RESERVED        0
-#define NUM_MIDI        16
 #define NUM_G           64              /* use all channels */
-#define NUM_FXSENDS     4
 #define NUM_EFX_PLAYBACK    16
 
 /* FIXME? - according to the OSS driver the EMU10K1 needs a 29 bit DMA mask */
@@ -48,9 +43,9 @@
 #define AUDIGY_DMA_MASK     0xffffffffUL    /* 32bit */
 
 #define TMEMSIZE        256*1024
-#define TMEMSIZEREG     4
+//#define TMEMSIZEREG     4
 
-#define IP_TO_CP(ip) ((ip == 0) ? 0 : (((0x00001000uL | (ip & 0x00000FFFL)) << (((ip >> 12) & 0x000FL) + 4)) & 0xFFFF0000uL))
+//#define IP_TO_CP(ip) ((ip == 0) ? 0 : (((0x00001000uL | (ip & 0x00000FFFL)) << (((ip >> 12) & 0x000FL) + 4)) & 0xFFFF0000uL))
 
 // Audigy specify registers are prefixed with 'A_'
 
@@ -74,6 +69,8 @@
                                     /* Clear pending interrupts by writing a 1 to */
                                     /* the relevant bits and zero to the other bits */
 
+#define IPR_P16V                 0x80000000    /* v1.9: set if the CA0151 P16V chip wishes to interrupt */
+#define IPR_WATERMARK_REACHED    0x40000000    /* ??? */
 #define IPR_GPIOMSG              0x20000000    /* GPIO message interrupt (RE'd, still not sure which INTE bits enable it)            */
 
 /* The next two interrupts are for the midi port on the Audigy Drive (A_MPU1) */
@@ -101,14 +98,14 @@
 #define IPR_INTERVALTIMER        0x00000200    /* Interval timer terminal count */
 #define IPR_MIDITRANSBUFEMPTY    0x00000100    /* MIDI UART transmit buffer empty */
 #define IPR_MIDIRECVBUFEMPTY     0x00000080    /* MIDI UART receive buffer empty */
-#define IPR_CHANNELLOOP          0x00000040    /* Channel (half) loop interrupt(s) pending */
-#define IPR_CHANNELNUMBERMASK    0x0000003f    /* When IPR_CHANNELLOOP is set, indicates the */
-                        /* highest set channel in CLIPL, CLIPH, HLIPL,  */
-                        /* or HLIPH.  When IP is written with CL set,    */
-                        /* the bit in H/CLIPL or H/CLIPH corresponding    */
-                        /* to the CIN value written will be cleared.    */
+#define IPR_CHANNELLOOP          0x00000040    /* Channel (half) loop interrupt(s) pending    */
+#define IPR_CHANNELNUMBERMASK    0x0000003f    /* When IPR_CHANNELLOOP is set, indicates the  */
+                                               /* highest set channel in CLIPL, CLIPH, HLIPL, */
+                                               /* or HLIPH.  When IP is written with CL set,  */
+                                               /* the bit in H/CLIPL or H/CLIPH corresponding */
+                                               /* to the CIN value written will be cleared.   */
 
-#define EMU10K_INTENABLE        0x0c        /* Interrupt enable register */
+#define EMU10K_INTENABLE      0x0c          /* Interrupt enable register */
 #define INTE_VIRTUALSB_MASK   0xc0000000    /* Virtual Soundblaster I/O port capture */
 #define INTE_VIRTUALSB_220    0x00000000    /* Capture at I/O base address 0x220-0x22f */
 #define INTE_VIRTUALSB_240    0x40000000    /* Capture at I/O base address 0x240 */
@@ -129,10 +126,10 @@
 #define INTE_FORCEINT         0x00100000    /* Continuously assert INTAN */
 
 #define INTE_MRHANDENABLE    0x00080000    /* Enable the "Mr. Hand" logic */
-                        /* NOTE: There is no reason to use this under */
-                        /* Linux, and it will cause odd hardware */
-                        /* behavior and possibly random segfaults and */
-                        /* lockups if enabled. */
+                                           /* NOTE: There is no reason to use this under */
+                                           /* Linux, and it will cause odd hardware */
+                                           /* behavior and possibly random segfaults and */
+                                           /* lockups if enabled. */
 
 /* The next two interrupts are for the midi port on the Audigy Drive (A_MPU1) */
 #define INTE_A_MIDITXENABLE2   0x00020000    /* Enable MIDI transmit-buffer-empty interrupts */
@@ -159,14 +156,14 @@
 #define WC_SAMPLECOUNTER_MASK    0x03FFFFC0  /* Sample periods elapsed since reset */
 #define WC_SAMPLECOUNTER    0x14060010
 #define WC_CURRENTCHANNEL    0x0000003F      /* Channel [0..63] currently being serviced */
-                        /* NOTE: Each channel takes 1/64th of a sample    */
-                        /* period to be serviced.            */
+                                             /* NOTE: Each channel takes 1/64th of a sample */
+                                             /* period to be serviced. */
 
-#define HCFG            0x14        /* Hardware config register */
-                        /* NOTE: There is no reason to use the legacy */
-                        /* SoundBlaster emulation stuff described below */
-                        /* under Linux, and all kinds of weird hardware */
-                        /* behavior can result if you try.  Don't. */
+#define HCFG            0x14                 /* Hardware config register */
+                                             /* NOTE: There is no reason to use the legacy */
+                                             /* SoundBlaster emulation stuff described below */
+                                             /* under Linux, and all kinds of weird hardware */
+                                             /* behavior can result if you try.  Don't. */
 #define HCFG_LEGACYFUNC_MASK    0xe0000000    /* Legacy function number */
 #define HCFG_LEGACYFUNC_MPU     0x00000000    /* Legacy MPU */
 #define HCFG_LEGACYFUNC_SB      0x40000000    /* Legacy SB */
@@ -181,7 +178,21 @@
 #define HCFG_LEGACYINT          0x00200000    /* 1 = legacy event captured. Write 1 to clear. */
 
 /* NOTE: The rest of the bits in this register _are_ relevant under Linux. */
-#define HCFG_CODECFORMAT_MASK   0x00070000    /* CODEC format */
+#define HCFG_PUSH_BUTTON_ENABLE 0x00100000    /* enables vol inc/dec and mute functions */
+#define HCFG_BAUD_RATE          0x00080000    /* 0=48k, 1=44.1k */
+#define HCFG_EXPANDED_MEM       0x00040000    /* 1=any 16M of 4G addr, 0=32M of 2G addr */
+#define HCFG_CODECFORMAT_MASK   0x00030000    /* CODEC format */
+
+/* Specific to Alice2, CA0102 */
+
+#define HCFG_CODECFORMAT_AC97_1 0x00000000    /* AC97 CODEC format -- v1.03 */
+#define HCFG_CODECFORMAT_AC97_2 0x00010000    /* AC97 CODEC format -- v2.1 */
+#define HCFG_AUTOMUTE_ASYNC     0x00008000    /* if 1, SRC will mute their output when they aren't rate-locked */
+#define HCFG_AUTOMUTE_SPDIF     0x00004000    /* if 1, SRC will mute their output when the SPDIF V-bit indicates invalid audio */
+#define HCFG_EMU32_SLAVE        0x00002000    /* 0=master, 1=slave */
+
+/* Older chips */
+
 #define HCFG_CODECFORMAT_AC97   0x00000000    /* AC97 CODEC format -- Primary Output */
 #define HCFG_CODECFORMAT_I2S    0x00010000    /* I2S CODEC format -- Secondary (Rear) Output */
 #define HCFG_GPINPUT0           0x00004000    /* External pin112 */
@@ -224,7 +235,7 @@
 #define MUCMD               0x19        /* MPU401 command register (8 bits) */
 #define MUCMD_RESET         0xff        /* RESET command */
 #define MUCMD_ENTERUARTMODE 0x3f        /* Enter_UART_mode command */
-                        /* NOTE: All other commands are ignored */
+                                        /* NOTE: All other commands are ignored */
 
 #define MUSTAT            MUCMD       /* MPU401 status register (8 bits) */
 #define MUSTAT_IRDYN      0x80        /* 0 = MIDI data or command ACK */
@@ -255,21 +266,22 @@
  *    for a1 platinum:    0x0
  */
 
-#define TIMER            0x1a        /* Timer terminal count register        */
-                        /* NOTE: After the rate is changed, a maximum    */
-                        /* of 1024 sample periods should be allowed    */
-                        /* before the new rate is guaranteed accurate.    */
+#define TIMER            0x1a                /* Timer terminal count register               */
+                                             /* NOTE: After the rate is changed, a maximum  */
+                                             /* of 1024 sample periods should be allowed    */
+                                             /* before the new rate is guaranteed accurate. */
 #define TIMER_RATE_MASK        0x000003ff    /* Timer interrupt rate in sample periods    */
-                        /* 0 == 1024 periods, [1..4] are not useful    */
+                                             /* 0 == 1024 periods, [1..4] are not useful  */
 //#define TIMER_RATE        0x0a00001a
 
-#define AC97DATA        0x1c        /* AC97 register set data register (16 bit)    */
+#define AC97DATA         0x1c            /* AC97 register set data register (16 bit)    */
 
-#define AC97ADDRESS        0x1e        /* AC97 register set address register (8 bit)    */
-#define AC97ADDRESS_READY    0x80        /* Read-only bit, reflects CODEC READY signal    */
-#define AC97ADDRESS_ADDRESS    0x7f        /* Address of indexed AC97 register        */
+#define AC97ADDRESS      0x1e            /* AC97 register set address register (8 bit)  */
+#define AC97ADDRESS_READY      0x80      /* Read-only bit, reflects CODEC READY signal  */
+#define AC97ADDRESS_ADDRESS    0x7f      /* Address of indexed AC97 register            */
 
 /* Available on the Audigy 2 and Audigy 4 only. This is the P16V chip. */
+
 #define PTR2            0x20        /* Indexed register set pointer register */
 #define DATA2           0x24        /* Indexed register set data register */
 #define IPR2            0x28        /* P16V interrupt pending register */
@@ -290,7 +302,8 @@
 #define INTE2_PLAYBACK_CH_3_LOOP      0x00008000 /* Playback Channel 3 loop */
 #define INTE2_PLAYBACK_CH_3_HALF_LOOP 0x00000800 /* Playback Channel 3 half loop */
 #define INTE2_CAPTURE_CH_0_LOOP       0x00100000 /* Capture Channel 0 loop */
-#define INTE2_CAPTURE_CH_0_HALF_LOOP  0x00010000 /* Caputre Channel 0 half loop */
+#define INTE2_CAPTURE_CH_0_HALF_LOOP  0x00010000 /* Capture Channel 0 half loop */
+
 #define HCFG2            0x34        /* Defaults: 0, win2000 sets it to 00004201 */
                         /* 0x00000000 2-channel output. */
                         /* 0x00000200 8-channel output. */
@@ -365,17 +378,13 @@
 
 #define PSST                   0x06          /* Send C amount and loop start address register */
 #define PSST_FXSENDAMOUNT_C_MASK 0xff000000  /* Linear level of channel output sent to FX send bus C */
-
 #define PSST_FXSENDAMOUNT_C    0x08180006
-
 #define PSST_LOOPSTARTADDR_MASK 0x00ffffff   /* Loop start address of the specified channel */
 #define PSST_LOOPSTARTADDR     0x18000006
 
-#define DSL                    0x07          /* Send D amount and loop start address register */
+#define DSL                    0x07          /* Send D amount and loop end address register */
 #define DSL_FXSENDAMOUNT_D_MASK 0xff000000   /* Linear level of channel output sent to FX send bus D */
-
 #define DSL_FXSENDAMOUNT_D     0x08180007
-
 #define DSL_LOOPENDADDR_MASK   0x00ffffff    /* Loop end address of the specified channel */
 #define DSL_LOOPENDADDR        0x18000007
 
@@ -770,8 +779,14 @@
 #define HLIPH            0x69        /* Channel half loop interrupt pending high register */
 
 // 0x6a,6b,6c used for some recording
+#define A_SPRI           0x6a /* SPDIF host record index */
+#define A_SPRA           0x6b /* SPDIF host record address */
+#define A_SPRC           0x6c /* SPDIF host record control */
 // 0x6d unused
+#define A_DICE           0x6d /* Delayed Interrupt Counter & Enable	*/
 // 0x6e,6f - tanktable base / offset
+#define A_TTB			0x6e /* Tank Table Base	*/
+#define A_TDOF			0x6f /* Tank Delay Offset */
 
 /* This is the MPU port on the card (via the game port) */
 #define A_MUDATA1        0x70
@@ -791,20 +806,43 @@
 
 #define A_EHC                 0x76         /* extended hardware control */
 #define A_SPDIF_SAMPLERATE    A_EHC        /* Set the sample rate of SPDIF output */
-//#define A_SPDIF_RATE_MASK    0x000000c0
-//#define A_SPDIF_48000        0x00000000
-//#define A_SPDIF_44100        0x00000080
-//#define A_SPDIF_96000        0x00000040
-//#define A_SPDIF_192000       0x00000020
-/* apparently bits 5-7 set the SPDIF rate, while bits 9-11 set the PCM rate */
-#define A_SPDIF_RATE_MASK    0x0000e0e0
+#define A_SPDIF_RATE_MASK    0x000000e0
 #define A_SPDIF_48000        0x00000000
-#define A_SPDIF_44100        0x00008080
-#define A_SPDIF_96000        0x00004040
-#define A_SPDIF_192000       0x00002020
+#define A_SPDIF_192000       0x00000020
+#define A_SPDIF_96000        0x00000040
+#define A_SPDIF_44100        0x00000080
+#define A_SPDIF_MUTED        0x000000c0
+
+#define A_I2S_CAPTURE_48000  0x0
+#define A_I2S_CAPTURE_192000 0x1
+#define A_I2S_CAPTURE_96000  0x2
+#define A_I2S_CAPTURE_44100  0x4
+
+/* apparently bits 5-7 set the SPDIF rate, while bits 9-11 set the PCM rate */
+#define A_EHC_SRC48_MASK    0x0000e000    /* This sets the playback PCM rate on the P16V  */
+#define A_EHC_SRC48_BYPASS  0x00000000
+#define A_EHC_SRC48_192     0x00002000
+#define A_EHC_SRC48_96      0x00004000
+#define A_EHC_SRC48_44      0x00008000
+#define A_EHC_SRC48_MUTED   0x0000c000
+
+#define A_EHC_P17V_TVM      0x00000001    /* Tank virtual memory mode */
+#define A_EHC_P17V_SEL0_MASK    0x00030000  /* Aka A_EHC_P16V_PB_RATE; 00: 48, 01: 44.1, 10: 96, 11: 192 */
+#define A_EHC_P17V_SEL1_MASK    0x000c0000
+#define A_EHC_P17V_SEL2_MASK    0x00300000
+#define A_EHC_P17V_SEL3_MASK    0x00c00000
 
 /* 0x77,0x78,0x79 "something i2s-related" - default to 0x01080000 on my audigy 2 ZS --rlrevell    */
+#define A_SRT3			0x77		/* I2S0 Sample Rate Tracker Status		*/
+#define A_SRT4			0x78		/* I2S1 Sample Rate Tracker Status		*/
+#define A_SRT5			0x79		/* I2S2 Sample Rate Tracker Status		*/
+
+#define A_SRT_ESTSAMPLERATE	0x001fffff
+#define A_SRT_RATELOCKED	0x01000000
+
 /* 0x7a, 0x7b - lookup tables */
+#define A_TTDA			0x7a		/* Tank Table DMA Address			*/
+#define A_TTDD			0x7b		/* Tank Table DMA Data				*/
 
 #define A_FXRT2            0x7c
 #define A_FXRT_CHANNELE        0x0000003f    /* Effects send bus number for channel's effects send E    */
@@ -858,11 +896,10 @@
 #define HIWORD_RESULT_MASK     0x000ffc00    /* Instruction result */
 #define HIWORD_OPA_MASK        0x000003ff    /* Instruction operand A */
 
+#define A_MICROCODEBASE      0x600        /* Audigy Soundcard have a different instruction format */
 
-/* Audigy Soundcard have a different instruction format */
-#define A_MICROCODEBASE      0x600
-#define A_LOWORD_OPY_MASK    0x000007ff
 #define A_LOWORD_OPX_MASK    0x007ff000
+#define A_LOWORD_OPY_MASK    0x000007ff
 #define A_HIWORD_OPCODE_MASK 0x0f000000
 #define A_HIWORD_RESULT_MASK 0x007ff000
 #define A_HIWORD_OPA_MASK    0x000007ff
@@ -1040,7 +1077,7 @@
 #define A_EXTIN_AUX2_L        0x0c    /* audigy drive aux2 - left */
 #define A_EXTIN_AUX2_R        0x0d    /*                   - right */
 
-/* Audigiy Outputs */
+/* Audigy Outputs */
 #define A_EXTOUT_FRONT_L     0x00    /* digital front left */
 #define A_EXTOUT_FRONT_R     0x01    /*               right */
 #define A_EXTOUT_CENTER      0x02    /* digital front center */

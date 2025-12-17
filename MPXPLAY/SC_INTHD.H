@@ -228,7 +228,7 @@ struct BDL_s {
 #define AC_PWRST_D3            0x03
 
 /* Processing capabilies
- * correect? docs say: 0=off, 1=on, 2=benign, 3-7f reserved, 80-ff vendor specific
+ * correct? docs say: 0=off, 1=on, 2=benign, 3-7f reserved, 80-ff vendor specific
  */
 #define AC_PCAP_BENIGN            (1<<0)
 #define AC_PCAP_NUM_COEF        (0xff<<8)

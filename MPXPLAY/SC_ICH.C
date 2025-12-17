@@ -218,7 +218,7 @@ static unsigned int snd_intel_buffer_init( struct intel_card_s *card, struct aud
 {
 	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample, 0 );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample);
 	/* v1.8 restrict buffer to period_size * 32 */
 	card->pcmout_bufsize = min( card->pcmout_bufsize, ( aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN ) * ICH_DMABUF_PERIODS );
 

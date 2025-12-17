@@ -208,12 +208,16 @@
    4.4 Jemm's NOVCPI Option
 
     If VSBHDA is to work for DOS protected-mode programs, they have to use the
-   HDPMI32i/HDPMI16i DPMI host. This is usually no problem, because there's an
+   HDPMI32i/HDPMI16i DPMI host. Usually this is no problem, because there's an
    API to detect the presence of such a host. However, a program may ignore an
    installed DPMI host and use the so-called VCPI API instead to run its very
    own low-level code; this will actually deactivate VSBHDA for the program. To
-   cover such cases, Jemm386/JemmEx offers the NOVCPI option. This option must
-   be set *after* VSBHDA has been loaded and *before* the program is launched.
+   cover such cases, Jemm386/JemmEx offers the NOVCPI option.
+    The NOVCPI option must be set *after* VSBHDA has been loaded and *before*
+   the program is launched; just run "jemm386 novcpi" ( or "jemmex novcpi" )
+   from the command line, without further options. After the program has run,
+   it's a good idea to restore the old state with "jemm386 vcpi" ( or "jemmex
+   vcpi" ).
 
 
    4.5 SoundBlaster IRQ Setting

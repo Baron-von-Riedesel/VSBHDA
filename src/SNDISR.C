@@ -18,7 +18,7 @@
 #include "PTRAP.H"
 
 #ifdef _DEBUG
-//#define SNDISRLOG
+//#define SNDISRLOG /* usually defined in makefile */
 #include <stdio.h>
 #endif
 
@@ -314,8 +314,8 @@ static int SNDISR_Interrupt( void )
     AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
     samples = AU_cardbuf_space( isr.hAU ) / ( sizeof(int16_t) * 2 ); //16 bit, 2 channels
     if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
-        PIC_SendEOI( isr.SndIrq );
-        return(1);
+        dbgprintf(("isr: ERROR - AU_cardbuf_space() returned 0 samples\n" ));
+        goto isrexit;
     }
     freq = AU_getfreq( isr.hAU );
 #ifdef _DEBUG
@@ -620,12 +620,13 @@ static int SNDISR_Interrupt( void )
     if ( gvars.slowdown )
         delay_10us(gvars.slowdown);
 #endif
+
+isrexit:
     PIC_SendEOI( isr.SndIrq );
 #if COMPAT4
     if ( gvars.compatflags & CF_MASKPIT )
         return( 2 | (mask << 8 ));
 #endif
-
     return(1);
 }
 

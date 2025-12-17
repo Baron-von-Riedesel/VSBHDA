@@ -86,18 +86,17 @@ extern uint32_t STACKTOP;
 
 #endif
 
-uint8_t bOMode; /* 1=output DOS, 2=direct, 4=debugger */
+uint8_t bOMode; /* see enum OM_xxx in config.h */
 
 struct MAIN_s {
 	void *hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
-	int freq;   /* default value for AU_setrate() */
 	bool bISR;  /* 1=ISR installed */
 	bool bQemm; /* 1=QPI API found */
 	bool bHdpmi;/* 1=HDPMI found */
 	int bHelp;  /* 1=show help */
 };
 
-static struct MAIN_s gm = { 0, 22050, false, false, false, false };
+static struct MAIN_s gm = { NULL, false, false, false, false };
 
 struct globalvars gvars = { BASE_DEFAULT, IRQ_DEFAULT, DMA_DEFAULT, /* /A /I /D */
 #if SB16
@@ -116,6 +115,7 @@ NULL, /* /SF: */
 VOICES_DEFAULT, /* /MV */
 #endif
 0, /* CF */
+22050,  /* frequency */
 };
 
 static const struct {
@@ -139,7 +139,7 @@ static const struct {
     "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "F",  "Set frequency [11025|22050|44100, def 22050]", &gm.freq,
+    "F",  "Set frequency [11025|22050|44100, def 22050]", &gvars.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
 #if SLOWDOWN
@@ -153,6 +153,9 @@ static const struct {
     "MV", "Set voice limit [0-256, def 64]", &gvars.voices,
 #endif
     "CF", "Set compatibility flags [def 0]", &gvars.compatflags,
+#ifdef _DEBUG
+    "LF:", "Set log file name", (int *)&gvars.logfile,
+#endif
     NULL, NULL, 0,
 };
 
@@ -190,10 +193,53 @@ void fatal_error( int nError )
 	   );
 #else
 	_asm mov ax,3
-    _asm int 10h
+	_asm int 10h
 #endif
 	printf("VSBHDA: fatal error %u\n", nError );
 	for (;;);
+}
+#endif
+
+#ifdef _DEBUG
+
+char *logfile_start;
+uint32_t logfile_ofs;
+
+extern void Int41_Init( char * );
+extern void Int41_Exit( void );
+
+/* logfile is written thru int 0x41; thus is works for 16-bit as well */
+
+int LogfileInit( void )
+{
+    __dpmi_meminfo info;
+    /* activate if logfile is to be ignored if debugger is present */
+    //if ( bOMode & OM_DEBUGGER )
+    //    return 0;
+    info.address = 0;
+    info.size = LOGFILESIZE;
+    if (__dpmi_allocate_linear_memory(&info, 1) == -1)
+        return 0;
+    logfile_start = NearPtr( info.address );
+    Int41_Init( logfile_start );
+    return 1;
+}
+
+/* use the functions defined in fileacc.asm! */
+
+void LogfileDump( char * );
+
+int LogfileExit( void )
+{
+    void *hLog;
+    if ( logfile_start ) {
+        Int41_Exit();
+        if ( logfile_ofs ) {
+            LogfileDump( gvars.logfile );
+            return 1;
+        }
+    }
+    return 0;
 }
 #endif
 
@@ -215,7 +261,9 @@ static void ReleaseRes( void )
 	if( gvars.pm ) {
 		PTRAP_Uninstall_PM_PortTraps();
 	}
-
+#ifdef _DEBUG
+	if ( gvars.logfile ) LogfileExit();
+#endif
 	return;
 }
 
@@ -279,7 +327,7 @@ int main(int argc, char* argv[])
     int rmstksel;
     char* blaster = getenv("BLASTER");
 
-    bOMode = IsDebuggerPresent() ? 4 : 1;
+    bOMode = IsDebuggerPresent() ? OM_DEBUGGER : OM_DOS;
 
     if(blaster != NULL) {
         char c;
@@ -397,7 +445,7 @@ int main(int argc, char* argv[])
         printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
         return(1);
     }
-    if( gm.freq != 11025 && gm.freq != 22050 && gm.freq != 44100 ) {
+    if( gvars.freq != 11025 && gvars.freq != 22050 && gvars.freq != 44100 ) {
         printf("Error: valid frequencies: 11025, 22050, 44100\n" );
         return(1);
     }
@@ -424,6 +472,12 @@ int main(int argc, char* argv[])
         printf("SB found - probably VSBHDA already installed\n" );
         return(0);
     }
+#ifdef _DEBUG
+    if ( gvars.logfile )
+        if (LogfileInit())
+            bOMode = OM_BUFFERED;
+#endif
+
     if( gvars.rm ) {
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf(("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF));
@@ -457,7 +511,7 @@ int main(int argc, char* argv[])
     AU_setmixer_outs( gm.hAU, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
     //AU_setmixer_one( gm.hAU, AU_MIXCHAN_MASTER, MIXER_SETMODE_ABSOLUTE, gvars.vol * 100/9 );
 
-    gm.freq = AU_setrate( gm.hAU, gm.freq, HW_CHANNELS, HW_BITS );
+    gvars.freq = AU_setrate( gm.hAU, gvars.freq, HW_CHANNELS, HW_BITS );
 
     PTRAP_InitPortMax(); /* v1.6: init port trap ranges */
     if( gvars.rm ) {
@@ -560,14 +614,14 @@ int main(int argc, char* argv[])
     }
 
 #if VMPU
-    VMPU_Init( gm.freq );
+    VMPU_Init( gvars.freq );
 #endif
 
     PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 
     //AU_prestart( gm.hAU );
     AU_start( gm.hAU );
-    if (bOMode & 1 ) bOMode = 2; /* switch to low-level i/o */
+    if (bOMode & OM_DOS ) bOMode = OM_DIRECT; /* switch to low-level i/o */
 
     if( gm.bISR && ( gm.bQemm || (!gvars.rm) ) && ( gm.bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;

@@ -10,6 +10,8 @@
 
 SETBORDER equ 0	;1=support _SetBorder(color)
 
+	include config.inc
+
 ifdef DJGPP
 	assume ds:_DATA
 endif
@@ -22,8 +24,8 @@ VioPutChar proto
 
 	.data
 
-;--- bOMode is 1 while the program runs as current program;
-;--- once it has made itself resident, bOMode will be 2 or 4, meaning
+;--- bOMode has value OM_DOS while the program runs as current program;
+;--- once it has made itself resident, bOMode will be OM_DIRECT or OM_DEBUGGER, meaning
 ;--- stdout shouldn't be used anymore.
 
 externdef c bOMode:byte
@@ -236,13 +238,13 @@ handle_char:
 	call @F
 	mov al,10
 @@:
-	.if bOMode & 1
+	.if bOMode & OM_DOS
 		mov dl, al
 		mov ah, 2
 		int 21h
-	.elseif bOMode & 2
+	.elseif bOMode & OM_DIRECT
 		call VioPutChar
-	.elseif bOMode & 4
+	.elseif bOMode & (OM_DEBUGGER or OM_BUFFERED)
 		mov dl, al
 		xor ax, ax
 		int 41h

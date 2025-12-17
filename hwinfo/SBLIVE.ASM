@@ -140,27 +140,41 @@ checkvendor proc
 	jz is_live
 	cmp cx,4
 	jz is_audigy
-	movzx ax,bh
-	movzx bx,bl
-	invoke printf, CStr("bus/device %X/%X card has unknown device ID %X",10), ax, bx, cx
+	mov dx,CStr("device ID %X, card ignored",10)
+errx:
+	call dispbdf
+	invoke printf, dx, cx
 	stc
 	ret
 err1:
-	movzx ax,bh
-	movzx bx,bl
-	invoke printf, CStr("bus/device %X/%X card has unknown vendor ID %X",10), ax, bx, cx
-	stc
-	ret
+	mov dx,CStr("vendor ID %X, card ignored",10)
+	jmp errx
 err2:
-	movzx ax,bh
-	movzx bx,bl
-	invoke printf, CStr("bus/device %X/%X: PCI config space access error",10), ax, bx
-	stc
-	ret
+	mov dx,CStr("PCI config space access error",10)
+	jmp errx
 is_live:
 is_audigy:
+	push cx
+	mov ax, CStr("SB Live")
+	cmp cx, 2
+	jz @F
+	mov ax, CStr("SB Audigy")
+@@:
+	call dispbdf
+	invoke printf, CStr("%s found",10), ax
+	pop cx
 	clc
 	ret
+dispbdf:
+	pusha
+	movzx ax,bh
+	movzx cx,bl
+	and cl,7
+	shr bl,3
+	mov bh,0
+	invoke printf, CStr("bus/device/func %u/%u/%u: "), ax, bx, cx
+	popa
+	retn
 checkvendor endp
 
 ;--- check PCI for SB Live! or Audigy
@@ -173,9 +187,9 @@ getpci proc
 	jnz err1
 	cmp edx," ICP"
 	jnz err1
-	mov ecx,40100h	;multimedia controller, audio
 	xor si,si
 nextcard:
+	mov ecx,40100h	;multimedia controller, audio
 	mov ax,0B103h
 	int 1ah
 	cmp ah,00
@@ -206,12 +220,6 @@ local dwSubSys:dword
 	call getpci
 	jc exit
 	mov wModel,cx
-	mov ax, CStr("SB Live")
-	cmp cx, 2
-	jz @F
-	mov ax, CStr("SB Audigy")
-@@:
-	invoke printf, CStr("%s found",10), ax
 
 ;--- bx holds bus/device/func
 

@@ -60,15 +60,15 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 
 /* usually called by card during adetect(), before card is initialized.
  * max_bufsize should be 0 then, pagesize should be "period size",
- * samplesize is 2 ( for SB Audigy 2 it's 4 ),
- * freq_config is 0 except for HDA.
+ * samplesize is 2 ( for SB Audigy 2 it may be 4? ),
+ * freq_config is 0.
  */
 
-unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize, unsigned long freq_config)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize )
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int bufsize;
-	dbgprintf(("MDma_get_max_pcmoutbufsize( max=0x%X, pgsiz=0x%X, smplsiz=%u, freq=%u )\n", max_bufsize, pagesize, samplesize, freq_config));
+	dbgprintf(("MDma_get_max_pcmoutbufsize( max=0x%X, pgsiz=0x%X, smplsiz=%u )\n", max_bufsize, pagesize, samplesize));
 	if(!max_bufsize)
 		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
 	if(!pagesize)
@@ -76,9 +76,6 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 	if(samplesize < 2)
 		samplesize = 2;
 	bufsize = AUCARDS_DMABUFSIZE_NORMAL / 2; /* =32kB/2 */
-
-	if( freq_config )
-		bufsize = bufsize * freq_config / 44100;
 
 	bufsize *= samplesize;        // 2x bufsize at 32-bit output (1.5x at 24)
 	bufsize += (pagesize - 1);    // rounding up to pagesize

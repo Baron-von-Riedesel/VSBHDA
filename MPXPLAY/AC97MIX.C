@@ -41,7 +41,7 @@ static const struct aucards_mixerchan_s aucards_ac97chan_pcm_vol = {
 		{ AC97_PCMOUT_VOL,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
 	}};
 
-/* v1.8: HEADPHONE_VOL was renamed to AUX_VOL in v2.3; it may be LNLVL, HP or 4CH;
+/* v1.8: HEADPHONE_VOL was renamed to AUXOUT_VOL in v2.3; it may be LNLVL, HP or 4CH;
  * it's for HP if
  * - b4 in reg 0 (reset) is 1;
  * - the register is writeable (value after reset == 8000h?) AND

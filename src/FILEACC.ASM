@@ -7,19 +7,27 @@
 
 	.code
 
-;--- just mode "rb" is supported;
+;--- just mode "rb" (and "wb" for debug version) is supported;
 ;--- expects DOS LFN API supported by DOS extender (true for HDPMI)
 
 fopen proc uses ebx esi pszName:ptr, pszMode:ptr
 
-	mov edx,pszMode
-	cmp byte ptr [edx+2],0
+	mov ecx,pszMode
+	cmp byte ptr [ecx+2],0
 	jnz error
-	cmp word ptr [edx],"br"
+ifdef _DEBUG
+	mov dx,12h		;11h=create if not exists, open (and truncate) if exists
+	mov bl,1		;BL access mode (1=write only)
+	cmp word ptr [ecx],"bw"
+	jz is_wb
+endif
+	cmp word ptr [ecx],"br"
 	jnz error
-	mov dx,1
-	mov bx,3000h	;BH bit 5:1=return error, no int 24h, bit 4:1=allow 4GB-1 file size
-	mov cx,0
+	mov dx,1		;1=fail if not exists, open if exists
+	mov bl,0		;BL access mode (0=read only)
+is_wb:
+	mov bh,30h		;BH bit 5:1=return error, no int 24h, bit 4:1=allow 4GB-1 file size
+	mov cx,0		;create attributes (0=normal file)
 	mov esi,pszName
 	mov ax,716ch
 	stc
@@ -70,12 +78,33 @@ error:
 	ret
 fseek endp
 
+;--- logfile write
+
+ifdef _DEBUG
+ ifdef NOTFLAT
+fwrite proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
+local tsel:dword
+local desc[8]:byte
+local bMode:byte
+ else
+fwrite proc uses ebx pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
+ endif
+	mov ah,40h
+	jmp fwrite_entry
+fwrite endp
+endif
+
+
 ifdef NOTFLAT
 fread proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 
 ;--- descriptor adjustments needed if client is 16-bit
 local tsel:dword
 local desc[8]:byte
+local bMode:byte
+	mov ah,3fh
+fwrite_entry::
+	mov bMode,ah
 	push ss
 	pop es
 	lea edi,desc
@@ -100,7 +129,7 @@ nextchk:
 	mov ebx,pFile
 	push ds
 	mov ds,tsel
-	mov ah,3Fh
+	mov ah,bMode
 	int 21h
 	pop ds
 	jc error
@@ -113,11 +142,12 @@ nextchk:
 	ret
 else
 fread proc uses ebx pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
+	mov ah,3Fh
+fwrite_entry::
 	mov ebx,pFile
 	mov edx,pBuffer
 	mov ecx,elems
 	imul ecx,size_
-	mov ah,3Fh
 	int 21h
 	jc error
 	ret

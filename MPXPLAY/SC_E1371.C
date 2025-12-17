@@ -468,10 +468,9 @@ static void snd_es1371_dac2_rate(struct ensoniq_card_s *card, unsigned int rate)
 static unsigned int snd_es1371_buffer_init( struct ensoniq_card_s *card, struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample = 2; // 16 bit
 	/* v1.7: use /PS cmdline option if set */
 	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, 2);
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
 	aui->card_DMABUFF = card->pcmout_buffer;

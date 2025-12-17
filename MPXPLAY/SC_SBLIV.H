@@ -52,7 +52,7 @@ struct emu10k1_card {
  const struct emu_card_version_s *card_capabilities;
  const struct emu_driver_func_s *driver_funcs;
 
- struct cardmem_s dm;     // now it's ca. 72k only
+ struct cardmem_s dm;     /* size should be 4+4+32+4 */
  uint32_t *virtualpagetable;
  void *silentpage;
  unsigned long period_size;

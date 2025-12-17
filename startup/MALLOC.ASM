@@ -64,7 +64,7 @@ free proc c public pMem:ptr
 	cmp eax, _dynend
 	jz reset
 @@:
-	@dprintf CStr("%X: free(%X) failed",10), cs, ecx
+;	@dprintf CStr("%X: free(%X) failed",10), cs, ecx
 	ret
 reset:
 	mov _dynend, ecx
