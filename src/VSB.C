@@ -124,8 +124,6 @@ static const uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 19
 extern ADPCM_STATE ISR_adpcm_state;
 #endif
 
-#define VSB_RESET_END 0
-#define VSB_RESET_START 1
 #define VSB_DIRECTBUFFER_SIZE 256  /* max is 256 so long as DirIdxR/W is uint8_t */
 
 struct VSB_Status {
@@ -161,7 +159,7 @@ struct VSB_Status {
     uint8_t UARTMode;
     //uint8_t SavedStarted;
 #endif
-    uint8_t ResetState; /* 1=VSB_RESET_START, 0=VSB_RESET_END */
+    uint8_t ResetState;
     uint8_t TestReg;
     uint8_t bWS;        /* count for cmd port status return value */
     uint8_t DMAID_A;
@@ -363,7 +361,7 @@ static void DSP_Reset( uint8_t value )
             //return;
         //}
 #endif
-        vsb.ResetState = VSB_RESET_START;
+        vsb.ResetState = true;
         /* v1.5: bits 4-7 are rsvd, set to 1? DosBox sets to 0 - check a real SB16! */
         /* v1.7: now done in VSB_Init() - INT_SETUP and DMA_SETUP are r/o registers */
         //vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
@@ -403,7 +401,7 @@ static void DSP_Reset( uint8_t value )
 #if REINITOPL
         MAIN_ReinitOPL();
 #endif
-    } else if ( vsb.ResetState == VSB_RESET_START ) {
+    } else if ( vsb.ResetState ) {
         switch (value) {
         case 0:
             DSP_AddData( 0xAA );
@@ -417,7 +415,7 @@ static void DSP_Reset( uint8_t value )
             break;
 #endif
         }
-        vsb.ResetState = VSB_RESET_END;
+        vsb.ResetState = false;
     }
 }
 

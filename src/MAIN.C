@@ -207,10 +207,12 @@ uint32_t logfile_ofs;
 
 extern void Int41_Init( char * );
 extern void Int41_Exit( void );
+extern void LogfileDump( char * );
 
-/* logfile is written thru int 0x41; thus is works for 16-bit as well */
+/* logfile is filled thru int 0x41; thus is works for external modules (sndcard.drv!) as well */
 
 int LogfileInit( void )
+///////////////////////
 {
     __dpmi_meminfo info;
     /* activate if logfile is to be ignored if debugger is present */
@@ -225,11 +227,8 @@ int LogfileInit( void )
     return 1;
 }
 
-/* use the functions defined in fileacc.asm! */
-
-void LogfileDump( char * );
-
 int LogfileExit( void )
+///////////////////////
 {
     void *hLog;
     if ( logfile_start ) {
@@ -276,8 +275,9 @@ void _uninstall_tsr( uint32_t linpsp );
 void MAIN_Uninstall( void )
 ///////////////////////////
 {
-	ReleaseRes();
+	/* v1.9: call AU_close() before ReleaseRes() */
 	AU_close( gm.hAU );
+	ReleaseRes();
 	_uninstall_tsr( _my_psp() ); /* should not return */
 	return;
 }
@@ -346,7 +346,7 @@ int main(int argc, char* argv[])
             }
         }
     }
-    dbgprintf(("A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
+    dbgprintf(("SB values before cmdline: A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
 #if SB16
     dbgprintf((" H=%u", gvars.hdma ));
 #endif
@@ -494,17 +494,17 @@ int main(int argc, char* argv[])
     }
     if ( (gm.hAU = AU_init( &gvars ) ) == 0 ) {
         printf("Error: no soundcard found\n");
-        return(1);
+        goto errexit;
     }
     printf("Found sound card: %s\n", AU_getshortname( gm.hAU ) );
     i = AU_getirq( gm.hAU );
     if( i == 0 || i == -1 ) {
         printf("Error: no IRQ assigned to sound card\n");
-        return(1);
+        goto errexit;
     }
     if( i == gvars.irq ) {
         printf("Error: sound card IRQ conflict\n");
-        return(1);
+        goto errexit;
     }
     AU_setmixer_init( gm.hAU );
 
@@ -518,7 +518,7 @@ int main(int argc, char* argv[])
         gvars.rm = PTRAP_Prepare_RM_PortTrap();
         if ( !gvars.rm ) {
             printf("Error: preparing IO port traps for real-mode failed\n");
-            return 1;
+            goto errexit;
         }
     }
     if ( !gvars.rm )
@@ -527,7 +527,7 @@ int main(int argc, char* argv[])
         printf("Protected-mode support disabled\n");
         if( !gvars.rm ) {
             printf("Error: support for both modes disabled\n");
-            return(1);
+            goto errexit;
         }
     }
     if( gvars.pm ) {
@@ -584,7 +584,7 @@ int main(int argc, char* argv[])
         printf("Slowdown factor: %u\n", gvars.slowdown );
 #endif
     if (gvars.period_size)
-        printf("HDA/AC97 period size: %d\n", gvars.period_size);
+        printf("Period size: %d\n", gvars.period_size);
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
      * result in problems, since that memory is released when that client exits.
@@ -651,7 +651,8 @@ int main(int argc, char* argv[])
         __dpmi_simulate_real_mode_interrupt(0x21, &r); //won't return on success
     }
     dbgprintf(("main: bISR=%u, bQemm=%u, bHdpmi=%u\n", gm.bISR, gm.bQemm, gm.bHdpmi ));
+errexit:
     ReleaseRes();
-    printf("Error: Failed installing TSR.\n");
+    printf("Error: VSBHDA not installed.\n");
     return 1;
 }

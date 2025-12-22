@@ -78,7 +78,7 @@ error:
 	ret
 fseek endp
 
-;--- logfile write
+;--- write (used for logfile in debug version)
 
 ifdef _DEBUG
  ifdef NOTFLAT
@@ -94,6 +94,7 @@ fwrite proc uses ebx pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 fwrite endp
 endif
 
+;--- read (used to read .sf2 files)
 
 ifdef NOTFLAT
 fread proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
@@ -105,6 +106,9 @@ local bMode:byte
 	mov ah,3fh
 fwrite_entry::
 	mov bMode,ah
+	mov eax,elems
+	imul eax,size_
+	mov size_,eax
 	push ss
 	pop es
 	lea edi,desc

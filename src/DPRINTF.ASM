@@ -244,7 +244,11 @@ handle_char:
 		int 21h
 	.elseif bOMode & OM_DIRECT
 		call VioPutChar
+ifdef _DEBUG
 	.elseif bOMode & (OM_DEBUGGER or OM_BUFFERED)
+else
+	.elseif bOMode & OM_DEBUGGER
+endif
 		mov dl, al
 		xor ax, ax
 		int 41h
