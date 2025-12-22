@@ -1522,15 +1522,19 @@ static long HDA_getbufpos( struct audioout_info_s *aui )
 	bufpos = card->sd->dwLinkPos;
 
 	/*
-	dbgprintf(("HDA_getbufpos: bufpos1=%u sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
+	dbgprintf(("HDA_getbufpos: bufpos=%X sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
 	    bufpos, card->sd->bSts, card->sd->wCtl, card->sd->dwBufLen, aui->card_dmasize,
 	    card->pcmout_period_size, card->pcmout_num_periods ));
 	 */
 
+#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
 	if( bufpos < aui->card_dmasize )
 		aui->card_dma_lastgoodpos = bufpos;
 
 	return aui->card_dma_lastgoodpos;
+#else
+	return bufpos;
+#endif
 }
 
 //mixer

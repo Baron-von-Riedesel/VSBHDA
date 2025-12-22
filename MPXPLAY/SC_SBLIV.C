@@ -1561,11 +1561,14 @@ static long SBALL_getbufpos( struct audioout_info_s *aui )
 
 	bufpos *= aui->chan_card;
 	bufpos *= aui->bits_card >> 3;
-
+#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
 	if (bufpos < aui->card_dmasize)
 		aui->card_dma_lastgoodpos = bufpos;
 
 	return aui->card_dma_lastgoodpos;
+#else
+    return bufpos;
+#endif
 }
 
 static void SBALL_clearbuf( struct audioout_info_s *aui )

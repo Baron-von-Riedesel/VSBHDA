@@ -25,7 +25,7 @@
                 Instead of Jemm, Qemm may be used; however, JHDPMI.DLL can
                 be loaded and used by Jemm only.
 
-     As cpu at least a Pentium is required. However, since the emulation needs
+    As cpu at least a Pentium is required. However, since the emulation needs
    quite a bit of processing power, such a cpu very likely isn't sufficient.
    Tests revealed that a Pentium II with 266 MHz is able to handle simple games;
    a Pentium III with 500 MHz gave the impression that it could handle both
@@ -33,6 +33,15 @@
    of FPU power - reducing the voice maximum ( see option /MV below ) may be
    needed. Adjusting the frequency ( /F cmdline option ) to the minimum may
    also reduce cpu overstrain.
+
+    Supported sound hardware:
+
+   - Intel HDA
+   - Intel ICH, Nvidia nForce, SiS 7012
+   - VIA VT82C686, VT8233/35/37, but not VT8233A
+   - Creative Labs SB Live and SB Audigy (EMU10K1, EMU10K2)
+   - SB PCI cards based on ES1371/ES1373
+   - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS) [untested]
 
 
    3. Usage

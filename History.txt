@@ -3,7 +3,7 @@
   - added dsp cmd 0xFD (DSP cmd status).
   - handling DSP direct cmd (0x10) reworked.
   - "busy" status of DSP cmd/data port reworked.
-  - VIA VT823X: changed interrupt enable flags.
+  - VIA VT823X: reworked.
   - debug version: support for logfile and cmdline option /LF: added.
 
   v1.8, 13.10.2025

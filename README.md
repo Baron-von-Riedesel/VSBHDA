@@ -6,7 +6,7 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
 Supported Sound cards:
  * HDA ( Intel High Definition Audio )
  * Intel ICH, Nvidia nForce, SiS 7012
- * VIA VT82C686, VT8233/35/37
+ * VIA VT82C686, VT8233/35/37 (not VT8233A)
  * SB Live, SB Audigy
  * SB based on ES1371/1373 (Ensoniq)
 

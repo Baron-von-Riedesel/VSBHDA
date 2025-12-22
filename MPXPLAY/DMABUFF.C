@@ -139,8 +139,9 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 	if(!aui->card_outbytes)
 		aui->card_outbytes = PCM_OUTSAMPLES * aui->card_bytespersign; // not exact
 #endif
-
-	aui->card_dma_lastgoodpos = 0; // !!! the soundcard also must to do this
+#if USELASTGOODPOS
+	aui->card_dma_lastgoodpos = 0; // the soundcard is responsible for this variable
+#endif
 	tmp = aui->card_dmasize / 2;
 	tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
 	aui->card_dmalastput = tmp;

@@ -5,7 +5,9 @@
 extern "C" {
 #endif
 
-//au_infos->card_controlbits
+#define USELASTGOODPOS 0 /* v1.9: removed card_dma_lastgoodpos */
+
+    //au_infos->card_controlbits
 #define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
 
 //au_infos->card_infobits
@@ -88,7 +90,9 @@ struct audioout_info_s {
  unsigned long  card_dmalastput;
  unsigned long  card_dmaspace;     /* should be "free" dma buffer size in bytes, but changed for sbemu... */
  unsigned long  card_dmafilled;    /* ??? */
+#if USELASTGOODPOS
  unsigned long  card_dma_lastgoodpos;
+#endif
  unsigned int   card_bytespersign; // bytespersample_card * chan_card
  char          *card_DMABUFF;      /* identical with the card's pcmout_buffer */
 

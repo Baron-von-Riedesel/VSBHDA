@@ -723,13 +723,17 @@ static long ES1371_getbufpos( struct audioout_info_s *aui )
 		outl((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 		/* hiword(DAC_SIZE) has the # of longwords that have been transfered */
 		bufpos = ES_REG_FCURR_COUNTI(inl(card->port + ES_REG_DAC_SIZE));
-
+#if USELASTGOODPOS
 		if(bufpos < aui->card_dmasize)
 			aui->card_dma_lastgoodpos = bufpos;
+#endif
 	}
 	//dbgprintf(("getbufpos: bufpos=%u lastgoodpos=%u dmasize=%u\n",bufpos,aui->card_dma_lastgoodpos,aui->card_dmasize));
-
-	return aui->card_dma_lastgoodpos;
+#if USELASTGOODPOS
+    return aui->card_dma_lastgoodpos;
+#else
+    return bufpos;
+#endif
 }
 
 /* mixer. */

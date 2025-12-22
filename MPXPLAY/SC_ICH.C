@@ -664,12 +664,12 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 	unsigned long bufpos = 0;
 	unsigned int index,pcmpos,retry = 3;
 
-	do{
+	do {
 		index = snd_intel_read_8( card, ICH_PO_CIV );  // number of current period
 #if 0//ndef SBEMU
 		//dbgprintf(("index1: %d\n",index));
-		if(index >= ICH_DMABUF_PERIODS){
-			if(retry > 1)
+		if ( index >= ICH_DMABUF_PERIODS ) {
+			if( retry > 1 )
 				continue;
 			MDma_clearbuf(aui);
 			snd_intel_write_8( card, ICH_PO_LVI, (ICH_DMABUF_PERIODS - 1) );
@@ -689,7 +689,7 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 		//pcmpos*=aui->chan_card;
 		//printf("%d %d %d %d\n",aui->bits_card, aui->chan_card, pcmpos, card->period_size_bytes);
 		//dbgprintf(("ICH_getbufpos: pcmpos=%d\n",pcmpos));
-		if(!pcmpos || pcmpos > card->period_size_bytes){
+		if( !pcmpos || pcmpos > card->period_size_bytes ) {
 			if( snd_intel_read_8(card,ICH_PO_LVI) == index ) {
 				MDma_clearbuf(aui);
 				snd_intel_write_8(card,ICH_PO_LVI,(index-1) % ICH_DMABUF_PERIODS); // to keep playing in an endless loop
@@ -707,17 +707,23 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 
 		pcmpos = card->period_size_bytes - pcmpos;
 		bufpos = index * card->period_size_bytes + pcmpos;
-
+#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
 		if( bufpos < aui->card_dmasize ) {
 			aui->card_dma_lastgoodpos = bufpos;
 			break;
 		}
-
-	}while(--retry);
+#else
+		break;
+#endif
+	} while(--retry);
 
 	//dbgprintf(("ICH_getbufpos: pos=%d dmasize=%d, dma_lastgoodpos=%d\n", bufpos, aui->card_dmasize, aui->card_dma_lastgoodpos ));
 
-	return aui->card_dma_lastgoodpos;
+#if USELASTGOODPOS
+    return aui->card_dma_lastgoodpos;
+#else
+    return bufpos;
+#endif
 }
 
 /*--------------------------------------------------------------------------
