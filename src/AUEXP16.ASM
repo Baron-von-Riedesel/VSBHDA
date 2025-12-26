@@ -19,7 +19,7 @@ externdef _AU_getirq     :near32
 externdef _AU_isirq      :near32
 externdef _AU_getfreq    :near32
 externdef _AU_getshortname  :near32
-externdef _AU_setoutbytes   :near32
+;externdef _AU_setoutbytes   :near32
 externdef _AU_setrate       :near32
 externdef _AU_setmixer_init :near32
 externdef _AU_setmixer_one  :near32
@@ -39,7 +39,7 @@ AU_getirq   dd offset _AU_getirq
 AU_isirq    dd offset _AU_isirq
 AU_getfreq  dd offset _AU_getfreq
 AU_getshortname  dd offset _AU_getshortname
-AU_setoutbytes   dd offset _AU_setoutbytes
+;AU_setoutbytes   dd offset _AU_setoutbytes
 AU_setrate       dd offset _AU_setrate
 AU_setmixer_init dd offset _AU_setmixer_init
 AU_setmixer_one  dd offset _AU_setmixer_one

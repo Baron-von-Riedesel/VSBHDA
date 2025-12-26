@@ -7,16 +7,16 @@ extern "C" {
 
 #define USELASTGOODPOS 0 /* v1.9: removed card_dma_lastgoodpos */
 
-    //au_infos->card_controlbits
+//au_infos->card_controlbits
 #define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
 
 //au_infos->card_infobits
 #define AUINFOS_CARDINFOBIT_PLAYING          1
-#define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 // dma buffer is empty (set by dma-monitor)
-#define AUINFOS_CARDINFOBIT_DMAFULL         16 // dma buffer is full (set by AU_writedata)
+#define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 /* dma buffer dried out */
+//#define AUINFOS_CARDINFOBIT_DMAFULL         16 /* dma buffer is full */
 
 //struct sndcard_info_s->infobits
-#define SNDCARD_CARDBUF_SPACE     4 // routine gives back the cardbuf space, not the bufpos
+#define SNDCARD_CARDBUF_SPACE     4 /* cardbuf_getpos() gives back the cardbuf space, not the bufpos */
 
 //#define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
@@ -74,32 +74,32 @@ struct sndcard_info_s;
 struct audioout_info_s {
  //short *pcm_sample;
  //unsigned int  samplenum;
- unsigned char bytespersample_card;
  unsigned int  freq_set;  /* ??? */
  unsigned int  freq_card; /* set in AU_setrate */
- unsigned int  chan_set;  /* ??? */
+ unsigned char chan_set;  /* ??? */
  unsigned char chan_card; /* set in AU_setrate */
- unsigned int  bits_set;  /* ??? */
+ unsigned char bits_set;  /* ??? */
  unsigned char bits_card; /* set in AU_setrate */
+ unsigned char bytespersample_card;
+ unsigned char card_irq;
 
- unsigned int   card_wave_id;    // 0x0001,0x0003; see WAVEID_xxx
- unsigned long  card_controlbits;  // card control flags
- unsigned long  card_infobits;     // card info flags
- unsigned long  card_outbytes;     // samplenum * bytespersample_card
- unsigned long  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
- unsigned long  card_dmalastput;
- unsigned long  card_dmaspace;     /* should be "free" dma buffer size in bytes, but changed for sbemu... */
- unsigned long  card_dmafilled;    /* ??? */
+ unsigned int  card_wave_id;    // 0x0001,0x0003; see WAVEID_xxx
+ unsigned long card_controlbits;  // card control flags
+ unsigned long card_infobits;     // card info flags
+ unsigned long card_outbytes;     /* init with card_dmasize; set by au_cards.c */
+ unsigned long card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
+ unsigned long card_dmalastput;   /* "used" dma buffer size in bytes; (usually) set in dmabuff.c */
+ unsigned long card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
+                                  /* starts with dma buffer size, but should soon be reduced to period size */
 #if USELASTGOODPOS
- unsigned long  card_dma_lastgoodpos;
+ unsigned long card_dma_lastgoodpos;
 #endif
- unsigned int   card_bytespersign; // bytespersample_card * chan_card
- char          *card_DMABUFF;      /* identical with the card's pcmout_buffer */
+ unsigned int  card_bytespersign; // bytespersample_card * chan_card
+ char         *card_DMABUFF;      /* identical with the card's pcmout_buffer */
 
  const struct sndcard_info_s *card_handler; // function structure of the card
  const struct globalvars *gvars;
  void *card_private_data;        // extra private datas can be pointed here (with malloc)
- unsigned char  card_irq;
  short card_master_volume;
  short card_mixer_values[AU_MIXCHANS_NUM]; // -1, 0-100
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
@@ -168,7 +168,7 @@ extern void FAREXP AU_setmixer_init( struct audioout_info_s * );
 extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int channel, int function, unsigned int setmode, int value );
 extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
 //extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
-static void AU_clearbuffs( struct audioout_info_s * );
+//static void AU_clearbuffs( struct audioout_info_s * );
 extern unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s * );
 extern int  FAREXP AU_writedata( struct audioout_info_s *, int, void * );
 

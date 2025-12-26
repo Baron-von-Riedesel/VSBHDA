@@ -1447,7 +1447,8 @@ static void HDA_setrate( struct audioout_info_s *aui )
 
 	card->format_val = hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
 	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
-	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size, 0);
+	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size, 0);
+	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size );
 	dbgprintf(("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card ));
 
 	azx_setup_periods( card );

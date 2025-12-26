@@ -660,10 +660,10 @@ static void ES1371_close( struct audioout_info_s *aui )
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
 	dbgprintf(("ES1371_close\n"));
-	if(card){
-		snd_es1371_chip_close(card);
-		MDma_free_cardmem(&card->dm);
-		free(card);
+	if( card ) {
+		snd_es1371_chip_close( card );
+		MDma_free_cardmem( &card->dm );
+		free( card );
 		aui->card_private_data = NULL;
 	}
 }
@@ -686,7 +686,8 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 		aui->freq_card = 48000;
 
 	//MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, ES1371_DMABUF_ALIGN, 0);
-	MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, pagesize, 0);
+	//MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, pagesize, 0);
+	MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, pagesize);
 
 	snd_es1371_prepare_playback(card,aui);
 }

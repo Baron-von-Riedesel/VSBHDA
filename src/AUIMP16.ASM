@@ -39,7 +39,7 @@ AU_getirq   dd ?
 AU_isirq    dd ?
 AU_getfreq  dd ?
 AU_getshortname  dd ?
-AU_setoutbytes   dd ?
+;AU_setoutbytes   dd ?
 AU_setrate       dd ?
 AU_setmixer_init dd ?
 AU_setmixer_one  dd ?
@@ -231,12 +231,14 @@ AU_getshortname proc c public uses ebx a1:ptr
 
 AU_getshortname endp
 
+if 0
 AU_setoutbytes proc c public a1:ptr
 
 	@callexp AU_setoutbytes, 1
 	ret
 
 AU_setoutbytes endp
+endif
 
 AU_setrate proc c public a1:ptr, a2:dword, a3:dword, a4:dword
 

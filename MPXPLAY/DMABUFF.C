@@ -27,10 +27,10 @@
 
 #define AUCARDS_DMABUFSIZE_NORMAL 32768
 #define AUCARDS_DMABUFSIZE_MAX    131072
-#define AUCARDS_DMABUFSIZE_BLOCK  4096   // default page (block) size
+#define AUCARDS_DMABUFSIZE_BLOCK  512    /* default page (block) size */
 
 /* 1152 * 4 = 4608 = 0x1200; this is somehow related to 44100 */
-#define PCM_OUTSAMPLES 1152
+//#define PCM_OUTSAMPLES 1152
 
 /* alloc physical memory block (it's always an XMS EMB, aligned to 1kB ) */
 
@@ -56,12 +56,12 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 	dm->dwLinear = LinearAddr( dm->pMem );
 	/* unmap & free physical memory */
 	_free_physical_memory(dm);
+	return;
 }
 
-/* usually called by card during adetect(), before card is initialized.
- * max_bufsize should be 0 then, pagesize should be "period size",
- * samplesize is 2 ( for SB Audigy 2 it may be 4? ),
- * freq_config is 0.
+/* called by card-specific code during adetect(), before card is initialized.
+ * max_bufsize currently is always 0, pagesize usually is "period size" (for SB Live/Audigy, it's always 4096),
+ * samplesize is ignored currently; should be 2 - for SB Audigy (CA0151) it may be 4!?.
  */
 
 unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize )
@@ -72,16 +72,8 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 	if(!max_bufsize)
 		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
 	if(!pagesize)
-		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =4096 */
-	if(samplesize < 2)
-		samplesize = 2;
-	bufsize = AUCARDS_DMABUFSIZE_NORMAL / 2; /* =32kB/2 */
-
-	bufsize *= samplesize;        // 2x bufsize at 32-bit output (1.5x at 24)
-	bufsize += (pagesize - 1);    // rounding up to pagesize
-	bufsize -= (bufsize % pagesize);  //
-	if(bufsize > max_bufsize)
-		bufsize = max_bufsize - (max_bufsize % pagesize);
+		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =512 */
+	bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
 	dbgprintf(("MDma_get_max_pcmoutbufsize()=0x%X\n", bufsize ));
 	return bufsize;
 }
@@ -89,7 +81,7 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 /* MDma_init_pcmoutbuf() is called by the card_setrate() functions;
  * these are called by AU_setrate(), which is called by main().
  * So it's NOT called during interrupt time!
- * freq_config may be 0!;
+ * freq_config is 0, has been removed;
  * Besides the function's arguments, used are:
  * - aui->bits_card,aui->chan_card
  * - aui->freq_card
@@ -98,16 +90,19 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
  * - aui->card_bytespersign
  */
 
-unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned int freq_config )
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize, unsigned int freq_config )
+unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize )
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int dmabufsize,bit_width,tmp;
+	//unsigned int dmabufsize,bit_width,tmp;
+	unsigned int dmabufsize,bit_width;
 
-	dbgprintf(("MDma_init_pcmoutbuf(maxbufsize=0x%X pgsize=0x%X freqcfg=%u)\n", maxbufsize, pagesize, freq_config ));
+	//dbgprintf(("MDma_init_pcmoutbuf(maxbufsize=0x%X pgsize=0x%X freqcfg=%u)\n", maxbufsize, pagesize, freq_config ));
+	dbgprintf(("MDma_init_pcmoutbuf(maxbufsize=0x%X pgsize=0x%X)\n", maxbufsize, pagesize ));
 	dbgprintf(("MDma_init_pcmoutbuf, aui fields: freq=%u/%u chan=%u/%u bits=%u/%u\n",
 			aui->freq_set, aui->freq_card, aui->chan_set, aui->chan_card, aui->bits_set, aui->bits_card ));
 
-	if ( !freq_config ) freq_config = 44100;
+	//if ( !freq_config ) freq_config = 44100;
 
 	switch( aui->card_wave_id ) {
 	case WAVEID_PCM_FLOAT:
@@ -119,36 +114,41 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 	}
 
 	/* ensure dmabufsize is a multiple of pagesize */
+#if 0
 	dmabufsize = maxbufsize * aui->freq_card / freq_config;
-	dmabufsize += (pagesize - 1);           // rounding up to pagesize
-	dmabufsize -= (dmabufsize % pagesize);  //
+	dmabufsize += (pagesize - 1);			// rounding up to pagesize
+	dmabufsize -= (dmabufsize % pagesize);	//
 	if( dmabufsize < (pagesize * 2) )
 		dmabufsize = pagesize * 2;
 	if( dmabufsize > maxbufsize ){
 		dmabufsize = maxbufsize;
 		dmabufsize -= (dmabufsize % pagesize);
 	}
+#else
+	if( maxbufsize < (pagesize * 2) )
+		dmabufsize = pagesize * 2;
+	else
+		dmabufsize = ( maxbufsize / pagesize ) * pagesize;
+#endif
 
 	aui->card_bytespersign = aui->chan_card * ((bit_width + 7) / 8);
 
+	/* pagesize is a multiple of 64, so no need for next line */
 	//dmabufsize -= (dmabufsize % aui->card_bytespersign);
 
 	aui->card_dmasize = dmabufsize;
 
-#if 0 /* v1.8: useless here; set by AU_setoutbytes() */
-	if(!aui->card_outbytes)
-		aui->card_outbytes = PCM_OUTSAMPLES * aui->card_bytespersign; // not exact
-#endif
 #if USELASTGOODPOS
 	aui->card_dma_lastgoodpos = 0; // the soundcard is responsible for this variable
 #endif
-	tmp = aui->card_dmasize / 2;
-	tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
-	aui->card_dmalastput = tmp;
-	aui->card_dmafilled = aui->card_dmalastput;
-	aui->card_dmaspace = aui->card_dmasize - aui->card_dmafilled;
+	/* v1.9: init card_dmalastput to last (two) dma buffer chunk(s) */
+	//tmp = aui->card_dmasize / 2;
+	//tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
+	//aui->card_dmalastput = tmp;
+	aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
+	aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
 
-	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X\n", aui->card_dmasize ));
+	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X card_dmalastput=0x%X card_dmaspace=0x%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace ));
 	return dmabufsize;
 }
 
@@ -157,6 +157,7 @@ void MDma_clearbuf( struct audioout_info_s *aui )
 {
 	if(aui->card_DMABUFF && aui->card_dmasize)
 		memset(aui->card_DMABUFF,0,aui->card_dmasize);
+	return;
 }
 
 void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
@@ -177,24 +178,6 @@ void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left 
 		memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,left);
 		aui->card_dmalastput += left;
 	}
+	return;
 }
-
-#if 0
-// *************** called from int08 **********************************
-// checks the DMA buffer and if it's empty, fills with zeroes
-
-void MDma_interrupt_monitor( struct audioout_info_s *aui )
-//////////////////////////////////////////////////////////
-{
-	if(aui->card_dmafilled < (aui->card_dmaout_under_int08 * 2)) {
-		if(!(aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN)){
-			MDma_clearbuf(aui);
-			aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
-		}
-	}else{
-		aui->card_dmafilled -= aui->card_dmaout_under_int08;
-		aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
-	}
-}
-#endif
 

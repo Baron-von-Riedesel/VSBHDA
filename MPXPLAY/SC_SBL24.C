@@ -327,7 +327,8 @@ static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_
 		}
 
 	/* v1.7: use /PS value if set */
-	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
+	//dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
+	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN);
 	//card->period_size = (dmabufsize / CA0106_DMABUF_PERIODS);
 	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / CA0106_DMABUF_PERIODS);
 	dbgprintf(("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));

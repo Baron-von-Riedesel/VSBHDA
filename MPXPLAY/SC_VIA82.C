@@ -413,7 +413,8 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	//aui->bits_card = 16;
 	//aui->card_wave_id = WAVEID_PCM_SLE;
 
-	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize, 0);
+	//dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize, 0);
+	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize);
 
 	// page tables
 	//card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;

@@ -588,7 +588,8 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
+	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
+	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN);
 	card->period_size_bytes = dmabufsize / ICH_DMABUF_PERIODS;
 
 	snd_intel_prepare_playback(card,aui);
@@ -647,10 +648,10 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 	MDma_writedata(aui,src,left);
 
 #if 1//def SBEMU
-	snd_intel_write_8(card,ICH_PO_LVI,(snd_intel_read_8(card, ICH_PO_CIV)-1) % ICH_DMABUF_PERIODS);
+	snd_intel_write_8(card,ICH_PO_LVI,(snd_intel_read_8(card, ICH_PO_CIV) - 1) % ICH_DMABUF_PERIODS);
 #else
 	index = aui->card_dmalastput / card->period_size_bytes;
-	snd_intel_write_8(card,ICH_PO_LVI,(index-1) % ICH_DMABUF_PERIODS); // set stop position (to keep playing in an endless loop)
+	snd_intel_write_8(card,ICH_PO_LVI,(index - 1) % ICH_DMABUF_PERIODS); // set stop position (to keep playing in an endless loop)
 #endif
 	//dbgprintf(("ICH_writedata: index=%d\n",index));
 }
@@ -686,9 +687,7 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 			pcmpos = snd_intel_read_16(card, ICH_PO_PICB ); // position in the current period (remaining unprocessed in SAMPLEs)
 			pcmpos *= aui->bits_card >> 3;
 		}
-		//pcmpos*=aui->chan_card;
-		//printf("%d %d %d %d\n",aui->bits_card, aui->chan_card, pcmpos, card->period_size_bytes);
-		//dbgprintf(("ICH_getbufpos: pcmpos=%d\n",pcmpos));
+		//pcmpos *= aui->chan_card;
 		if( !pcmpos || pcmpos > card->period_size_bytes ) {
 			if( snd_intel_read_8(card,ICH_PO_LVI) == index ) {
 				MDma_clearbuf(aui);

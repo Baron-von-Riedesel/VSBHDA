@@ -43,7 +43,7 @@ extern int  AU_getirq( void * );
 extern int  AU_getfreq( void * );
 extern char *AU_getshortname( void * );
 extern int  AU_isirq( void * );
-extern void AU_setoutbytes( void * );
+//extern void AU_setoutbytes( void * );
 //extern void AU_setsamplenum( void * );
 //extern void AU_prestart( void * );
 extern void AU_start( void * );

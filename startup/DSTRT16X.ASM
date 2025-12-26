@@ -197,6 +197,7 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	sub esi,esi 			; offset 0 for environment strings
 	mov edi,81H 			; DOS command buffer es:edi
 
+if 0
 ;--- get code alias - to allow DGROUP access for interrupt procs.
 ;--- if needed, it may be stored in a _csalias variable.
 ;--- currently it's released after usage.
@@ -204,15 +205,17 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	mov ax, 000AH
 	int 31h
 	mov ebx, eax
+endif
 	push es
 	mov es, [_psp]
 	mov cx, es:[DOS_PSP_ENV_SEG]; get environment segment into cx
-	mov es, ebx					; get access to code segment
-	mov es:__saved_DS,ds		; save DS value
+;	mov es, ebx					; get access to code segment
+;	mov es:__saved_DS,ds		; save DS value
 	pop es
+if 0
 	mov ax, 1
 	int 31h
-
+endif
 	mov al, X_RATIONAL
 	mov ah, XS_RATIONAL_NONZEROBASE
 
@@ -296,17 +299,22 @@ __exit endp
 	align 4
 
 	public __GETDS
-	public c __GETDSStart_
-	public c __GETDSEnd_
+;	public c __GETDSStart_
+;	public c __GETDSEnd_
 
 __GETDS proc near
-__GETDSStart_ label near
-	mov ds,cs:__saved_DS	; load saved DS value
+;__GETDSStart_ label near
+	push eax
+	mov eax,cs
+	add eax,8
+	mov ds,eax
+	pop eax
+;	mov ds,cs:__saved_DS	; load saved DS value
 	ret
-	align dword
-__saved_DS dw 0				; DS save area for interrupt routines
+;	align dword
+;__saved_DS dw 0				; DS save area for interrupt routines
 __GETDS endp
-__GETDSEnd_ label near
+;__GETDSEnd_ label near
 
 _TEXT ends
 

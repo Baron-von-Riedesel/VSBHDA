@@ -735,7 +735,7 @@ static void emu10k1_pcm_init_voice( struct emu10k1_card *card, unsigned int voic
 	uint32_t silent_page;
 	int vol_left, vol_right;
 
-	dbgprintf(("emu10k1_pcm_init_voice(%X, %X, %X, %X) enter\n", voice, flags, start_addr, end_addr));
+	dbgprintf(("emu10k1_pcm_init_voice(%u, %X, %X, %X) enter\n", voice, flags, start_addr, end_addr));
 
 	if ( flags & VOICE_FLAGS_STEREO ) {
 		start_addr >>= 1;
@@ -954,7 +954,8 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 			aui->freq_card = limit;
 	}
 
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE, 0);
+	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE, 0 );
+	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE );
 
 	/* v1.7: exclude 22050 and 11025 from 48k sampling as well ! */
 	//if ( aui->freq_card == 44100 )
@@ -974,7 +975,8 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	emu10k1_pcm_init_voice(card, 0, VOICE_FLAGS_MASTER | VOICE_FLAGS_STEREO | VOICE_FLAGS_16BIT, 0, dmabufsize);
 	emu10k1_pcm_init_voice(card, 1, VOICE_FLAGS_STEREO | VOICE_FLAGS_16BIT, 0, dmabufsize);
 #if LOOPINT
-	emu10k1_pcm_init_voice(card, 2, VOICE_FLAGS_MASTER, 0, aui->gvars->period_size ? aui->gvars->period_size : 512 );
+    /* this "silent" voice is for interrupt generation; note that size is just 1/4, since flags "16-bit"/"stereo" are 0 */
+	emu10k1_pcm_init_voice(card, 2, VOICE_FLAGS_MASTER, 0, (aui->gvars->period_size ? aui->gvars->period_size : 512) >> 2 );
 #endif
 	dbgprintf(("snd_emu10kx_setrate exit, freq=%u, dmabufsize=0x%X, voice_pitch_target=0x%X\n", aui->freq_card, dmabufsize, card->voice_pitch_target ));
 	return;
@@ -1175,7 +1177,8 @@ static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s 
 					aui->freq_card = 192000;
 		}
 
-	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN,0);
+	//dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN,0);
+	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN);
 	//card->period_size = (dmabufsize / AUDIGY2_P16V_PERIODS);
 	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / AUDIGY2_P16V_PERIODS);
 	dbgprintf(("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));
@@ -1520,7 +1523,7 @@ static void SBALL_start( struct audioout_info_s *aui )
 	 * it "worked", but it has turned out that FastTracker 2 had problems, so
 	 * v1.8 reduced it to 0x1E0.
 	 * v1.9: value derived from period size: default 512 * 108 / 100 should give 128 samples;
-	 * however, default is now LOOPINT = 0 - the timer isn't used then.
+	 * however, default is now LOOPINT 1 - the timer isn't used then.
 	 */
 	outw(card->iobase + TIMER, ( aui->gvars->period_size ? aui->gvars->period_size : 512 ) * 108 / 100 );
 #else

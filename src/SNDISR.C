@@ -311,7 +311,7 @@ static int SNDISR_Interrupt( void )
     _enable_ints();
 #endif
 
-    AU_setoutbytes( isr.hAU ); //aui.card_outbytes = aui.card_dmasize;
+    //AU_setoutbytes( isr.hAU ); //v1.9: now obsolete
     samples = AU_cardbuf_space( isr.hAU ) / ( sizeof(int16_t) * 2 ); //16 bit, 2 channels
     if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
         dbgprintf(("isr: ERROR - AU_cardbuf_space() returned 0 samples\n" ));
@@ -451,7 +451,7 @@ static int SNDISR_Interrupt( void )
 
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): SB Pos/Size=0x%X/0x%X s/c/b=0x%X/0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, SB_Pos, SB_BuffSize, samples, count, bytes, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X SB Pos/Size=0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, SB_Pos, SB_BuffSize, DMA_Index, DMA_Count ));
 #endif
             if ( VSB_GetAuto() )
                 VSB_SetPos(0);
@@ -460,7 +460,7 @@ static int SNDISR_Interrupt( void )
             VIRQ_Invoke();
         } else {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X ESP=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos, _my_esp() ));
+            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos ));
 #endif
             break;
         }
