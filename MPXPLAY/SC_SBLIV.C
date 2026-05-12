@@ -1520,12 +1520,11 @@ static void SBALL_start( struct audioout_info_s *aui )
 #if !LOOPINT
 	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER | INTE_INTERVALTIMERENB );
 	/* v1.8: in 04/2023, the timer value was selected by trial & error (0x200);
-	 * it "worked", but it has turned out that FastTracker 2 had problems, so
-	 * v1.8 reduced it to 0x1E0.
-	 * v1.9: value derived from period size: default 512 * 108 / 100 should give 128 samples;
+	 * it "worked", but it has turned out that FastTracker 2 had problems, so it was reduced to 0x1E0.
+	 * v1.9: value derived from period size: period_size * 48000 / (freq * 4); (4=channels * bytes_per_sample)
 	 * however, default is now LOOPINT 1 - the timer isn't used then.
 	 */
-	outw(card->iobase + TIMER, ( aui->gvars->period_size ? aui->gvars->period_size : 512 ) * 108 / 100 );
+	outw(card->iobase + TIMER, ( aui->gvars->period_size ? aui->gvars->period_size : 512 ) * 48000 / (aui->freq_card * 4) );
 #else
 	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER );
 #endif

@@ -272,24 +272,24 @@ error:
 	ret
 _hdpmi_rmcbIO endp
 
-ifndef NOTFLAT	; currently not active for 16-bit
+ifndef NOTFLAT ; currently not active for 16-bit
 
 ;--- CLI trap handler
 ;--- will only be called if CR4.PVI is 0.
 
-ifdef NOTFLAT
+ ifdef NOTFLAT
 IRETWS struct
 rIp		dw ?
 rCS		dw ?
 rFl		dw ?
 IRETWS ends
-else
+ else
 IRETDS struct
 rEip	dd ?
 rCS		dd ?
 rEfl	dd ?
 IRETDS ends
-endif
+ endif
 
 _hdpmi_CliHandler proc public
 
@@ -297,21 +297,24 @@ _hdpmi_CliHandler proc public
 	push ds
 	push esi
 
-;--- if CLI is to be a NOP, activate next line
-;	jmp enable
-
-ifdef NOTFLAT
+ ifdef NOTFLAT
 	lds si, dword ptr [esp+2*4].IRETWS.rIp
 	movzx esi, si
-else
+ else
 	lds esi, fword ptr [esp+2*4].IRETDS.rEip
-endif
+ endif
+
+ ifndef NOTFLAT
 	cmp esi, 3
 	jb unchanged
 	cmp word ptr [esi-3], 589Ch	; "pushfd" "pop eax"; needed by ID games' DOS/4G
 	jz enable
 	cmp byte ptr [esi-2], 9Ch	; "pushfd"; needed by Stargunner?
 	jnz unchanged
+ else
+;--- 16-bit
+	jmp unchanged ;comment out if CLI is to be a NOP in 16-bit (needed for unpatched tyrian2k?)
+ endif
 enable:
 	push eax
 	insPUSHF

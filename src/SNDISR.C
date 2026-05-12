@@ -170,8 +170,8 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
  * in the next call...
  */
 
-static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsigned int channels, unsigned int srcrate, unsigned int dstrate)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int samplenum, const unsigned int channels, unsigned int srcrate, unsigned int dstrate)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	/* todo: what algorithm for instep is best? */
 	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) - 1) / (dstrate - 1)) & 0xFFF);
@@ -179,9 +179,9 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 
 	const unsigned int inend = (samplenum / channels) << 12;
 	PCM_CV_TYPE_S *pcmdst;
-	unsigned long ipi;
+	unsigned int ipi;
 	unsigned int inpos = 0;//(srcrate < dstrate) ? instep / 2 : 0;
-	int total;
+	unsigned int total;
 #if MALLOCSTATIC
 	static int maxsample = 0;
 	static PCM_CV_TYPE_S* buff = NULL;
@@ -205,22 +205,23 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, unsigned int samplenum, unsi
 	memcpy( buff, pcmsrc, samplenum * sizeof(PCM_CV_TYPE_S) );
 
 	pcmdst = pcmsrc;
-	total = samplenum / channels;
+	total = samplenum >> ( channels - 1);
+	if ( total >= channels )
+		total -= channels;
 
 	do {
-		int m1,m2;
-		unsigned int ipi,ch;
+		unsigned int m1,m2;
+		unsigned int ipi;
 		PCM_CV_TYPE_S *intmp1,*intmp2;
-		ipi = inpos >> 12;
+		ipi = (inpos >> 12 ) << ( channels - 1);
 		m2 = inpos & 0xFFF;
 		m1 = 4096 - m2;
-		ch = channels;
-		ipi *= ch;
-		intmp1 = buff + ipi;
-		intmp2 = ipi < total - ch ? intmp1 + ch : intmp1;
-		do {
-			*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) / 4096;// >> 12; //don't use shift, signed right shift impl defined, maybe logical shift
-		} while (--ch);
+		intmp1 = intmp2 = buff + ipi;
+		if (ipi < total)
+			intmp2 += channels;
+		*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) >> 12;
+		if ( channels > 1 )
+			*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) >> 12;
 		inpos += instep;
 	} while ( inpos < inend );
 

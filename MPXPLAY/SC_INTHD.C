@@ -68,7 +68,7 @@ struct intelhd_card_s {
     struct pci_config_s pci_dev;
     unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
     long          codec_vendor_id;
-    unsigned long codec_mask;
+    unsigned int  codec_mask;        /* stores value of HDA statests register (16-bit) */
     unsigned int  codec_index;
     hda_nid_t afg_root_nodenum;
     int afg_num_nodes;
@@ -766,10 +766,10 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 {
 	int timeout;
 
-	dbgprintf(("azx_reset: GCTL=%X\n", chip->hdac->gctl ));
+	dbgprintf(("azx_reset: GCTL=%X, STATESTS=%X\n", chip->hdac->gctl, chip->hdac->statests ));
 
-    /* v1.7: do a reset if no codec bits in STATESTS are set */
-    if ( !(chip->hdac->statests & 0xf) ) {
+	/* v1.7: do a reset if no codec bits in STATESTS are set (assumes max 4 codecs) */
+	if ( !(chip->hdac->statests & ( (1 << AZX_MAX_CODECS) - 1) ) ) {
 		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
 		for (timeout = 100;timeout && (chip->hdac->gctl & HDA_GCTL_RESET);timeout--)
 			pds_delay_10us(100);
@@ -794,7 +794,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	for( timeout = 100; (chip->hdac->corbctl & 2) && timeout; timeout--, pds_delay_10us(10));
 
 	/* STATESTS decides what codecs will be tried.
-	 * This field is wc ( writing '1' clears the bit );
+     * bits 14:0 are wc ( writing '1' clears the bit );
 	 */
 	chip->codec_mask = chip->hdac->statests;
 
@@ -841,9 +841,12 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	/* reset int errors by writing '1's in SD_STS */
 	card->sd->bSts = SD_INT_MASK;
 
-    /* v1.8: statests bit 0-3 are now cleared - makes vsbhda compatible with vmware */
+    /* v1.8: statests bit 0-3 are now cleared - makes vsbhda compatible with vmware;
+     * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit ) - so check if
+     * this code really does what's intended!
+     */
 	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
-	card->hdac->statests = card->hdac->statests & 0xf;
+	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
 
 	card->hdac->rirbsts = RIRB_INT_MASK;
 
@@ -974,7 +977,7 @@ static void hda_hw_close(struct intelhd_card_s *card)
 	/* stop CORB & RIRB DMA engines */
 	card->hdac->corbctl = 0;
 	card->hdac->rirbctl = 0;
-	card->hdac->intsts = 0;
+    card->hdac->intsts = 0; /* useful? this register is RO! */
 	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
 	dbgprintf(("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
 			card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
@@ -1395,8 +1398,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		/* wait till engines are up */
 		for ( timeout = 0; timeout < 100 && !(card->hdac->corbctl & 2); timeout++, pds_delay_10us(100) );
 
-		for( i = 0; i < AZX_MAX_CODECS; i++ ){
-			if( card->codec_mask & ( 1 << i) ) {
+		for ( i = 0; i < AZX_MAX_CODECS; i++ ) {
+			if( card->codec_mask & ( 1 << i ) ) {
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
 					/* v1.7 set the specific device name if there's one */

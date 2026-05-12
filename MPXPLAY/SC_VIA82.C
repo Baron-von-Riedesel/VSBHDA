@@ -203,7 +203,7 @@ static unsigned int via8233_dxs_volume = DXS_VOLUME;
 //-------------------------------------------------------------------------
 static const struct pci_device_s via_devices[] = {
     {"VT82C686",PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT82C686},
-    {"VT8233"  ,PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT8233}, /* 8233,8235,8237 */
+    {"VT823[3|5|7]"  ,PCI_VENDOR_ID_VIA,PCI_DEVICE_ID_VT8233}, /* 8233,8235,8237 */
     {NULL,0,0}
 };
 
@@ -460,7 +460,7 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 		if (aui->freq_card == 48000)
 			rbits = 0xfffff;
 		else
-#if 1
+#if 0 /* v1.9: changed */
 			rbits = (0x100000 / 48000) * aui->freq_card;
 #else
 			rbits = (0x100000 / 48000) * aui->freq_card + ((0x100000 % 48000) * aui->freq_card) / 48000;

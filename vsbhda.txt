@@ -155,9 +155,9 @@
 
    4.1 JHDPMI.DLL
 
-    This JLM is recommended to be loaded before the vsbhda binary. It doesn't
+    This JLM is recommended to be loaded before the HDPMI binary. It doesn't
    supply any features for VSBHDA directly, but enhances DPMI compliance of
-   hdpmi. It ensures that the DPMI host will be the first to receive interrupt
+   HDPMI. It ensures that the DPMI host will be the first to receive interrupt
    requests that occur in v86-mode, without the need to modify IVT vectors.
     The utility JHDPMIS.EXE makes JHDPMI display its status. One may see what
    IVT vectors are hooked and how often the hook address has been called.
@@ -307,11 +307,14 @@
     Here are some programs/games listed that require special actions:
 
     - Aladdin: requires EMS, max. XMS memory is 31MB (XMSRes 31).
+    - Betrayal at Krondor: assumes SB IRQ 7; needs EMS memory.
     - Blood: setting SB IRQ to 2 or 5 may be required. Generally, on some
       machines the DOS/4GW DOS extender has problems with IRQ 7.
+    - Comanche Maximum Overkill (patched): needs Jemm's NOVCPI option.
     - Creative's SB16 diagnose.exe: needs cmdline option /CF1.
     - Daggerfall: uses the CauseWay DOS extender - requires either Jemm's
       NOVCPI option or environment variable CAUSEWAY=DPMI.
+    - DynaBlaster: requires VSBHDA option /CF1.
     - FastTracker 2: requires Jemm's NOVCPI option AND option /CF4.
     - Jazz Jackrabbit: unpatched version requires /CF8.
     - Jungle Book: needs SETPVI.EXE to be run before launched.
@@ -334,12 +337,15 @@
       HDPMI32i.
     - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
     - The Flight of the Amazon Queen: requires SETPVI.
+    - Tyrian 2000: this is a 16-bit game, needs VSBHDA16.EXE; the unpatched
+      variant may cause crashes since it doesn't expect to run with IOPL 0.
+      The patch may be found at https://github.com/drivelling-spinel/VSBCMI. 
     - X128 (Sinclair Spectrum Emulator): requires Jemm's NOVCPI option.
 
     The following (incomplete) list shows games that won't run with VSBHDA
     because they are incompatible with either Jemm/Qemm or HDPMI:
 
-    - Comanche
+    - Comanche Maximum Overkill (original, unpatched)
     - Privateer
     - Rayman
     - Strike Commander

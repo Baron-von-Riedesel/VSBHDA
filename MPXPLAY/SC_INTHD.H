@@ -516,8 +516,8 @@ struct HDAREGS_s {
 #define BDL_SIZE             (sizeof(struct BDL_s) * 512) /* must be 128byte aligned */
 //#define AZX_MAX_FRAG       (BDL_SIZE / (MAX_AZX_DEV * 16))
 
-#define STATESTS_INT_MASK    0x07
-#define AZX_MAX_CODECS       4
+//#define STATESTS_INT_MASK    0x07 /* ??? */
+#define AZX_MAX_CODECS       4    /* there are 15 bits in register STATESTS, not just 4 */
 
 /* GCTL unsolicited response enable bit */
 #define HDA_GCTL_UREN        (1<<8)
