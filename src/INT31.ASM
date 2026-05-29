@@ -37,7 +37,7 @@ UninstallExc00 proto
 
  if FIXEXC00
 externdef dwOldexc00:dword	; in _TEXT for 16-bit
-externdef bExc00:byte       ; 1=trap set/get exc 00 vector
+;externdef bExc00:byte       ; 1=trap set/get exc 00 vector
  endif
 
 oldint31 PFAR ?

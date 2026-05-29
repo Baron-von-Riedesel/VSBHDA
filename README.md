@@ -10,7 +10,7 @@ Supported Sound cards:
  * SB Live, SB Audigy
  * SB based on ES1371/1373 (Ensoniq)
 
-(Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.)
+Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 
 Emulated modes/cards:
 8-bit, 16-bit, mono, stereo, high-speed;

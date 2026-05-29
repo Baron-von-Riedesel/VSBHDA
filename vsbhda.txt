@@ -327,6 +327,7 @@
       + SB IRQ 5/7 may cause problems, IRQ 2 seems the best to work.
     - MDK: requires option /CF4.
     - Monkey Island 2: requires option /CF1.
+    - Redneck Rampage: if JemmEx is loaded with NOEMS, it needs to set MIN=15M.
     - Screamer: set max. XMS memory to 31MB (XMSRes 31).
     - Stargunner: requires Jemm's NOVCPI option; the game doesn't restore the
       SB interrupt vector - it may be necessary to reload vsbhda after the
