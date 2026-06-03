@@ -241,19 +241,19 @@ static void VDMA_SetComplete(int channel)
 uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
 ///////////////////////////////////////////////////////////////////////
 {
-    int size;
+    int shift;
     int base;
 
     if ( channel <= 3 ) {
-        size = 1;
+        shift = 0;
         base = 0 + ( channel << 1 ); /* regs 0-7 */
     } else {
-        size = 2;
+        shift = 1;
         base = 8 + ( channel << 1 ); /* regs 16-23 */
     }
 
     //dbgprintf(("VDMA_SetIndexCount (chn %u): Idx=%X, Cnt=%X CurIdx=%X, CurCnt=%X\n", channel, index, count, vdma.CurIdx[channel], vdma.CurCnt[channel] ));
-    vdma.CurIdx[channel] = index / size;
+    vdma.CurIdx[channel] = index >> shift;
     count--;
     if( count < 0 ) {
         vdma.CurCnt[channel] = 0xffff;
@@ -263,7 +263,7 @@ uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
             vdma.CurCnt[channel] = vdma.MaxCnt[channel];
         }
     } else
-        vdma.CurCnt[channel] = count / size;
+        vdma.CurCnt[channel] = count >> shift;
 
     /* the VDMA_Regs[] values are either set here or later when the regs are read (DelayUpdate=true) */
     /* v1.4: take care that Regs[base] isn't beyond addr+length */
@@ -277,7 +277,7 @@ uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
         vdma.DelayUpdate[channel] = true;
 
     //dbgprintf(("VDMA_SetIndexCount(%u,%X,%X): returns %X\n", channel, index, count, vdma.CurIdx[channel] * size ));
-    return vdma.CurIdx[channel] * size;
+    return vdma.CurIdx[channel] << shift;
 }
 
 int VDMA_GetAuto(int channel)

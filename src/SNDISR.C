@@ -407,10 +407,9 @@ static int SNDISR_Interrupt( void )
                 /* v1.8: if dma autoinit then restart dma; else exit & stop digital sound. */
                 if ( !VDMA_GetAuto(dmachannel) || DMA_Index == 0 ) {
                     VSB_Stop();
-                    break;
                 }
                 DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index, 0 );
-                DMA_Count = VDMA_GetCount(dmachannel );
+                continue;
             }
             /* v1.8: removed max() */
             //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
@@ -426,7 +425,9 @@ static int SNDISR_Interrupt( void )
         } else {
             memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
             DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
-            //DMA_Count = VDMA_GetCount( dmachannel ); /* v1.8: not needed */
+#ifdef SNDISRLOG /* v1.8: needed for debug logs only */
+            DMA_Count = VDMA_GetCount( dmachannel );
+#endif
         }
 
         /* update DSP regs */
@@ -452,7 +453,7 @@ static int SNDISR_Interrupt( void )
 
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X SB Pos/Size=0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, SB_Pos, SB_BuffSize, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X SB Pos/Size=0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, SB_Pos, SB_BuffSize, DMA_Index, DMA_Count ));
 #endif
             if ( VSB_GetAuto() )
                 VSB_SetPos(0);
@@ -461,9 +462,13 @@ static int SNDISR_Interrupt( void )
             VIRQ_Invoke();
         } else {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%X/0x%X/0x%X ocnt=0x%X SB Pos=0x%X\n", loop, samples, count, bytes, ocnt, SB_Pos ));
+            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X ocnt=0x%X SB Pos=0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, ocnt, SB_Pos, DMA_Index, DMA_Count ));
 #endif
-            break;
+            /* v1.9: to exit the loop here was incorrect -
+             *       might be that DMA buffer < SB buffer!
+             *       test case: Open Cubic Player.
+             */
+            //break;
         }
     };
 

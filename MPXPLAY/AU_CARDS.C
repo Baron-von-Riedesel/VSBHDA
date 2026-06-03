@@ -22,7 +22,7 @@
 #include "MPXPLAY.H"
 #include "DMABUFF.H"
 
-#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
+//#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
 
 extern uint8_t bOMode;
 

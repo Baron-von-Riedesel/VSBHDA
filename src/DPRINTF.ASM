@@ -264,7 +264,7 @@ ifdef _DEBUG
 ;--- DJGPP: DS assumed DGROUP
 
  ifndef DJGPP
-	alias <___dprintf> = <_dprintf>
+	alias <__dprintf> = <_dprintf>
  else
 __dprintf proc c public 
 __dprintf endp

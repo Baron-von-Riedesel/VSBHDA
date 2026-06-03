@@ -6,6 +6,9 @@
   - VIA VT823X: reworked.
   - debug version: support for logfile and cmdline option /LF: added.
   - SB Live/Audigy: interrupt frequency no longer based on timer.
+  - fixed regression in v1.8: sound may have been distorted if 
+    DMA buffer < SB buffer; example: Open Cubic Player.
+  - ignore SB16 DSP ADC cmds 0xBn/0xCn ( bit 3=1 ).
 
   v1.8, 13.10.2025
   - fixed: HDA in VmWare.

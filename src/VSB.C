@@ -532,7 +532,7 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_CONT_16BIT_AUTO: /* 47 - SB16 only */
     case SB_DSP_CONT_8BIT_AUTO: SB16_ONLY(); /* 45 - SB16 only */
         vsb.Auto = true;
-        dbgprintf(("DSP_DoCommand(%X): continue autoinit\n", vsb.dsp_cmd ));
+        //dbgprintf(("DSP_DoCommand(%X): continue autoinit\n", vsb.dsp_cmd ));
         break;
     case SB_DSP_EXIT_16BIT_AUTO: SB16_ONLY(); /* D9 */
     case SB_DSP_EXIT_8BIT_AUTO:  /* DA */
@@ -610,6 +610,13 @@ static void DSP_DoCommand( uint32_t flags )
     case 0xc0:  case 0xc1:  case 0xc2:  case 0xc3:  case 0xc4:  case 0xc5:  case 0xc6:  case 0xc7:
     case 0xc8:  case 0xc9:  case 0xca:  case 0xcb:  case 0xcc:  case 0xcd:  case 0xce:  case 0xcf:
         SB16_ONLY();
+#if 1 /* v1.9 */
+        /* cmd bit3=1? ADC - ignore cmd! */
+        if ( vsb.dsp_cmd & 8 ) {
+            dbgprintf(("DSP_DoCommand(%X): SB16 mode=%X (ADC), samples=%u\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.Samples ));
+            break;
+        }
+#endif
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         /* bit1=0: nofifo
         /* bit2=1: auto (B4, C4, B6, C6)
