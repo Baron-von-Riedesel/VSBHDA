@@ -109,6 +109,7 @@ fwrite_entry::
 	mov eax,elems
 	imul eax,size_
 	mov size_,eax
+	mov elems,eax  ; save original size in bytes
 	push ss
 	pop es
 	lea edi,desc
@@ -140,9 +141,8 @@ nextchk:
 	add edx,ecx
 	sub size_, ecx
 	jnz nextchk
-	push eax
 	call freedesc
-	pop eax
+	mov eax, elems
 	ret
 else
 fread proc uses ebx pBuffer:ptr, elems:dword, size_:dword, pFile:ptr

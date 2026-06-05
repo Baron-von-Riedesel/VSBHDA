@@ -1,5 +1,5 @@
 
-  v1.9
+  v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).
   - handling DSP direct cmd (0x10) reworked.
   - "busy" status of DSP cmd/data port reworked.

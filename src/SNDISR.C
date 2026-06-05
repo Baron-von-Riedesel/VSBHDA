@@ -403,11 +403,12 @@ static int SNDISR_Interrupt( void )
             if( VSB_GetBits() < 8 )
                 count = count / (9 / VSB_GetBits());
             if ( DMA_Count < (samplesize * channels )) {
-                dbgprintf(("isr(%u): DMA_Count=0x%X, samplesize=%u, channels=%u\n", loop, DMA_Count, samplesize, channels ));
+#ifdef SNDISRLOG
+                dbgprintf(("isr(%u): DMA Idx/Cnt=0x%X/0x%X, samplesize=%u, channels=%u\n", loop, DMA_Index, DMA_Count, samplesize, channels ));
+#endif
                 /* v1.8: if dma autoinit then restart dma; else exit & stop digital sound. */
-                if ( !VDMA_GetAuto(dmachannel) || DMA_Index == 0 ) {
-                    VSB_Stop();
-                }
+                if ( !VDMA_GetAuto(dmachannel) || DMA_Index == 0 )
+                    break;
                 DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index, 0 );
                 continue;
             }
@@ -464,11 +465,13 @@ static int SNDISR_Interrupt( void )
 #ifdef SNDISRLOG
             dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X ocnt=0x%X SB Pos=0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, ocnt, SB_Pos, DMA_Index, DMA_Count ));
 #endif
-            /* v1.9: to exit the loop here was incorrect -
+            /* v1.9: to exit the loop here (unconditionally) was incorrect -
              *       might be that DMA buffer < SB buffer!
              *       test case: Open Cubic Player.
+             *       however, exit if DMA autoinit isn't active should be ok.
              */
             //break;
+            if ( !VDMA_GetAuto(dmachannel) ) break;
         }
     };
 
