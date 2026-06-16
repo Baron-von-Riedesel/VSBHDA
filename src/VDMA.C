@@ -17,6 +17,9 @@
  *       bit 6-7: operation mode: 00=demand, 01=single, 10=block, 11=cascade
  */
 
+#define DMAREADLOG
+#define DMAWRITELOG
+
 struct VDMA_Status {
 	//registers
 	uint16_t Regs[32];  /* 0-15 values for ports 00-0F, 16-31 values for ports C0-DE */
@@ -43,19 +46,25 @@ static const int8_t VDMA_PortChannelMap[16] =
     -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
 };
 
+/* write to ISA DMA controller ports;
+ * even if a channel is virtualized the ports are written;
+ */
+
 static void VDMA_Write(uint16_t port, uint8_t byte)
 ///////////////////////////////////////////////////
 {
 
     int index = port;
-    //dbgprintf(("VDMA_Write(%x, %x )\n", port, byte));
+#ifdef DMAWRITELOG
+    dbgprintf(("VDMA_Write(0x%x, 0x%x)\n", port, byte));
+#endif
     /* ports 08-0F or D0-DE? */
     if(( port >= DMA_REG_STATUS_CMD && port <= DMA_REG_MULTIMASK) ||
        ( port >= DMA_REG_STATUS_CMD16 && port <= DMA_REG_MULTIMASK16 ) ) {
         int base = 0;
         int channelbase = 0;
         /* ports D0-DE? */
-        if( port >= DMA_REG_STATUS_CMD16 ) { /* > port 0xD0? */
+        if( port >= DMA_REG_STATUS_CMD16 ) { /* > DMA16 control register? */
             index = (port - DMA_REG_STATUS_CMD16) / 2 + 8; /* 0xD0-0xDE -> 0x08-0x0F */
             base = 16; /* index base, so base+index are 24-31 */
             channelbase = 4;
@@ -115,10 +124,16 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
     UntrappedIO_OUT(port, byte);
 }
 
+/* read an ISA DMA controller port;
+ * if channel is virtualized, the index/count registers are read from shadow registers;
+ * the control registers are read even if channel is virtualized;
+ * not really a problem, since the only control register that's useful to read is the status port.
+ */
+
 static uint8_t VDMA_Read(uint16_t port)
 ///////////////////////////////////////
 {
-	int channel = -1;
+    int channel = -1;
     uint8_t result;
     int index = port;
 
@@ -144,7 +159,9 @@ static uint8_t VDMA_Read(uint16_t port)
             }
 
             value = vdma.Regs[base + index];
-            //dbgprintf(("VDMA_Read chn=%u, %s: %X (%X)\n", channel, ( (index & 0x1) == 1) ? "counter" : "addr", value, vdma.InIO[channel]));
+#ifdef DMAREADLOG
+            dbgprintf(("VDMA_Read chn=%u, %s: %X (%X)\n", channel, ( (index & 0x1) == 1) ? "counter" : "addr", value, vdma.InIO[channel]));
+#endif
             if( ( ( vdma.Regs[base + DMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
                 vdma.InIO[channel] = true;
                 return value & 0xFF;
@@ -165,11 +182,13 @@ static uint8_t VDMA_Read(uint16_t port)
             return ret;
         }
         /* must be a page register */
-        dbgprintf(("VDMA_Read(port %X)=%02x (chn=%u)\n", port, vdma.PageRegs[channel], channel));
+        dbgprintf(("VDMA_Read(0x%X)=%02x (chn=%u)\n", port, vdma.PageRegs[channel], channel));
         return vdma.PageRegs[channel];
     }
 
-    /* regs 08-0F and 0D0-DE */
+    /* regs 08-0F and 0D0-DE
+     * to be changed: don't call VSB_ functions here!
+     */
     result = UntrappedIO_IN(port);
 
     if ( port == DMA_REG_STATUS_CMD || port == DMA_REG_STATUS_CMD16 ) {
@@ -185,6 +204,9 @@ static uint8_t VDMA_Read(uint16_t port)
         }
         dbgprintf(("VDMA_Read(status port %X)=%02x\n", port, result));
     }
+#ifdef DMAREADLOG
+    dbgprintf(("VDMA_Read(0x%X)=%02x\n", port, result));
+#endif
     return result;
 }
 
@@ -258,7 +280,7 @@ uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
     if( count < 0 ) {
         vdma.CurCnt[channel] = 0xffff;
         VDMA_SetComplete( channel );
-        if(VDMA_GetAuto(channel)) {
+        if( VDMA_IsAuto( channel ) ) {
             vdma.CurIdx[channel] = 0;
             vdma.CurCnt[channel] = vdma.MaxCnt[channel];
         }
@@ -280,8 +302,8 @@ uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
     return vdma.CurIdx[channel] << shift;
 }
 
-int VDMA_GetAuto(int channel)
-/////////////////////////////
+int VDMA_IsAuto(int channel)
+////////////////////////////
 {
     return vdma.Modes[channel] & DMA_REG_MODE_AUTO;
 }
@@ -294,13 +316,17 @@ int VDMA_GetWriteMode(int channel)
 }
 #endif
 
-static int VDMA_IsMasked(int channel)
-/////////////////////////////////////
+/* v2.0: function no longer static */
+/* static */ int VDMA_IsMasked(int channel)
+///////////////////////////////////////////
 {
     if ( channel < 4 )
         return UntrappedIO_IN(DMA_REG_MULTIMASK) & (1 << channel);
-    else
-        return 1;
+#if SB16 /* v2.0: high DMA channel support needed for updated VSB_Running() */
+    return UntrappedIO_IN(DMA_REG_MULTIMASK16) & (1 << (channel-4));
+#else
+    return 1;
+#endif
 }
 
 /* called by (weird and undocumented) DSP cmd 0xE2 */

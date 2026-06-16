@@ -11,14 +11,14 @@
 #define DMA_REG_CH3_ADDR       0x06
 #define DMA_REG_CH3_COUNTER    0x07
 //bytes
-#define DMA_REG_STATUS_CMD     0x08 //status (R) / command (W)
-#define DMA_REG_REQUEST        0x09 //bits 0-1: channel, bit 2: 0=clear req, 1=set req
-#define DMA_REG_SINGLEMASK     0x0A //bits 0-1: channel, bit 2: 0=unmask, 1=mask;
-#define DMA_REG_MODE           0x0B //bits 0-1: channel, bit 2-3: operation, bit 4: 0=single, 1=autoinit
-#define DMA_REG_FLIPFLOP       0x0C
-#define DMA_REG_IMM_RESET      0x0D //immediate (R) / master reset (W, masks all 4 channels))
-#define DMA_REG_MASK_RESET     0x0E //any write unmasks all 4 channels
-#define DMA_REG_MULTIMASK      0x0F //bits 0-3 set status of channel0-3 ( reading this port may not return the status! )
+#define DMA_REG_STATUS_CMD     0x08 //RW status (R) / command (W)
+#define DMA_REG_REQUEST        0x09 //-W bits 0-1: channel, bit 2: 0=clear req, 1=set req
+#define DMA_REG_SINGLEMASK     0x0A //?W bits 0-1: channel, bit 2: 0=unmask, 1=mask;
+#define DMA_REG_MODE           0x0B //-W bits 0-1: channel, bit 2-3: operation, bit 4: 0=single, 1=autoinit
+#define DMA_REG_FLIPFLOP       0x0C //-W clears flipflop
+#define DMA_REG_IMM_RESET      0x0D //RW temp register (R) / master reset (W), masks all 4 channels
+#define DMA_REG_MASK_RESET     0x0E //-W unmasks all 4 channels
+#define DMA_REG_MULTIMASK      0x0F //rW bits 0-3 set status of channel0-3 ( reading this port is unreliable! )
 
 /* DMA_REG_MODE bits */
 /* bit 0-1: channel */

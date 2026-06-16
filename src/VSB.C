@@ -26,6 +26,8 @@
 #define CMDPORTMASK 0x3 /* mask to determine when a cmd port is to be "busy" */
 #define DISPSTAT 1 /* 1=support displaying DSP status */
 
+#define MIXERREADLOG /* debug log mixer read on */
+
 extern struct globalvars gvars;
 
 #if REINITOPL
@@ -233,7 +235,7 @@ static void VSB_MixerReset( void )
 static void VSB_Mixer_Write( uint8_t value )
 ////////////////////////////////////////////
 {
-    dbgprintf(("VSB_Mixer_Write[%u]: value=%x\n", vsb.MixerRegIndex, value));
+    dbgprintf(("VSB_Mixer_Write[%u]: value=0x%x\n", vsb.MixerRegIndex, value));
     if ( vsb.MixerRegIndex > SB_MIXERREG_MAX )
         return;
     if ( vsb.MixerRegIndex == SB_MIXERREG_RESET )
@@ -317,7 +319,9 @@ static void VSB_Mixer_Write( uint8_t value )
 static uint8_t VSB_Mixer_Read( void )
 /////////////////////////////////////
 {
-    //dbgprintf(("VSB_Mixer_Read(%u): %x\n", vsb.MixerRegIndex, vsb.MixerRegs[vsb.MixerRegIndex]));
+#ifdef MIXERREADLOG
+    dbgprintf(("VSB_Mixer_Read[%u]: value=0x%x\n", vsb.MixerRegIndex, vsb.MixerRegIndex <= SB_MIXERREG_MAX ? vsb.MixerRegs[vsb.MixerRegIndex] : 0xFF ));
+#endif
     /* v1.8: mixer reg 1 returns value of last (valid) register read op */
     if ( vsb.MixerRegIndex <= SB_MIXERREG_MAX ) {
         vsb.MixerRegs[1] = vsb.MixerRegs[vsb.MixerRegIndex];
@@ -891,9 +895,17 @@ int VSB_GetDma16()
 }
 #endif
 
+/* check if a DSP sound cmd is active;
+ * this is either a DSP DMA cmd with the DMA channel unmasked
+ * or the "emit silence" DSP cmd.
+ */
+
 int VSB_Running()
 /////////////////
 {
+    /* v2.0: check if DMA channel is masked */
+    if ( (!vsb.Silent) && VDMA_IsMasked( VSB_GetDMA() ) )
+        return 0;
     return vsb.Started;
 }
 
@@ -961,8 +973,8 @@ uint32_t VSB_GetSampleBufferSize()
     return((vsb.Samples + 1) * ((vsb.Bits+7) >> 3));
 }
 
-int VSB_GetAuto()
-/////////////////
+int VSB_IsAuto()
+////////////////
 {
     return vsb.Auto;
 }
