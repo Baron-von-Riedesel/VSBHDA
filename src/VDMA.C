@@ -31,6 +31,7 @@ struct VDMA_Status {
 	uint16_t Base[8];        // initial offset (base)
 	uint16_t MaxCnt[8];      // initial count
 	uint8_t  Virtualized;    // bool: 1=channel virtualized
+	uint8_t  Masked;         // bool: 1=channel masked
 	uint8_t  Complete;       // bool: set by VDMA_SetComplete() - will set DMA_REG_STATUS[0-3]
 	uint8_t  e2value;        // byte value written by SB DSP cmd E2 (stored if channel is masked)
 	uint8_t  e2channel;      // byte value written by SB DSP cmd E2 (stored if channel is masked)
@@ -63,6 +64,7 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
        ( port >= DMA_REG_STATUS_CMD16 && port <= DMA_REG_MULTIMASK16 ) ) {
         int base = 0;
         int channelbase = 0;
+        int channel;
         /* ports D0-DE? */
         if( port >= DMA_REG_STATUS_CMD16 ) { /* > DMA16 control register? */
             index = (port - DMA_REG_STATUS_CMD16) / 2 + 8; /* 0xD0-0xDE -> 0x08-0x0F */
@@ -70,21 +72,41 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
             channelbase = 4;
         }
 
-        if( index == DMA_REG_FLIPFLOP ) /* port 0x0C */
-            vdma.Regs[base + DMA_REG_FLIPFLOP] = 0;
-        else if( index == DMA_REG_MODE ) { /* port 0x0B */
-            int channel = byte & 0x3; //0~3
+        switch ( index ) {
+        case DMA_REG_SINGLEMASK: /* port 0x0A */
+            channel = byte & 0x3;
+            if ( byte & 4 )
+                vdma.Masked |= (1 << ( channelbase + channel ));
+            else {
+                vdma.Masked &= ~(1 << ( channelbase + channel ));
+            }
+            break;
+        case DMA_REG_MODE:     /* port 0x0B */
+            channel = byte & 0x3;
             vdma.Modes[channelbase + channel] = byte & ~0x3;
-        } else if( index == DMA_REG_IMM_RESET ) { /* port 0x0D */
+            break;
+        case DMA_REG_FLIPFLOP: /* port 0x0C */
             vdma.Regs[base + DMA_REG_FLIPFLOP] = 0;
-            vdma.Complete &= (base ? 0x0f : 0xf0);
-        } else {
+            break;
+        case DMA_REG_IMM_RESET:/* port 0x0D: mask all 4 channels */
+            vdma.Regs[base + DMA_REG_FLIPFLOP] = 0;
+            vdma.Complete &= ~(channelbase ? 0xf0 : 0x0f);
+            vdma.Masked |= (channelbase ? 0xf0 : 0x0f);
+            break;
+        case DMA_REG_MASK_RESET: /* port 0x0E: unmask all 4 channels */
+            vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
+            break;
+        case DMA_REG_MULTIMASK: /* port 0x0F: */
+            vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
+            vdma.Masked |= (channelbase ? (byte << 4) : (byte & 0x0f) );
+            break;
+        default:
             vdma.Regs[base + index] = byte; /* just store the value, it isn't used */
-            /* v1.7: if SB low DMA is unmasked, check if an DSP cmd E2 byte is waiting */
-            if ( vdma.e2channel != 0xff && ( index == DMA_REG_MASK_RESET || ( index == DMA_REG_SINGLEMASK &&
-                                                                     (byte & 7) == vdma.e2channel ) ) )
-                VDMA_WriteData(vdma.e2channel,0,1);
         }
+        /* v1.7: if SB low DMA is unmasked, check if an DSP cmd E2 byte is waiting */
+        if ( vdma.e2channel != 0xff && !(vdma.Masked & (1 << vdma.e2channel )))
+            VDMA_WriteData(vdma.e2channel,0,1);
+
     } else if(( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) || /* ports 00-07? */
             ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER )) { /* or ports C0-CE? */
         int channel = ( port >> 1 );
@@ -186,11 +208,11 @@ static uint8_t VDMA_Read(uint16_t port)
         return vdma.PageRegs[channel];
     }
 
-    /* regs 08-0F and 0D0-DE
-     * to be changed: don't call VSB_ functions here!
-     */
     result = UntrappedIO_IN(port);
 
+    /* the only control port that's interesting is the status;
+     * to be changed: don't call VSB_ functions here!
+     */
     if ( port == DMA_REG_STATUS_CMD || port == DMA_REG_STATUS_CMD16 ) {
         int vchannel = VSB_GetDMA();
         if (( port == DMA_REG_STATUS_CMD && vchannel < 4) || ( port == DMA_REG_STATUS_CMD16 && vchannel >= 4 )) {
@@ -219,6 +241,7 @@ void VDMA_Virtualize(int channel, int enable)
         else
             vdma.Virtualized &= ~(1 << channel);
 
+    vdma.Masked |= (1 << channel );
     vdma.e2channel = 0xff; /* reset SB DSP E2 callback mechanism */
 }
 
@@ -305,7 +328,7 @@ uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
 int VDMA_IsAuto(int channel)
 ////////////////////////////
 {
-    return vdma.Modes[channel] & DMA_REG_MODE_AUTO;
+    return( vdma.Modes[channel] & DMA_REG_MODE_AUTO );
 }
 
 #if 0
@@ -316,17 +339,15 @@ int VDMA_GetWriteMode(int channel)
 }
 #endif
 
-/* v2.0: function no longer static */
-/* static */ int VDMA_IsMasked(int channel)
-///////////////////////////////////////////
+/* v2.0: function now called by VSB_Running() */
+
+int VDMA_IsMasked(int channel)
+//////////////////////////////
 {
-    if ( channel < 4 )
-        return UntrappedIO_IN(DMA_REG_MULTIMASK) & (1 << channel);
-#if SB16 /* v2.0: high DMA channel support needed for updated VSB_Running() */
-    return UntrappedIO_IN(DMA_REG_MULTIMASK16) & (1 << (channel-4));
-#else
-    return 1;
-#endif
+    /* v2.0: the "multimask" port is unreliable to read!
+     *       hence the masked bits are now managed by VDMA.
+     */
+    return( vdma.Masked & ( 1 << channel ) );
 }
 
 /* called by (weird and undocumented) DSP cmd 0xE2 */

@@ -16,7 +16,7 @@ uint32_t VDMA_GetIndex(int channel);
 int32_t VDMA_GetCount(int channel);
 uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count);
 int VDMA_IsAuto(int channel);
-int VDMA_GetWriteMode(int channel);
+//int VDMA_GetWriteMode(int channel);
 void VDMA_WriteData(int channel, unsigned char data, unsigned char iscb );
 int VDMA_IsMasked(int channel);  /* v2.0: now called by VSB_Running() */
 //void VDMA_SetComplete(int channel, unsigned char value );
