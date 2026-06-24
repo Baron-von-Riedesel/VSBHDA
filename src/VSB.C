@@ -57,7 +57,7 @@ static const int VSB_TimeConstantMapMono[][2] = {
 
 // number of bytes in input for commands (sb1/sb2/sbpro)
 static const uint8_t DSP_cmd_len_sb[256] = {
-  0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x00
+  0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x00 /* 4 for non-SB16 is supposed to return a value! */
 //1,0,0,0, 2,0,2,2, 0,0,0,0, 0,0,0,0,  // 0x10
   1,0,0,0, 2,2,2,2, 0,0,0,0, 0,0,0,0,  // 0x10 Wari hack
   0,0,0,0, 2,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x20
@@ -83,7 +83,7 @@ static const uint8_t DSP_cmd_len_sb[256] = {
 #if SB16
 // number of bytes in input for commands (sb16)
 static const uint8_t DSP_cmd_len_sb16[256] = {
-  0,0,0,0, 1,2,0,0, 1,0,0,0, 0,0,2,1,  // 0x00
+  0,0,0,0, 1,2,0,0, 1,0,0,0, 0,0,2,1,  // 0x00 /* 4,5,8,E & F are ASP cmds */
 //  1,0,0,0, 2,0,2,2, 0,0,0,0, 0,0,0,0,  // 0x10
   1,0,0,0, 2,2,2,2, 0,0,0,0, 0,0,0,0,  // 0x10 Wari hack
   0,0,0,0, 2,0,0,0, 0,0,0,0, 0,0,0,0,  // 0x20
@@ -678,7 +678,7 @@ static void DSP_DoCommand( uint32_t flags )
         SB16_ONLY();
         dbgprintf(("DSP_DoCommand(%X): ASP set register, data[0]=%X data[1]=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.dsp_in_data[1] ));
         /* data[0] is index for "ASP register table", data[1] is value of that register; */
-#if 0 /* what data is expected to be returned here? */
+#if 0 /* no data is expected to be returned here! */
         DSP_AddData(0);
         dbgprintf(("DSP_DoCommand(%X): databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
 #endif
@@ -768,7 +768,18 @@ static void DSP_DoCommand( uint32_t flags )
         DSP_AddData( vsb.last_dsp_cmd );
         dbgprintf(("DSP_DoCommand(%X): get cmd status, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
-    case 0x05: /* ASP cmd */
+#if 0
+    case 0x04: 
+        if ( vsb.DSPVER >= 0x400 ) {/* SB16? */
+            dbgprintf(("DSP_DoCommand(%X): ASP init\n", vsb.dsp_cmd ));
+            ; /* ASP init */
+        } else {
+            dbgprintf(("DSP_DoCommand(%X)\n", vsb.dsp_cmd ));
+            /* SB,SB2,SPPro: supposed to return a byte */
+            DSP_AddData( vsb.DSPVER >= 0x300 ? 0x7b : vsb.DSPVER >= 0x201 ? 0x00 : 0xff );
+        }
+#endif
+    case 0x05: /* SB16 ASP cmd */
         dbgprintf(("DSP_DoCommand(%X): ASP cmd\n", vsb.dsp_cmd ));
         break;
     default:

@@ -336,6 +336,7 @@ static int SNDISR_Interrupt( void )
         int dmachannel = VSB_GetDMA();
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int count = samples - IdxSm; /* samples to handle in this turn */
+        int maxcnt;
         bool resample;
         int bytes;
         int channels = VSB_GetChannels();
@@ -389,40 +390,57 @@ static int SNDISR_Interrupt( void )
             resample = true;
             //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
             count = count * SB_Rate / freq;
-            if ( SB_Rate < freq && SB_Rate % freq ) count++;
+            /* v2.0: fixed: operands for modulus op were wrong - count was ALWAYS increased,
+             * even if freq was an exact multiple of SB_Rate.
+             */
+            //if ( SB_Rate < freq && SB_Rate % freq ) count++;
+            if ( SB_Rate < freq && freq % SB_Rate ) count++;
         } else
             resample = false;
 #ifdef _DEBUG
         ocnt = count;
+        //dbgprintf(("isr(%u): c=0x%02X ocnt=0x%02X\n", loop, count, ocnt ));
 #endif
-        /* ensure count won't exceed DMA buffer size;
-         * v1.8: check DMA only if not silent;
-         */
         if (!IsSilent) {
             /* adjust count if sample size is < 8 (ADPCM) */
             if( VSB_GetBits() < 8 )
                 count = count / (9 / VSB_GetBits());
-            if ( DMA_Count < (samplesize * channels )) {
-#ifdef SNDISRLOG
-                dbgprintf(("isr(%u): DMA Idx/Cnt=0x%X/0x%X, samplesize=%u, channels=%u\n", loop, DMA_Index, DMA_Count, samplesize, channels ));
-#endif
-                /* v1.8: if dma autoinit then restart dma; else exit & stop digital sound. */
-                if ( !VDMA_IsAuto(dmachannel) || DMA_Index == 0 )
-                    break;
-                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index, 0 );
-                continue;
-            }
-            /* v1.8: removed max() */
-            //count = min( count, max(1, DMA_Count / (samplesize * channels) ) );
-            count = min( count, DMA_Count / (samplesize * channels) );
         }
-        count = min( count, max(1,(SB_BuffSize - SB_Pos) / (samplesize * channels) ) );
+        /* samplesize and channels can be either 1 or 2 */
+        maxcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
+        /* v2.0: ensure that count hasn't become < samples - that would distort sound */
+        if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
+            maxcnt++;
+        count = min( count, max(1, maxcnt));
 
         bytes = count * samplesize * channels;
 
         /* copy samples to our PCM buffer */
         if( IsSilent ) {
             memset( isr.pPCM + IdxSm * 2, 0, bytes);
+        } else if ( DMA_Count < bytes ) {
+            /* v2.0: DMA buffer underrun handled here now; this approach avoids
+             *       multiple format conversions if DMA buffer size is small.
+             */
+            char *pDest = (char *)(isr.pPCM + IdxSm * 2);
+            int chunk;
+            int tmpbytes;
+#ifdef SNDISRLOG
+            dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, samples, DMA_Index, DMA_Count ));
+#endif
+            if ( !VDMA_IsAuto(dmachannel) ) {
+                count = DMA_Count / (samplesize * channels );
+                bytes = DMA_Count;
+            }
+            for ( tmpbytes = 0; tmpbytes < bytes; tmpbytes += chunk ) {
+                chunk = min( DMA_Count, bytes - tmpbytes );
+                memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), chunk );
+                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + chunk, DMA_Count - chunk );
+                DMA_Count = VDMA_GetCount(dmachannel);
+#ifdef SNDISRLOG
+                dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Index, DMA_Count ));
+#endif
+            }
         } else {
             memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
             DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
@@ -463,15 +481,16 @@ static int SNDISR_Interrupt( void )
             VIRQ_Invoke();
         } else {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X ocnt=0x%X SB Pos=0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, ocnt, SB_Pos, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c(o)/b=0x%02X/0x%02X(0x%02X)/0x%03X SB Pos=0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, ocnt, bytes, SB_Pos, DMA_Index, DMA_Count ));
 #endif
             /* v1.9: to exit the loop here (unconditionally) was incorrect -
              *       might be that DMA buffer < SB buffer!
              *       test case: Open Cubic Player.
              *       however, exit if DMA autoinit isn't active should be ok.
+             * v2.0: now unconditional exit is correct - DMA underrun is handled within loop.
              */
-            //break;
-            if ( !VDMA_IsAuto(dmachannel) ) break;
+            break;
+            //if ( !VDMA_IsAuto(dmachannel) ) break;
         }
     };
 

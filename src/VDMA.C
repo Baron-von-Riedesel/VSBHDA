@@ -17,8 +17,8 @@
  *       bit 6-7: operation mode: 00=demand, 01=single, 10=block, 11=cascade
  */
 
-#define DMAREADLOG
-#define DMAWRITELOG
+//#define DMAREADLOG
+//#define DMAWRITELOG
 
 struct VDMA_Status {
 	//registers

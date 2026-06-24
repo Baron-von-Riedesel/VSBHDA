@@ -1,6 +1,9 @@
 
   v2.0,
-  - fixed: DSP play cmds started sound, ignoring DMA channel mask.
+  - fixed: DSP play cmds unconditionally started sound, ignoring state
+    of DMA channel mask.
+  - improved handling of the case where DMA buffer size is smaller than
+    SB buffer size.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).
