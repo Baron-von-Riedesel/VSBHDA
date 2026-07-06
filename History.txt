@@ -4,6 +4,7 @@
     of DMA channel mask.
   - improved handling of the case where DMA buffer size is smaller than
     SB buffer size.
+  - /CF16 added; does resampling with a better "last" sample.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).

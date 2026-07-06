@@ -156,32 +156,38 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
 #endif
 
 /* rate conversion.
- * src & dst are 16-bit, channels is either 1 or 2; if it's 2, samplenum is even!
+ * src & dst are 16-bit, channels is either 1 or 2; if it's 2, nSamples is even!
  * out: new sample cnt.
- * example with 16 samples, 1 channel, srcrate=4410, dstrate=44100:
- * 1. instep = (0 << 12) | (((4096 * ( 4410 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
- *           = (( 4096 * 4410 + 44100 - 1 ) / 44100 ) & 0xfff
- *           = ( 181.074.459 / 44100 ) & 0xfff
- *           = 410 & 0xfff -> 410
+ * example A: 16 samples, 1 channel, srcrate=22050, dstrate=44100:
+ * 1. instep = (0 << 12) | (((4096 * ( 22050 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
+ *           = (( 4096 * 22050 + 44100 - 1 ) / 44100 ) & 0xfff
+ *           = ( 90.404.899 / 44100 ) & 0xfff
+ *           = 2049 & 0xfff -> 2049
  * 2. inend  = ( 16 / 1 ) << 12  -> 65536
- * 3. do {} while loop: 65536 / 410 = 159 (interpolation steps)
+ * 3. do {} while loop: 65536 / 2049 = 31 (interpolation steps; = 16*2-1)
  *
- * problem is same as with ADPCM: the last sample(s) should be saved and used as first
- * in the next call...
+ * example B: 16 samples, 1 channel, srcrate=11025, dstrate=44100:
+ * 1. instep = (0 << 12) | (((4096 * ( 11025 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
+ *           = (( 4096 * 11025 + 44100 - 1 ) / 44100 ) & 0xfff
+ *           = ( 45.202.499 / 44100 ) & 0xfff
+ *           = 1024 & 0xfff -> 1024
+ * 2. inend  = ( 16 / 1 ) << 12  -> 65536
+ * 3. do {} while loop: 65536 / 1024 = 64???
+ *
  */
 
-static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int samplenum, const unsigned int channels, unsigned int srcrate, unsigned int dstrate)
+static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples, const unsigned int channels, unsigned int srcrate, unsigned int dstrate)
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	/* todo: what algorithm for instep is best? */
 	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) - 1) / (dstrate - 1)) & 0xFFF);
 	const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) + dstrate - 1 ) / dstrate) & 0xFFF);
+	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) ) / dstrate + 1 ) & 0xFFF);
 
-	const unsigned int inend = (samplenum / channels) << 12;
+	const unsigned int inend = (nSamples >> (channels - 1)) << 12;
 	PCM_CV_TYPE_S *pcmdst;
 	unsigned int ipi;
-	unsigned int inpos = 0;//(srcrate < dstrate) ? instep / 2 : 0;
-	unsigned int total;
+	//unsigned int inpos = (srcrate < dstrate) ? (instep >> 1) : 0;
+	unsigned int inpos = 0;
 #if MALLOCSTATIC
 	static int maxsample = 0;
 	static PCM_CV_TYPE_S* buff = NULL;
@@ -189,83 +195,90 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int samplenum
 	PCM_CV_TYPE_S* buff;
 #endif
 
-	if(!samplenum)
+	if(!nSamples)
 		return 0;
 
 #if MALLOCSTATIC
-	if ( samplenum > maxsample ) {
+	if ( nSamples > maxsample ) {
 		if ( buff )
 			free( buff );
-		buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
-		maxsample = samplenum;
+		buff = (PCM_CV_TYPE_S*)malloc( (nSamples+2) * sizeof(PCM_CV_TYPE_S) );
+		maxsample = nSamples;
 	}
 #else
-	buff = (PCM_CV_TYPE_S*)malloc(samplenum * sizeof(PCM_CV_TYPE_S));
+	buff = (PCM_CV_TYPE_S*)malloc( (nSamples+2) * sizeof(PCM_CV_TYPE_S));
 #endif
-	memcpy( buff, pcmsrc, samplenum * sizeof(PCM_CV_TYPE_S) );
+	memcpy( buff, pcmsrc, (nSamples+2) * sizeof(PCM_CV_TYPE_S) );
 
 	pcmdst = pcmsrc;
-	total = samplenum >> ( channels - 1);
-	if ( total >= channels )
-		total -= channels;
+
+    /* v2.0: one additional sample is suppied, so the logical last sample can
+     *       now be handled like the other ones ( variable total removed ).
+     */
 
 	do {
 		unsigned int m1,m2;
 		unsigned int ipi;
 		PCM_CV_TYPE_S *intmp1,*intmp2;
+
 		ipi = (inpos >> 12 ) << ( channels - 1);
 		m2 = inpos & 0xFFF;
 		m1 = 4096 - m2;
-		intmp1 = intmp2 = buff + ipi;
-		if (ipi < total)
-			intmp2 += channels;
-		*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) >> 12;
+		intmp1 = buff + ipi;
+		intmp2 = buff + ipi + channels;
+		*pcmdst = ( *intmp1 * m1 + *intmp2 * m2 ) >> 12;
 		if ( channels > 1 )
-			*pcmdst++= ((*intmp1++) * m1 + (*intmp2++) * m2) >> 12;
-		inpos += instep;
+			*(pcmdst+1) = ( *(intmp1+1) * m1 + *(intmp2+1) * m2 ) >> 12;
+		inpos +=instep;
+		pcmdst += channels;
 	} while ( inpos < inend );
 
-	//dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, samplenum, instep, inend, pcmdst - pcmsrc ));
+	//dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, nSamples, instep, inend, pcmdst - pcmsrc ));
 
 #if !MALLOCSTATIC
 	free(buff);
 #endif
-	return pcmdst - pcmsrc;
+    //return ( pcmdst - pcmsrc ); /* v2.0: shift added to return "true" sample count */
+	return ( (pcmdst - pcmsrc) >> ( channels - 1 ) );
 }
 
 /* convert 8 to 16 bits. It's assumed that 8 bit is unsigned, 16-bit is signed */
 
-static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int samplenum, uint8_t issigned )
-///////////////////////////////////////////////////////////////////////////////////////////
+static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int nSamples, uint8_t issigned )
+//////////////////////////////////////////////////////////////////////////////////////////
 {
 	PCM_CV_TYPE_UC *srcu;
 	PCM_CV_TYPE_SC *srcs;
-	PCM_CV_TYPE_S *dst = pcm + samplenum - 1;
+	PCM_CV_TYPE_S *dst = pcm + nSamples - 1;
 
     if ( issigned ) {
-        srcs = (PCM_CV_TYPE_SC *)pcm + samplenum - 1;
-        for ( ; samplenum; samplenum-- )
+        srcs = (PCM_CV_TYPE_SC *)pcm + nSamples - 1;
+        for ( ; nSamples; nSamples-- )
             *dst-- = (PCM_CV_TYPE_S)((*srcs--) << 8);
     } else {
-        srcu = (PCM_CV_TYPE_UC *)pcm + samplenum - 1;
-        for ( ; samplenum; samplenum-- )
+        srcu = (PCM_CV_TYPE_UC *)pcm + nSamples - 1;
+        for ( ; nSamples; nSamples-- )
             *dst-- = (PCM_CV_TYPE_S)((*srcu-- ^ 0x80) << 8);
     }
 }
 
 /* convert mono to stereo. */
 
-static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int samplenum )
-///////////////////////////////////////////////////////////////////////////////////
+#if 1
+static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples )
+//////////////////////////////////////////////////////////////////////////////////
 {
-    PCM_CV_TYPE_S *src = pcm_sample + samplenum - 1;
-    PCM_CV_TYPE_S *dst = pcm_sample + samplenum * 2 - 1;
+    PCM_CV_TYPE_S *src = pcm_sample + nSamples - 1;
+    PCM_CV_TYPE_S *dst = pcm_sample + nSamples * 2 - 1;
 
-    for( ; samplenum; samplenum-- ) {
+    for( ; nSamples; nSamples-- ) {
         *dst-- = *src; *dst-- = *src--;
     }
     return;
 }
+#else
+extern void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples );
+#endif
 
 static int SNDISR_Interrupt( void )
 ///////////////////////////////////
@@ -387,14 +400,22 @@ static int SNDISR_Interrupt( void )
         }
         /* don't resample if sample rates are close? */
         if( SB_Rate != freq ) {
+            int tmpcnt = count * SB_Rate / freq;
             resample = true;
             //count = max( channels, count / ( ( freq + SB_Rate-1) / SB_Rate ));
-            count = count * SB_Rate / freq;
             /* v2.0: fixed: operands for modulus op were wrong - count was ALWAYS increased,
              * even if freq was an exact multiple of SB_Rate.
              */
             //if ( SB_Rate < freq && SB_Rate % freq ) count++;
-            if ( SB_Rate < freq && freq % SB_Rate ) count++;
+            /* in Quake, count = 0 seems to occure?  */
+            //if ( SB_Rate < freq && freq % SB_Rate ) count++;
+            //if ( ( SB_Rate < freq && freq % SB_Rate ) || !count ) count++;
+            /* v2.0: even if freq is an exact multiple of SB_Rate, the division
+             * may have given a too small value of count!
+             */
+            while ( count > ( tmpcnt * freq / SB_Rate ) )
+                tmpcnt++;
+            count = tmpcnt;
         } else
             resample = false;
 #ifdef _DEBUG
@@ -411,42 +432,54 @@ static int SNDISR_Interrupt( void )
         /* v2.0: ensure that count hasn't become < samples - that would distort sound */
         if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
             maxcnt++;
-        count = min( count, max(1, maxcnt));
 
+        count = min( count, max(1, maxcnt));
         bytes = count * samplesize * channels;
 
         /* copy samples to our PCM buffer */
         if( IsSilent ) {
-            memset( isr.pPCM + IdxSm * 2, 0, bytes);
-        } else if ( DMA_Count < bytes ) {
-            /* v2.0: DMA buffer underrun handled here now; this approach avoids
-             *       multiple format conversions if DMA buffer size is small.
-             */
-            char *pDest = (char *)(isr.pPCM + IdxSm * 2);
-            int chunk;
-            int tmpbytes;
-#ifdef SNDISRLOG
-            dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, samples, DMA_Index, DMA_Count ));
-#endif
-            if ( !VDMA_IsAuto(dmachannel) ) {
-                count = DMA_Count / (samplesize * channels );
-                bytes = DMA_Count;
-            }
-            for ( tmpbytes = 0; tmpbytes < bytes; tmpbytes += chunk ) {
-                chunk = min( DMA_Count, bytes - tmpbytes );
-                memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), chunk );
-                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + chunk, DMA_Count - chunk );
-                DMA_Count = VDMA_GetCount(dmachannel);
-#ifdef SNDISRLOG
-                dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Index, DMA_Count ));
-#endif
-            }
+            memset( isr.pPCM + IdxSm * 2, 0, bytes + 1 ); /* v2.0: one extra byte for resampling */
         } else {
-            memcpy( isr.pPCM + IdxSm * 2, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
-            DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
-#ifdef SNDISRLOG /* v1.8: needed for debug logs only */
-            DMA_Count = VDMA_GetCount( dmachannel );
+            char *pDest = (char *)(isr.pPCM + IdxSm * 2);
+            if ( DMA_Count < bytes ) {
+                /* v2.0: DMA buffer underrun handled here now; this approach avoids
+                 *       multiple format conversions if DMA buffer size is small.
+                 */
+                int chunk;
+                int tmpbytes;
+#ifdef SNDISRLOG
+                dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, samples, DMA_Index, DMA_Count ));
 #endif
+                if ( !VDMA_IsAuto(dmachannel) ) {
+                    count = DMA_Count / (samplesize * channels );
+                    bytes = DMA_Count;
+                }
+                for ( tmpbytes = 0; tmpbytes < bytes; tmpbytes += chunk ) {
+                    chunk = min( DMA_Count, bytes - tmpbytes );
+                    memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), chunk );
+                    DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + chunk, DMA_Count - chunk );
+                    DMA_Count = VDMA_GetCount(dmachannel);
+#ifdef SNDISRLOG
+                    dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Index, DMA_Count ));
+#endif
+                }
+            } else {
+                memcpy( pDest, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
+                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
+#ifdef SNDISRLOG /* v1.8: needed for debug logs only */
+                DMA_Count = VDMA_GetCount( dmachannel );
+#endif
+            }
+            /* v2.0: copy 1 more sample for cv_rate() */
+            if ( resample ) {
+                if ( gvars.compatflags & CF_RESAMPLE )
+
+                    /* this is better in theory, but in practice has small problems */
+                    memcpy( pDest + bytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), samplesize * channels );
+                else
+                    /* use old resample design; avoids wolf3d crackles */
+                    memcpy( pDest + bytes, pDest + bytes - samplesize * channels, samplesize * channels );
+            }
         }
 
         /* update DSP regs */
@@ -458,13 +491,13 @@ static int SNDISR_Interrupt( void )
             count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
 #endif
         if( samplesize != 2 )
-            cv_bits_8_to_16( isr.pPCM + IdxSm * 2, count * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
+            cv_bits_8_to_16( isr.pPCM + IdxSm * 2, (count+1) * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
 #if SUP16BITUNSIGNED
         else if ( !VSB_IsSigned() )
-            for ( i = IdxSm * 2, j = i + count * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
+            for ( i = IdxSm * 2, j = i + (count+1) * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
 #endif
-        if( resample ) /* SB_Rate != freq */
-            count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq ) / channels;
+        if( resample ) /* SB_Rate != freq? */
+            count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq );
         if( channels == 1) //should be the last step
             cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
 
@@ -501,6 +534,10 @@ static int SNDISR_Interrupt( void )
          * v1.8: returned to filling the rest with silence...
          */
 #if 1
+# ifdef SNDISRLOG
+        if ( IdxSm < samples )
+            dbgprintf(("isr: %u samples to add\n", samples - IdxSm ));
+# endif
         for( i = IdxSm; i < samples; i++ )
             *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
 #else

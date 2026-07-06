@@ -66,7 +66,7 @@ OBJFILES = &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
 	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
-	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj
+	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj
 
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
@@ -150,6 +150,7 @@ $(OUTD)/timer.obj:     mpxplay\timer.c
 
 $(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
+$(OUTD)/cv1to2.obj:    src\cv1to2.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm

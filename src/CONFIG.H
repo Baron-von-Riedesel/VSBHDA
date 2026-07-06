@@ -68,6 +68,7 @@ enum {
     CF_STIONEOI   = 2, /* run STI when OUT 20h,al (al=20h) is trapped */
     CF_MASKPIT    = 4, /* mask PIT during Snd interrupt */
     CF_NODIVERR   = 8, /* 16-bit pmode only: catch divide error (borland rtm bug) */
+    CF_RESAMPLE   = 16,/* test: in cv_rate(), use i+1 sample even if i==last sample */
 };
 enum {
     OM_DOS = 1,

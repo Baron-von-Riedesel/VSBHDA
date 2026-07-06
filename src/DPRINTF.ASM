@@ -263,12 +263,14 @@ ifdef _DEBUG
 ;--- OW: DS & SS unknown.
 ;--- DJGPP: DS assumed DGROUP
 
- ifndef DJGPP
-	alias <__dprintf> = <_dprintf>
- else
+;--- 2 entries (_dprintf/__dprintf) are needed because some modules are assembled with -zcw
+;--- v2.0: don't use ALIAS directive; its name decoration wasn't correct in jwasm < v2.21.
+; ifndef DJGPP
+;	alias <__dprintf> = <_dprintf>
+; else
 __dprintf proc c public 
 __dprintf endp
- endif
+; endif
 
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
