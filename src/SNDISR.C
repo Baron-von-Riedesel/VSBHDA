@@ -349,7 +349,7 @@ static int SNDISR_Interrupt( void )
         int dmachannel = VSB_GetDMA();
         int samplesize = max( 1, VSB_GetBits() / 8 );
         int count = samples - IdxSm; /* samples to handle in this turn */
-        int maxcnt;
+        int sbcnt;
         bool resample;
         int bytes;
         int channels = VSB_GetChannels();
@@ -428,12 +428,12 @@ static int SNDISR_Interrupt( void )
                 count = count / (9 / VSB_GetBits());
         }
         /* samplesize and channels can be either 1 or 2 */
-        maxcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
+        sbcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
         /* v2.0: ensure that count hasn't become < samples - that would distort sound */
         if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
-            maxcnt++;
+            sbcnt++;
 
-        count = min( count, max(1, maxcnt));
+        count = min( count, max(1, sbcnt));
         bytes = count * samplesize * channels;
 
         /* copy samples to our PCM buffer */
@@ -472,13 +472,16 @@ static int SNDISR_Interrupt( void )
             }
             /* v2.0: copy 1 more sample for cv_rate() */
             if ( resample ) {
-                if ( gvars.compatflags & CF_RESAMPLE )
-
-                    /* this is better in theory, but in practice has small problems */
-                    memcpy( pDest + bytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), samplesize * channels );
-                else
-                    /* use old resample design; avoids wolf3d crackles */
-                    memcpy( pDest + bytes, pDest + bytes - samplesize * channels, samplesize * channels );
+                /* copy the next sample is the best strategy, but
+                 * may be a problem if SB buffer is at its end
+                 * ( especially if DSP cmd is single-cycle only );
+                 * in that case, just copy the last sample!
+                 */
+                memcpy( pDest + bytes,
+                       (SB_Pos + bytes == SB_BuffSize) ?
+                       pDest + bytes - samplesize * channels :
+                       NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ),
+                       samplesize * channels );
             }
         }
 
@@ -545,6 +548,7 @@ static int SNDISR_Interrupt( void )
 #endif
     } else if ( IdxSm = VSB_ReadDirectSamples( (uint8_t *)isr.pPCM ) ) {
 
+        char *pDest = (char *)isr.pPCM;
         //uint32_t freq = AU_getfreq( isr.hAU );
 
         /* calc the src frequency by formula:
@@ -553,8 +557,11 @@ static int SNDISR_Interrupt( void )
          */
         uint32_t SB_Rate = IdxSm * freq / samples;
 
+        /* v2.0: cv_rate() now expects an extra, final sample */
+        *(pDest + IdxSm) = *(pDest + IdxSm - 1);
+
         //dbgprintf(("isr, direct samples: IdxSm=%d, samples=%d, rate=%u\n", IdxSm, samples, SB_Rate ));
-        cv_bits_8_to_16( isr.pPCM, IdxSm, 0 );
+        cv_bits_8_to_16( isr.pPCM, IdxSm + 1, 0 );
         IdxSm = cv_rate( isr.pPCM, IdxSm, 1, SB_Rate, freq );
         cv_channels_1_to_2( isr.pPCM, IdxSm );
         for( i = IdxSm; i < samples; i++ )
