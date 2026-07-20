@@ -30,6 +30,10 @@
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 1 /* todo: explain the benefits! */
 
+/* v2.0: according to HDA v1.0a docs max codecs is 15 (bits 0-14 in STATESTS) */
+#define AZX_MAX_CODECS 4
+//#define AZX_MAX_CODECS 15
+
 #define PCM_CHANNELS_DEFAULT 2
 
 /* config_select: bits 0-1: out device */
@@ -229,11 +233,11 @@ static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t
 {
 	uint32_t val;
 
-	val = (uint32_t)(chip->codec_index & 0x0f) << 28;
-	val|= (uint32_t)direct << 27;
-	val|= (uint32_t)nid << 20;
-	val|= verb << 8;
-	val|= parm;
+	val  = (uint32_t)(chip->codec_index & 0x0f) << 28;
+	//val |= (uint32_t)direct << 27;
+	val |= (uint32_t)nid << 20;
+	val |= verb << 8;
+	val |= parm;
 
 	azx_single_send_cmd(chip, val);
 }
@@ -496,7 +500,7 @@ static void hda_unmute_input(struct intelhd_card_s *card, struct hda_gnode *node
 static void select_input_connection(struct intelhd_card_s *card, struct hda_gnode *node, unsigned int index)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	hda_codec_write(card, node->nid, 0,AC_VERB_SET_CONNECT_SEL, index);
+	hda_codec_write(card, node->nid, 0, AC_VERB_SET_CONNECT_SEL, index);
 }
 
 static void clear_check_flags(struct intelhd_card_s *card)
@@ -768,17 +772,24 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	dbgprintf(("azx_reset: GCTL=%X, STATESTS=%X\n", chip->hdac->gctl, chip->hdac->statests ));
 
-	/* v1.7: do a reset if no codec bits in STATESTS are set (assumes max 4 codecs) */
+#if 0 /* optionally test if delay works at all */
+	dbgprintf(("azx_reset: testing delay\n" ));
+	for ( timeout = 100; timeout; timeout-- )
+		pds_delay_10us(100);
+	dbgprintf(("azx_reset: delay is ok\n" ));
+#endif
+
+    /* v1.7: do a reset if no codec bits in STATESTS are set (assumes max 4 codecs) */
 	if ( !(chip->hdac->statests & ( (1 << AZX_MAX_CODECS) - 1) ) ) {
 		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
-		for (timeout = 100;timeout && (chip->hdac->gctl & HDA_GCTL_RESET);timeout--)
+		for ( timeout = 100; timeout && (chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
 			pds_delay_10us(100);
     }
     /* wake up the HDA controller if it is in "reset" state */
 	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
 		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
 
-		for (timeout = 500;timeout && (!chip->hdac->gctl & HDA_GCTL_RESET);timeout--)
+		for ( timeout = 500; timeout && (!chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
 			pds_delay_10us(100);
 		if( !timeout ) {
 			dbgprintf(("HDA controller not ready!\n"));
@@ -789,9 +800,12 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	chip->hdac->gctl = chip->hdac->gctl & (~HDA_GCTL_UREN);
 
     /* reset CORB & RIRB */
-    chip->hdac->corbctl = chip->hdac->corbctl & ~2;
+	chip->hdac->corbctl = chip->hdac->corbctl & ~2;
 	chip->hdac->rirbctl = chip->hdac->rirbctl & ~2;
-	for( timeout = 100; (chip->hdac->corbctl & 2) && timeout; timeout--, pds_delay_10us(10));
+
+	//dbgprintf(("azx_reset: waiting for CORB\n" ));
+	for( timeout = 100; timeout && (chip->hdac->corbctl & 2); timeout--)
+		pds_delay_10us(10);
 
 	/* STATESTS decides what codecs will be tried.
      * bits 14:0 are wc ( writing '1' clears the bit );
@@ -809,6 +823,7 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	 * 0 and again wait until a 0 is read.
 	 */
 #if 1
+	//dbgprintf(("azx_reset: waiting for CORB RP\n" ));
 	timeout = 500;
 	while ( ( 0 == ( chip->hdac->corbrp & 0x8000 ) ) && timeout-- ) pds_delay_10us(100);
 #endif
@@ -841,7 +856,7 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	/* reset int errors by writing '1's in SD_STS */
 	card->sd->bSts = SD_INT_MASK;
 
-    /* v1.8: statests bit 0-3 are now cleared - makes vsbhda compatible with vmware;
+    /* v1.8: statests bit 0-3 (if AZX_MAX_CODECS = 4) are now cleared - makes vsbhda compatible with vmware;
      * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit ) - so check if
      * this code really does what's intended!
      */
@@ -1352,20 +1367,22 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			break;
 
 		card->hdac = (struct HDAREGS_s *)pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+		dbgprintf(("HDA_adetect(%u): PCI NAMBAR=0x%X\n", devidx, card->hdac ));
 		if( (uint32_t)card->hdac & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
 			card->hdac = 0;
-		if( !card->hdac ) {
-			dbgprintf(("HDA_adetect: card index %u skipped (no PCI base addr)\n", devidx ));
-			continue;
-		}
 		if( (uint32_t)card->hdac & 4 ) {// 64-bit address? then check if it's beyond 4G...
 			uint32_t tmp = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR+4);
 			if ( tmp ) {
-				dbgprintf(("HDA_adetect: card index %u skipped (PCI base addr > 4G)\n", devidx ));
+				dbgprintf(("HDA_adetect(%u): card skipped - PCI base addr > 4G\n", devidx ));
 				continue;
 			}
         }
 		card->hdac = (struct HDAREGS_s *)((uint32_t)card->hdac & 0xfffffff0);
+        /* v2.0: check for valid HDA controller address now done AFTER bits 0-3 were masked */
+		if( !card->hdac ) {
+			dbgprintf(("HDA_adetect(%u): card skipped - no PCI base addr\n", devidx ));
+			continue;
+		}
 		info.address = (uint32_t)card->hdac;
 		info.size = 0x2000;
 		if (__dpmi_physical_address_mapping(&info) != 0) {

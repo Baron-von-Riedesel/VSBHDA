@@ -517,7 +517,8 @@ struct HDAREGS_s {
 //#define AZX_MAX_FRAG       (BDL_SIZE / (MAX_AZX_DEV * 16))
 
 //#define STATESTS_INT_MASK    0x07 /* ??? */
-#define AZX_MAX_CODECS       4    /* there are 15 bits in register STATESTS, not just 4 */
+/* v2.0: AZX_MAX_CODECS now in SC_INTHD.C */
+//#define AZX_MAX_CODECS       4    /* there are 15 bits in register STATESTS, not just 4 */
 
 /* GCTL unsolicited response enable bit */
 #define HDA_GCTL_UREN        (1<<8)
