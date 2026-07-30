@@ -475,19 +475,19 @@ struct HDAREGS_s {
     uint32_t rsvd4[1];
     uint32_t corblbase;
     uint32_t corbubase;
-    uint16_t corbwp;
-    uint16_t corbrp;
-    uint8_t  corbctl;
-    uint8_t  corbsts;
-    uint8_t  corbsize;
+    uint16_t corbwp;  /* b0-7: CORB Write Pointer (CORBWP, rw) */
+    uint16_t corbrp;  /* b0-7: CORB Read Pointer (CORBRP, ro); b15: CORB Read Pointer Reset (CORBRPRST, rw) */ 
+    uint8_t  corbctl; /* b1: 1=Enable CORB DMA Engine (CORBRUN) */
+    uint8_t  corbsts; /* b0: CMEI - CORB Memory Error Indication */
+    uint8_t  corbsize; /* b0-1: CORB size (CORBSIZE); b4-7: CORB size Capability (CORBSZCAP) */
     uint8_t  rsvd5[1];
     uint32_t rirblbase;
     uint32_t rirbubase;
-    uint16_t rirbwp;
-    uint16_t rirbric;
-    uint8_t  rirbctl;
+    uint16_t rirbwp; /* b0-7: RIRB Write Pointer( RIRBWP, ro); b15: RIRB Write Pointer Reset (RIRBWPRST, w) */
+    uint16_t rirbric; /* b0-7: RIRB Response Interrupt Count (RINTCNT, rw, 0=256 interrupts) */
+    uint8_t  rirbctl; /* b1: 1=Enable RIRB DMA Engine; b0: Response Interrupt Control (RINTCTL), 1=generate interrupt */
     uint8_t  rirbsts;
-    uint8_t  rirbsize;
+    uint8_t  rirbsize; /* b0-1: RIRB size (RIRBSIZE); b4-7: RIRB size Capability (RIRBSZCAP) */
     uint8_t  rsvd6[1];
     uint32_t ic;
     uint32_t ir;

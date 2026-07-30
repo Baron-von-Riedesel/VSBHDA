@@ -137,7 +137,10 @@ getdec endp
 
 main proc c argc:word, argv:ptr
 
-		RESET_DSP
+;--- start msg
+		mov dx,offset information
+		mov ah,9
+		int 21h
 
 		cmp argc, 2
 		jb options_done
@@ -155,10 +158,7 @@ main proc c argc:word, argv:ptr
 
 options_done:
 
-;--- start msg
-		mov dx,offset information
-		mov ah,9
-		int 21h
+		RESET_DSP
 
 ;--- ENABLE SB SPEAKERS (for all SBs < SB16)
 		mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command

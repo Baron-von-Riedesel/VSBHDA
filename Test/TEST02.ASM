@@ -64,8 +64,8 @@ SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 information     db 'TEST02 [frequency] [SB buffer length-1]',13,10
                 db 'plays zigzag wave, 16bit mono unsigned (SB16 only).',13,10
                 db 'frequency: default 22050; SB buffer length-1: default 65531.',13,10
-                db 'Press ESC to exit!',13,10
                 db '$'
+info2           db 'Press ESC to exit!',13,10,'$'
 sberror         db 'No SoundBlaster at base address 220h.',13,10,'$'
 rateerror       db 'Invalid rate entered.',13,10,'$'
 lengtherror     db 'Invalid SB buffer length entered.',13,10,'$'
@@ -121,7 +121,10 @@ getdec endp
 
 main proc c argc:word, argv:ptr
 
-	RESET_DSP
+;--- write logo
+	mov dx,offset information
+	mov ah,9
+	int 21h
 
 	cmp argc, 2
 	jb options_done
@@ -139,10 +142,7 @@ main proc c argc:word, argv:ptr
 
 options_done:
 
-;--- write logo
-	mov dx,offset information
-	mov ah,9
-	int 21h
+	RESET_DSP
 
 ;--- enable SB speakers (for all SBs < SB16)
 	mov dx,BASEADDR + SB_DSPWRITE
@@ -282,6 +282,10 @@ nooverride:
 	WAITWRITE
 	mov al, ch
 	out dx, al
+
+	mov dx,offset info2
+	mov ah,9
+	int 21h
 
 waitloop:
 	mov ah,01

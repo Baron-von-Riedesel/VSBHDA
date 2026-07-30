@@ -22,6 +22,7 @@
 
 #if SOUNDFONT
 #define VOICES_DEFAULT 64
+#define VOICES_MAX 256
 #endif
 
 #ifdef __cplusplus

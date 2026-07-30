@@ -36,7 +36,7 @@ endif
 
 ;--- get hdpmi API entry point
 
-_get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
+_hdpmi_get_vendor_api proc c public uses es esi edi pAPI:ptr
 
 	xor edi, edi
 	mov es, edi
@@ -50,7 +50,7 @@ _get_hdpmi_vendor_api proc c public uses es esi edi pAPI:ptr
 	mov word ptr [edx+SEGOFS], es
 failed:
 	ret
-_get_hdpmi_vendor_api endp
+_hdpmi_get_vendor_api endp
 
 ifdef NOTFLAT	; string in code not allowed in true small model
 	.const

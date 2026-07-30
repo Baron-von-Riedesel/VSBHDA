@@ -56,11 +56,11 @@ SampleBuffer LABEL BYTE
 
 SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 
-information db 'TEST04.EXE - play a 8bit mono sample one time using DSP cmd 0x14.',13,10
-            db ' EMS page frame is used as sound buffer!',13,10
-            db ' stop playing with ESC.',13,10
+information db 'TEST04 - play a 8bit mono sample one time using DSP cmd 0x14.',13,10
+            db 'EMS page frame is used as sound buffer!',13,10
             db '$'
 
+info2       db 'Stop playing with ESC.',13,10,'$'
 sberror     db 'No SoundBlaster at base address 220h.',13,10,'$'
 emserror    db 'No EMM installed.',13,10,'$'
 emserror2   db 'No EMS page frame set.',13,10,'$'
@@ -81,11 +81,11 @@ oldpic      db 0
 	.286
 
 main proc c
-		RESET_DSP
-
 		mov dx,offset information
 		mov ah,9
 		int 21h
+
+		RESET_DSP
 
 		; ENABLE SB SPEAKERS (for all SBs <SB16)
 		mov dx,BASEADDR+00Ch 		;DX = DSP Write Data or Command
@@ -248,6 +248,10 @@ nextpage:
 		WAITWRITE
 		mov al,ch					;AL = HIGHER PART SAMPLELENGTH
 		out dx,al
+
+		mov dx,offset info2
+		mov ah,9
+		int 21h
 
 waitloop:
 		cmp [ready],0				; check if sound sent

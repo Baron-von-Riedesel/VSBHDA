@@ -131,7 +131,7 @@ if LFN
 endif
         @cextrn   _Extender          , byte
         @cextrn   _ExtenderSubtype   , byte
-        @cextrn   _Envptr            , dword
+        @cextrn   _Envptr            , fword
 ;        @cextrn   _Envseg            , word
         @cextrn   __FPE_handler      , dword
         @cextrn   _LpCmdLine         , dword
@@ -285,9 +285,9 @@ dosext:
         mov     _ExtenderSubtype,ah     ; record extender subtype
         mov     es,ebx                  ; get access to code segment
         mov     es:__saved_DS,ds        ; save DS value
-        mov     _Envptr,esi             ; save address of environment strings
-        mov     word ptr _Envptr+4,cx   ; save segment of environment area
-        push    esi                     ; save address of environment strings
+        mov     dword ptr _Envptr+0,esi ; save address of environment strings
+        mov      word ptr _Envptr+4,cx
+        push    esi
 ;
 ;       copy command line into bottom of stack
 ;

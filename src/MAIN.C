@@ -139,7 +139,7 @@ static const struct {
     "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "F",  "Set frequency [11025|22050|44100, def 22050]", &gvars.freq,
+    "F",  "Set frequency [11025|16000 * 1|2|3|4, def 22050]", &gvars.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
 #if SLOWDOWN
@@ -330,20 +330,24 @@ int main(int argc, char* argv[])
     bOMode = IsDebuggerPresent() ? OM_DEBUGGER : OM_DOS;
 
     if(blaster != NULL) {
-        char c;
-        while(( c = toupper(*(blaster++)))) {
-            switch (c) {
-            case 'A': gvars.base = strtol(blaster, &blaster, 16); break;
-            case 'D': gvars.dma  = *(blaster++) - '0'; break;
-            case 'I': gvars.irq  = *(blaster++) - '0'; break;
+        while (*blaster) {
+            int *pi = NULL;
+            int base = 10;
+            switch (*blaster | 0x20) {
+            case 'a': pi = &gvars.base; base = 16; break;
+            case 'd': pi = &gvars.dma;  break;
+            case 'i': pi = &gvars.irq;  break;
+            case 't': pi = &gvars.type; break;
 #if SB16
-            case 'H': gvars.hdma = *(blaster++) - '0'; break;
+            case 'h': pi = &gvars.hdma; break;
 #endif
 #if VMPU
-            case 'P': gvars.mpu  = strtol(blaster, &blaster, 16); break;
+            case 'p': pi = &gvars.mpu;  base = 16; break;
 #endif
-            case 'T': gvars.type = *(blaster++) - '0'; break;
             }
+            blaster++;
+            if ( pi )
+                *pi = strtol(blaster, &blaster, base);
         }
     }
     dbgprintf(("SB values before cmdline: A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
@@ -445,8 +449,10 @@ int main(int argc, char* argv[])
         printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
         return(1);
     }
-    if( gvars.freq != 11025 && gvars.freq != 22050 && gvars.freq != 44100 ) {
-        printf("Error: valid frequencies: 11025, 22050, 44100\n" );
+    /* v2.0: allow multiples of 11025 and 16000 */
+    //if( gvars.freq != 11025 && gvars.freq != 22050 && gvars.freq != 44100 ) {
+    if( (gvars.freq % 11025) * (gvars.freq % 16000) ) {
+        printf("Error: frequency must be a multiple of either 11025 or 16000\n" );
         return(1);
     }
     if( gvars.period_size % 64 ) {
@@ -454,8 +460,8 @@ int main(int argc, char* argv[])
         return(1);
     }
 #if SOUNDFONT
-    if (gvars.voices > 256) {
-        printf("Error: voice limit %d beyond 256\n", gvars.voices );
+    if (gvars.voices > VOICES_MAX) {
+        printf("Error: voice limit %d beyond %d\n", gvars.voices, VOICES_MAX );
         return(1);
     }
 #endif

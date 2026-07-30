@@ -66,7 +66,7 @@ OBJFILES = &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
 	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
-	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj
+	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj
 
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
@@ -185,8 +185,10 @@ $(OUTD)/cstrt16x.obj:  startup\cstrt16x.asm
 $(OUTD)/dstrt16x.obj:  startup\dstrt16x.asm
 $(OUTD)/ldmod16.obj:   startup\ldmod16.asm
 $(OUTD)/init1632.obj:  startup\init1632.asm
+$(OUTD)/getenv.obj:    startup\getenv.asm
 $(OUTD)/malloc.obj:    startup\malloc.asm
 $(OUTD)/sbrk.obj:      startup\sbrk.asm
+$(OUTD)/strtol.obj:    startup\strtol.asm
 $(OUTD)/libmain.obj:   startup\libmain.c
 
 # the 16-bit code is included in binary format into rmwrap.asm.

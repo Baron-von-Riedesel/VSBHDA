@@ -109,6 +109,7 @@
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit for MPU synthesizer
      /CF     : Set compatibility flags
+     /LF:fn  : Set log file filename to write (debug variant only)
 
     Options must be followed by the number/string, without spaces. Options /A
    and /P expect the number to be in hexadecimal, else decimal numbers are
@@ -149,6 +150,11 @@
      Bit 2: 1 = mask PIT interrupt during sound hardware interrupt.
      Bit 3: 1 = vsbhda16 only: fix Borland's runtime error 200 for 16-bit
                 protected-mode programs.
+   - /LF: set a filename for log writes. This option is understood by the
+     so-called debug variant of VSBHDA only, where various log messages are
+     generated ( without the /LF: option, those messages are written to the
+     screen ). While VSBHDA is active, the log texts are held in a memory
+     buffer; they are written to the log file when VSBHDA is uninstalled.
 
 
    4. Details/Hints
@@ -300,6 +306,9 @@
    - "Pin <n> (<type>) used for output": HDA only; this is a warning that the
      expected output device type ( lineout|speaker|headphone ) wasn't found
      and hence another one had to be used.
+
+   - "Voice limit xxx beyond 256": the maximum number of voices that can be set
+     by the /MV option is 256.
 
 
    6. Compatibility Issues

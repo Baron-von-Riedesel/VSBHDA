@@ -10,7 +10,7 @@ struct HDPMIAPI_ENTRY {
     uint16_t seg;
 };
 
-extern uint8_t _get_hdpmi_vendor_api( struct HDPMIAPI_ENTRY * );
+extern uint8_t _hdpmi_get_vendor_api( struct HDPMIAPI_ENTRY * );
 
 extern uint8_t _hdpmi_set_context_mode( uint8_t bMode );
 

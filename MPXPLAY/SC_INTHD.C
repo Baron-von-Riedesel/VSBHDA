@@ -28,7 +28,7 @@
 #include "LINEAR.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
-#define RESETCODECONCLOSE 1 /* todo: explain the benefits! */
+#define RESETCODECONCLOSE 0 /* todo: explain the benefits! */
 
 /* v2.0: according to HDA v1.0a docs max codecs is 15 (bits 0-14 in STATESTS) */
 #define AZX_MAX_CODECS 4
@@ -146,8 +146,6 @@ static struct aucards_mixerchan_s hda_master_vol = {
     }
 };
 
-#define codec_param_read(codec,nid,param) hda_codec_read(codec,nid,0,AC_VERB_PARAMETERS,param)
-
 static void update_pci_byte( struct pci_config_s *pci, unsigned int reg, unsigned char mask, unsigned char val)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -204,34 +202,22 @@ static void azx_init_pci(struct intelhd_card_s *card)
 		update_pci_byte(&card->pci_dev, HDA_PCIREG_TCSEL, 0x07, 0); /* set TC0 */
 }
 
-static void azx_single_send_cmd(struct intelhd_card_s *chip,uint32_t val)
-/////////////////////////////////////////////////////////////////////////
-{
-	int        timeout      = 2000; // 200 ms
-	static int corbsizes[4] = {2, 16, 256, 0};
-	int        corbsize     = corbsizes[chip->hdac->corbsize & 0x3];
-	int        corbindex    = chip->hdac->corbwp & 0xFF;  /* get current CORB write pointer */
-	uint8_t    corbrp       = chip->hdac->corbrp & 0xFF;
-
-	corbindex = (corbindex + 1) % corbsize;
-	chip->corb_buffer[corbindex] = val;
-	chip->hdac->corbwp = corbindex; /* update buffer pointer */
-	/* wait till cmd has been sent */
-    for ( ; timeout && (corbrp == chip->hdac->corbrp & 0xFF ); timeout--, pds_delay_10us(100) );
-}
-
 /* send cmd to codec.
- * argument "direct" is always zero.
  * 12-bit verbs have a 8-bit "payload" (=parm);
  * 4-bits verb may have a 16-bit "payload";
  * since the 4-bit verbs are defined so that the lower 8bits are zero,
  * it's no problem.
+ * nid: 7-bit value ( stored in bits 20-26 )
  */
 
-static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t direct, unsigned int verb, unsigned int parm)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, unsigned int verb, unsigned int parm)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	uint32_t val;
+	uint32_t   val;
+	int        timeout;
+	static int corbsizes[4] = {2-1, 16-1, 256-1, 1};
+	int        corbindex;  /* current CORB write pointer */
+	uint8_t    corbrp = chip->hdac->corbrp & 0xFF;
 
 	val  = (uint32_t)(chip->codec_index & 0x0f) << 28;
 	//val |= (uint32_t)direct << 27;
@@ -239,55 +225,61 @@ static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t
 	val |= verb << 8;
 	val |= parm;
 
-	azx_single_send_cmd(chip, val);
+	corbindex = (chip->hdac->corbwp + 1) & corbsizes[chip->hdac->corbsize & 0x3];
+	chip->corb_buffer[corbindex] = val;
+	chip->hdac->corbwp = corbindex; /* update buffer pointer */
+	/* wait till cmd has been sent */
+	for ( timeout = 2000; timeout && (corbrp == chip->hdac->corbrp & 0xFF ); timeout--, pds_delay_10us(100) );
+#ifdef _DEBUG
+	if (!timeout) dbgprintf(("hda_codec_write: timeout error!\n"));
+#endif
 }
 
-/* send a cmd to codec and return response.
- * argument "direct" is always zero.
- */
+/* send a cmd to codec and return response. */
 
-static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t direct, unsigned int verb, unsigned int parm)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, unsigned int verb, unsigned int parm)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	int timeout = 2000; // 200 ms
-	int rirbindex;
+	int timeout;
 	uint16_t rirbwp = chip->hdac->rirbwp;
-	long long data;
+	uint32_t data;
 
 	dbgprintf(( "hda_codec_read: write verb %X, parm=%X\n", verb, parm ));
 
-	hda_codec_write( chip, nid, direct, verb, parm );
+	hda_codec_write( chip, nid, verb, parm );
 
 	//dbgprintf(( "hda_codec_read: waiting for response\n" ));
-	for( ; timeout && ( rirbwp == chip->hdac->rirbwp ); timeout--, pds_delay_10us(100) );
+	for( timeout = 2000; timeout && ( rirbwp == chip->hdac->rirbwp ); timeout--, pds_delay_10us(100) );
 	if (!timeout) {
 		dbgprintf(( "hda_codec_read: timeout waiting for codec response\n" ));
 		return 0;
 	}
-	rirbindex = chip->hdac->rirbwp;
-	data = chip->rirb_buffer[rirbindex];
+	data = (uint32_t)(chip->rirb_buffer[chip->hdac->rirbwp & 0xFF]);
 	//chip->hdac->rirbsts = 1; /* writing a 1 clears bit 0! */
-	return (unsigned int)data;
+	return data;
 }
 
 static void hda_codec_setup_stream(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t stream_tag, int channel_id, int format)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	hda_codec_write(chip, nid, 0, AC_VERB_SET_CHANNEL_STREAMID, (stream_tag << 4) | channel_id);
+	hda_codec_write(chip, nid, AC_VERB_SET_CHANNEL_STREAMID, (stream_tag << 4) | channel_id);
 	pds_delay_10us(100);
-	hda_codec_write(chip, nid, 0, AC_VERB_SET_STREAM_FORMAT, format);
+	hda_codec_write(chip, nid, AC_VERB_SET_STREAM_FORMAT, format);
 	pds_delay_10us(100);
 }
+
+/* get sub nodes of either ROOT or AFG */
 
 static unsigned int hda_get_sub_nodes(struct intelhd_card_s *card, hda_nid_t nid, hda_nid_t *start_id)
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	int parm;
 
-	parm = codec_param_read(card, nid, AC_PAR_NODE_COUNT);
-	dbgprintf(("hda_get_sub_nodes: nid=%d, returns parm=%X\n", nid, parm ));
+	parm = hda_codec_read(card, nid, AC_VERB_PARAMETERS, AC_PAR_NODE_COUNT);
+	dbgprintf(("hda_get_sub_nodes(nid=%d): returned 0x%X\n", nid, parm ));
 	if( parm < 0 )
 		return 0;
+	/* start id in bits 16-23, no of nodes in bits 0-7 */
 	*start_id = (parm >> 16) & 0xff;
 	return (parm & 0xff);
 }
@@ -304,7 +296,7 @@ static void hda_search_audio_node(struct intelhd_card_s *card)
 	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
 	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
 	for( i = 0; i < total_nodes; i++, nid++ ){
-		if(( codec_param_read( card, nid, AC_PAR_FUNCTION_TYPE ) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
+		if(( hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_FUNCTION_TYPE ) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
 			card->afg_root_nodenum = nid;
 			break;
 		}
@@ -320,7 +312,7 @@ static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_n
 	unsigned int shift, num_elems, mask;
 	hda_nid_t prev_nid;
 
-	parm = codec_param_read(card, nid, AC_PAR_CONNLIST_LEN);
+	parm = hda_codec_read(card, nid, AC_VERB_PARAMETERS, AC_PAR_CONNLIST_LEN);
 	if (parm & AC_CLIST_LONG) {
 		shift = 16;
 		num_elems = 2;
@@ -336,7 +328,7 @@ static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_n
 	mask = (1 << (shift-1)) - 1;
 
 	if(conn_len == 1){
-		parm = hda_codec_read(card, nid, 0, AC_VERB_GET_CONNECT_LIST, 0);
+		parm = hda_codec_read(card, nid, AC_VERB_GET_CONNECT_LIST, 0);
 		conn_list[0] = parm & mask;
 		return 1;
 	}
@@ -348,7 +340,7 @@ static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_n
 		hda_nid_t val, n;
 
 		if (i % num_elems == 0)
-			parm = hda_codec_read(card, nid, 0,AC_VERB_GET_CONNECT_LIST, i);
+			parm = hda_codec_read(card, nid, AC_VERB_GET_CONNECT_LIST, i);
 
 		range_val = !!(parm & (1 << (shift-1)));
 		val = parm & mask;
@@ -379,7 +371,7 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 	int nconns = 0;
 
 	node->nid = nid;
-	node->wid_caps = codec_param_read( card, nid, AC_PAR_AUDIO_WIDGET_CAP );
+	node->wid_caps = hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_AUDIO_WIDGET_CAP );
 	node->type = (node->wid_caps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
 
 	//dbgprintf(("hda_add_node: nid=%u, caps=%X\n", node->nid, node->wid_caps ));
@@ -391,16 +383,16 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 		node->nconns = nconns;
 
 		if( node->type == AC_WID_PIN ){
-			node->pin_caps = codec_param_read(card, node->nid, AC_PAR_PIN_CAP);
-			node->pin_ctl = hda_codec_read(card, node->nid, 0, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
-			node->def_cfg = hda_codec_read(card, node->nid, 0, AC_VERB_GET_CONFIG_DEFAULT, 0);
+			node->pin_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PIN_CAP);
+			node->pin_ctl = hda_codec_read(card, node->nid, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
+			node->def_cfg = hda_codec_read(card, node->nid, AC_VERB_GET_CONFIG_DEFAULT, 0);
 			/* dbgprintf(("hda_add_node: PIN id:%d caps:%X conn:%d ctl:%X caps:%X def:%X\n",
 				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg, */
 		}
 
 		if( node->wid_caps & AC_WCAP_OUT_AMP ) {
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
-				node->amp_out_caps = codec_param_read(card, node->nid, AC_PAR_AMP_OUT_CAP);
+				node->amp_out_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_OUT_CAP);
 			if(!node->amp_out_caps)
 				node->amp_out_caps = card->def_amp_out_caps;
 			dbgprintf(("hda_add_node: caps & OUT_AMP, amp_out_caps=%X\n", node->amp_out_caps ));
@@ -408,14 +400,14 @@ static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda
 
 		if( node->wid_caps & AC_WCAP_IN_AMP ) {
 			if(node->wid_caps & AC_WCAP_AMP_OVRD)
-				node->amp_in_caps = codec_param_read(card, node->nid, AC_PAR_AMP_IN_CAP);
+				node->amp_in_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_IN_CAP);
 			if(!node->amp_in_caps)
 				node->amp_in_caps = card->def_amp_in_caps;
 			//dbgprintf(("hda_add_node: caps & IN_AMP, amp_in_caps=%X\n", node->amp_in_caps ));
 		}
 
 		if( node->wid_caps & AC_WCAP_FORMAT_OVRD ) {
-			node->supported_formats = codec_param_read(card, node->nid, AC_PAR_PCM);
+			node->supported_formats = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PCM);
 		}
 	}
 
@@ -426,7 +418,7 @@ static struct hda_gnode *hda_get_node(struct intelhd_card_s *card, hda_nid_t nid
 /////////////////////////////////////////////////////////////////////////////////
 {
 	struct hda_gnode *node = card->afg_nodes;
-	unsigned int i;
+	int i;
 
 	for( i = 0; i < card->afg_num_nodes; i++,node++ )
 		if( node->nid == nid )
@@ -448,7 +440,7 @@ static void hda_set_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int ch,
 	/* bit 7=1 is mute! */
 	parm |= val; /* bits 0-6 */
 	dbgprintf(("hda_set_vol_mute(chnl=%u, dir=%u, idx=%u val=%X): write_codec( %u, %X, %X)\n", ch, direction, index, val, nid, AC_VERB_SET_AMP_GAIN_MUTE, parm ));
-	hda_codec_write(card, nid, 0, AC_VERB_SET_AMP_GAIN_MUTE, parm);
+	hda_codec_write(card, nid, AC_VERB_SET_AMP_GAIN_MUTE, parm);
 }
 
 /* called by hda_codec_amp_stereo() and hda_readMIXER() */
@@ -462,7 +454,7 @@ static uint8_t hda_get_vol_mute(struct intelhd_card_s *card, hda_nid_t nid, int 
 	parm  = (ch) ? AC_AMP_GET_RIGHT : AC_AMP_GET_LEFT;
 	parm |= ( direction == HDA_OUTPUT ) ? AC_AMP_GET_OUTPUT : AC_AMP_GET_INPUT;
 	parm |= index;
-	val = (uint8_t)hda_codec_read(card, nid, 0, AC_VERB_GET_AMP_GAIN_MUTE, parm);
+	val = (uint8_t)hda_codec_read(card, nid, AC_VERB_GET_AMP_GAIN_MUTE, parm);
 	return ( val ); /* bit 7: mute, 0-6: gain */
 }
 
@@ -500,7 +492,7 @@ static void hda_unmute_input(struct intelhd_card_s *card, struct hda_gnode *node
 static void select_input_connection(struct intelhd_card_s *card, struct hda_gnode *node, unsigned int index)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	hda_codec_write(card, node->nid, 0, AC_VERB_SET_CONNECT_SEL, index);
+	hda_codec_write(card, node->nid, AC_VERB_SET_CONNECT_SEL, index);
 }
 
 static void clear_check_flags(struct intelhd_card_s *card)
@@ -526,7 +518,7 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 		return 0;
 
 #if SETPOWERSTATE /* seems necessary on (some?) notebooks */
-	hda_codec_write(card, node->nid, 0, AC_VERB_SET_POWER_STATE, 0 );
+	hda_codec_write(card, node->nid, AC_VERB_SET_POWER_STATE, 0 );
 #endif
 	node->checked = 1;
 	/* is node an "Audio Out" widget (=DAC)? */
@@ -623,9 +615,9 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 		if( err > 0 ){
 			hda_unmute_output(card, node);
 #if SETPOWERSTATE
-			hda_codec_write(card, node->nid, 0, AC_VERB_SET_POWER_STATE, 0 );
+			hda_codec_write(card, node->nid, AC_VERB_SET_POWER_STATE, 0 );
 #endif
-			hda_codec_write(card, node->nid, 0,
+			hda_codec_write(card, node->nid,
 								AC_VERB_SET_PIN_WIDGET_CONTROL,
 								AC_PINCTL_OUT_ENABLE |
 								((node->pin_caps & AC_PINCAP_HP_DRV)? AC_PINCTL_HP_ENABLE : 0));
@@ -641,9 +633,9 @@ static void hda_enable_eapd(struct intelhd_card_s *card, struct hda_gnode *node)
 ////////////////////////////////////////////////////////////////////////////////
 {
 	if(node->pin_caps & AC_PINCAP_EAPD){
-		unsigned int eapd_set = hda_codec_read(card, node->nid, 0, AC_VERB_GET_EAPD_BTLENABLE, 0);
+		unsigned int eapd_set = hda_codec_read(card, node->nid, AC_VERB_GET_EAPD_BTLENABLE, 0);
 		eapd_set |= AC_PINCTL_EAPD_ENABLE;
-		hda_codec_write(card, node->nid, 0, AC_VERB_SET_EAPD_BTLENABLE, eapd_set);
+		hda_codec_write(card, node->nid, AC_VERB_SET_EAPD_BTLENABLE, eapd_set);
 	}
 }
 
@@ -772,24 +764,22 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 
 	dbgprintf(("azx_reset: GCTL=%X, STATESTS=%X\n", chip->hdac->gctl, chip->hdac->statests ));
 
-#if 0 /* optionally test if delay works at all */
-	dbgprintf(("azx_reset: testing delay\n" ));
-	for ( timeout = 100; timeout; timeout-- )
-		pds_delay_10us(100);
-	dbgprintf(("azx_reset: delay is ok\n" ));
-#endif
-
-    /* v1.7: do a reset if no codec bits in STATESTS are set (assumes max 4 codecs) */
+	/* v1.7: do a reset if no codec bits in STATESTS are set */
 	if ( !(chip->hdac->statests & ( (1 << AZX_MAX_CODECS) - 1) ) ) {
+		dbgprintf(("azx_reset: resetting HDA device\n" ));
 		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
-		for ( timeout = 100; timeout && (chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
+		/* wait until bit 0 is read as 0 */
+		for ( timeout = 500; timeout && (chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
 			pds_delay_10us(100);
+#ifdef _DEBUG
+		if ( !timeout ) dbgprintf(("azx_reset: reset failed\n" ));
+#endif
     }
-    /* wake up the HDA controller if it is in "reset" state */
+	/* wake up the HDA controller if it is in "reset" state */
 	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
 		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
-
-		for ( timeout = 500; timeout && (!chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
+		/* wait until bit 0 is read as 1 */
+		for ( timeout = 500; timeout && (!(chip->hdac->gctl & HDA_GCTL_RESET)); timeout--)
 			pds_delay_10us(100);
 		if( !timeout ) {
 			dbgprintf(("HDA controller not ready!\n"));
@@ -799,11 +789,11 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	// disable unsolicited responses (single cmd mode)
 	chip->hdac->gctl = chip->hdac->gctl & (~HDA_GCTL_UREN);
 
-    /* reset CORB & RIRB */
+    /* reset CORB & RIRB DMA engines */
 	chip->hdac->corbctl = chip->hdac->corbctl & ~2;
 	chip->hdac->rirbctl = chip->hdac->rirbctl & ~2;
 
-	//dbgprintf(("azx_reset: waiting for CORB\n" ));
+	//dbgprintf(("azx_reset: waiting for CORB DMA engine disabled\n" ));
 	for( timeout = 100; timeout && (chip->hdac->corbctl & 2); timeout--)
 		pds_delay_10us(10);
 
@@ -837,8 +827,10 @@ static unsigned int azx_reset(struct intelhd_card_s *chip)
 	chip->hdac->rirblbase = pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer);
 	chip->hdac->rirbubase = 0;
 	chip->hdac->rirbwp = (uint16_t)0x8000; /* reset RIRB write pointer */
-	//chip->hdac->rirbsize = 0; maybe only 1 supported
-	chip->hdac->rirbric = 64; //1 response for one interrupt each time
+	//chip->hdac->rirbsize = 0; /* RIRB size ( 0=2,1=16,2=256,3=rsvd ) */
+	/* set no of responses until interrupt is generated (0=256 interrupts);
+	 * since bit RINTCTL isn't set, interrupts aren't necessary */
+	chip->hdac->rirbric = 64;
 
 	pds_delay_10us(100);
 
@@ -856,12 +848,14 @@ static void hda_hw_init(struct intelhd_card_s *card)
 	/* reset int errors by writing '1's in SD_STS */
 	card->sd->bSts = SD_INT_MASK;
 
-    /* v1.8: statests bit 0-3 (if AZX_MAX_CODECS = 4) are now cleared - makes vsbhda compatible with vmware;
-     * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit ) - so check if
-     * this code really does what's intended!
-     */
+#if 0 /* v2.0: now done at hda_hw_close() */
+	/* v1.8: statests bit 0-3 (if AZX_MAX_CODECS = 4) are now cleared - makes vsbhda compatible with vmware;
+	 * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit ) - so check if
+	 * this code really does what's intended!
+	 */
 	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
 	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
+#endif
 
 	card->hdac->rirbsts = RIRB_INT_MASK;
 
@@ -882,34 +876,37 @@ static void hda_hw_init(struct intelhd_card_s *card)
 
 }
 
-static unsigned int hda_mixer_init(struct intelhd_card_s *card)
-///////////////////////////////////////////////////////////////
+static int hda_mixer_init(struct intelhd_card_s *card)
+//////////////////////////////////////////////////////
 {
-	unsigned int i;
+	int i;
 	hda_nid_t nid;
 
 	dbgprintf(("hda_mixer_init: reading codec vendor id...\n"));
-	card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
-	if( card->codec_vendor_id <= 0 )
-		card->codec_vendor_id = codec_param_read(card, AC_NODE_ROOT, AC_PAR_VENDOR_ID);
+	/* v2.0: wait in a loop until codec is ready;
+	 * vendor ID in bits 16-31, device ID in bits 0-15;
+	 * v2.0: vendor ID is NOT a signed value - check for "<= 0" has been changed to "== 0";
+	 */
+	for ( i = 500, card->codec_vendor_id = 0; i && card->codec_vendor_id == 0; i--, pds_delay_10us(100) )
+		card->codec_vendor_id = hda_codec_read(card, AC_NODE_ROOT, AC_VERB_PARAMETERS, AC_PAR_VENDOR_ID);
 
 	dbgprintf(("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id));
 	hda_search_audio_node( card );
 	if( !card->afg_root_nodenum ) {
 		dbgprintf(("hda_mixer_init: no afg found\n"));
-		goto err_out_mixinit;
+		goto mixer_init_failed;
 	}
 
 #if SETPOWERSTATE
-	hda_codec_write(card, card->afg_root_nodenum, 0, AC_VERB_SET_POWER_STATE, 0 );
+	hda_codec_write(card, card->afg_root_nodenum, AC_VERB_SET_POWER_STATE, 0 );
 #endif
 
-	card->def_amp_out_caps = codec_param_read(card, card->afg_root_nodenum, AC_PAR_AMP_OUT_CAP);
-	card->def_amp_in_caps = codec_param_read(card, card->afg_root_nodenum, AC_PAR_AMP_IN_CAP);
+	card->def_amp_out_caps = hda_codec_read(card, card->afg_root_nodenum, AC_VERB_PARAMETERS, AC_PAR_AMP_OUT_CAP);
+	card->def_amp_in_caps = hda_codec_read(card, card->afg_root_nodenum, AC_VERB_PARAMETERS, AC_PAR_AMP_IN_CAP);
 	card->afg_num_nodes = hda_get_sub_nodes(card, card->afg_root_nodenum, &nid);
 	if((card->afg_num_nodes <= 0) || !nid) {
 		dbgprintf(("hda_mixer_init: no afg sub nodes\n"));
-		goto err_out_mixinit;
+		goto mixer_init_failed;
 	}
 
 	dbgprintf(("hda_mixer_init: outcaps=%X incaps=%X afgsubnodes=%d anid=%d\n",card->def_amp_out_caps,card->def_amp_in_caps,card->afg_num_nodes,(int)nid));
@@ -917,7 +914,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 	card->afg_nodes = (struct hda_gnode *)calloc(card->afg_num_nodes,sizeof(struct hda_gnode));
 	if(!card->afg_nodes) {
 		dbgprintf(("hda_mixer_init: calloc failed\n"));
-		goto err_out_mixinit;
+		goto mixer_init_failed;
 	}
 	for( i = 0; i < card->afg_num_nodes; i++, nid++ )
 		hda_add_node(card, &card->afg_nodes[i], nid);
@@ -925,14 +922,14 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 	/* get the widgets we need for the selected ouput pin ( lineout/speaker/hp ) */
 	if(!hda_parse_output(card)) {
 		dbgprintf(("hda_mixer_init: hda_parse_output failed\n"));
-		goto err_out_mixinit;
+		goto mixer_init_failed;
 	}
 
 	/* check if DAC/AFG support the format we need */
 	if( card->dac_node[0] ) {
 		card->supported_formats = card->dac_node[0]->supported_formats;
 		if( !card->supported_formats )
-			card->supported_formats = codec_param_read(card, card->afg_root_nodenum, AC_PAR_PCM);
+			card->supported_formats = hda_codec_read(card, card->afg_root_nodenum, AC_VERB_PARAMETERS, AC_PAR_PCM);
 
 		card->supported_max_freq = hda_get_max_freq(card);
 		card->supported_max_bits = hda_get_max_bits(card);
@@ -954,7 +951,7 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
     /* this is the important log if something goes wrong with the volume;
      * the card->pcm_vols should be DACs or Mixer widgets.
      */
-	dbgprintf(("hda_mixer_init nodes: dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
+	dbgprintf(("hda_mixer_init: nodes dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
 				(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
 				(int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),
 				(int)((card->out_pin_node[0]) ? card->out_pin_node[0]->nid: 0),
@@ -966,12 +963,12 @@ static unsigned int hda_mixer_init(struct intelhd_card_s *card)
 
 	return 1;
 
-err_out_mixinit:
+mixer_init_failed:
 	if( card->afg_nodes ){
 		free(card->afg_nodes);
 		card->afg_nodes = NULL;
 	}
-	dbgprintf(("mixer_init: failed\n"));
+	//dbgprintf(("mixer_init: failed\n"));
 	return 0;
 }
 
@@ -988,17 +985,22 @@ static void hda_hw_close(struct intelhd_card_s *card)
 
 #if RESETCODECONCLOSE
 	/* reset codec */
-	//hda_codec_write(card, card->afg_root_nodenum, 0, AC_VERB_SET_CODEC_RESET, 0);
+	if ( card->afg_root_nodenum )
+		hda_codec_write(card, card->afg_root_nodenum, AC_VERB_SET_CODEC_RESET, 0);
+#endif
 	/* stop CORB & RIRB DMA engines */
 	card->hdac->corbctl = 0;
 	card->hdac->rirbctl = 0;
-    card->hdac->intsts = 0; /* useful? this register is RO! */
+	card->hdac->intsts = 0; /* useful? this register is RO! */
+
+	/* v2.0: reset STATESTS now done here */
+	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
+
 	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
 	dbgprintf(("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
 			card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
 	dbgprintf(("hda_hw_close: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
 			card->hdac->rirblbase, card->hdac->rirbwp, card->hdac->rirbric, card->hdac->rirbctl, card->hdac->rirbsts, card->hdac->rirbsize ));
-#endif
 }
 
 /* called by HDA_setrate() */

@@ -83,12 +83,16 @@ Int41_Exit endp
 
 LogfileDump proc c public uses ebx pName:ptr
 
-if 1
 ;--- enable interrupts, since this proc may be called by port trapping code;
-;--- this should never be necessary
+if 1
+	sti
+else
+	cmp word ptr cs:[oldint31+SEGOFS],0 ;v2.0: int 31h vector might not be modified
+	jz @F
 	mov ax,901h
 	insPUSHF
 	call cs:[oldint31]
+@@:
 endif
 
 	invoke fopen, pName, offset szWB

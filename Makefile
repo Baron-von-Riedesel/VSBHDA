@@ -85,8 +85,8 @@ OBJFILES = &
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
-	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj
+	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj		$(OUTD)/strtol.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -182,8 +182,10 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
 $(OUTD)/cstrtdhx.obj:  startup\cstrtdhx.asm
+$(OUTD)/getenv.obj:    startup\getenv.asm
 $(OUTD)/malloc.obj:    startup\malloc.asm
 $(OUTD)/sbrk.obj:      startup\sbrk.asm
+$(OUTD)/strtol.obj:    startup\strtol.asm
 
 
 # to avoid any issues with 16-bit relocations in PE binaries,

@@ -465,7 +465,7 @@ bool PTRAP_Uninstall_RM_PortTraps( void )
 bool PTRAP_DetectHDPMI()
 ////////////////////////
 {
-    uint8_t result = _get_hdpmi_vendor_api(&HDPMIAPI_Entry);
+    uint8_t result = _hdpmi_get_vendor_api(&HDPMIAPI_Entry);
 
 #if 0 //JHDPMI
 	__dpmi_regs r = {0};

@@ -49,8 +49,8 @@ SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 information db 'TEST03 [frequency] [SB buffer length-1]',13,10
             db 'plays sine wave, 16bit, mono, signed (SB16 only).',13,10
             db 'frequency: default 22050; SB buffer length-1: default 65531.',13,10
-            db 'Press ESC to exit!',13,10
             db '$'
+info2       db 'Press ESC to exit!',13,10,'$'
 sberror     db 'No SoundBlaster at base address 220h.',13,10,'$'
 rateerror   db 'Invalid rate entered.',13,10,'$'
 lengtherror db 'Invalid SB buffer length entered.',13,10,'$'
@@ -196,8 +196,6 @@ getdec endp
 
 main proc c argc:word, argv:ptr
 
-	RESET_DSP
-
 	cld
 	mov si, argv
 	add si, 2
@@ -222,6 +220,8 @@ main proc c argc:word, argv:ptr
 	mov dx,offset information
 	mov ah,9
 	int 21h
+
+	RESET_DSP
 
 ;--- enable SB speakers
 	mov dx,BASEADDR + SB_DSPWRITE
@@ -283,6 +283,10 @@ main proc c argc:word, argv:ptr
 	WAITWRITE
 	mov al, ch
 	out dx, al
+
+	mov dx,offset info2
+	mov ah,9
+	int 21h
 
 waitloop:
 	mov ah,01
