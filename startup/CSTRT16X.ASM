@@ -35,10 +35,15 @@ CONST ends
 	exitm <offset sym>
 endm
 
-        include debug.inc
+	include DEBUG.INC
+
+main proto c :dword, :ptr
+
+	externdef c _argc:dword
+	externdef c _argv:ptr
 
         externdef c _DSBase          : dword
-        extrn   __CMain              : near
+;        extrn   __CMain              : near
         extrn   __InitRtns           : near
         extrn   __FiniRtns           : near
 ;        extrn   __DOSseg__           : near
@@ -107,11 +112,13 @@ CONST2  ends
 	public __8087
 	public __real87
 
-	public __x386_zero_base_selector
 	public __csalias
 
 	.data
+if 0
+	public __x386_zero_base_selector
 __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
+endif
 __8087    db 0
 __real87  db 0
 
@@ -347,7 +354,9 @@ endif
 	mov _LpPgmName, esi         ; save program name address
 	mov eax, 0FFH               ; run all initalizers
 	call __InitRtns             ; call initializer routines
-	call __CMain
+	push _argv
+	push _argc
+	call main
 _cstart_ endp
 
 ;--- don't touch AL in __exit, it has the return code

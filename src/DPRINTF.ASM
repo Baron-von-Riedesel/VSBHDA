@@ -10,7 +10,7 @@
 
 SETBORDER equ 0	;1=support _SetBorder(color)
 
-	include config.inc
+	include CONFIG.INC
 
 ifdef DJGPP
 	assume ds:_DATA

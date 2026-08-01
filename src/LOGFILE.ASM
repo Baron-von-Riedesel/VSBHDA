@@ -8,7 +8,7 @@ ifdef _DEBUG
 	option casemap:none
 	option proc:private
 
-	include config.inc
+	include CONFIG.INC
 
 ifdef DJGPP
 	assume ds:_DATA

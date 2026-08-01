@@ -9,7 +9,7 @@
 	.386
 	.model ?MODEL
 
-	include debug.inc
+	include DEBUG.INC
 
 	.data
 

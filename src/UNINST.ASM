@@ -7,7 +7,7 @@
 	option casemap:none
 	option proc:private
 
-	include config.inc
+	include CONFIG.INC
 
 __dpmi_simulate_real_mode_interrupt proto c intno:byte, pRegs:ptr
 

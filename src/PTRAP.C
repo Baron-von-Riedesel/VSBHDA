@@ -210,15 +210,12 @@ uint8_t PTRAP_PM_TrapHandler( uint16_t port, uint16_t flags, uint8_t value )
 }
 
 
-//https://www.cs.cmu.edu/~ralf/papers/qpi.txt
-//https://fd.lod.bz/rbil/interrup/memory/673f_cx5145.html
-//http://mirror.cs.msu.ru/oldlinux.org/Linux.old/docs/interrupts/int-html/rb-7414.htm
-
 uint16_t PTRAP_GetQEMMVersion(void)
 ///////////////////////////////////
 {
-    //http://mirror.cs.msu.ru/oldlinux.org/Linux.old/docs/interrupts/int-html/rb-2830.htm
-    __dpmi_regs r = {0};
+    __dpmi_regs r;
+    r.x.ss = r.x.sp = 0;
+    r.x.flags = 0x202;
 #if 0 /* OW doesn't know ioctl() */
     uint32_t entryfar = 0;
     int fd = 0;
@@ -236,7 +233,6 @@ uint16_t PTRAP_GetQEMMVersion(void)
     if ( ReadLinearD( 0x67*4 ) ) { /* int 67h initialized? */
         r.x.cx = 0x5145; /* "QE" */
         r.x.dx = 0x4d4d; /* "MM" */
-        r.x.flags = 0x202;
         r.x.ax = 0x3f00;
         __dpmi_simulate_real_mode_interrupt(0x67, &r);
         if ( r.h.ah == 0 && r.x.es ) {

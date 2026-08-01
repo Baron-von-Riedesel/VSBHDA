@@ -24,7 +24,7 @@
 ;*
 ;*  ========================================================================
 ;*
-;* Description:  DOS 32-bit startup code.
+;* Description:  DOS 32-bit startup code for HX.
 ;*
 ;*****************************************************************************
 
@@ -103,9 +103,14 @@ endm
 public c x
 endm
 
-        assume  nothing
+;        assume  nothing
 
-        extrn   __CMain              : near
+main proto c :dword, :ptr
+
+	externdef c _argc:dword
+	externdef c _argv:ptr
+
+;        extrn   __CMain              : near
         extrn   __InitRtns           : near
         extrn   __FiniRtns           : near
 ;        extrn   __DOSseg__           : near
@@ -121,7 +126,7 @@ endm
         @cextrn   _STACKLOW          , dword
         @cextrn   _STACKTOP          , dword
 ifndef OW19
-        extrn    __child             : dword
+;        extrn    __child             : dword
 endif
 if NO87
         extrn    __no87              : byte
@@ -133,7 +138,7 @@ endif
         @cextrn   _ExtenderSubtype   , byte
         @cextrn   _Envptr            , fword
 ;        @cextrn   _Envseg            , word
-        @cextrn   __FPE_handler      , dword
+;        @cextrn   __FPE_handler      , dword
         @cextrn   _LpCmdLine         , dword
         @cextrn   _LpPgmName         , dword
 
@@ -164,7 +169,7 @@ ___begtext label byte
         nop     ;E
         nop     ;F
 ;        public ___begtext
-        assume  cs:nothing
+;        assume  cs:nothing
 BEGTEXT  ends
 
 _NULL   segment para public 'BEGDATA'
@@ -182,9 +187,11 @@ CONST2  segment dword public 'DATA'
 CONST2  ends
 
 _DATA    segment dword public 'DATA'
+if 0
 ;--- this is referenced in inirmsel.c!
 __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
         public  __x386_zero_base_selector
+endif
 _DATA    ends
 
 DATA    segment dword public 'DATA'
@@ -205,7 +212,6 @@ STACK   ends
 
 _cstart_ proc near
         jmp   short around
-
 ;
 ; miscellaneous code-segment messages
 ;
@@ -218,8 +224,6 @@ szNoDosExt      db      "No DOS-Extender",13,10,0
         dd      ___begtext              ; make sure dead code elimination
 
 around:
-
-        assume  ds:DGROUP
 
 ;--- hx: esi=linear address module
 ;---     ebx=linear address psp (loadpe only!)
@@ -256,65 +260,49 @@ around:
 		mov ax,4C01h
 		int 21h
 dosext:
-
 ;
 ;       get DOS & Extender version number
 ;
-        mov     ah,30h
-        int     21h                     ; modifies eax,ebx,ecx,edx
-        mov     _osmajor,al
-        mov     _osminor,ah
-        mov     ecx,eax                 ; remember DOS version number
-        sub     esi,esi                 ; offset 0 for environment strings
-        mov     edi,81H                 ; DOS command buffer es:edi
-        mov ah, 51h     ; works with HDPMI only
+        mov ah,30h
+        int 21h                         ; modifies eax,ebx,ecx,edx
+        mov _osmajor,al
+        mov _osminor,ah
+        mov ecx,eax                     ; remember DOS version number
+        mov ah, 51h                     ; get PSP selector - works with HDPMI only
         int 21h
         mov _psp, bx
-        mov es, ebx
-        mov cx,es:[DOS_PSP_ENV_SEG]     ; - get environment segment into cx
-        mov ebx, ds
+        push ds
+        mov ds, ebx
+        mov bx,ds:[DOS_PSP_ENV_SEG]     ; get environment selector
+        pop ds
 ;        mov al,X_HX
 ;        mov al,X_RATIONAL
         mov al,0
-        mov ah,0          ; meaning "zero-based"
-
-;--- here: esi=0 (start env), ebx=ds, ax=extender version, cx=environment selector
-;---       edi=offset start cmdline (rel to [_psp])
-
-        mov     _Extender,al            ; record extender type
-        mov     _ExtenderSubtype,ah     ; record extender subtype
-        mov     es,ebx                  ; get access to code segment
-        mov     es:__saved_DS,ds        ; save DS value
-        mov     dword ptr _Envptr+0,esi ; save address of environment strings
-        mov      word ptr _Envptr+4,cx
-        push    esi
+        mov ah,0                        ; meaning "zero-based"
+        mov _Extender,al                ; record extender type
+        mov _ExtenderSubtype,ah         ; record extender subtype
+        mov __saved_DS,ds               ; save DS value
+        mov ax,6
+        int 31h
+        mov word ptr [_Envptr+0], dx
+        mov word ptr [_Envptr+2], cx
 ;
-;       copy command line into bottom of stack
-;
-        mov     es,_psp                 ; point to PSP
-        mov     edx, _STACKLOW
-        sub     ecx,ecx
-        mov     cl,es:[edi-1]           ; get length of command
-        cld                             ; set direction forward
-        mov     al,' '
-        repe    scasb
-        lea     esi,[edi-1]
-        mov     edi,edx
-        mov     ebx,es
-        mov     edx,ds
-        mov     ds,ebx
-        mov     es,edx                  ; es:edi is destination
-        je      noparm
-        inc     ecx
-        rep     movsb
-noparm: sub     al,al
-        stosb                           ; store NULLCHAR
-        stosb                           ; assume no pgm name
-        pop     esi                     ; restore address of environment strings
-        dec     edi                     ; back up pointer 1
-        push    edi                     ; save pointer to pgm name
-        push    edx                     ; save ds(stored in dx)
-        mov     ds,word ptr es:_Envptr+4; get segment addr of environment area
+        mov bx,_psp
+        mov ax, 6
+        int 31h
+        push cx
+        push dx
+        pop eax
+        mov edi,81H                     ; DOS command buffer es:edi
+        add edi, eax
+        push ds
+        pop es
+        movzx ecx,byte ptr [edi-1]
+        sub al,al
+        mov [edi+ecx],al
+
+        cld
+        mov esi,dword ptr [_Envptr]
 if LFN
         mov     bx,FLG_LFN*256          ; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 elseif NO87
@@ -327,20 +315,20 @@ if NO87 or LFN
 endif
 if NO87
         cmp     eax,37386f6eh           ; check for "no87"
-        jne     short L2                ; skip if not "no87"
+        jne     L2                      ; skip if not "no87"
         cmp     byte ptr 4[esi],'='     ; make sure next char is "="
-        jne     short L4                ; no
+        jne     L4                      ; no
         or      bl,FLG_NO87             ; - indicate 'no87' was present
         jmp     L4
 L2:
 endif
 if LFN
         cmp     eax,3d6e666ch           ; check for 'lfn='
-        jne     short L4                ; skip if not 'lfn='
+        jne     L4                      ; skip if not 'lfn='
         mov     al,byte ptr 4[esi]      ; get next character
         or      al,20h                  ; map to lower case
         cmp     al,'n'                  ; make sure next char is 'n'
-        jne     short L4                ; no
+        jne     L4                      ; no
         and     bh,not FLG_LFN          ; indicate no 'lfn=n' present
 endif
 L4:
@@ -352,44 +340,33 @@ L4:
         lodsb
         inc     esi                     ; point to program name
         inc     esi                     ; . . .
-;
-;       copy the program name into bottom of stack
-;
-L5:     cmp     byte ptr [esi],0        ; end of pgm name ?
-        movsb                           ; copy a byte
-        jne     L5                      ; until end of pgm name
-        pop     ds                      ; restore ds
-        pop     esi                     ; restore address of pgm name
 
-        assume  ds:DGROUP
 if NO87
         mov     __no87,bl               ; set state of "no87" enironment var
 endif
 if LFN
         and     __uselfn,bh             ; set "LFN" support status
 endif
-        mov     ebx,esp                 ; end of stack in data segment
-        mov     _dynend,ebx             ; set top of dynamic memory area
-        push edi
+        mov     _dynend,esp             ; set top of dynamic memory area
+        mov     _LpCmdLine,edi          ; save command line address
+        mov     _LpPgmName,esi          ; save program name address
 
-        mov     ecx,offset DGROUP:_end  ; end of _BSS segment (start of STACK)
-        mov     edi,offset DGROUP:_edata; start of _BSS segment
+        mov     ecx,offset _end         ; end of _BSS segment (start of STACK)
+        mov     edi,offset _edata       ; start of _BSS segment
         sub     ecx,edi                 ; calc # of bytes in _BSS segment
-                                        ; DOS extender will zero rest of pages
-zerobss:mov     dl,cl                   ; save bottom 2 bits of count in edx
+        mov     dl,cl                   ; save bottom 2 bits of count in edx
         shr     ecx,2                   ; calc # of dwords
         sub     eax,eax                 ; zero the _BSS segment
         rep     stosd                   ; ...
         mov     cl,dl                   ; get bottom 2 bits of count
         and     cl,3                    ; ...
         rep     stosb                   ; ...
-        pop eax
-        xchg eax, _STACKLOW
-        mov     _LpCmdLine,eax          ; save command line address
-        mov     _LpPgmName,esi          ; save program name address
+
         mov     eax,0FFH                ; run all initalizers
         call    __InitRtns              ; call initializer routines
-        call    __CMain
+        push    _argv
+        push    _argc
+        call    main
 _cstart_ endp
 
 ;       don't touch AL in __exit, it has the return code
@@ -400,18 +377,17 @@ else
 EXITCC equ <>
 endif
         public  EXITCC __exit
+        public  __do_exit_with_msg_
+ifdef OW19
+        public  __do_exit_with_msg__
+endif
 
 __exit  proc near EXITCC
 
 ifndef __STACK__
         push    eax                     ; get return code into eax
 endif
-        jmp     short   L7
-
-        public  __do_exit_with_msg_
-ifdef OW19
-        public  __do_exit_with_msg__
-endif
+        jmp     short L7
 
 ; input: ( char *msg, int rc )  always in registers
 
@@ -422,8 +398,8 @@ __do_exit_with_msg_::
         push    edx                     ; save return code
         push    eax                     ; save address of msg
         mov     edx,offset ConsoleName
-        mov     ax,03d01h               ; write-only access to screen
-        int     021h
+        mov     ax, 3d01h               ; write-only access to screen
+        int     21h
         mov     ebx,eax                 ; get file handle
         pop     edx                     ; restore address of msg
         mov     esi,edx                 ; get address of msg
@@ -434,22 +410,20 @@ L6:     lodsb                           ; get char
         mov     ecx,esi                 ; calc length of string
         sub     ecx,edx                 ; . . .
         dec     ecx                     ; . . .
-        mov     ah,040h                 ; write out the string
-        int     021h                    ; . . .
+        mov     ah, 40h                 ; write out the string
+        int     21h
         mov     edx,offset NewLine      ; write out the string
         mov     cl,sizeof NewLine
-        mov     ah,040h                 ; . . .
-        int     021h                    ; . . .
+        mov     ah, 40h
+        int     21h
 L7:
         xor     eax, eax
         mov     edx,FINI_PRIORITY_EXIT-1; less than exit
         call    __FiniRtns              ; call finializer routines
         pop     eax                     ; restore return code
-        mov     ah,04cH                 ; DOS call to exit with return code
-        int     021h                    ; back to DOS
+        mov     ah, 4cH                 ; DOS call to exit with return code
+        int     21h
 __exit endp
-
-;include msgcpyrt.inc
 
         align   4
 

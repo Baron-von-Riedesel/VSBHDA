@@ -24,8 +24,9 @@
 #define CMD10LASTSMPL 1 /* 1=save last sample and supply it as first in next read */
 
 #define CMDPORTMASK 0x3 /* mask to determine when a cmd port is to be "busy" */
-#define DISPSTAT 1 /* 1=support displaying DSP status */
-
+#ifndef DISPSTAT
+#define DISPSTAT 0 /* 1=support displaying DSP status - obsolete */
+#endif
 #define MIXERREADLOG /* debug log mixer read on */
 
 extern struct globalvars gvars;
@@ -342,8 +343,8 @@ static void DSP_AddData( uint8_t data )
 static void VSB_DispStatus( void )
 //////////////////////////////////
 {
-	printf("VSB_Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
-	printf("VSB_Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
+	printf("VSB Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
+	printf("VSB Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
 # if !HOSTRT
     VIRQ_Check();
 # endif

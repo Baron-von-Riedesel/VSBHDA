@@ -139,9 +139,9 @@ static const struct {
     "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
     "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
     "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "F",  "Set frequency [11025|16000 * 1|2|3|4, def 22050]", &gvars.freq,
+    "F",  "Set frequency [multiples of 11025|16000, def 22050]", &gvars.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
-    "BS",  "Set PCM buffer size [in 4k pages, def 16]", &gvars.buffsize,
+    "BS",  "Set PCM buffer size [in 4kB units, def 16]", &gvars.buffsize,
 #if SLOWDOWN
     "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
 #endif

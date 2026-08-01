@@ -7,8 +7,8 @@
 	option casemap:none
 	option proc:private
 
-	include config.inc
-	include debug.inc
+	include CONFIG.INC
+	include DEBUG.INC
 
 	public oldint21
 	public bIntSnd

@@ -23,8 +23,8 @@ ife HOSTRT
 RTIVT     equ 1	; 1=route interrupt requests to (old) real-mode IV directly.
 endif
 
-	include config.inc
-	include debug.inc
+	include CONFIG.INC
+	include DEBUG.INC
 
 externdef c VIRQ_Irq:byte
 externdef c __djgpp_stack_top:dword

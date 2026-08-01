@@ -201,3 +201,4 @@ clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).exe
 	@del $(OUTD)\$(NAME).lib
 	@del $(OUTD)\*.obj
+	@del $(OUTD)\rmcode?.bin

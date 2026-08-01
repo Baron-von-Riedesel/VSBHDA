@@ -20,7 +20,7 @@ if @Model ne 7
 externdef _DSBase:dword
 endif
 
-	include debug.inc
+	include DEBUG.INC
 
 	.code
 

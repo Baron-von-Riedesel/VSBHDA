@@ -9,7 +9,7 @@
 	option casemap:none
 	option proc:private
 
-	include debug.inc
+	include DEBUG.INC
 
 externdef c psp:dword
 externdef c DSBase:dword

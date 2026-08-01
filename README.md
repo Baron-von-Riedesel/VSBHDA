@@ -26,7 +26,10 @@ VSBHDA uses some source codes from:
  * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
-To create the binaries, Open Watcom (v1.9 or v2.0) is recommended. DJGPP v2.05
-may also be used, but cannot create the 16-bit variant of VSBHDA. In all cases
-the JWasm assembler (v2.17 or better) is also needed.
+A few makefiles are supplied to create the binaries:
+ * Makefile/OW16.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
+ * Linux.mak/Linux16.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
+ * djgpp.mak: for DOS using DJGPP v2.05 and JWasm; cannot create the 16-bit variant of VSBHDA
 
+JWasm (https://github.com/Baron-von-Riedesel/JWasm) must be at least v2.17,
+JWlink (https://github.com/Baron-von-Riedesel/jwlink) must be at least v2.0.

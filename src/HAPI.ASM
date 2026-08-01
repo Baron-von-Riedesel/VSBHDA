@@ -6,7 +6,7 @@
 	option casemap:none
 	option proc:private
 
-	include config.inc
+	include CONFIG.INC
 
 _hdpmi_traphandler struct
 ifdef NOTFLAT

@@ -6,7 +6,7 @@
 	.386
 	.model small
 
-	include debug.inc
+	include DEBUG.INC
 
 HEAPSIZE equ 1000h	;additional memory behind stack
 

@@ -17,10 +17,10 @@ RMCodeTab label dword
 	dd offset RMCode2, RMCode2Size
 
 RMCode1 label byte
-%	incbin <OUTD\rmcode1.bin>
+%	incbin <OUTD/rmcode1.bin>
 RMCode1Size equ $ - offset RMCode1
 RMCode2 label byte
-%	incbin <OUTD\rmcode2.bin>
+%	incbin <OUTD/rmcode2.bin>
 RMCode2Size equ $ - offset RMCode2
 
 	.code
