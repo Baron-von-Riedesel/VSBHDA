@@ -64,7 +64,7 @@ endif
 ; This segment must be at least 4 bytes in size to avoid confusing the
 ; signal function.
 
-BEGTEXT segment use32 para public 'CODE'
+BEGTEXT segment para public 'CODE'
 
 forever label   near
         int     3h
@@ -96,27 +96,30 @@ _NULL   ends
 _AFTERNULL segment word public 'BEGDATA'
 _AFTERNULL ends
 
-CONST   segment word public 'DATA'
-CONST   ends
-CONST2  segment word public 'DATA'
-CONST2  ends
-
-        public  __x386_zero_base_selector
-
 _DATA    segment dword public 'DATA'
+if 0
+	public __x386_zero_base_selector
 ;--- this is referenced in inirmsel.c!
 __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
+endif
 _DATA    ends
 
 DATA    segment dword public 'DATA'
 DATA    ends
 
+CONST   segment word public 'DATA'
+CONST   ends
+CONST2  segment word public 'DATA'
+CONST2  ends
+
+if 0
 TIB segment byte public 'DATA'
 TIB ends
 TI  segment byte public 'DATA'
 TI  ends
 TIE segment byte public 'DATA'
 TIE ends
+
 XIB segment word public 'DATA'
 XIB ends
 XI  segment word public 'DATA'
@@ -130,6 +133,7 @@ YI  segment word public 'DATA'
 YI  ends
 YIE segment word public 'DATA'
 YIE ends
+endif
 
 	.data?
 
@@ -138,7 +142,8 @@ STACK   segment para stack 'STACK'
         db 4000h dup(?)
 STACK   ends
 
-DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
+;DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
+DGROUP group _NULL,_AFTERNULL,_DATA,DATA,CONST,CONST2,_BSS,STACK
 
 	assume ds:DGROUP
 
@@ -162,7 +167,7 @@ endm
 __dprintf proto c :ptr, :vararg
 endif
 
-_TEXT segment
+	.code
 
 __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 
@@ -250,9 +255,9 @@ else
 EXITCC equ <>
 endif
 
-	public EXITCC __exit
+;	public EXITCC __exit
 
-__exit  proc near EXITCC
+__exit  proc EXITCC
 
 ifndef __STACK__
 	push eax			; get return code into eax
@@ -298,11 +303,11 @@ __exit endp
 
 	align 4
 
-	public __GETDS
+;	public __GETDS
 ;	public c __GETDSStart_
 ;	public c __GETDSEnd_
 
-__GETDS proc near
+__GETDS proc
 ;__GETDSStart_ label near
 	push eax
 	mov eax,cs
@@ -315,7 +320,5 @@ __GETDS proc near
 ;__saved_DS dw 0				; DS save area for interrupt routines
 __GETDS endp
 ;__GETDSEnd_ label near
-
-_TEXT ends
 
 	end __DLLstart_

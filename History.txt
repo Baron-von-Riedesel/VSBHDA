@@ -8,6 +8,7 @@
   - fixed HDA: check for HDA controller base address 0 wasn't safe.
   - accept multiples of 16000 for /F option.
   - Linux.mak & Linux16.mak added.
+  - cmdline option /B added.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).

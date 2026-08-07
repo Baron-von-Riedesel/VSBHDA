@@ -1,6 +1,6 @@
 
 # Create vsbhda.exe with Open Watcom and JWasm.
-# To create the binary, enter
+# Enter
 #   wmake
 # Optionally, for a debug version, enter
 #   wmake debug=1

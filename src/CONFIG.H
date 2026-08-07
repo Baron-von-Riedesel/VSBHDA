@@ -58,6 +58,7 @@ struct globalvars {
 	int pin;
 	int device;
 	int period_size;
+	int buffers; /* v2.0: hardware sound buffers ( of size period_size ) */
 #ifdef _DEBUG
 	char *logfile;
 #endif

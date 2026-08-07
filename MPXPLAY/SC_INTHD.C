@@ -202,6 +202,172 @@ static void azx_init_pci(struct intelhd_card_s *card)
 		update_pci_byte(&card->pci_dev, HDA_PCIREG_TCSEL, 0x07, 0); /* set TC0 */
 }
 
+/* called by HDA_adetect() */
+
+static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd_card_s *card )
+///////////////////////////////////////////////////////////////////////////////////////////////
+{
+	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
+	unsigned long gcap, sdo_index;
+
+    /* v1.7: period_size has become a cmdline option */
+	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
+	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
+
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, 2 );
+	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE )) return 0;
+	card->table_buffer = (struct BDL_s *)card->dm.pMem;
+	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);
+	card->rirb_buffer = (unsigned long long *)((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE);
+	card->pcmout_buffer = (char *)((uint32_t)card->rirb_buffer + HDA_RIRB_MAXSIZE);
+
+    /* set offset for access to output stream descriptor; the first output stream descriptor is used */
+
+	gcap = card->hdac->gcap;
+	if(!(card->config_select & AUCARDSCONFIG_IHD_USE_FIXED_SDO) && (gcap & 0xF000)) // number of playback streams
+		sdo_index = (gcap >> 8) & 0x0F; /* gcap[8-11]=#input SDs */
+	else {
+		switch(card->board_driver_type){
+		case AZX_DRIVER_ATIHDMI:
+		case AZX_DRIVER_ATIHDMI_NS:
+			sdo_index = 0; break;
+		case AZX_DRIVER_TERA:
+			sdo_index = 3; break;
+		case AZX_DRIVER_ULI:
+			sdo_index = 5; break;
+		default:
+			sdo_index = 4;break;
+		}
+	}
+
+	dbgprintf(("hda_buffer_init: config_select=%X GCAP=%X SD-index=%u\n", card->config_select, gcap, sdo_index));
+
+	card->sd = &card->hdac->stream[sdo_index];
+	//card->pcmout_period_size = AZX_PERIOD_SIZE_DEF;
+	card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
+
+	return 1;
+}
+
+/* called by hda_hw_init() */
+
+static unsigned int azx_reset(struct intelhd_card_s *chip)
+//////////////////////////////////////////////////////////
+{
+	int timeout;
+
+	dbgprintf(("azx_reset: GCTL=%X, STATESTS=%X\n", chip->hdac->gctl, chip->hdac->statests ));
+
+	/* v1.7: do a reset if no codec bits in STATESTS are set */
+	if ( !(chip->hdac->statests & ( (1 << AZX_MAX_CODECS) - 1) ) ) {
+		dbgprintf(("azx_reset: resetting HDA device\n" ));
+		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
+		/* wait until bit 0 is read as 0 */
+		for ( timeout = 500; timeout && (chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
+			pds_delay_10us(100);
+#ifdef _DEBUG
+		if ( !timeout ) dbgprintf(("azx_reset: reset failed\n" ));
+#endif
+    }
+	/* wake up the HDA controller if it is in "reset" state */
+	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
+		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
+		/* wait until bit 0 is read as 1 */
+		for ( timeout = 500; timeout && (!(chip->hdac->gctl & HDA_GCTL_RESET)); timeout--)
+			pds_delay_10us(100);
+		if( !timeout ) {
+			dbgprintf(("HDA controller not ready!\n"));
+			return 0;
+		}
+	}
+	// disable unsolicited responses (single cmd mode)
+	chip->hdac->gctl = chip->hdac->gctl & (~HDA_GCTL_UREN);
+
+    /* reset CORB & RIRB DMA engines */
+	chip->hdac->corbctl = chip->hdac->corbctl & ~2;
+	chip->hdac->rirbctl = chip->hdac->rirbctl & ~2;
+
+	//dbgprintf(("azx_reset: waiting for CORB DMA engine disabled\n" ));
+	for( timeout = 100; timeout && (chip->hdac->corbctl & 2); timeout--)
+		pds_delay_10us(10);
+
+	/* STATESTS decides what codecs will be tried.
+     * bits 14:0 are wc ( writing '1' clears the bit );
+	 */
+	chip->codec_mask = chip->hdac->statests;
+
+	// set CORB command DMA buffer
+	chip->hdac->corblbase = pds_cardmem_physicalptr(chip->dm, chip->corb_buffer);
+	chip->hdac->corbubase = 0;
+	chip->hdac->corbwp = 0;
+
+	/* to reset CORB RP, set/reset bit 15 */
+	chip->hdac->corbrp = (uint16_t)0x8000; /* OW needs a type cast for constant */
+	/* according to specs wait until bit 15 changes to 1, then write a
+	 * 0 and again wait until a 0 is read.
+	 */
+#if 1
+	//dbgprintf(("azx_reset: waiting for CORB RP\n" ));
+	timeout = 500;
+	while ( ( 0 == ( chip->hdac->corbrp & 0x8000 ) ) && timeout-- ) pds_delay_10us(100);
+#endif
+	chip->hdac->corbrp = 0;
+#if 1
+	timeout = 500;
+	while ( ( chip->hdac->corbrp & 0x8000 ) && timeout-- ) pds_delay_10us(100);
+#endif
+	//chip->hdac->corbsize = 0;
+
+	chip->hdac->rirblbase = pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer);
+	chip->hdac->rirbubase = 0;
+	chip->hdac->rirbwp = (uint16_t)0x8000; /* reset RIRB write pointer */
+	//chip->hdac->rirbsize = 0; /* RIRB size ( 0=2,1=16,2=256,3=rsvd ) */
+	/* set no of responses until interrupt is generated (0=256 interrupts);
+	 * since bit RINTCTL isn't set, interrupts aren't necessary */
+	chip->hdac->rirbric = 64;
+
+	pds_delay_10us(100);
+
+	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
+
+	return 1;
+}
+
+static void hda_hw_init(struct intelhd_card_s *card)
+////////////////////////////////////////////////////
+{
+	azx_init_pci(card);
+	azx_reset(card);
+
+	/* reset int errors by writing '1's in SD_STS */
+	card->sd->bSts = SD_INT_MASK;
+
+	/* v1.8: statests bit 0-3 (if AZX_MAX_CODECS = 4) are now cleared - makes vsbhda compatible with vmware;
+	 * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit );
+	 * this is done here, not in hda_hw_close()
+	 * ( which isn't called if Ctrl-Alt-Del is pressed with vsbhda still loaded )
+	 */
+	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
+
+	card->hdac->rirbsts = RIRB_INT_MASK;
+
+	/* set interrupt control register; don't enable all stream interrupts - will be done more specific later */
+	//card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM;
+	card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN;
+	/* interrupt status register is RO! */
+	//card>-hdac->intsts = HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM;
+
+	card->hdac->dplbase = 0;
+	card->hdac->dpubase = 0;
+
+	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
+	dbgprintf(("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
+		card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
+	dbgprintf(("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
+		card->hdac->rirblbase, card->hdac->rirbwp, card->hdac->rirbric, card->hdac->rirbctl, card->hdac->rirbsts, card->hdac->rirbsize ));
+	return;
+}
+
 /* send cmd to codec.
  * 12-bit verbs have a 8-bit "payload" (=parm);
  * 4-bits verb may have a 16-bit "payload";
@@ -210,8 +376,8 @@ static void azx_init_pci(struct intelhd_card_s *card)
  * nid: 7-bit value ( stored in bits 20-26 )
  */
 
-static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, unsigned int verb, unsigned int parm)
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+static int hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, unsigned int verb, unsigned int parm)
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	uint32_t   val;
 	int        timeout;
@@ -233,7 +399,17 @@ static void hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, unsigned
 #ifdef _DEBUG
 	if (!timeout) dbgprintf(("hda_codec_write: timeout error!\n"));
 #endif
+	return timeout;
 }
+
+#ifdef _DEBUG
+static char *GetWidgetType( int type )
+//////////////////////////////////////
+{
+    static char *wtypes[] = { "Audio Out","Audio In","Audio Mixer","Audio Selector","Pin","Power","Volume Knob","Beep Gen" };
+    return ( type < 8 ? wtypes[type] : "" );
+}
+#endif
 
 /* send a cmd to codec and return response. */
 
@@ -244,19 +420,24 @@ static unsigned int hda_codec_read(struct intelhd_card_s *chip, hda_nid_t nid, u
 	uint16_t rirbwp = chip->hdac->rirbwp;
 	uint32_t data;
 
-	dbgprintf(( "hda_codec_read: write verb %X, parm=%X\n", verb, parm ));
-
-	hda_codec_write( chip, nid, verb, parm );
-
-	//dbgprintf(( "hda_codec_read: waiting for response\n" ));
-	for( timeout = 2000; timeout && ( rirbwp == chip->hdac->rirbwp ); timeout--, pds_delay_10us(100) );
-	if (!timeout) {
-		dbgprintf(( "hda_codec_read: timeout waiting for codec response\n" ));
-		return 0;
+	if (hda_codec_write( chip, nid, verb, parm ) ) {
+		dbgprintf(( "hda_codec_read(nid=%d, verb=0x%X, parm=0x%X)", nid, verb, parm ));
+		for( timeout = 2000; timeout && ( rirbwp == chip->hdac->rirbwp ); timeout--, pds_delay_10us(100) );
+		if (!timeout) {
+			dbgprintf(( " - timeout waiting for codec response\n" ));
+			return 0;
+		}
+		data = (uint32_t)(chip->rirb_buffer[chip->hdac->rirbwp & 0xFF]);
+#ifdef _DEBUG
+		if ( verb == AC_VERB_PARAMETERS && parm == AC_PAR_AUDIO_WIDGET_CAP )
+			dbgprintf(( "=0x%X [%s]\n", data, GetWidgetType( (data >> AC_WCAP_TYPE_SHIFT) & 0xf) ));
+		else
+			dbgprintf(( "=0x%X\n", data ));
+#endif
+		//chip->hdac->rirbsts = 1; /* writing a 1 clears bit 0! */
+		return data;
 	}
-	data = (uint32_t)(chip->rirb_buffer[chip->hdac->rirbwp & 0xFF]);
-	//chip->hdac->rirbsts = 1; /* writing a 1 clears bit 0! */
-	return data;
+	return 0;
 }
 
 static void hda_codec_setup_stream(struct intelhd_card_s *chip, hda_nid_t nid, uint32_t stream_tag, int channel_id, int format)
@@ -282,26 +463,6 @@ static unsigned int hda_get_sub_nodes(struct intelhd_card_s *card, hda_nid_t nid
 	/* start id in bits 16-23, no of nodes in bits 0-7 */
 	*start_id = (parm >> 16) & 0xff;
 	return (parm & 0xff);
-}
-
-/* get audio function group node */
-
-static void hda_search_audio_node(struct intelhd_card_s *card)
-//////////////////////////////////////////////////////////////
-{
-	int i, total_nodes;
-	hda_nid_t nid;
-
-	card->afg_root_nodenum = 0;
-	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
-	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
-	for( i = 0; i < total_nodes; i++, nid++ ){
-		if(( hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_FUNCTION_TYPE ) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
-			card->afg_root_nodenum = nid;
-			break;
-		}
-	}
-	dbgprintf(( "hda_search_audio_node: exit, afg_nodenum=%d\n", (int)card->afg_root_nodenum ));
 }
 
 static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_nid_t *conn_list, int max_conns)
@@ -361,57 +522,6 @@ static int hda_get_connections(struct intelhd_card_s *card, hda_nid_t nid, hda_n
 		prev_nid = val;
 	}
 	return conns;
-}
-
-/* add a widget to the widget array */
-
-static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda_nid_t nid)
-///////////////////////////////////////////////////////////////////////////////////////////
-{
-	int nconns = 0;
-
-	node->nid = nid;
-	node->wid_caps = hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_AUDIO_WIDGET_CAP );
-	node->type = (node->wid_caps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
-
-	//dbgprintf(("hda_add_node: nid=%u, caps=%X\n", node->nid, node->wid_caps ));
-	if( node->wid_caps & AC_WCAP_CONN_LIST )
-		nconns = hda_get_connections(card, nid,&node->conn_list[0],HDA_MAX_CONNECTIONS);
-
-	//dbgprintf(("hda_add_node: conns=%u\n", nconns ));
-	if( nconns >= 0 ) {
-		node->nconns = nconns;
-
-		if( node->type == AC_WID_PIN ){
-			node->pin_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PIN_CAP);
-			node->pin_ctl = hda_codec_read(card, node->nid, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
-			node->def_cfg = hda_codec_read(card, node->nid, AC_VERB_GET_CONFIG_DEFAULT, 0);
-			/* dbgprintf(("hda_add_node: PIN id:%d caps:%X conn:%d ctl:%X caps:%X def:%X\n",
-				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg, */
-		}
-
-		if( node->wid_caps & AC_WCAP_OUT_AMP ) {
-			if(node->wid_caps & AC_WCAP_AMP_OVRD)
-				node->amp_out_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_OUT_CAP);
-			if(!node->amp_out_caps)
-				node->amp_out_caps = card->def_amp_out_caps;
-			dbgprintf(("hda_add_node: caps & OUT_AMP, amp_out_caps=%X\n", node->amp_out_caps ));
-		}
-
-		if( node->wid_caps & AC_WCAP_IN_AMP ) {
-			if(node->wid_caps & AC_WCAP_AMP_OVRD)
-				node->amp_in_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_IN_CAP);
-			if(!node->amp_in_caps)
-				node->amp_in_caps = card->def_amp_in_caps;
-			//dbgprintf(("hda_add_node: caps & IN_AMP, amp_in_caps=%X\n", node->amp_in_caps ));
-		}
-
-		if( node->wid_caps & AC_WCAP_FORMAT_OVRD ) {
-			node->supported_formats = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PCM);
-		}
-	}
-
-	return nconns;
 }
 
 static struct hda_gnode *hda_get_node(struct intelhd_card_s *card, hda_nid_t nid)
@@ -566,7 +676,8 @@ static int parse_output_path(struct intelhd_card_s *card,struct hda_gnode *node,
 	return 0;
 }
 
-/* check an output node
+/* check an output node;
+ * jack_type is either 0,1,2 (lineout, speaker, headphone) or -1.
  */
 
 static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack_type )
@@ -577,12 +688,12 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 
 	for( i = 0; i < card->afg_num_nodes; i++, node++ ){
 
-		dbgprintf(("parse_output_jack(%u)[%u]: type=%X caps=%X\n", jack_type, i, node->type, node->pin_caps ));
+		//dbgprintf(("parse_output_jack(%d,%u): type=%u(%s)\n", jack_type, node->nid, node->type, GetWidgetType(node->type) ));
 		if(node->type != AC_WID_PIN)  /* widget must be a "pin" */
 			continue;
 		if(!(node->pin_caps & AC_PINCAP_OUT))
 			continue;
-		dbgprintf(("parse_output_jack[%u]: node id=%u cfg=0x%X\n", i, node->nid, node->def_cfg ));
+		dbgprintf(("parse_output_jack(%d,%u): pin_caps=0x%X def_cfg=0x%X\n", jack_type, node->nid, node->pin_caps, node->def_cfg ));
 
 		/* check port connectivity ( bits 30-31; 01=not connected ) */
 		if(defcfg_port_conn(node) == AC_JACK_PORT_NONE)
@@ -597,22 +708,22 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 			if(!(node->pin_ctl & AC_PINCTL_OUT_ENABLE))
 				continue;
 		}
-		dbgprintf(("parse_output_jack[%u]: widget %u preselected\n", i, node->nid ));
+		dbgprintf(("parse_output_jack(%d,%u): widget preselected\n", jack_type, node->nid ));
 		clear_check_flags(card);
 		err = parse_output_path(card, node, 0);
 		if( err < 0 ) {
-			dbgprintf(("parse_output_jack[%u]: parse_output_path() failed, err=%d\n", i, err ));
-			return NULL;
+			dbgprintf(("parse_output_jack(%d,%u): parse_output_path() failed, err=%d\n", jack_type, node->nid, err ));
+			break;
 		}
 		/* ??? */
-		if(!err && card->out_pin_node[0]){
+		if( !err && card->out_pin_node[0]) {
 			err = parse_output_path(card, node, 1);
 			if( err < 0 ) {
-				dbgprintf(("parse_output_jack[%u]: parse_output_path() failed [2], err=%d\n", i, err ));
-				return NULL;
+				dbgprintf(("parse_output_jack(%d,%u): parse_output_path() failed [2], err=%d\n", jack_type, node->nid, err ));
+				break;
 			}
 		}
-		if( err > 0 ){
+		if( err > 0 ) {
 			hda_unmute_output(card, node);
 #if SETPOWERSTATE
 			hda_codec_write(card, node->nid, AC_VERB_SET_POWER_STATE, 0 );
@@ -621,11 +732,11 @@ static struct hda_gnode *parse_output_jack(struct intelhd_card_s *card, int jack
 								AC_VERB_SET_PIN_WIDGET_CONTROL,
 								AC_PINCTL_OUT_ENABLE |
 								((node->pin_caps & AC_PINCAP_HP_DRV)? AC_PINCTL_HP_ENABLE : 0));
-			dbgprintf(("parse_output_jack: found node, id=%u, type=%u\n", node->nid, jack_type ));
+			dbgprintf(("parse_output_jack(%d,%u): node accepted\n", jack_type, node->nid ));
 			return node;
 		}
 	}
-	dbgprintf(("parse_output_jack: nothing found\n" ));
+	dbgprintf(("parse_output_jack(%d): nothing found\n", jack_type ));
 	return NULL;
 }
 
@@ -639,7 +750,7 @@ static void hda_enable_eapd(struct intelhd_card_s *card, struct hda_gnode *node)
 	}
 }
 
-/* scan codec for ouput devices:
+/* scan codec for output devices:
  * lineout, speaker, headphones
  */
 
@@ -650,8 +761,9 @@ static int hda_parse_output(struct intelhd_card_s *card)
 	static char *dtstrings[] = {"lineout","speaker","headphone"};
 	int8_t prefered_devtype;
 	struct hda_gnode *node;
-	int8_t *po,parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
-	int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
+	const int8_t *po;
+	static const int8_t parseorder_line[] = {AC_JACK_LINE_OUT, AC_JACK_HP_OUT, -1};
+	static const int8_t parseorder_speaker[] = {AC_JACK_SPEAKER, AC_JACK_HP_OUT, AC_JACK_LINE_OUT, -1};
 
     /* scan for output device according to /O option */
 	switch ( card->config_select & AUCARDSCONFIG_IHD_OUT_DEV_MASK ) {
@@ -661,18 +773,15 @@ static int hda_parse_output(struct intelhd_card_s *card)
 	}
 
 	prefered_devtype = *po;
-	i = 0;
-	do{
-		node = parse_output_jack(card, *po);
-		if( node ) {
+	for ( i = 0; (i < MAX_PCM_VOLS) && (*po >= 0); po++ ) {
+		if ( node = parse_output_jack(card, *po) ) {
 			card->out_pin_node[i++] = node;
 			if((*po == AC_JACK_SPEAKER) || (*po == AC_JACK_HP_OUT))
 				hda_enable_eapd(card, node);
 		}
-		po++;
-	}while((i < MAX_PCM_VOLS) && (*po >= 0));
+	}
 
-	if(!card->out_pin_node[0]){ // should not happen
+	if(!card->out_pin_node[0]) { // should not happen
 		node = parse_output_jack(card, -1); // parse 1st output
 		if(!node)
 			return 0;
@@ -708,172 +817,75 @@ static unsigned int hda_get_max_bits(struct intelhd_card_s *card)
 	return bits;
 }
 
-/* called by HDA_adetect() */
+/* add a widget to the widget array */
 
-static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd_card_s *card )
-///////////////////////////////////////////////////////////////////////////////////////////////
+static int hda_add_node(struct intelhd_card_s *card, struct hda_gnode *node, hda_nid_t nid)
+///////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
-	unsigned long gcap, sdo_index;
+	int nconns = 0;
 
-    /* v1.7: period_size has become a cmdline option */
-	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
-	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
+	node->nid = nid;
+	node->wid_caps = hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_AUDIO_WIDGET_CAP );
+	node->type = (node->wid_caps & AC_WCAP_TYPE) >> AC_WCAP_TYPE_SHIFT;
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, 2 );
-	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE )) return 0;
-	card->table_buffer = (struct BDL_s *)card->dm.pMem;
-	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);
-	card->rirb_buffer = (unsigned long long *)((uint32_t)card->corb_buffer + HDA_CORB_MAXSIZE);
-	card->pcmout_buffer = (char *)((uint32_t)card->rirb_buffer + HDA_RIRB_MAXSIZE);
+	//dbgprintf(("hda_add_node: nid=%u, caps=%X\n", node->nid, node->wid_caps ));
+	if( node->wid_caps & AC_WCAP_CONN_LIST )
+		nconns = hda_get_connections(card, nid,&node->conn_list[0],HDA_MAX_CONNECTIONS);
 
-    /* set offset for access to output stream descriptor; the first output stream descriptor is used */
+	//dbgprintf(("hda_add_node: connections=%d\n", nconns ));
+	if( nconns >= 0 ) {
+		node->nconns = nconns;
 
-	gcap = card->hdac->gcap;
-	if(!(card->config_select & AUCARDSCONFIG_IHD_USE_FIXED_SDO) && (gcap & 0xF000)) // number of playback streams
-		sdo_index = (gcap >> 8) & 0x0F; /* gcap[8-11]=#input SDs */
-	else {
-		switch(card->board_driver_type){
-		case AZX_DRIVER_ATIHDMI:
-		case AZX_DRIVER_ATIHDMI_NS:
-			sdo_index = 0; break;
-		case AZX_DRIVER_TERA:
-			sdo_index = 3; break;
-		case AZX_DRIVER_ULI:
-			sdo_index = 5; break;
-		default:
-			sdo_index = 4;break;
+		if( node->type == AC_WID_PIN ){
+			node->pin_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PIN_CAP);
+			node->pin_ctl = hda_codec_read(card, node->nid, AC_VERB_GET_PIN_WIDGET_CONTROL, 0);
+			node->def_cfg = hda_codec_read(card, node->nid, AC_VERB_GET_CONFIG_DEFAULT, 0);
+			/* dbgprintf(("hda_add_node(%d): PIN caps:%X conn:%d ctl:%X caps:%X def:%X\n",
+				  (int)nid, node->wid_caps, nconns, (int)node->pin_ctl, node->pin_caps, node->def_cfg, */
+		}
+
+		if( node->wid_caps & AC_WCAP_OUT_AMP ) {
+			if(node->wid_caps & AC_WCAP_AMP_OVRD)
+				node->amp_out_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_OUT_CAP);
+			if(!node->amp_out_caps)
+				node->amp_out_caps = card->def_amp_out_caps;
+			dbgprintf(("hda_add_node(%d): caps & OUT_AMP, amp_out_caps=%X\n", (int)nid, node->amp_out_caps ));
+		}
+
+		if( node->wid_caps & AC_WCAP_IN_AMP ) {
+			if(node->wid_caps & AC_WCAP_AMP_OVRD)
+				node->amp_in_caps = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_AMP_IN_CAP);
+			if(!node->amp_in_caps)
+				node->amp_in_caps = card->def_amp_in_caps;
+			//dbgprintf(("hda_add_node(%d): caps & IN_AMP, amp_in_caps=%X\n", (int)nid, node->amp_in_caps ));
+		}
+
+		if( node->wid_caps & AC_WCAP_FORMAT_OVRD ) {
+			node->supported_formats = hda_codec_read(card, node->nid, AC_VERB_PARAMETERS, AC_PAR_PCM);
 		}
 	}
 
-	dbgprintf(("hda_buffer_init: config_select=%X GCAP=%X SD-index=%u\n", card->config_select, gcap, sdo_index));
-
-	card->sd = &card->hdac->stream[sdo_index];
-	//card->pcmout_period_size = AZX_PERIOD_SIZE_DEF;
-	card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
-
-	return 1;
+	return nconns;
 }
 
-/* called by hda_hw_init() */
+/* get audio function group node */
 
-static unsigned int azx_reset(struct intelhd_card_s *chip)
-//////////////////////////////////////////////////////////
+static void hda_search_audio_node(struct intelhd_card_s *card)
+//////////////////////////////////////////////////////////////
 {
-	int timeout;
+	int i, total_nodes;
+	hda_nid_t nid;
 
-	dbgprintf(("azx_reset: GCTL=%X, STATESTS=%X\n", chip->hdac->gctl, chip->hdac->statests ));
-
-	/* v1.7: do a reset if no codec bits in STATESTS are set */
-	if ( !(chip->hdac->statests & ( (1 << AZX_MAX_CODECS) - 1) ) ) {
-		dbgprintf(("azx_reset: resetting HDA device\n" ));
-		chip->hdac->gctl = chip->hdac->gctl & ~HDA_GCTL_RESET;
-		/* wait until bit 0 is read as 0 */
-		for ( timeout = 500; timeout && (chip->hdac->gctl & HDA_GCTL_RESET); timeout--)
-			pds_delay_10us(100);
-#ifdef _DEBUG
-		if ( !timeout ) dbgprintf(("azx_reset: reset failed\n" ));
-#endif
-    }
-	/* wake up the HDA controller if it is in "reset" state */
-	if ( !(chip->hdac->gctl & HDA_GCTL_RESET )) {
-		chip->hdac->gctl = chip->hdac->gctl | HDA_GCTL_RESET;
-		/* wait until bit 0 is read as 1 */
-		for ( timeout = 500; timeout && (!(chip->hdac->gctl & HDA_GCTL_RESET)); timeout--)
-			pds_delay_10us(100);
-		if( !timeout ) {
-			dbgprintf(("HDA controller not ready!\n"));
-			return 0;
+	card->afg_root_nodenum = 0;
+	total_nodes = hda_get_sub_nodes(card, AC_NODE_ROOT, &nid);
+	dbgprintf(( "hda_search_audio_node: nodes=%d\n",total_nodes ));
+	for( i = 0; i < total_nodes; i++, nid++ ){
+		if(( hda_codec_read( card, nid, AC_VERB_PARAMETERS, AC_PAR_FUNCTION_TYPE ) & 0xff) == AC_GRP_AUDIO_FUNCTION ) {
+			card->afg_root_nodenum = nid;
+			break;
 		}
 	}
-	// disable unsolicited responses (single cmd mode)
-	chip->hdac->gctl = chip->hdac->gctl & (~HDA_GCTL_UREN);
-
-    /* reset CORB & RIRB DMA engines */
-	chip->hdac->corbctl = chip->hdac->corbctl & ~2;
-	chip->hdac->rirbctl = chip->hdac->rirbctl & ~2;
-
-	//dbgprintf(("azx_reset: waiting for CORB DMA engine disabled\n" ));
-	for( timeout = 100; timeout && (chip->hdac->corbctl & 2); timeout--)
-		pds_delay_10us(10);
-
-	/* STATESTS decides what codecs will be tried.
-     * bits 14:0 are wc ( writing '1' clears the bit );
-	 */
-	chip->codec_mask = chip->hdac->statests;
-
-	// set CORB command DMA buffer
-	chip->hdac->corblbase = pds_cardmem_physicalptr(chip->dm, chip->corb_buffer);
-	chip->hdac->corbubase = 0;
-	chip->hdac->corbwp = 0;
-
-	/* to reset CORB RP, set/reset bit 15 */
-	chip->hdac->corbrp = (uint16_t)0x8000; /* OW needs a type cast for constant */
-	/* according to specs wait until bit 15 changes to 1, then write a
-	 * 0 and again wait until a 0 is read.
-	 */
-#if 1
-	//dbgprintf(("azx_reset: waiting for CORB RP\n" ));
-	timeout = 500;
-	while ( ( 0 == ( chip->hdac->corbrp & 0x8000 ) ) && timeout-- ) pds_delay_10us(100);
-#endif
-	chip->hdac->corbrp = 0;
-#if 1
-	timeout = 500;
-	while ( ( chip->hdac->corbrp & 0x8000 ) && timeout-- ) pds_delay_10us(100);
-#endif
-	//chip->hdac->corbsize = 0;
-
-	chip->hdac->rirblbase = pds_cardmem_physicalptr(chip->dm, chip->rirb_buffer);
-	chip->hdac->rirbubase = 0;
-	chip->hdac->rirbwp = (uint16_t)0x8000; /* reset RIRB write pointer */
-	//chip->hdac->rirbsize = 0; /* RIRB size ( 0=2,1=16,2=256,3=rsvd ) */
-	/* set no of responses until interrupt is generated (0=256 interrupts);
-	 * since bit RINTCTL isn't set, interrupts aren't necessary */
-	chip->hdac->rirbric = 64;
-
-	pds_delay_10us(100);
-
-	dbgprintf(("azx_reset: done, codec_mask:%X\n",chip->codec_mask));
-
-	return 1;
-}
-
-static void hda_hw_init(struct intelhd_card_s *card)
-////////////////////////////////////////////////////
-{
-	azx_init_pci(card);
-	azx_reset(card);
-
-	/* reset int errors by writing '1's in SD_STS */
-	card->sd->bSts = SD_INT_MASK;
-
-#if 0 /* v2.0: now done at hda_hw_close() */
-	/* v1.8: statests bit 0-3 (if AZX_MAX_CODECS = 4) are now cleared - makes vsbhda compatible with vmware;
-	 * register STATESTS bits 14:0 are RW1CS ( write 1 to clear bit ) - so check if
-	 * this code really does what's intended!
-	 */
-	//azx_writeb(card, STATESTS, STATESTS_INT_MASK);
-	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
-#endif
-
-	card->hdac->rirbsts = RIRB_INT_MASK;
-
-	/* set interrupt control register; don't enable all stream interrupts - will be done more specific later */
-	//card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN | HDA_INT_ALL_STREAM;
-	card->hdac->intctl = card->hdac->intctl | HDA_INT_CTRL_EN | HDA_INT_GLOBAL_EN;
-	/* interrupt status register is RO! */
-	//card>-hdac->intsts = HDA_INT_CTRL_EN | HDA_INT_ALL_STREAM;
-
-	card->hdac->dplbase = 0;
-	card->hdac->dpubase = 0;
-
-	dbgprintf(("hda_hw_init: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
-	dbgprintf(("hda_hw_init: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
-		card->hdac->corblbase, card->hdac->corbwp, card->hdac->corbrp, card->hdac->corbctl, card->hdac->corbsts, card->hdac->corbsize ));
-	dbgprintf(("hda_hw_init: RIRB base=%X wp=%X ric=%X ctl=%X sts=%X siz=%X\n",
-		card->hdac->rirblbase, card->hdac->rirbwp, card->hdac->rirbric, card->hdac->rirbctl, card->hdac->rirbsts, card->hdac->rirbsize ));
-
+	dbgprintf(( "hda_search_audio_node: exit, afg_nodenum=%d\n", (int)card->afg_root_nodenum ));
 }
 
 static int hda_mixer_init(struct intelhd_card_s *card)
@@ -887,7 +899,7 @@ static int hda_mixer_init(struct intelhd_card_s *card)
 	 * vendor ID in bits 16-31, device ID in bits 0-15;
 	 * v2.0: vendor ID is NOT a signed value - check for "<= 0" has been changed to "== 0";
 	 */
-	for ( i = 500, card->codec_vendor_id = 0; i && card->codec_vendor_id == 0; i--, pds_delay_10us(100) )
+	for ( i = 10, card->codec_vendor_id = 0; i && card->codec_vendor_id == 0; i--, pds_delay_10us(2000) )
 		card->codec_vendor_id = hda_codec_read(card, AC_NODE_ROOT, AC_VERB_PARAMETERS, AC_PAR_VENDOR_ID);
 
 	dbgprintf(("hda_mixer_init: codec vendor id=%X, searching afg node...\n",card->codec_vendor_id));
@@ -993,8 +1005,8 @@ static void hda_hw_close(struct intelhd_card_s *card)
 	card->hdac->rirbctl = 0;
 	card->hdac->intsts = 0; /* useful? this register is RO! */
 
-	/* v2.0: reset STATESTS now done here */
-	card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
+	/* done in hda_hw_init() */
+	//card->hdac->statests = card->hdac->statests & ((1 << AZX_MAX_CODECS) - 1 );
 
 	dbgprintf(("hda_hw_close: STATESTS=%X INTCTL=%X INTSTS=%X\n", card->hdac->statests, card->hdac->intctl, card->hdac->intsts ));
 	dbgprintf(("hda_hw_close: CORB base=%X wp=%X rp=%X ctl=%X sts=%X siz=%X\n",
@@ -1380,7 +1392,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			}
         }
 		card->hdac = (struct HDAREGS_s *)((uint32_t)card->hdac & 0xfffffff0);
-        /* v2.0: check for valid HDA controller address now done AFTER bits 0-3 were masked */
+		/* v2.0: check for valid HDA controller address now done AFTER bits 0-3 were masked */
 		if( !card->hdac ) {
 			dbgprintf(("HDA_adetect(%u): card skipped - no PCI base addr\n", devidx ));
 			continue;

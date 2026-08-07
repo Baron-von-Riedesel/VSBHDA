@@ -92,7 +92,7 @@ uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config
 	return regs.h.ah;
 }
 
-/* search for a specific device class ( used by SC_HDA ), including index.
+/* search for a specific device class ( used by SC_INTHD ), including index.
  * added for vsbhda.
  * if a device is found, scan the table ( vendor/device ) to see if a special
  * "device_type" is to be set.

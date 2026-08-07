@@ -463,14 +463,16 @@ bool PTRAP_DetectHDPMI()
 {
     uint8_t result = _hdpmi_get_vendor_api(&HDPMIAPI_Entry);
 
-#if 0 //JHDPMI
-	__dpmi_regs r = {0};
+#if 0 //detect jhdpmi.dll
+	__dpmi_regs r;
 	uint32_t *dosmem = NearPtr(_my_psp() + 0x5C);
 	*dosmem = 0xCB2FCD; /* INT 2Fh & RETF */
 	r.x.ax = 0x1684;
 	r.x.bx = 0x4858;
 	r.x.cs = _my_psp() >> 4;
 	r.x.ip = 0x5C;
+	r.x.flags = 0x202;
+	r.x.ss = r.x.sp = 0;
 	if( __dpmi_simulate_real_mode_procedure_retf(&r) == 0 && r.h.al == 0 )
 		jhdpmi = 1;
 #endif

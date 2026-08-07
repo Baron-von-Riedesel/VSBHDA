@@ -1,6 +1,6 @@
 
-# Create vsbhda16.exe with Open Watcom and JWasm.
-# To create the binary, enter
+# Create vsbhda16.exe & sndcard.drv with Open Watcom and JWasm.
+# Enter
 #   make -f Linux16.mak
 # Optionally, for a debug version, enter
 #   make -f Linux16.mak DEBUG=1
@@ -106,7 +106,7 @@ $(OUTD):
 $(OUTD)/$(NAME).exe: $(OUTD)/$(NAME).lib $(OUTD)/CSTRT16X.obj $(OUTD)/INIT1632.obj
 	@$(LINK) \
 format dos \
-file $(OUTD)/CSTRT16X.obj, $(OUTD)/MAIN.obj, $(OUTD)/INIT1632.obj name $@ \
+file $(OUTD)/INIT1632.obj, $(OUTD)/CSTRT16X.obj, $(OUTD)/MAIN.obj name $@ \
 libpath $(WATCOM)/lib386/dos:$(WATCOM)/lib386 \
 lib $(OUTD)/$(NAME).lib \
 op q,statics,m=$(OUTD)/$(NAME).map \

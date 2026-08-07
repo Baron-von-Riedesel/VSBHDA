@@ -2,12 +2,13 @@
 ;*** simple startup code for a 16-bit DPMI client in MZ format
 ;*** will load HDPMI16.EXE if no DPMI API is found
 ;--- client is setup as small model
-;--- cs = _TEXT, 32-bit, must be < 64 kB
+;--- cs = _TEXT, 32-bit, should be < 64 kB
 ;--- ss=ds=DGROUP, 16-bit, must be < 64 kB
 ;--- es = psp
 
     .286
 
+CS32FIRST equ 0	; 1=assumed segment order: _TEXT, _TEXT16, DGROUP; 0=_TEXT16, _TEXT, DGROUP
 CSGT64K  equ 1	; 1=_TEXT may exceed 64k
 CHKCS64K equ 0	; 1= check if _TEXT is < 64k (if CSGT64K==0)
 
@@ -56,13 +57,19 @@ local lpproc:dword
 
     mov psp, es
 
-if 1
-;--- we don't need this 16-bit startup code in extended memory;
-;--- this code assumes that _TEXT16 is "between" _TEXT and DGROUP!
+if CS32FIRST	; assumed segments: _TEXT, _TEXT16, DGROUP
+;--- we don't need the 16-bit startup code in extended memory;
     mov cx, cs
-endif
     mov ax, es
-    add ax, 10h				; skip PSP -> start para of segment _TEXT
+    add ax, 10h				; skip PSP -> AX=start para of _TEXT
+else			; assumed segments: _TEXT16, _TEXT, DGROUP
+;--- cx = DGROUP
+    mov ax, offset endoftext16
+    add ax, 16-1
+    shr ax, 4
+    mov dx, cs
+    add ax, dx				;AX=start para of _TEXT
+endif
     sub cx, ax
 if CHKCS64K
     cmp cx, 1000h			; _TEXT < 1000h paragraphs?
@@ -444,6 +451,7 @@ errstr5 db "DGROUP exceeds 64kB",13,10,'$'
 if CHKCS64K
 errstr6 db "code exceeds 64kB",13,10,'$'
 endif
+endoftext16 label near
 _TEXT16 ends
 
     end _start

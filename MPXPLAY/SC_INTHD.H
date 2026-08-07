@@ -39,7 +39,7 @@ enum {
 };
     
 /*
- * widget types
+ * widget types (stored in bits 20-23 of widget capabilities)
  */
 enum {
     AC_WID_AUD_OUT,        /* 0 Audio Out (DAC) */
@@ -167,7 +167,7 @@ struct BDL_s {
 #define AC_WCAP_LR_SWAP           (1<<11)   /* L/R swap */
 #define AC_WCAP_DELAY            (0xf<<16)
 #define AC_WCAP_DELAY_SHIFT        16
-#define AC_WCAP_TYPE             (0xf<<20)
+#define AC_WCAP_TYPE             (0xf<<20)  /* */
 #define AC_WCAP_TYPE_SHIFT         20
 
 /* supported PCM rates and bits */

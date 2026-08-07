@@ -25,7 +25,7 @@
 #include "PHYSMEM.H"
 #include "LINEAR.H"
 
-#define AUCARDS_DMABUFSIZE_NORMAL 32768
+//#define AUCARDS_DMABUFSIZE_NORMAL 32768
 #define AUCARDS_DMABUFSIZE_MAX    131072
 #define AUCARDS_DMABUFSIZE_BLOCK  512    /* default page (block) size */
 
@@ -73,7 +73,9 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
 	if(!pagesize)
 		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =512 */
-	bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
+	/* v2.0: AUCARDS_DMABUFSIZE_NORMAL obsolete, replaced by /B argument */
+	//bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
+	bufsize = ( max_bufsize / pagesize ) * pagesize;
 	dbgprintf(("MDma_get_max_pcmoutbufsize()=0x%X\n", bufsize ));
 	return bufsize;
 }
@@ -127,8 +129,13 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 #else
 	if( maxbufsize < (pagesize * 2) )
 		dmabufsize = pagesize * 2;
-	else
-		dmabufsize = ( maxbufsize / pagesize ) * pagesize;
+	else {
+		/* v2.0: current frequency was ignored in v1.9 - resulted in
+		 * a too large latency if frequency was 22050 or below.
+		 */
+		//dmabufsize = ( maxbufsize / pagesize ) * pagesize;
+		dmabufsize = min ( ( maxbufsize / pagesize ) * pagesize , pagesize * ( aui->gvars->buffers ? aui->gvars->buffers : 3) );
+	}
 #endif
 
 	aui->card_bytespersign = aui->chan_card * ((bit_width + 7) / 8);
@@ -145,7 +152,9 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 	//tmp = aui->card_dmasize / 2;
 	//tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
 	//aui->card_dmalastput = tmp;
-	aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
+	/* v2.0: simplified */
+	//aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
+	aui->card_dmalastput = dmabufsize - pagesize;
 	aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
 
 	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X card_dmalastput=0x%X card_dmaspace=0x%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace ));

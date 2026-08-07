@@ -148,6 +148,7 @@ static const struct {
     "O",  "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
     "PS", "Set period size [def 512]", &gvars.period_size,
+    "B", "Set hardware buffers [def 3]", &gvars.buffers,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
     "MV", "Set voice limit [0-256, def 64]", &gvars.voices,
@@ -631,7 +632,6 @@ int main(int argc, char* argv[])
 
     if( gm.bISR && ( gm.bQemm || (!gvars.rm) ) && ( gm.bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;
-        //__dpmi_regs r = {0};
         __dpmi_regs r;
         __dpmi_set_coprocessor_emulation( 0 );
         psp = _my_psp();

@@ -1,6 +1,6 @@
 
-# Create vsbhda16.exe with Open Watcom and JWasm.
-# To create the binary, enter
+# Create vsbhda16.exe & sndcard.drv with Open Watcom and JWasm.
+# Enter
 #   wmake -f ow16.mak
 # Optionally, for a debug version, enter
 #   wmake -f ow16.mak debug=1
@@ -112,7 +112,7 @@ $(OUTD):
 $(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrt16x.obj $(OUTD)\init1632.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\cstrt16x, $(OUTD)\main, $(OUTD)\init1632 name $@
+file $(OUTD)\init1632.obj, $(OUTD)\cstrt16x.obj, $(OUTD)\main.obj name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $*.lib
 op q,statics,m=$*.map
@@ -122,7 +122,7 @@ disable 80
 $(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj $(OUTD)\auexp16.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\dstrt16x,$(OUTD)\auexp16.obj name $@
+file $(OUTD)\dstrt16x.obj,$(OUTD)\auexp16.obj name $@
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $*.lib
 op q,statics,m=$*.map

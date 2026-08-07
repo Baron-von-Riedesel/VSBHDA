@@ -11,10 +11,10 @@
 FINI_PRIORITY_EXIT equ 16
 
 X_RATIONAL    equ 1
-X_PHARLAP_V1  equ 2
+;X_PHARLAP_V1  equ 2
 
 XS_RATIONAL_NONZEROBASE equ 1
-XS_PHARLAP_NORMAL       equ 0
+;XS_PHARLAP_NORMAL       equ 0
 
 NO87 equ 0
 LFN equ 0	;1=support LFN (here not needed for C)
@@ -27,6 +27,7 @@ if LFN
 FLG_LFN         equ 1
 endif
 
+if 0
 CStr macro text:vararg
 local sym
 CONST segment
@@ -34,6 +35,7 @@ sym db text,0
 CONST ends
 	exitm <offset sym>
 endm
+endif
 
 	include DEBUG.INC
 
@@ -42,42 +44,45 @@ main proto c :dword, :ptr
 	externdef c _argc:dword
 	externdef c _argv:ptr
 
-        externdef c _DSBase          : dword
-;        extrn   __CMain              : near
-        extrn   __InitRtns           : near
-        extrn   __FiniRtns           : near
-;        extrn   __DOSseg__           : near
+	externdef c _DSBase   : dword
+;	externdef __CMain     : near
+	externdef __InitRtns  : near
+	externdef __FiniRtns  : near
+;	externdef __DOSseg__  : near
 ifndef OW19
-        extrn    __child             : dword
+	externdef __child     : dword
 endif
 if NO87
-        extrn    __no87              : byte
+	externdef __no87      : byte
 endif
-        extrn   _end                 : near  ; end of BSS (start of STACK)
+	externdef _end        : near  ; end of BSS (start of STACK)
 
-        extern c  _dynend            : dword
-        extern c  _curbrk            : dword
-        extern c  _psp               : word
-        extern c  _osmajor           : byte
-        extern c  _osminor           : byte
-        extern c  _STACKLOW          : dword
-        extern c  _STACKTOP          : dword
+	externdef c  _dynend            : dword
+	externdef c  _curbrk            : dword
+	externdef c  _psp               : word
+	externdef c  _osmajor           : byte
+	externdef c  _osminor           : byte
+	externdef c  _STACKLOW          : dword
+	externdef c  _STACKTOP          : dword
 if LFN
-        extern c  __uselfn           : byte
+	externdef c  __uselfn           : byte
 endif
-        extern c  _Extender          : byte
-        extern c  _ExtenderSubtype   : byte
-        extern c  _Envptr            : fword
-;       extern c  __FPE_handler      : dword
-        extern c  _LpCmdLine         : dword
-        extern c  _LpPgmName         : dword
+	externdef c  _Extender          : byte
+	externdef c  _ExtenderSubtype   : byte
+	externdef c  _Envptr            : fword
+;	externdef c  __FPE_handler      : dword
+	externdef c  _LpCmdLine         : dword
+	externdef c  _LpPgmName         : dword
+;	externdef c __GETDSStart_       : near
+;	externdef c __GETDSEnd_         : near
+
 
 ; this guarantees that no function pointer will equal NULL
 ; (WLINK will keep segment 'BEGTEXT' in front)
 ; This segment must be at least 4 bytes in size to avoid confusing the
 ; signal function.
 
-BEGTEXT  segment use32 para public 'CODE'
+BEGTEXT segment para public 'CODE'
 
 ;	public ___begtext
 
@@ -89,7 +94,7 @@ ___begtext label byte
 	nop
 	endm
 
-BEGTEXT  ends
+BEGTEXT ends
 
 _NULL segment para public 'BEGDATA'
 __nullarea label word
@@ -122,12 +127,14 @@ endif
 __8087    db 0
 __real87  db 0
 
+if 0
 TIB segment byte public 'DATA'
 TIB ends
 TI  segment byte public 'DATA'
 TI  ends
 TIE segment byte public 'DATA'
 TIE ends
+
 XIB segment word public 'DATA'
 XIB ends
 XI  segment word public 'DATA'
@@ -141,6 +148,7 @@ YI  segment word public 'DATA'
 YI  ends
 YIE segment word public 'DATA'
 YIE ends
+endif
 
 	.data?
 
@@ -150,9 +158,11 @@ STACK segment para stack 'STACK'
 	org 4000h
 STACK ends
 
-DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
+;DGROUP group _NULL,_AFTERNULL,CONST,CONST2,_DATA,DATA,TIB,TI,TIE,XIB,XI,XIE,YIB,YI,YIE,_BSS,STACK
+DGROUP group _NULL,_AFTERNULL,_DATA,DATA,CONST,CONST2,_BSS,STACK
 
 	.const
+
 ConsoleName     db "con",0
 NewLine         db 0Dh,0Ah
 szMSDOS         db "MS-DOS",0
@@ -162,7 +172,7 @@ szNoDosExt      db "No DOS-Extender",13,10,0
 
 ;--- entry: ds,ss=dgroup, es=psp
 
-_cstart_ proc near public
+_cstart_ proc
 	jmp around
 
 	align 4
@@ -367,13 +377,13 @@ else
 EXITCC equ <>
 endif
 
-	public EXITCC __exit
+;	public EXITCC __exit
 	public __do_exit_with_msg_
 ifdef OW19
 	public __do_exit_with_msg__
 endif
 
-__exit  proc near EXITCC
+__exit  proc EXITCC
 
 ifndef __STACK__
     push eax                     ; get return code into eax
@@ -419,17 +429,13 @@ __exit endp
 
 	align 4
 
-	public  __GETDS
-	public c __GETDSStart_
-	public c __GETDSEnd_
-
-__GETDS proc near
-__GETDSStart_ label near
+__GETDS proc
+;__GETDSStart_ label near
 	mov ds,cs:__saved_DS
 	ret
 	align dword
-__saved_DS  dw  0                ; DS save area for interrupt routines
+__saved_DS  dd  0                ; DS save area for interrupt routines
 __GETDS endp
-__GETDSEnd_ label near
+;__GETDSEnd_ label near
 
 	end

@@ -1,6 +1,6 @@
 
 # Create vsbhda.exe with Open Watcom and JWasm/JWlink.
-# To create the binary, enter
+# Enter
 #   make -f Linux.mak
 # Optionally, for a debug version, enter
 #   make -f Linux.mak DEBUG=1
