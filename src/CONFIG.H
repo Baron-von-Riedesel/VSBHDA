@@ -19,6 +19,7 @@
 
 #define HW_CHANNELS 2
 #define HW_BITS 16
+#define HW_BUFFERS_DEFAULT 8 /* v2.0 */
 
 #if SOUNDFONT
 #define VOICES_DEFAULT 64

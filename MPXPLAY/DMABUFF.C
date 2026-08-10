@@ -69,10 +69,12 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 {
 	unsigned int bufsize;
 	dbgprintf(("MDma_get_max_pcmoutbufsize( max=0x%X, pgsiz=0x%X, smplsiz=%u )\n", max_bufsize, pagesize, samplesize));
-	if(!max_bufsize)
+	if (!max_bufsize)
 		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
-	if(!pagesize)
+	if (!pagesize)
 		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =512 */
+	/* v2.0: max buffer size now limited */
+	max_bufsize = min( max_bufsize, ((aui->gvars->buffers > 1 ) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT ) * pagesize );
 	/* v2.0: AUCARDS_DMABUFSIZE_NORMAL obsolete, replaced by /B argument */
 	//bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
 	bufsize = ( max_bufsize / pagesize ) * pagesize;
@@ -134,7 +136,7 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 		 * a too large latency if frequency was 22050 or below.
 		 */
 		//dmabufsize = ( maxbufsize / pagesize ) * pagesize;
-		dmabufsize = min ( ( maxbufsize / pagesize ) * pagesize , pagesize * ( aui->gvars->buffers ? aui->gvars->buffers : 3) );
+		dmabufsize = min ( ( maxbufsize / pagesize ) * pagesize , pagesize * ( aui->gvars->buffers ? aui->gvars->buffers : HW_BUFFERS_DEFAULT) );
 	}
 #endif
 
@@ -154,9 +156,13 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 	//aui->card_dmalastput = tmp;
 	/* v2.0: simplified */
 	//aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
+#if 0
 	aui->card_dmalastput = dmabufsize - pagesize;
 	aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
-
+#else
+	aui->card_dmalastput = 0;
+	aui->card_dmaspace = pagesize;
+#endif
 	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X card_dmalastput=0x%X card_dmaspace=0x%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace ));
 	return dmabufsize;
 }
