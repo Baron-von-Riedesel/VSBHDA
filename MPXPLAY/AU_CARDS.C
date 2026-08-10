@@ -528,7 +528,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 }
 #endif
 
-#define SOUNDCARD_BUFFER_PROTECTION 32 // in bytes (required for PCI cards)
+#define BUFFER_PROTECTION_BYTES 32 /* required for SB PCI cards */
 
 /* this function is static in mpxplay;
  * calculates and returns aui->card_dmaspace (byte units).
@@ -568,9 +568,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 			if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
 				bufpos = aui->card_handler->cardbuf_getpos(aui);
 
-				if( bufpos >= aui->card_dmasize )
-					//bufpos %= aui->card_dmasize; /* not needed; max. bufpos is card_dmasize */
-					bufpos = 0;
+				bufpos %= aui->card_dmasize;
 
 				bufpos -= (bufpos % aui->card_bytespersign); // round
 
@@ -597,7 +595,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 		}
 	} else {
 		dbgprintf(("AU_cardbuf_space: ERROR, cardbuf_getpos()=NULL\n"));
-		aui->card_dmaspace = aui->card_outbytes + SOUNDCARD_BUFFER_PROTECTION;
+		aui->card_dmaspace = aui->card_outbytes + BUFFER_PROTECTION_BYTES;
 	}
 
 	if( aui->card_dmaspace > aui->card_dmasize ) // checking
@@ -605,7 +603,11 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 #ifdef DMABUFFLOG
 	dbgprintf(("AU_cardbuf_space: card_dmaspace new(old)=%X(%X), bufpos=%X, card_dmalastput=%X\n", aui->card_dmaspace, old_card_dmaspace, bufpos, aui->card_dmalastput ));
 #endif
-	return (aui->card_dmaspace > SOUNDCARD_BUFFER_PROTECTION) ? (aui->card_dmaspace - SOUNDCARD_BUFFER_PROTECTION) : 0;
+
+	if( aui->card_handler->infobits & SNDCARD_BUFFER_PROTECTION )
+		return (aui->card_dmaspace > BUFFER_PROTECTION_BYTES) ? aui->card_dmaspace - BUFFER_PROTECTION_BYTES: 0;
+
+	return aui->card_dmaspace;
 }
 
 /* writedata(): calls card's writedata() and updates card_dmaspace. */
@@ -614,18 +616,16 @@ static int writedata( struct audioout_info_s *aui, char *pcm_outdata, unsigned i
 //////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//char *pcm_outdata = (char *)aui->pcm_sample;
-	unsigned long buffer_protection,space;
+	unsigned long space;
 #ifdef DMABUFFLOG
 	unsigned int old_outbytes_left = outbytes_left;
 	unsigned int old_card_dmaspace = aui->card_dmaspace;
 #endif
 
-	/* example for bytes/sign = 4: 32 + 3 - 3 */
-	buffer_protection = SOUNDCARD_BUFFER_PROTECTION;
-	buffer_protection += aui->card_bytespersign - 1;
-	buffer_protection -= (buffer_protection % aui->card_bytespersign);
-
-	space = (aui->card_dmaspace > buffer_protection) ? (aui->card_dmaspace - buffer_protection) : 0;
+	if( aui->card_handler->infobits & SNDCARD_BUFFER_PROTECTION )
+		space = (aui->card_dmaspace > BUFFER_PROTECTION_BYTES) ? aui->card_dmaspace - BUFFER_PROTECTION_BYTES : 0;
+	else
+		space = aui->card_dmaspace;
 
 	while ( ( space >= aui->card_bytespersign ) && outbytes_left ) {
 

@@ -904,6 +904,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 	uint32_t pagecount,pcmbufp;
 
 	dbgprintf(("snd_emu10kx_buffer_init enter\n"));
+	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, EMUPAGESIZE, 2 );
 	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, EMUPAGESIZE, 2 );
 	if (! MDma_alloc_cardmem( &card->dm, MAXPAGES * sizeof(uint32_t)  // virtualpage
 							 + EMUPAGESIZE					// silentpage
@@ -1411,6 +1412,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 		dbgprintf(("SBALL_adetect: pcibios_search_devices failed\n"));
 		goto err_adetect;
 	}
+	dbgprintf(("SBALL_adetect: found device vendor=%X device=%X\n", card->pci_dev.vendor_id, card->pci_dev.device_id));
 	pcibios_enable_BM_IO(&card->pci_dev);
 
 	/* v1.8: according to PCI specs, an I/O base address may have bits 2-3 set! */
@@ -1563,6 +1565,7 @@ static long SBALL_getbufpos( struct audioout_info_s *aui )
 
 	bufpos *= aui->chan_card;
 	bufpos *= aui->bits_card >> 3;
+	//dbgprintf(("SBALL_getbufpos: 0x%X\n", bufpos));
 #if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
 	if (bufpos < aui->card_dmasize)
 		aui->card_dma_lastgoodpos = bufpos;
@@ -1618,7 +1621,7 @@ static int SBALL_IRQRoutine( struct audioout_info_s *aui )
 
 struct sndcard_info_s SBALL_sndcard_info = {
  "SB Live!/Audigy",
- 0,
+ SNDCARD_BUFFER_PROTECTION,
  &SBALL_adetect,
  &SBALL_start,
  &SBALL_stop,

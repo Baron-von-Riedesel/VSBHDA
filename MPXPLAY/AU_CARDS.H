@@ -16,7 +16,8 @@ extern "C" {
 //#define AUINFOS_CARDINFOBIT_DMAFULL         16 /* dma buffer is full */
 
 //struct sndcard_info_s->infobits
-#define SNDCARD_CARDBUF_SPACE     4 /* cardbuf_getpos() gives back the cardbuf space, not the bufpos */
+#define SNDCARD_CARDBUF_SPACE     4 /* if set: cardbuf_getpos() gives back the cardbuf space, not the bufpos */
+#define SNDCARD_BUFFER_PROTECTION 8 /* if set: cardbuf_getpos() returns 32 bit less than normal */
 
 //#define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
