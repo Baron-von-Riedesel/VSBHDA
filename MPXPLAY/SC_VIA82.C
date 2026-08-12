@@ -179,7 +179,7 @@ struct via82xx_card
 {
     unsigned long   iobase;
     unsigned short  model;
-    unsigned int    irq;
+    //unsigned int    irq; /* v2.0: obsolete */
     unsigned char   chiprev;
     struct pci_config_s pci_dev;
     struct cardmem_s dm;
@@ -333,18 +333,19 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 		printf("VIA 82XX: no base port set for AC97 controller\n");
 		goto err_adetect;
 	}
-    card->iobase &= 0xFFF0;
-	card->irq    = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	card->iobase &= 0xFFF0;
+	//card->irq    = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	//card->irq    = card->pci_dev.bIrq;
 	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID);
 	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);
+	aui->card_irq = card->pci_dev.bIrq;
 #if 1 /* modifying the IRQ if not set? Better fix is to set PnP-OS to NO in BIOS setup */
-	if (card->irq == 0 || card->irq == 0xFF) {
+	if (aui->card_irq == 0 || aui->card_irq == 0xFF) {
 		printf("VIA82XX_adetect: no IRQ set, setting to 10\n");
-		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 10); //RW
-		card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 10);
+		aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	}
 #endif
-	aui->card_irq = card->irq;
 	dbgprintf(("VIA82XX_adetect: model=%s, revision=%X, irq=%d\n",card->pci_dev.device_name ? card->pci_dev.device_name : "<unknown>", card->chiprev, aui->card_irq));
 
 	/* v1.7: use /PS cmdline value if available */
@@ -525,37 +526,7 @@ static long VIA82XX_getbufpos(struct audioout_info_s *aui)
 	count &= 0xffffff;
 
 	bufpos = (idx * card->pagesize) + card->pagesize - count;
-#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
-	//if(count && (count <= PCMBUFFERPAGESIZE)){
-	//if ( ( card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686 ) || ( count && ( count <= card->pagesize ))) {
-	if ( ( card->pci_dev.device_id != PCI_DEVICE_ID_VT82C686 || count ) && ( count <= card->pagesize )) {
-		if ( bufpos < aui->card_dmasize )
-			aui->card_dma_lastgoodpos = bufpos;
-# ifdef _DEBUG
-        else dbgprintf(("VIA82XX_getbufpos: bufpos (%X) >= card_dmasize (%X)\n", bufpos, aui->card_dmasize ));
-# endif
-    }
-# ifdef _DEBUG
-	else {
-		dbgprintf(("VIA82XX_getbufpos: count=%X idx=%X pagesize=%X card_dma_lastgoodpos=%X\n", count, idx, card->pagesize, aui->card_dma_lastgoodpos));
-		if ( bufpos < aui->card_dmasize )
-			aui->card_dma_lastgoodpos = bufpos;
-    }
-# endif
-
-	/* the debug log is usually not active, since this function is called too often (even if "silence" is emitted) */
-	//dbgprintf(("VIA82XX_getbufpos: lastgoodpos=0x%X (idx=%u, count=%u)\n", aui->card_dma_lastgoodpos, idx, count ));
-	return aui->card_dma_lastgoodpos;
-#else
 	return bufpos;
-#endif
-}
-
-static void VIA82XX_clearbuf(struct audioout_info_s *aui)
-/////////////////////////////////////////////////////////
-{
-	MDma_clearbuf(aui);
-	return;
 }
 
 //mixer
@@ -738,7 +709,7 @@ struct sndcard_info_s VIA82XX_sndcard_info = {
 
  &MDma_writedata,
  &VIA82XX_getbufpos,
- &VIA82XX_clearbuf,
+ &MDma_clearbuf,
  &VIA82XX_IRQRoutine,
  &VIA82XX_writeMIXER,
  &VIA82XX_readMIXER,

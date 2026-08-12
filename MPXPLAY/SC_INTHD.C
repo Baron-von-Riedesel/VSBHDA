@@ -71,7 +71,7 @@ struct intelhd_card_s {
     volatile struct HDAREGS_s *hdac; /* HDA controller register map address */
     struct pci_config_s pci_dev;
     unsigned int  board_driver_type; /* ATI, NVIDIA, HDMI, ... */
-    long          codec_vendor_id;
+    unsigned int  codec_vendor_id;   /* codec vendor - not used once it has been read */
     unsigned int  codec_mask;        /* stores value of HDA statests register (16-bit) */
     unsigned int  codec_index;
     hda_nid_t afg_root_nodenum;
@@ -244,7 +244,8 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 
 	card->sd = &card->hdac->stream[sdo_index];
 	//card->pcmout_period_size = AZX_PERIOD_SIZE_DEF;
-	card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
+	/* v2.0: num_periods set in azx_setup_periods() */
+	//card->pcmout_num_periods = card->pcmout_bufsize / card->pcmout_period_size;
 
 	return 1;
 }
@@ -1415,7 +1416,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		}
 
 		aui->card_DMABUFF = card->pcmout_buffer;
-		aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+		//aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+		aui->card_irq = card->pci_dev.bIrq;
 
 		dbgprintf(("HDA_adetect, board type: %s (vendor/ID=%X/%X)\n",
 			  card->pci_dev.device_name ? card->pci_dev.device_name : "NULL",
@@ -1561,15 +1563,7 @@ static long HDA_getbufpos( struct audioout_info_s *aui )
 	    bufpos, card->sd->bSts, card->sd->wCtl, card->sd->dwBufLen, aui->card_dmasize,
 	    card->pcmout_period_size, card->pcmout_num_periods ));
 	 */
-
-#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
-	if( bufpos < aui->card_dmasize )
-		aui->card_dma_lastgoodpos = bufpos;
-
-	return aui->card_dma_lastgoodpos;
-#else
 	return bufpos;
-#endif
 }
 
 //mixer

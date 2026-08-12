@@ -38,7 +38,7 @@
 
 #define PCIR_CFG 0x41 // ICH4-7
 
-#define RETPOS 0 /* 1=return position, 0=return space */
+#define RETPOS 0 /* v2.0: 1=return position, 0=return space */
 
 /* port offsets and flags for Native Audio Bus Master Control Registers
  * 00-0F PCM in
@@ -114,7 +114,7 @@ struct bd_s {
 struct intel_card_s {
     unsigned long   baseport_bm;       // busmaster baseport
     unsigned long   baseport_codec;    // mixer baseport
-    unsigned int    irq;
+    //unsigned int    irq; /* v2.0: obsolete */
     unsigned char   device_type;
     unsigned char   sr_reg;
     struct pci_config_s pci_dev;
@@ -519,7 +519,8 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #endif
 	}
 
-	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	//aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	aui->card_irq = card->pci_dev.bIrq;
 #if 1
 	/* if no interrupt assigned, assign #11?
 	 * Also a doubtful action - BIOS should know better what IRQs are to be used.
@@ -529,7 +530,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	if( aui->card_irq == 0xFF ) {
 		printf(("Intel ICH: no IRQ set in PCI config space, trying to set it to 11\n"));
 		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 11);
-		aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+		aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	}
 #endif
  
@@ -539,7 +540,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	ICH_sndcard_info.shortname = card->pci_dev.device_name;
 
 	dbgprintf(("vend/dev_id=%X/%X devtype:%s bmport:%4X mixport:%4X irq:%d\n",
-			  card->pci_dev.vendor_id, card->pci_dev.device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,card->irq));
+			  card->pci_dev.vendor_id, card->pci_dev.device_id, ich_devnames[card->device_type],card->baseport_bm,card->baseport_codec,aui->card_irq));
 
 	if( !ich_buffer_init( card, aui ) )
 		goto err_adetect;
@@ -647,13 +648,14 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 
 	dbgprintf(("ICH_writedata(%u): CIV=%u LVI=%u PIV=%u\n", left, ich_read_8(card,ICH_PO_CIV), ich_read_8(card,ICH_PO_LVI) & ( ICH_DMABUF_PERIODS - 1), ich_read_8(card,ICH_PO_PIV) ));
 
-
 	MDma_writedata(aui,src,left);
 
+	/* update LVI to ensure the loop doesn't end */
 	ich_write_8(card,ICH_PO_LVI,(ich_read_8(card,ICH_PO_CIV) - 1 ) % ICH_DMABUF_PERIODS );
 }
 
-#if RETPOS
+#if RETPOS /* v2.0: ICH_getbufpos() reimplemented, returns size now (RETPOS=0) */
+
 /* ICH implementation of cardbuf_getpos() */
 
 static long ICH_getbufpos( struct audioout_info_s *aui )
@@ -701,12 +703,13 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 	index = ich_read_8( card, ICH_PO_CIV );  // number of current period
 	pcmpos = readpicb(card);
 
+#if 0
 	dbgprintf(("ICH_getbufpos: CIV=%u LVI=%u PIV=%u pcmpos=0x%X\n",
 			   index,
 			   ich_read_8( card, ICH_PO_LVI ) & ( ICH_DMABUF_PERIODS - 1),
 			   ich_read_8( card, ICH_PO_PIV ),
 			   pcmpos ));
-
+#endif
 
 	index2 = ( index - 1) % ICH_DMABUF_PERIODS;
 

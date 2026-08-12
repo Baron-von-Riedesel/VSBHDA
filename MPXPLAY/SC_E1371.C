@@ -621,7 +621,8 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 	card->port = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	if(!card->port)
 		goto err_adetect;
-	aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	//aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	aui->card_irq = card->pci_dev.bIrq;
 	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID);
 
 	if((card->pci_dev.vendor_id == 0x1274)
@@ -724,17 +725,9 @@ static long ES1371_getbufpos( struct audioout_info_s *aui )
 		outl((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 		/* hiword(DAC_SIZE) has the # of longwords that have been transfered */
 		bufpos = ES_REG_FCURR_COUNTI(inl(card->port + ES_REG_DAC_SIZE));
-#if USELASTGOODPOS
-		if(bufpos < aui->card_dmasize)
-			aui->card_dma_lastgoodpos = bufpos;
-#endif
 	}
-	//dbgprintf(("getbufpos: bufpos=%u lastgoodpos=%u dmasize=%u\n",bufpos,aui->card_dma_lastgoodpos,aui->card_dmasize));
-#if USELASTGOODPOS
-    return aui->card_dma_lastgoodpos;
-#else
-    return bufpos;
-#endif
+	//dbgprintf(("getbufpos: bufpos=%u dmasize=%u\n", bufpos, aui->card_dmasize));
+	return bufpos;
 }
 
 /* mixer. */

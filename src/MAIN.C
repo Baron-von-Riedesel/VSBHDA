@@ -123,37 +123,37 @@ static const struct {
     const char *desc;
     int *pValue;
 } GOptions[] = {
-    "?", "Show help", &gm.bHelp,
-    "A", "Set IO base address [220|240, def 220]", &gvars.base,
-    "I", "Set IRQ number [2|5|7, def 7]", &gvars.irq,
-    "D", "Set DMA channel [0|1|3, def 1]", &gvars.dma,
+    "?",   "Show help", &gm.bHelp,
+    "A",   "Set IO base address [220|240, def 220]", &gvars.base,
+    "I",   "Set IRQ number [2|5|7, def 7]", &gvars.irq,
+    "D",   "Set DMA channel [0|1|3, def 1]", &gvars.dma,
 #if SB16
-    "H", "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
-    "T", "Set SB Type [0-6, def 4]", &gvars.type,
+    "H",   "Set High DMA channel [5|6|7, no def]", &gvars.hdma,
+    "T",   "Set SB Type [0-6, def 4]", &gvars.type,
 #else
-    "T", "Set SB Type [0-5, def 4]", &gvars.type,
+    "T",   "Set SB Type [0-5, def 4]", &gvars.type,
 #endif
 #if VMPU
-    "P", "Set Midi port [330|300, no def]", &gvars.mpu,
+    "P",   "Set Midi port [330|300, no def]", &gvars.mpu,
 #endif
-    "OPL","Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
-    "PM", "Set protected-mode support [0|1, def 1]", &gvars.pm,
-    "RM", "Set real-mode support [0|1, def 1]", &gvars.rm,
-    "F",  "Set frequency [multiples of 11025|16000, def 22050]", &gvars.freq,
+    "OPL", "Set OPL3 emulation [0|1, def 1]", &gvars.opl3,
+    "PM",  "Set protected-mode support [0|1, def 1]", &gvars.pm,
+    "RM",  "Set real-mode support [0|1, def 1]", &gvars.rm,
+    "F",   "Set frequency [multiples of 11025|16000, def 22050]", &gvars.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
-    "BS",  "Set PCM buffer size [in 4kB units, def 16]", &gvars.buffsize,
+    "B",   "Set hardware buffers [def 8]", &gvars.buffers,
+    "BS",  "Set resampling buffer size [in 4kB units, def 16]", &gvars.buffsize,
 #if SLOWDOWN
     "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
 #endif
-    "O",  "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
+    "O",   "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
-    "PS", "Set period size [def 512]", &gvars.period_size,
-    "B", "Set hardware buffers [def 8]", &gvars.buffers,
+    "PS",  "Set period size [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
-    "MV", "Set voice limit [0-256, def 64]", &gvars.voices,
+    "MV",  "Set voice limit [0-256, def 64]", &gvars.voices,
 #endif
-    "CF", "Set compatibility flags [def 0]", &gvars.compatflags,
+    "CF",  "Set compatibility flags [def 0]", &gvars.compatflags,
 #ifdef _DEBUG
     "LF:", "Set log file name", (int *)&gvars.logfile,
 #endif
@@ -592,6 +592,8 @@ int main(int argc, char* argv[])
 #endif
     if (gvars.period_size)
         printf("Period size: %d\n", gvars.period_size);
+    if (gvars.buffers)
+        printf("Buffers: %d\n", gvars.buffers);
     /* temp alloc a 64 kB chunk of memory. This will ensure that mallocs done while sound is playing won't
      * need another DPMI memory allocation. A dpmi memory allocation while another client is active will
      * result in problems, since that memory is released when that client exits.

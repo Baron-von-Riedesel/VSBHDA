@@ -56,7 +56,7 @@ extern void AU_setmixer_outs( void *, unsigned int setmode, int newvalue );
 //extern void AU_setmixer_all( void * );
 //extern void AU_clearbuffs( void * );
 extern unsigned int AU_cardbuf_space( void * );
-extern int  AU_writedata( void *, int, void * );
+extern int  AU_writedata( void *, void *, unsigned int );
 
 #ifdef __cplusplus
 }

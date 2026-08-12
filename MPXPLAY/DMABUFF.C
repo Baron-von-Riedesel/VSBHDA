@@ -62,6 +62,7 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 /* called by card-specific code during adetect(), before card is initialized.
  * max_bufsize currently is always 0, pagesize usually is "period size" (for SB Live/Audigy, it's always 4096),
  * samplesize is ignored currently; should be 2 - for SB Audigy (CA0151) it may be 4!?.
+ * the value returned is used by the card driver code to allocate the hardware buffers.
  */
 
 unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize, unsigned int samplesize )
@@ -73,7 +74,7 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
 	if (!pagesize)
 		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =512 */
-	/* v2.0: max buffer size now limited */
+	/* v2.0: max buffer size now limited - using the new /B option */
 	max_bufsize = min( max_bufsize, ((aui->gvars->buffers > 1 ) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT ) * pagesize );
 	/* v2.0: AUCARDS_DMABUFSIZE_NORMAL obsolete, replaced by /B argument */
 	//bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
@@ -85,12 +86,11 @@ unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned i
 /* MDma_init_pcmoutbuf() is called by the card_setrate() functions;
  * these are called by AU_setrate(), which is called by main().
  * So it's NOT called during interrupt time!
+ * maxbufsize should be the value returned by Mdma_get_max_pcmoutbufsize();
  * freq_config is 0, has been removed;
- * Besides the function's arguments, used are:
- * - aui->bits_card,aui->chan_card
- * - aui->freq_card
- * out:
+ * modified:
  * - aui->card_dmasize
+ * - aui->card_dmalastput
  * - aui->card_bytespersign
  */
 
@@ -116,40 +116,28 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 		bit_width = aui->bits_card;
 		break;
 	}
+	aui->card_bytespersign = aui->chan_card * ((bit_width + 7) / 8);
 
 	/* ensure dmabufsize is a multiple of pagesize */
-#if 0
-	dmabufsize = maxbufsize * aui->freq_card / freq_config;
-	dmabufsize += (pagesize - 1);			// rounding up to pagesize
-	dmabufsize -= (dmabufsize % pagesize);	//
-	if( dmabufsize < (pagesize * 2) )
-		dmabufsize = pagesize * 2;
-	if( dmabufsize > maxbufsize ){
-		dmabufsize = maxbufsize;
-		dmabufsize -= (dmabufsize % pagesize);
-	}
-#else
 	if( maxbufsize < (pagesize * 2) )
 		dmabufsize = pagesize * 2;
 	else {
 		/* v2.0: current frequency was ignored in v1.9 - resulted in
-		 * a too large latency if frequency was 22050 or below.
+		 * a too large latency if frequency was 22050 or below. Now the
+		 * buffer size is no longer the maximum, but set by the /B option.
 		 */
-		//dmabufsize = ( maxbufsize / pagesize ) * pagesize;
-		dmabufsize = min ( ( maxbufsize / pagesize ) * pagesize , pagesize * ( aui->gvars->buffers ? aui->gvars->buffers : HW_BUFFERS_DEFAULT) );
+		/* no need to adjust maxbufsize here by /B, this has already been handled in MDma_get_max_pcmoutbufsize();
+		 * this allows the card driver code to optionally adjust the maxbufsize value if necessary.
+		 */
+		//dmabufsize = min ( ( maxbufsize / pagesize ) * pagesize , pagesize * ( aui->gvars->buffers ? aui->gvars->buffers : HW_BUFFERS_DEFAULT) );
+		dmabufsize = maxbufsize - maxbufsize % pagesize;
 	}
-#endif
-
-	aui->card_bytespersign = aui->chan_card * ((bit_width + 7) / 8);
 
 	/* pagesize is a multiple of 64, so no need for next line */
 	//dmabufsize -= (dmabufsize % aui->card_bytespersign);
 
 	aui->card_dmasize = dmabufsize;
 
-#if USELASTGOODPOS
-	aui->card_dma_lastgoodpos = 0; // the soundcard is responsible for this variable
-#endif
 	/* v1.9: init card_dmalastput to last (two) dma buffer chunk(s) */
 	//tmp = aui->card_dmasize / 2;
 	//tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
@@ -158,7 +146,7 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 	//aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
 #if 0
 	aui->card_dmalastput = dmabufsize - pagesize;
-	aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
+	aui->card_dmaspace = dmabufsize - aui->card_dmalastput;
 #else
 	aui->card_dmalastput = 0;
 	aui->card_dmaspace = pagesize;

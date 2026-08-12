@@ -42,10 +42,10 @@ struct emu_driver_func_s{
 
 struct emu10k1_card {
  unsigned long   iobase;
- unsigned int    irq;
+ unsigned long   serial;
+ //unsigned int    irq; /* v2.0: obsolete */
  unsigned short  model;
  unsigned char   chiprev;
- unsigned long   serial;
  unsigned char   chips;
  unsigned char   chip_select;
  struct pci_config_s pci_dev;

@@ -1423,7 +1423,8 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 		goto err_adetect;
 	}
 
-	aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	//aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+	aui->card_irq = card->pci_dev.bIrq;
 	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID); /* revision ID */
 	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);
 	card->serial = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_SSVID);
@@ -1472,7 +1473,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 	if (card->driver_funcs->hw_init)
 		card->driver_funcs->hw_init( card, aui );
 
-	dbgprintf(("card ok, name=%s, index=%u, base=%X, irq=%X\n", emucv->longname, i, card->iobase, card->irq ));
+	dbgprintf(("card ok, name=%s, index=%u, base=%X, irq=%X\n", emucv->longname, i, card->iobase, aui->card_irq ));
 
 	SBALL_select_mixer(card);
 
@@ -1566,14 +1567,7 @@ static long SBALL_getbufpos( struct audioout_info_s *aui )
 	bufpos *= aui->chan_card;
 	bufpos *= aui->bits_card >> 3;
 	//dbgprintf(("SBALL_getbufpos: 0x%X\n", bufpos));
-#if USELASTGOODPOS /* v1.9: get rid of card_dma_lastgoodpos */
-	if (bufpos < aui->card_dmasize)
-		aui->card_dma_lastgoodpos = bufpos;
-
-	return aui->card_dma_lastgoodpos;
-#else
-    return bufpos;
-#endif
+	return bufpos;
 }
 
 static void SBALL_clearbuf( struct audioout_info_s *aui )

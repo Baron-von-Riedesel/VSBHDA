@@ -65,6 +65,7 @@ struct pci_config_s {
  uint8_t bBus;
  uint8_t bDev;
  uint8_t bFunc;
+ uint8_t bIrq;
  uint16_t vendor_id;
  uint16_t device_id;
  char *device_name;     // from pci_device_s

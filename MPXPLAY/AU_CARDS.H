@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-#define USELASTGOODPOS 0 /* v1.9: removed card_dma_lastgoodpos */
-
 //au_infos->card_controlbits
 #define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
 
@@ -17,7 +15,7 @@ extern "C" {
 
 //struct sndcard_info_s->infobits
 #define SNDCARD_CARDBUF_SPACE     4 /* if set: cardbuf_getpos() gives back the cardbuf space, not the bufpos */
-#define SNDCARD_BUFFER_PROTECTION 8 /* if set: cardbuf_getpos() returns 32 bit less than normal */
+#define SNDCARD_BUFFER_PROTECTION 8 /* v2.0 if set: cardbuf_getpos() returns 32 bit less than normal */
 
 //#define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
@@ -73,8 +71,6 @@ enum MIXMODE {
 struct sndcard_info_s;
 
 struct audioout_info_s {
- //short *pcm_sample;
- //unsigned int  samplenum;
  unsigned int  freq_set;  /* ??? */
  unsigned int  freq_card; /* set in AU_setrate */
  unsigned char chan_set;  /* ??? */
@@ -83,18 +79,13 @@ struct audioout_info_s {
  unsigned char bits_card; /* set in AU_setrate */
  unsigned char bytespersample_card;
  unsigned char card_irq;
-
- unsigned int  card_wave_id;    // 0x0001,0x0003; see WAVEID_xxx
+ unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
  unsigned long card_controlbits;  // card control flags
  unsigned long card_infobits;     // card info flags
- unsigned long card_outbytes;     /* init with card_dmasize; set by au_cards.c */
  unsigned long card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
- unsigned long card_dmalastput;   /* "used" dma buffer size in bytes; (usually) set in dmabuff.c */
+ unsigned long card_dmalastput;   /* current dma buffer write offset; updated when pcm data is copied to output buffer */
  unsigned long card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
-                                  /* starts with dma buffer size, but should soon be reduced to period size */
-#if USELASTGOODPOS
- unsigned long card_dma_lastgoodpos;
-#endif
+                                  /* should usually contain period size before writing, 0 afterwards */
  unsigned int  card_bytespersign; // bytespersample_card * chan_card
  char         *card_DMABUFF;      /* identical with the card's pcmout_buffer */
 
@@ -171,7 +162,7 @@ extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setm
 //extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
 //static void AU_clearbuffs( struct audioout_info_s * );
 extern unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s * );
-extern int  FAREXP AU_writedata( struct audioout_info_s *, int, void * );
+extern int  FAREXP AU_writedata( struct audioout_info_s *, char * , unsigned int );
 
 #ifdef __cplusplus
 }

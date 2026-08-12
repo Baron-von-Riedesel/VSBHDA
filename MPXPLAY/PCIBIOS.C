@@ -85,8 +85,10 @@ uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config
 		ppkey->bBus  = regs.h.bh;
 		ppkey->bDev  = PCIDEVNUM(regs.h.bl);
 		ppkey->bFunc = PCIFUNCNUM(regs.h.bl);
+		ppkey->bIrq  = pcibios_ReadConfig_Byte( ppkey, PCIR_INTR_LN); /* v2.0: added */
 		ppkey->vendor_id = wVendor;
 		ppkey->device_id = wDevice;
+		return PCI_SUCCESSFUL;
 	}
 
 	return regs.h.ah;
@@ -117,6 +119,7 @@ uint8_t pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInte
 		ppkey->bBus  = regs.h.bh;
 		ppkey->bDev  = PCIDEVNUM(regs.h.bl);
 		ppkey->bFunc = PCIFUNCNUM(regs.h.bl);
+		ppkey->bIrq  = pcibios_ReadConfig_Byte( ppkey, PCIR_INTR_LN);
 		ppkey->vendor_id = pcibios_ReadConfig_Word( ppkey, PCIR_VID );
 		ppkey->device_id = pcibios_ReadConfig_Word( ppkey, PCIR_DID );
 		for( i = 0; devices[i].vendor_id; i++ ){
@@ -141,8 +144,8 @@ uint8_t pcibios_search_devices(const struct pci_device_s devices[], struct pci_c
 		while(devices[i].vendor_id){
 			if(pcibios_FindDevice( devices[i].vendor_id,devices[i].device_id,ppkey) == PCI_SUCCESSFUL ){
 				if(ppkey){
-					ppkey->device_name=devices[i].device_name;
-					ppkey->device_type=devices[i].device_type;
+					ppkey->device_name = devices[i].device_name;
+					ppkey->device_type = devices[i].device_type;
 				}
 				return PCI_SUCCESSFUL;
 			}
