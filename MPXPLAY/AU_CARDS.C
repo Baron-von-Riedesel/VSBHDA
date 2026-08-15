@@ -19,7 +19,7 @@
 #include <stdbool.h>
 
 #include "CONFIG.H"
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 #include "DMABUFF.H"
 
 //#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
@@ -92,22 +92,28 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	for ( i = 0; i < NUMCARDS; i++ ) {
 		aui->card_handler = sndcard_info_table[i];
 		if( aui->card_handler->card_detect ) {
+			if (!(aui->card_private_data = calloc( 1, aui->card_handler->private_data_size ))) {
+				dbgprintf(("AU_init: calloc() failed for private data\n" ));
+				break;
+			}
 			dbgprintf(("AU_init: checking card %s\n", aui->card_handler->shortname));
 			aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
-			aui->bits_card = 16;
-			aui->bytespersample_card = aui->bits_card/8;
-			aui->card_irq = 0xff;
-			aui->freq_card = 44100;
+			aui->freq_card = gvars->freq;
 			aui->chan_card = 2;
+			aui->bits_card = 16;
+			aui->bytespersample_card = 16/8;
+			aui->card_irq = 0xff;
 			if ( aui->card_handler->card_detect(aui) ) {
-				aui->freq_card = aui->chan_card = aui->bits_card = 0;
 				if( !aui->card_handler->cardbuf_getpos ) {
 					dbgprintf(("AU_init: ERROR, cardbuf_getpos()=NULL!\n"));
-					continue;
+				} else {
+					aui->freq_card = aui->chan_card = aui->bits_card = 0;
+					dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
+					return(aui);
 				}
-				dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
-				return(aui);
 			}
+			free( aui->card_private_data );
+			aui->card_private_data = NULL;
 		}
 	}
 
@@ -142,14 +148,16 @@ int FAREXP AU_isirq( struct audioout_info_s *aui )
     return( aui->card_handler->irq_routine(aui) );
 }
 
+#if 0 /* v2.0: cardbuf_clear() removed */
 static void AU_clearbuffs( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {
 	if(aui->card_handler->cardbuf_clear)
 		aui->card_handler->cardbuf_clear(aui);
-	aui->card_controlbits &= ~AUINFOS_CARDCTRLBIT_DMACLEAR;
+	aui->card_ctrlbits &= ~AUI_CARDCTRLBIT_DMACLEAR;
 	return;
 }
+#endif
 
 #if 0
 void AU_setsamplenum( struct audioout_info_s *aui, int samples )
@@ -164,7 +172,7 @@ void AU_setsamplenum( struct audioout_info_s *aui, int samples )
 void FAREXP AU_prestart( struct audioout_info_s *aui )
 //////////////////////////////////////////////////////
 {
-	if( aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR )
+	if( aui->card_ctrlbits & AUI_CARDCTRLBIT_DMACLEAR )
 		AU_clearbuffs(aui);
 	return;
 }
@@ -173,27 +181,31 @@ void FAREXP AU_prestart( struct audioout_info_s *aui )
 void FAREXP AU_start( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////
 {
-	if( !(aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) ) {
-		if( aui->card_controlbits & AUINFOS_CARDCTRLBIT_DMACLEAR )
-			AU_clearbuffs(aui);
+	if( !(aui->card_infobits & AUI_CARDINFOBIT_PLAYING ) ) {
+		//if( aui->card_ctrlbits & AUI_CARDCTRLBIT_DMACLEAR )
+		//	AU_clearbuffs(aui);
 		if( aui->card_handler->card_start )
 			aui->card_handler->card_start( aui );
-		aui->card_infobits |= AUINFOS_CARDINFOBIT_PLAYING;
+		aui->card_infobits |= AUI_CARDINFOBIT_PLAYING;
 	}
 #ifdef NOTFLAT
 	if ( bOMode == OM_DOS ) bOMode = OM_DIRECT;  /* no DOS output anymore */
 #endif
+	dbgprintf(("AU_start: card ctrlbits=%X infobits=%X\n", aui->card_ctrlbits, aui->card_infobits));
+	dbgprintf(("AU_start: card dmasize=%X dmalastput=%X dmaspace=%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace));
+	dbgprintf(("AU_start: card bytespersign=%X bytespersample=%X\n", aui->card_bytespersign, aui->bytespersample_card));
+	dbgprintf(("AU_start: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card));
 	return;
 }
 
 void FAREXP AU_stop( struct audioout_info_s *aui )
 //////////////////////////////////////////////////
 {
-	if( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING ) {
-		aui->card_infobits &= ~AUINFOS_CARDINFOBIT_PLAYING;
+	if( aui->card_infobits & AUI_CARDINFOBIT_PLAYING ) {
+		aui->card_infobits &= ~AUI_CARDINFOBIT_PLAYING;
 		if( aui->card_handler && aui->card_handler->card_stop )
 			aui->card_handler->card_stop( aui );
-		aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
+		//aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput;
 	}
 	return;
 }
@@ -203,12 +215,6 @@ void FAREXP AU_close( struct audioout_info_s *aui )
 {
 	if(!aui)
 		return;
-#ifdef _DEBUG
-	dbgprintf(("card controlbits=%X infobits=%X\n", aui->card_controlbits, aui->card_infobits));
-	dbgprintf(("card dmasize=%X dmalastput=%X dmaspace=%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace));
-	dbgprintf(("card bytespersign=%X bytespersample=%X\n", aui->card_bytespersign, aui->bytespersample_card));
-	dbgprintf(("freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card));
-#endif
 	AU_stop(aui);
 	if(aui->card_handler && aui->card_handler->card_close)
 		aui->card_handler->card_close(aui);
@@ -223,7 +229,7 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 {
 	dbgprintf(("AU_setrate(freq=%u, chan=%u, bits=%u) enter, freq_card=%u\n", freq, outchannels, bits, aui->freq_card ));
 
-	if ( aui->card_infobits & AUINFOS_CARDINFOBIT_PLAYING )
+	if ( aui->card_infobits & AUI_CARDINFOBIT_PLAYING )
 		AU_stop(aui);
 
 	aui->freq_card = aui->freq_set = freq; /* may be modified below by card_setrate() */
@@ -241,7 +247,7 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 		if(!aui->bytespersample_card) // card haven't set it (not implemented in the au_mixer yet!: bits/8 !=bytespersample_card)
 			aui->bytespersample_card = (aui->bits_card + 7) / 8;
 
-	aui->card_controlbits |= AUINFOS_CARDCTRLBIT_DMACLEAR;
+	//aui->card_ctrlbits |= AUI_CARDCTRLBIT_DMACLEAR;  /* triggers running AU_clearbuffs(); v2.0: obsolete */
 
 	aui->card_bytespersign = aui->chan_card * aui->bytespersample_card;
 	return( aui->freq_card );
@@ -506,24 +512,17 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 }
 #endif
 
-#define BUFFER_PROTECTION_BYTES 32 /* required for SB PCI cards */
-
 /* functions AU_cardbuf_space() and AU_writedata() handle the hardware ring buffer:
  * - AU_cardbuf_space calculates the "free" space in the ring buffer (= aui->card_dmaspace, in byte units)
  * - AU_writedata writes into free space ( and updates aui->card_dmaspace and the write pointer (= aui->card_dmalastput)
- *
- * AU_cardbuf_space modifies:
- * - card_dmaspace - it's initialized in dmabuff with period size.
- * if a DMA underrun occurs, also modifies:
- * - card_dmalastput - variable is usually updated in Mdma_writedata()!
- * - card_infobits.DMAUNDERRUN
- * it's the only function that calls cardbuf_getpos(),
  */
+
+#define BUFFER_PROTECTION_BYTES 32 /* SB PCI cards need this adjustment */
 
 unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////
 {
-	unsigned long bufpos;
+	unsigned int bufpos;
 #ifdef DMABUFFLOG
 	unsigned int old_card_dmaspace = aui->card_dmaspace;
 #endif
@@ -531,24 +530,21 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	if( aui->card_dmalastput >= aui->card_dmasize ) /* ensure write pointer is valid */
 		aui->card_dmalastput = 0;
 
+	bufpos = aui->card_handler->cardbuf_getpos(aui);
+	bufpos %= aui->card_dmasize;
+	bufpos -= (bufpos % aui->card_bytespersign);
+
 	/* cardbuf_getpos() may either return a position or a space */
 	if( aui->card_handler->infobits & SNDCARD_CARDBUF_SPACE ) {
-		aui->card_dmaspace = aui->card_handler->cardbuf_getpos(aui);
-		aui->card_dmaspace -= (aui->card_dmaspace % aui->card_bytespersign);
+		aui->card_dmaspace = bufpos;
 	} else {
-		bufpos = aui->card_handler->cardbuf_getpos(aui);
-		bufpos %= aui->card_dmasize;
-		bufpos -= (bufpos % aui->card_bytespersign);
-
-		if( aui->card_infobits & AUINFOS_CARDINFOBIT_DMAUNDERRUN ) {
+#if 0 /* currently DMA underrun bit is nowhere set */
+		if( aui->card_infobits & AUI_CARDINFOBIT_DMAUNDERRUN ) {
 			dbgprintf(("AU_cardbuf_space: DMA underrun occurred\n"));
 			aui->card_dmalastput = bufpos; /* sets a new put-pointer in this case */
-			aui->card_infobits &= ~AUINFOS_CARDINFOBIT_DMAUNDERRUN;
+			aui->card_infobits &= ~AUI_CARDINFOBIT_DMAUNDERRUN;
 		}
-
-		//if(aui->card_dmalastput >= aui->card_dmasize)
-		// aui->card_dmalastput = 0;
-
+#endif
 		if( bufpos > aui->card_dmalastput )
 			aui->card_dmaspace = bufpos - aui->card_dmalastput;
 		else
@@ -591,6 +587,8 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int 
 		outbytes_left -= outbytes_putblock;
 		space         -= outbytes_putblock;
 		aui->card_dmaspace -= outbytes_putblock;
+		aui->card_dmalastput += outbytes_putblock;
+		aui->card_dmalastput %= aui->card_dmasize;
 	}
 #ifdef DMABUFFLOG
 	dbgprintf(("AU_writedata(%u): exit, card_dmaspace new/old=%X/%X, card_dmalastput=%X\n", samples, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));

@@ -93,18 +93,18 @@ $(OUTD)/rmwrap.o:: rmwrap.asm rmcode1.asm rmcode2.asm
 	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode2.bin src/rmcode2.asm
 	jwasm.exe -q -djgpp -D?MODEL=small -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
-$(OUTD)/ac97mix.o::  ac97mix.c   mpxplay.h au_cards.h ac97mix.h
-$(OUTD)/au_cards.o:: au_cards.c  mpxplay.h au_cards.h dmabuff.h config.h
-$(OUTD)/dmabuff.o::  dmabuff.c   mpxplay.h au_cards.h dmabuff.h
+$(OUTD)/ac97mix.o::  ac97mix.c   au_cards.h ac97mix.h
+$(OUTD)/au_cards.o:: au_cards.c  au_cards.h dmabuff.h config.h
+$(OUTD)/dmabuff.o::  dmabuff.c   au_cards.h dmabuff.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
-$(OUTD)/sc_e1371.o:: sc_e1371.c  mpxplay.h au_cards.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_ich.o::   sc_ich.c    mpxplay.h au_cards.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  mpxplay.h au_cards.h dmabuff.h pcibios.h sc_inthd.h
-$(OUTD)/sc_sbl24.o:: sc_sbl24.c  mpxplay.h au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
-$(OUTD)/sc_sbliv.o:: sc_sbliv.c  mpxplay.h au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
-$(OUTD)/sc_via82.o:: sc_via82.c  mpxplay.h au_cards.h dmabuff.h pcibios.h ac97.h
-$(OUTD)/timer.o::    timer.c     mpxplay.h au_cards.h timer.h
+$(OUTD)/sc_e1371.o:: sc_e1371.c  au_cards.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
+$(OUTD)/sc_sbl24.o:: sc_sbl24.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
+$(OUTD)/sc_sbliv.o:: sc_sbliv.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
+$(OUTD)/sc_via82.o:: sc_via82.c  au_cards.h dmabuff.h pcibios.h ac97.h
+$(OUTD)/timer.o::    timer.c     au_cards.h timer.h
 
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/linear.o::   linear.c    linear.h platform.h

@@ -22,7 +22,7 @@
 #endif
 
 #include "CONFIG.H"
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "SC_SBLIV.H"
@@ -40,8 +40,8 @@
 static void snd_emu_ac97_write( struct emu10k1_card *card, unsigned int reg, unsigned int value)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	outb(card->iobase + AC97ADDRESS, reg);
-	outw(card->iobase + AC97DATA, value);
+	outp(card->iobase + AC97ADDRESS, reg);
+	outpw(card->iobase + AC97DATA, value);
 	return;
 }
 
@@ -50,8 +50,8 @@ static void snd_emu_ac97_write( struct emu10k1_card *card, unsigned int reg, uns
 static unsigned int snd_emu_ac97_read( struct emu10k1_card *card, unsigned int reg)
 ///////////////////////////////////////////////////////////////////////////////////
 {
-	outb(card->iobase + AC97ADDRESS, reg);
-	return inw(card->iobase + AC97DATA);
+	outp(card->iobase + AC97ADDRESS, reg);
+	return inpw(card->iobase + AC97DATA);
 }
 
 static void snd_emu_ac97_init( struct emu10k1_card *card)
@@ -83,16 +83,16 @@ static unsigned int snd_ca0106_ptr_read( struct emu10k1_card *card,unsigned int 
 {
 	unsigned int val;
 
-	outl(card->iobase + PTR, (reg << 16) | chn);
-	val = inl(card->iobase + DATA);
+	outpd(card->iobase + PTR, (reg << 16) | chn);
+	val = inpd(card->iobase + DATA);
 	return val;
 }
 
 static void snd_ca0106_ptr_write( struct emu10k1_card *card,unsigned int reg,unsigned int chn,unsigned int data)
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	outl(card->iobase + PTR, (reg << 16) | chn);
-	outl(card->iobase + DATA, data);
+	outpd(card->iobase + PTR, (reg << 16) | chn);
+	outpd(card->iobase + DATA, data);
 	return;
 }
 
@@ -124,7 +124,7 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 	unsigned int ch;
 
 	dbgprintf(("snd_ca0106_hw_init\n"));
-	outl(card->iobase + INTE, 0);
+	outpd(card->iobase + INTE, 0);
 
 	snd_ca0106_ptr_write(card, SPCS0, 0,
 						 SPCS_CLKACCY_1000PPM | SPCS_SAMPLERATE_48 |
@@ -151,8 +151,8 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0, 0x00fc0000);
 	snd_ca0106_ptr_write(card, CAPTURE_MUTE, 0, 0x00fc0000);
 
-	outb(card->iobase + AC97ADDRESS, AC97_RECORD_GAIN);
-	outw(card->iobase + AC97DATA, 0x8000); // mute
+	outp(card->iobase + AC97ADDRESS, AC97_RECORD_GAIN);
+	outpw(card->iobase + AC97DATA, 0x8000); // mute
 
 	snd_ca0106_ptr_write(card, SPDIF_SELECT1, 0, 0xf);
 	snd_ca0106_ptr_write(card, SPDIF_SELECT2, 0, 0x01010001); // enable analog,spdif,ac97 front
@@ -176,7 +176,7 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 		snd_ca0106_ptr_write(card, PLAYBACK_VOLUME2, ch, 0xffffffff); // Mute
 	}
 
-	outl(card->iobase+GPIO, 0x0);
+	outpd(card->iobase+GPIO, 0x0);
 	return;
 }
 
@@ -186,10 +186,10 @@ static void snd_audigyls_hw_init( struct emu10k1_card *card, struct audioout_inf
     dbgprintf(("snd_audigyls_hw_init: enter\n"));
 	snd_ca0106_hw_init(card);
 
-	//outl(card->iobase+GPIO, 0x005f03a3); // analog
-	outl(card->iobase+GPIO,0x005f02a2);// SPDIF
+	//outpd(card->iobase+GPIO, 0x005f03a3); // analog
+	outpd(card->iobase+GPIO,0x005f02a2);// SPDIF
 
-	outl(card->iobase+HCFG, HCFG_AC97 | HCFG_AUDIOENABLE); // AC97 2.0, enable outputs
+	outpd(card->iobase+HCFG, HCFG_AC97 | HCFG_AUDIOENABLE); // AC97 2.0, enable outputs
 
 #ifdef AUDIGYLS_USE_AC97
 	snd_emu_ac97_init(card);
@@ -206,10 +206,10 @@ static void snd_live24_hw_init( struct emu10k1_card *card, struct audioout_info_
 	dbgprintf(("snd_live24_hw_init: enter\n"));
 	snd_ca0106_hw_init(card);
 
-	//outl(card->iobase+GPIO, 0x005f5301); // analog
-	outl(card->iobase + GPIO, 0x005f5201); // SPDIF
+	//outpd(card->iobase+GPIO, 0x005f5301); // analog
+	outpd(card->iobase + GPIO, 0x005f5201); // SPDIF
 
-	outl(card->iobase + HCFG, HCFG_AUDIOENABLE);
+	outpd(card->iobase + HCFG, HCFG_AUDIOENABLE);
 	return;
 }
 
@@ -217,8 +217,8 @@ static void snd_live24_hw_close( struct emu10k1_card *card)
 ///////////////////////////////////////////////////////////
 {
 	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, 0);
-	outl(card->iobase + INTE, 0);
-	outl(card->iobase + HCFG, 0);
+	outpd(card->iobase + INTE, 0);
+	outpd(card->iobase + HCFG, 0);
 	return;
 }
 
@@ -269,12 +269,12 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 	i = (i & (~0x03030000)) | reg71_set;
 	snd_ca0106_ptr_write(card, 0x71, 0, i);
 
-	i=inl(card->iobase + HCFG);             // control bit width
+	i=inpd(card->iobase + HCFG);             // control bit width
 	if(aui->bits_card == 32)
 		i |= HCFG_PLAYBACK_S32_LE;
 	else
 		i &= ~HCFG_PLAYBACK_S32_LE;
-	outl(card->iobase + HCFG,i);
+	outpd(card->iobase + HCFG,i);
 
 	// build pagetable
 	for(i = 0; i < CA0106_DMABUF_PERIODS; i++){
@@ -411,8 +411,8 @@ static int snd_live24_isr( struct emu10k1_card *card)
 
 	//dbgprintf(("snd_live24_isr\n"));
 # if RESETIPR
-	intmask1 = inl(card->iobase + IPR );
-	outl( card->iobase + IPR, intmask1 );
+	intmask1 = inpd(card->iobase + IPR );
+	outpd( card->iobase + IPR, intmask1 );
 # endif
 
 	/* v1.7:  todo: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK. */
@@ -461,7 +461,7 @@ const struct emu_driver_func_s emu_driver_audigyls_funcs = {
  &snd_live24_pcm_stop_playback,
  &snd_live24_pcm_pointer_playback,
  NULL,
- &snd_live24_isr, /* vsbhda */
+ &snd_live24_isr,
 #ifdef AUDIGYLS_USE_AC97
  &snd_emu_ac97_read,
  &snd_emu_ac97_write,
@@ -483,7 +483,7 @@ const struct emu_driver_func_s emu_driver_live24_funcs = {
  &snd_live24_pcm_stop_playback,
  &snd_live24_pcm_pointer_playback,
  NULL,
- &snd_live24_isr, /* vsbhda */
+ &snd_live24_isr,
  &snd_live24_mixer_read,
  &snd_live24_mixer_write,
  emu_live24_mixerset

@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <dos.h>
 
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 
 #ifdef DJGPP
 

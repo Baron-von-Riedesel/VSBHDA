@@ -12,7 +12,7 @@ extern unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, uns
 extern unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize );
 
 extern void MDma_clearbuf( struct audioout_info_s *aui );
-extern void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left );
+extern void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned int left );
 //extern void MDma_interrupt_monitor( struct audioout_info_s *aui );
 
 #ifdef __cplusplus

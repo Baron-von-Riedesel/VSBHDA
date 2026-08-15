@@ -3,26 +3,6 @@
 
 #include <inttypes.h>
 
-//for Linux/GCC/ALSA routines
-#ifndef outb
-#define outb(reg,val) outp(reg,val)
-#endif
-#ifndef outw
-#define outw(reg,val) outpw(reg,val)
-#endif
-#ifndef outl
-#define outl(reg,val) outpd(reg,val)
-#endif
-#ifndef inb
-#define inb(reg) inp(reg)
-#endif
-#ifndef inw
-#define inw(reg) inpw(reg)
-#endif
-#ifndef inl
-#define inl(reg) inpd(reg)
-#endif
-
 /* PCI BIOS function numbers */
 #define PCI_FUNCTION_ID     0xB1
 #define PCI_BIOS_PRESENT    0x01
@@ -54,8 +34,8 @@
 #define PCIR_RID        0x08 // chiprev
 #define PCIR_CCODE      0x0A
 #define PCIR_HEADT      0x0E // header type
-#define PCIR_NAMBAR     0x10 // Native Audio Mixer Base Address
-#define PCIR_NABMBAR    0x14 // Native Audio Bus Mastering Base Address
+#define PCIR_NAMBAR     0x10 // AC'97: Native Audio Mixer Base Address
+#define PCIR_NABMBAR    0x14 // AC'97: Native Audio Bus Mastering Base Address
 #define PCIR_SSVID      0x2C // subsystem id + vendor id (serial)
 #define PCIR_SSID       0x2E // subsystem id (model)
 #define PCIR_INTR_LN    0x3C // interrupt line (1..15)

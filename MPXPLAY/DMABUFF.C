@@ -20,9 +20,9 @@
 #include <string.h>
 
 #include "CONFIG.H"
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 #include "DMABUFF.H"
-#include "PHYSMEM.H"
+//#include "PHYSMEM.H"
 #include "LINEAR.H"
 
 //#define AUCARDS_DMABUFSIZE_NORMAL 32768
@@ -51,11 +51,13 @@ int MDma_alloc_cardmem( struct cardmem_s *dm, unsigned int buffsize)
 void MDma_free_cardmem(struct cardmem_s *dm)
 ////////////////////////////////////////////
 {
-	dbgprintf(("MDma_free_cardmem(%x)\n", dm));
-	/* convert the near ptr back to a linear address */
-	dm->dwLinear = LinearAddr( dm->pMem );
-	/* unmap & free physical memory */
-	_free_physical_memory(dm);
+	if ( dm->handle ) {
+		dbgprintf(("MDma_free_cardmem(%x) pMem=%X handle=%X\n", dm, dm->pMem, dm->handle));
+		/* convert the near ptr back to a linear address */
+		dm->dwLinear = LinearAddr( dm->pMem );
+		/* unmap & free physical memory */
+		_free_physical_memory(dm);
+	}
 	return;
 }
 
@@ -138,20 +140,22 @@ unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxb
 
 	aui->card_dmasize = dmabufsize;
 
+	/* init DMA ring buffer pointers ( card_dmaspace & card_dmalastput ) */
 	/* v1.9: init card_dmalastput to last (two) dma buffer chunk(s) */
+	/* v2.0: obsolete and removed */
 	//tmp = aui->card_dmasize / 2;
 	//tmp -= aui->card_dmalastput % aui->card_bytespersign; // round down to pcm samples
 	//aui->card_dmalastput = tmp;
-	/* v2.0: simplified */
 	//aui->card_dmalastput = dmabufsize - pagesize * ( dmabufsize >= pagesize * 4 ? 2 : 1);
-#if 0
-	aui->card_dmalastput = dmabufsize - pagesize;
-	aui->card_dmaspace = dmabufsize - aui->card_dmalastput;
-#else
-	aui->card_dmalastput = 0;
-	aui->card_dmaspace = pagesize;
-#endif
-	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X card_dmalastput=0x%X card_dmaspace=0x%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace ));
+
+	//aui->card_dmalastput = dmabufsize - pagesize;
+	//aui->card_dmaspace = dmabufsize - aui->card_dmalastput;
+
+	//aui->card_dmalastput = 0;
+	//aui->card_dmaspace = pagesize;
+
+	//dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X card_dmalastput=0x%X card_dmaspace=0x%X\n", aui->card_dmasize, aui->card_dmalastput, aui->card_dmaspace ));
+	dbgprintf(("MDma_init_pcmoutbuf: done, card_dmasize=0x%X\n", aui->card_dmasize ));
 	return dmabufsize;
 }
 
@@ -163,24 +167,17 @@ void MDma_clearbuf( struct audioout_info_s *aui )
 	return;
 }
 
-void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
-/////////////////////////////////////////////////////////////////////////////////
+void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned int left )
+////////////////////////////////////////////////////////////////////////////////
 {
 	unsigned int todo;
 
 	//dbgprintf(("MDma_writedata( buffer=%X, src=%X)\n", aui->card_DMABUFF+aui->card_dmalastput, src));
-	todo = aui->card_dmasize - aui->card_dmalastput;
+	todo = min( left, aui->card_dmasize - aui->card_dmalastput );
 
-	if(todo <= left){
-		memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,todo);
-		aui->card_dmalastput = 0;
-		left -= todo;
-		src += todo;
-	}
-	if(left){
-		memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,left);
-		aui->card_dmalastput += left;
-	}
+	memcpy(aui->card_DMABUFF + aui->card_dmalastput,src,todo);
+	if ( left > todo )
+		memcpy(aui->card_DMABUFF,src + todo,left - todo);
 	return;
 }
 

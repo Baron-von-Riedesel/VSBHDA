@@ -5,17 +5,34 @@
 extern "C" {
 #endif
 
-//au_infos->card_controlbits
-#define AUINFOS_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
+#ifndef max
+#define max(a,b) (((a)>(b))? (a):(b))
+#endif
 
-//au_infos->card_infobits
-#define AUINFOS_CARDINFOBIT_PLAYING          1
-#define AUINFOS_CARDINFOBIT_DMAUNDERRUN      8 /* dma buffer dried out */
-//#define AUINFOS_CARDINFOBIT_DMAFULL         16 /* dma buffer is full */
+#ifndef min
+#define min(a,b) (((a)<(b))? (a):(b))
+#endif
+
+#if defined(DJGPP)
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
+#endif
+
+#include "PHYSMEM.H"
+#include "TIMER.H"
+
+//aui->card_ctrlbits
+#define AUI_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
+
+//aui->card_infobits
+#define AUI_CARDINFOBIT_PLAYING          1
+//#define AUI_CARDINFOBIT_DMAUNDERRUN      8 /* dma buffer dried out */
+//#define AUI_CARDINFOBIT_DMAFULL         16 /* dma buffer is full */
 
 //struct sndcard_info_s->infobits
 #define SNDCARD_CARDBUF_SPACE     4 /* if set: cardbuf_getpos() gives back the cardbuf space, not the bufpos */
-#define SNDCARD_BUFFER_PROTECTION 8 /* v2.0 if set: cardbuf_getpos() returns 32 bit less than normal */
+#define SNDCARD_BUFFER_PROTECTION 8 /* v2.0 if set: cardbuf_getpos() returns 32 bytes less than normal */
 
 //#define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
@@ -80,11 +97,11 @@ struct audioout_info_s {
  unsigned char bytespersample_card;
  unsigned char card_irq;
  unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
- unsigned long card_controlbits;  // card control flags
- unsigned long card_infobits;     // card info flags
- unsigned long card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
- unsigned long card_dmalastput;   /* current dma buffer write offset; updated when pcm data is copied to output buffer */
- unsigned long card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
+ unsigned int  card_ctrlbits;     // card control flags
+ unsigned int  card_infobits;     // card info flags
+ unsigned int  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
+ unsigned int  card_dmalastput;   /* current dma buffer write offset; updated when pcm data is copied to output buffer */
+ unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
                                   /* should usually contain period size before writing, 0 afterwards */
  unsigned int  card_bytespersign; // bytespersample_card * chan_card
  char         *card_DMABUFF;      /* identical with the card's pcmout_buffer */
@@ -125,21 +142,20 @@ struct aucards_mixerchan_s {
 struct sndcard_info_s {
  char *shortname;
  unsigned long infobits;
- int  (*card_detect)(struct audioout_info_s *); // try to autodetect the card
- void (*card_start)(struct audioout_info_s *);  // start playing
- void (*card_stop)(struct audioout_info_s *);   // stop playing (immediately)
- void (*card_close)(struct audioout_info_s *);  // close soundcard
- void (*card_setrate)(struct audioout_info_s *);// set freqency,channels,bits
+ int   (*card_detect)(struct audioout_info_s *); // try to autodetect the card
+ void   (*card_start)(struct audioout_info_s *); // start playing
+ void    (*card_stop)(struct audioout_info_s *); // stop playing (immediately)
+ void   (*card_close)(struct audioout_info_s *); // close soundcard
+ void (*card_setrate)(struct audioout_info_s *); // set freqency,channels,bits
 
- void (*cardbuf_writedata)(struct audioout_info_s *,char *buffer,unsigned long bytes); // write output data into the card's buffer
- long (*cardbuf_getpos)(struct audioout_info_s *);  // get the buffer (playing) position (usually the DMA buffer get-position)(returns negative number on error)
- void (*cardbuf_clear)(struct audioout_info_s *);// clear the soundcard buffer (usually the DMA buffer)
- //void (*cardbuf_int_monitor)(struct audioout_info_s *); // interrupt (DMA) monitor function
- int (*irq_routine)(struct audioout_info_s *);  // vsbhda: check if IRQ is caused by card and acknowledge
+ void      (*cardbuf_writedata)(struct audioout_info_s *, char *buffer, unsigned int bytes); // write data into the buffer
+ unsigned int (*cardbuf_getpos)(struct audioout_info_s *); // get the buffer write pointer ( or "free" space )
+ int             (*irq_routine)(struct audioout_info_s *); // check if IRQ is caused by card and acknowledge
 
- void (*card_writemixer)(struct audioout_info_s *,unsigned long mixreg,unsigned long value);
- unsigned long (*card_readmixer)(struct audioout_info_s *,unsigned long mixreg);
+ void          (*card_writemixer)(struct audioout_info_s *, unsigned long mixreg, unsigned long value);
+ unsigned long  (*card_readmixer)(struct audioout_info_s *, unsigned long mixreg);
  const struct aucards_mixerchan_s **card_mixerchans;
+ unsigned int private_data_size;
 };
 
 #ifdef NOTFLAT

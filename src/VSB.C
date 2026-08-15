@@ -28,6 +28,7 @@
 #define DISPSTAT 0 /* 1=support displaying DSP status - obsolete */
 #endif
 #define MIXERREADLOG /* debug log mixer read on */
+#define TCADJ 0 /* 1=adjust rate 10989 (TC 165) to 11025 */
 
 extern struct globalvars gvars;
 
@@ -449,7 +450,10 @@ static int CalcSampleRate( uint16_t value )
         else
             limit = ( vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 212)));
     }
-
+#if TCADJ
+    if ( value == 165 )
+        return 11025;
+#endif
     value = min(value, limit);
     //rc = 1000000 / (( 256 - value ) * channels );
     rc = 256000000u / (( 65536u - (value << 8) ) * channels );
@@ -568,7 +572,7 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Silent = false;
         vsb.Started = true;
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): single cycle, length=%u (0x%x), started\n", vsb.dsp_cmd, vsb.Samples, vsb.Samples ));
+        dbgprintf(("DSP_DoCommand(%X): single cycle, length=%u (0x%x), Rate=%u, started\n", vsb.dsp_cmd, vsb.Samples, vsb.Samples, vsb.SampleRate ));
         break;
     case SB_DSP_8BIT_OUT_SNGL_HS: /* 91 - SB2+, HS mode exit when block transfer ends */
     case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 - SB2+, HS mode exit with reset (on SBPro) */

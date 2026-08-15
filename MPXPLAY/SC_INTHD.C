@@ -21,7 +21,7 @@
 #include <string.h>
 
 #include "CONFIG.H"
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "SC_INTHD.H"
@@ -207,7 +207,7 @@ static void azx_init_pci(struct intelhd_card_s *card)
 static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd_card_s *card )
 ///////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
+	//unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4:2;
 	unsigned long gcap, sdo_index;
 
     /* v1.7: period_size has become a cmdline option */
@@ -1357,16 +1357,9 @@ struct sndcard_info_s HDA_sndcard_info;
 static int HDA_adetect( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card;
+	struct intelhd_card_s *card = aui->card_private_data;
 	unsigned int i;
 	unsigned int devidx;
-
-	card = (struct intelhd_card_s *)calloc( 1, sizeof(struct intelhd_card_s) );
-	if( !card ) {
-		dbgprintf(("HDA_adetect: calloc() failed\n" ));
-		return 0;
-	}
-	aui->card_private_data = card;
 
 	/* don't search for vendors/deviceIDs. Instead scan for HDAs only, and
 	 * use gvars.device as start index for the scan.
@@ -1463,8 +1456,8 @@ static void HDA_close( struct audioout_info_s *aui )
 	dbgprintf(("HDA_close\n" ));
 	if( card ){
 		HDA_cardclose( card );
-		free( card );
-		aui->card_private_data = NULL;
+		//free( card );
+		//aui->card_private_data = NULL;
 	}
 }
 
@@ -1550,11 +1543,11 @@ static void HDA_stop( struct audioout_info_s *aui )
 
 /* HDA implementation of cardbuf_getpos() */
 
-static long HDA_getbufpos( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
+static unsigned int HDA_getbufpos( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////
 {
 	struct intelhd_card_s *card = aui->card_private_data;
-	unsigned long bufpos;
+	unsigned int bufpos;
 
 	bufpos = card->sd->dwLinkPos;
 
@@ -1650,9 +1643,9 @@ struct sndcard_info_s HDA_sndcard_info = {
 
     &MDma_writedata, /* =cardbuf_writedata() */
     &HDA_getbufpos,  /* =cardbuf_getpos() */
-    &MDma_clearbuf,  /* =cardbuf_clear() */
     &HDA_IRQRoutine,
     &HDA_writeMIXER, /* =card_writemixer() */
     &HDA_readMIXER,  /* =card_readmixer() */
-    hda_mixerset     /* =card_mixerchans */
+    hda_mixerset,    /* =card_mixerchans */
+    sizeof(struct intelhd_card_s)
 };

@@ -31,7 +31,7 @@
 #endif
 
 #include "CONFIG.H"
-#include "MPXPLAY.H"
+#include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
@@ -140,13 +140,13 @@ static const char *ich_devnames[]={"ICH","ICH4-7","NForce", "SIS 7012" };
 //-------------------------------------------------------------------------
 // low level write & read
 
-#define ich_write_8(card,reg,data)  outb(card->baseport_bm+reg,data)
-#define ich_write_16(card,reg,data) outw(card->baseport_bm+reg,data)
-#define ich_write_32(card,reg,data) outl(card->baseport_bm+reg,data)
+#define ich_write_8(card,reg,data)  outp(card->baseport_bm+reg,data)
+#define ich_write_16(card,reg,data) outpw(card->baseport_bm+reg,data)
+#define ich_write_32(card,reg,data) outpd(card->baseport_bm+reg,data)
 
-#define ich_read_8(card,reg)  inb(card->baseport_bm+reg)
-#define ich_read_16(card,reg) inw(card->baseport_bm+reg)
-#define ich_read_32(card,reg) inl(card->baseport_bm+reg)
+#define ich_read_8(card,reg)  inp(card->baseport_bm+reg)
+#define ich_read_16(card,reg) inpw(card->baseport_bm+reg)
+#define ich_read_32(card,reg) inpd(card->baseport_bm+reg)
 
 static unsigned int ich_codec_rdy(struct intel_card_s *card,unsigned int bitmask)
 /////////////////////////////////////////////////////////////////////////////////
@@ -185,7 +185,7 @@ static void ich_codec_semaphore(struct intel_card_s *card,unsigned int codec)
 	if (!retry) { dbgprintf(("ich_codec_semaphore: timeout\n" )); }
 #endif
 	// clear semaphore flag
-	//inw(card->baseport_codec); // (removed for ICH0)
+	//inpw(card->baseport_codec); // (removed for ICH0)
 }
 
 /* only shorts can be written to the codec */
@@ -194,7 +194,7 @@ static void ich_codec_write(struct intel_card_s *card,unsigned int reg,unsigned 
 ///////////////////////////////////////////////////////////////////////////////////////////
 {
 	ich_codec_semaphore(card,ICH_GBL_ST_PCR);
-	outw(card->baseport_codec + reg,data);
+	outpw(card->baseport_codec + reg,data);
 }
 
 static unsigned int ich_codec_read( struct intel_card_s *card, unsigned int reg )
@@ -204,7 +204,7 @@ static unsigned int ich_codec_read( struct intel_card_s *card, unsigned int reg 
 	ich_codec_semaphore(card,ICH_GBL_ST_PCR);
 
 	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
-		data = inw( card->baseport_codec + reg );
+		data = inpw( card->baseport_codec + reg );
 		if(!(ich_read_32( card, ICH_GBL_ST_REG) & ICH_GBL_ST_RCS ) )
 			break;
 		pds_delay_10us(10);
@@ -449,12 +449,7 @@ struct sndcard_info_s ICH_sndcard_info;
 static int ICH_adetect( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////
 {
-	struct intel_card_s *card;
-
-	card = (struct intel_card_s *)calloc(1,sizeof(struct intel_card_s));
-	if(!card)
-		return 0;
-	aui->card_private_data = card;
+	struct intel_card_s *card = aui->card_private_data;
 
 	if(pcibios_search_devices(ich_devices,&card->pci_dev) != PCI_SUCCESSFUL)
 		goto err_adetect;
@@ -493,14 +488,14 @@ static int ICH_adetect( struct audioout_info_s *aui )
 		if(!card->baseport_bm)
 			goto err_adetect;
 #else
-		dbgprintf(("ICH_adetect: PCI IO addr for DMA engine (offs 0x14) not set\n"));
+		dbgprintf(("ICH_adetect: IO addr for DMA engine (PCIR_NABMBAR) not set\n"));
 		goto err_adetect;
 #endif
 	}
 
 	card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR); /* PCI offset 0x10 */
 	if (!(card->baseport_codec & 1 )) { /* must be an IO address */
-		dbgprintf(("ICH_adetect: no IO port for Native Audio Mixer set\n"));
+		dbgprintf(("ICH_adetect: PICR_NAMBAR=%X - not an IO port (Native Audio Mixer)\n", card->baseport_codec ));
 		goto err_adetect;
 	}
 	card->baseport_codec &= ~1; /* just mask out bit 0; bits 1-7 should be 0, since IO space is 256 ports */
@@ -514,7 +509,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 		if(!card->baseport_codec)
 			goto err_adetect;
 #else
-		dbgprintf(("ICH_adetect: PCI IO addr for codec (offs 0x10) not set\n"));
+		dbgprintf(("ICH_adetect: IO addr for codec (PCIR_NAMBAR) not set\n"));
 		goto err_adetect;
 #endif
 	}
@@ -560,8 +555,8 @@ static void ICH_close( struct audioout_info_s *aui )
 	if(card){
 		ich_chip_close(card);
 		MDma_free_cardmem(&card->dm);
-		free(card);
-		aui->card_private_data = NULL;
+		//free(card);
+		//aui->card_private_data = NULL;
 	}
 }
 
@@ -608,7 +603,7 @@ static void ICH_start( struct audioout_info_s *aui )
 	cmd |= ICH_PO_CR_START;
 	ich_write_8(card,ICH_PO_CR,cmd);
 #else
-	/* v1.7: bit ICH_PO_CR_IOCE now set here, also ICH_PO_CR_LVBIE ? */
+	/* v1.7: bit ICH_PO_CR_IOCE now set here; ICH_PO_CR_LVBIE seems wrong */
 	ich_write_8( card, ICH_PO_CR, ICH_PO_CR_START | ICH_PO_CR_IOCE /* | ICH_PO_CR_LVBIE */ );
 #endif
 }
@@ -641,12 +636,12 @@ static int64_t gettimeu(void)
 
 //------------------------------------------------------------------------
 
-static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long left )
-///////////////////////////////////////////////////////////////////////////////////////
+static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned int left )
+//////////////////////////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 
-	dbgprintf(("ICH_writedata(%u): CIV=%u LVI=%u PIV=%u\n", left, ich_read_8(card,ICH_PO_CIV), ich_read_8(card,ICH_PO_LVI) & ( ICH_DMABUF_PERIODS - 1), ich_read_8(card,ICH_PO_PIV) ));
+	//dbgprintf(("ICH_writedata(%u): CIV=%u LVI=%u PIV=%u\n", left, ich_read_8(card,ICH_PO_CIV), ich_read_8(card,ICH_PO_LVI) & ( ICH_DMABUF_PERIODS - 1), ich_read_8(card,ICH_PO_PIV) ));
 
 	MDma_writedata(aui,src,left);
 
@@ -658,8 +653,8 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned long
 
 /* ICH implementation of cardbuf_getpos() */
 
-static long ICH_getbufpos( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
+static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned long bufpos = 0;
@@ -675,7 +670,7 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 
 	if( !pcmpos || pcmpos > card->period_size_bytes ) {
 		if( ich_read_8(card,ICH_PO_LVI) == index ) {
-			//aui->card_infobits |= AUINFOS_CARDINFOBIT_DMAUNDERRUN;
+			//aui->card_infobits |= AUI_CARDINFOBIT_DMAUNDERRUN;
 			dbgprintf(("ICH_getbufpos: DMA underrun pcmpos=0x%X\n",pcmpos));
 		}
 		pcmpos = 0;
@@ -693,8 +688,8 @@ static long ICH_getbufpos( struct audioout_info_s *aui )
 
 #else
 
-static long ICH_getbufpos( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
+static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
+////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
 	unsigned int index, index2, pcmpos, space;
@@ -791,9 +786,9 @@ struct sndcard_info_s ICH_sndcard_info = {
 
  &ICH_writedata,
  &ICH_getbufpos,
- &MDma_clearbuf,
  &ICH_IRQRoutine,
  &ICH_writeMIXER,
  &ICH_readMIXER,
- aucards_ac97chan_mixerset
+ aucards_ac97chan_mixerset,
+ sizeof(struct intel_card_s)
 };

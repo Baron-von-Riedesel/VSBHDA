@@ -124,8 +124,8 @@
      volume of the real sound hardware ( hda, ac97 ).
    - /B: the hardware buffers multiplied with period size gives the total
      amount of the soundcard's PCM buffer (maximum is 128 kB). Increasing this
-     value increases latency, but may be needed if the application disables
-     interrupts for a significant amount of time.
+     value increases latency, but may be needed to avoid distorsion if the
+     application disables interrupts for a significant amount of time.
    - /PS: "period size" is space (in bytes) for samples rendered during one
      interrupt request. A period size of 512, for example, means that about
      128 samples will be rendered ( since output is always 16-bit, stereo ).
@@ -354,9 +354,10 @@
       HDPMI32i.
     - Terminal Velocity: set max. XMS memory to 31MB (XMSRes 31).
     - The Flight of the Amazon Queen: requires SETPVI.
-    - Tyrian 2000: this is a 16-bit game, needs VSBHDA16.EXE; the unpatched
-      variant may cause crashes since it doesn't expect to run with IOPL 0.
-      The patch may be found at https://github.com/drivelling-spinel/VSBCMI. 
+    - Tyrian 2000: this is a 16-bit game, needs VSBHDA16.EXE. Setting option
+      /B32 is recommended. The unpatched variant may cause crashes since it
+      doesn't expect to run with IOPL 0. The patch may be found at 
+      https://github.com/drivelling-spinel/VSBCMI. 
     - X128 (Sinclair Spectrum Emulator): requires Jemm's NOVCPI option.
 
     The following (incomplete) list shows games that won't run with VSBHDA

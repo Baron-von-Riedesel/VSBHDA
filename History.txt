@@ -10,6 +10,7 @@
   - Linux.mak & Linux16.mak added.
   - cmdline option /B added.
   - soundfont dynamic memory handling made less wasteful.
+  - period size value (/PS) now used by SB Live/Audigy card driver.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).
