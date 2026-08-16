@@ -306,7 +306,7 @@ endif
 	and cl,3
 	rep stosb
 
-	mov eax,0FFH			; run all initalizers
+	mov eax,0FFH			; run all initializers
 	call __InitRtns			; call initializer routines
 	push _argv
 	push _argc
@@ -349,7 +349,7 @@ L6:
 L7:
 	xor eax, eax
 	mov edx,FINI_PRIORITY_EXIT-1; less than exit
-	call __FiniRtns			; call finializer routines
+	call __FiniRtns			; call finalizer routines
 	pop eax 				; restore return code
 	mov ah, 4cH
 	int 21h

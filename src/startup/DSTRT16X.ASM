@@ -240,7 +240,7 @@ if LFN
 endif
 	mov ebx, _STACKTOP
 	mov _dynend,ebx 			; set top of dynamic memory area
-	mov eax,0FFH				; run all initalizers
+	mov eax,0FFH				; run all initializers
 	call __InitRtns				; call initializer routines
 	call _LibMain
 	mov eax, offset ExpTable
@@ -294,7 +294,7 @@ __do_exit_with_msg_::
 L7:
 	xor eax, eax
 	mov edx,FINI_PRIORITY_EXIT - 1
-	call __FiniRtns			; call finializer routines
+	call __FiniRtns			; call finalizer routines
 
 	pop eax 				; restore return code
 	mov ah, 4cH 			; DOS call to exit with return code

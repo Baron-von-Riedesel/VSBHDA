@@ -214,7 +214,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
 	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size, 2 );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE )) return 0;
 	card->table_buffer = (struct BDL_s *)card->dm.pMem;
 	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);
@@ -1408,7 +1408,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			break;
 		}
 
-		aui->card_DMABUFF = card->pcmout_buffer;
+		aui->card_pDmaBuffer = card->pcmout_buffer;
 		//aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 		aui->card_irq = card->pci_dev.bIrq;
 
@@ -1472,7 +1472,7 @@ static void HDA_setrate( struct audioout_info_s *aui )
 	if( aui->chan_card > INTHD_MAX_CHANNELS )
 		aui->chan_card = INTHD_MAX_CHANNELS;
 	if(!card->dacout_num_bits) // first initialization
-		card->dacout_num_bits = (aui->bits_set) ? aui->bits_set : 16;
+		card->dacout_num_bits = aui->bits_card;
 
 	card->format_val = hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
 	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);

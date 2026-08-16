@@ -87,7 +87,7 @@ INCLUDES=-I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
-	@$(ASM) -q -DNOTFLAT -Istartup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -DNOTFLAT -Isrc\startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -95,13 +95,13 @@ LIBS=
 {src}.cpp{$(OUTD)}.obj
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-{mpxplay}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
+{src\hw}.c{$(OUTD)}.obj
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
 
-{startup}.asm{$(OUTD)}.obj
+{src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
-{startup}.c{$(OUTD)}.obj
+{src\startup}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD)\$(NAME2).drv
@@ -135,18 +135,18 @@ $(OUTD)\$(NAME).lib: $(OBJFILES)
 $(OUTD)\$(NAME2).lib: $(OBJFILES2)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME2).lib $(OBJFILES2)
 
-$(OUTD)/ac97mix.obj:   mpxplay\ac97mix.c
-$(OUTD)/au_cards.obj:  mpxplay\au_cards.c
-$(OUTD)/dmabuff.obj:   mpxplay\dmabuff.c
-$(OUTD)/physmem.obj:   mpxplay\physmem.c
-$(OUTD)/pcibios.obj:   mpxplay\pcibios.c
-$(OUTD)/sc_e1371.obj:  mpxplay\sc_e1371.c
-$(OUTD)/sc_ich.obj:    mpxplay\sc_ich.c
-$(OUTD)/sc_inthd.obj:  mpxplay\sc_inthd.c
-$(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
-$(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
-$(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
-$(OUTD)/timer.obj:     mpxplay\timer.c
+$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
+$(OUTD)/au_cards.obj:  src\hw\au_cards.c
+$(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
+$(OUTD)/physmem.obj:   src\hw\physmem.c
+$(OUTD)/pcibios.obj:   src\hw\pcibios.c
+$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
+$(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
+$(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
+$(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
+$(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
+$(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
+$(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
@@ -181,15 +181,15 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -ms -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
 
-$(OUTD)/cstrt16x.obj:  startup\cstrt16x.asm
-$(OUTD)/dstrt16x.obj:  startup\dstrt16x.asm
-$(OUTD)/ldmod16.obj:   startup\ldmod16.asm
-$(OUTD)/init1632.obj:  startup\init1632.asm
-$(OUTD)/getenv.obj:    startup\getenv.asm
-$(OUTD)/malloc.obj:    startup\malloc.asm
-$(OUTD)/sbrk.obj:      startup\sbrk.asm
-$(OUTD)/strtol.obj:    startup\strtol.asm
-$(OUTD)/libmain.obj:   startup\libmain.c
+$(OUTD)/cstrt16x.obj:  src\startup\cstrt16x.asm
+$(OUTD)/dstrt16x.obj:  src\startup\dstrt16x.asm
+$(OUTD)/ldmod16.obj:   src\startup\ldmod16.asm
+$(OUTD)/init1632.obj:  src\startup\init1632.asm
+$(OUTD)/getenv.obj:    src\startup\getenv.asm
+$(OUTD)/malloc.obj:    src\startup\malloc.asm
+$(OUTD)/sbrk.obj:      src\startup\sbrk.asm
+$(OUTD)/strtol.obj:    src\startup\strtol.asm
+$(OUTD)/libmain.obj:   src\startup\libmain.c
 
 # the 16-bit code is included in binary format into rmwrap.asm.
 

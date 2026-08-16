@@ -102,7 +102,7 @@ INCLUDES=-I$(WATCOM)\h
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
-	@$(ASM) -q -D?MODEL=flat -Istartup $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -D?MODEL=flat -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -110,10 +110,10 @@ LIBS=
 {src}.cpp{$(OUTD)}.obj
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-{mpxplay}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
+{src\hw}.c{$(OUTD)}.obj
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
 
-{startup}.asm{$(OUTD)}.obj
+{src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -D?MODEL=flat $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD16)\$(NAME)16.exe
@@ -141,18 +141,18 @@ $(OUTD16)\$(NAME)16.exe: .always
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
-$(OUTD)/ac97mix.obj:   mpxplay\ac97mix.c
-$(OUTD)/au_cards.obj:  mpxplay\au_cards.c
-$(OUTD)/dmabuff.obj:   mpxplay\dmabuff.c
-$(OUTD)/physmem.obj:   mpxplay\physmem.c
-$(OUTD)/pcibios.obj:   mpxplay\pcibios.c
-$(OUTD)/sc_e1371.obj:  mpxplay\sc_e1371.c
-$(OUTD)/sc_ich.obj:    mpxplay\sc_ich.c
-$(OUTD)/sc_inthd.obj:  mpxplay\sc_inthd.c
-$(OUTD)/sc_sbl24.obj:  mpxplay\sc_sbl24.c
-$(OUTD)/sc_sbliv.obj:  mpxplay\sc_sbliv.c
-$(OUTD)/sc_via82.obj:  mpxplay\sc_via82.c
-$(OUTD)/timer.obj:     mpxplay\timer.c
+$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
+$(OUTD)/au_cards.obj:  src\hw\au_cards.c
+$(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
+$(OUTD)/physmem.obj:   src\hw\physmem.c
+$(OUTD)/pcibios.obj:   src\hw\pcibios.c
+$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
+$(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
+$(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
+$(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
+$(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
+$(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
+$(OUTD)/timer.obj:     src\hw\timer.c
 $(OUTD)/cv1to2.obj:    src\cv1to2.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
@@ -181,11 +181,11 @@ $(OUTD)/dbopl.obj:     src\dbopl.cpp
 $(OUTD)/vopl3.obj:     src\vopl3.cpp
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
-$(OUTD)/cstrtdhx.obj:  startup\cstrtdhx.asm
-$(OUTD)/getenv.obj:    startup\getenv.asm
-$(OUTD)/malloc.obj:    startup\malloc.asm
-$(OUTD)/sbrk.obj:      startup\sbrk.asm
-$(OUTD)/strtol.obj:    startup\strtol.asm
+$(OUTD)/cstrtdhx.obj:  src\startup\cstrtdhx.asm
+$(OUTD)/getenv.obj:    src\startup\getenv.asm
+$(OUTD)/malloc.obj:    src\startup\malloc.asm
+$(OUTD)/sbrk.obj:      src\startup\sbrk.asm
+$(OUTD)/strtol.obj:    src\startup\strtol.asm
 
 
 # to avoid any issues with 16-bit relocations in PE binaries,

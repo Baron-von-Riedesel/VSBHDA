@@ -81,7 +81,7 @@ INCLUDES=-I$(WATCOM)/h
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
-	@$(ASM) -q -DNOTFLAT -Istartup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -DNOTFLAT -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -89,13 +89,13 @@ $(OUTD)/%.obj: src/%.C
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.obj: mpxplay/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
+$(OUTD)/%.obj: src/hw/%.C
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc/hw -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.obj: startup/%.ASM
+$(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
-$(OUTD)/%.obj: startup/%.C
+$(OUTD)/%.obj: src/startup/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)/$(NAME).exe $(OUTD)/$(NAME2).drv
@@ -127,18 +127,18 @@ $(OUTD)/$(NAME).lib: $(OBJFILES)
 $(OUTD)/$(NAME2).lib: $(OBJFILES2)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME2).lib $(OBJFILES2)
 
-$(OUTD)/AC97MIX.obj:   mpxplay/AC97MIX.C
-$(OUTD)/AU_CARDS.obj:  mpxplay/AU_CARDS.C
-$(OUTD)/DMABUFF.obj:   mpxplay/DMABUFF.C
-$(OUTD)/PHYSMEM.obj:   mpxplay/PHYSMEM.C
-$(OUTD)/PCIBIOS.obj:   mpxplay/PCIBIOS.C
-$(OUTD)/SC_E1371.obj:  mpxplay/SC_E1371.C
-$(OUTD)/SC_ICH.obj:    mpxplay/SC_ICH.C
-$(OUTD)/SC_INTHD.obj:  mpxplay/SC_INTHD.C
-$(OUTD)/SC_SBL24.obj:  mpxplay/SC_SBL24.C
-$(OUTD)/SC_SBLIV.obj:  mpxplay/SC_SBLIV.C
-$(OUTD)/SC_VIA82.obj:  mpxplay/SC_VIA82.C
-$(OUTD)/TIMER.obj:     mpxplay/TIMER.C
+$(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
+$(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
+$(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
+$(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
+$(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
+$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
+$(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
+$(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
+$(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
+$(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
+$(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
+$(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
@@ -173,15 +173,15 @@ $(OUTD)/VOPL3.obj:     src/VOPL3.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -ms -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 endif
 
-$(OUTD)/CSTRT16X.obj:  startup/CSTRT16X.ASM
-$(OUTD)/DSTRT16X.obj:  startup/DSTRT16X.ASM
-$(OUTD)/LDMOD16.obj:   startup/LDMOD16.ASM
-$(OUTD)/INIT1632.obj:  startup/INIT1632.ASM
-$(OUTD)/GETENV.obj:    startup/GETENV.ASM
-$(OUTD)/MALLOC.obj:    startup/MALLOC.ASM
-$(OUTD)/SBRK.obj:      startup/SBRK.ASM
-$(OUTD)/STRTOL.obj:    startup/STRTOL.ASM
-$(OUTD)/LIBMAIN.obj:   startup/LIBMAIN.C
+$(OUTD)/CSTRT16X.obj:  src/startup/CSTRT16X.ASM
+$(OUTD)/DSTRT16X.obj:  src/startup/DSTRT16X.ASM
+$(OUTD)/LDMOD16.obj:   src/startup/LDMOD16.ASM
+$(OUTD)/INIT1632.obj:  src/startup/INIT1632.ASM
+$(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
+$(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
+$(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
+$(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
+$(OUTD)/LIBMAIN.obj:   src/startup/LIBMAIN.C
 
 # the 16-bit code is included in binary format into rmwrap.asm.
 

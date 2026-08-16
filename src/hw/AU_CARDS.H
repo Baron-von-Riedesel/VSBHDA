@@ -88,12 +88,9 @@ enum MIXMODE {
 struct sndcard_info_s;
 
 struct audioout_info_s {
- unsigned int  freq_set;  /* ??? */
- unsigned int  freq_card; /* set in AU_setrate */
- unsigned char chan_set;  /* ??? */
- unsigned char chan_card; /* set in AU_setrate */
- unsigned char bits_set;  /* ??? */
- unsigned char bits_card; /* set in AU_setrate */
+ unsigned int  freq_card;
+ unsigned char chan_card;
+ unsigned char bits_card;
  unsigned char bytespersample_card;
  unsigned char card_irq;
  unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
@@ -103,8 +100,8 @@ struct audioout_info_s {
  unsigned int  card_dmalastput;   /* current dma buffer write offset; updated when pcm data is copied to output buffer */
  unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
                                   /* should usually contain period size before writing, 0 afterwards */
- unsigned int  card_bytespersign; // bytespersample_card * chan_card
- char         *card_DMABUFF;      /* identical with the card's pcmout_buffer */
+ unsigned int  card_bytespersign; /* bytespersample_card * chan_card */
+ char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
 
  const struct sndcard_info_s *card_handler; // function structure of the card
  const struct globalvars *gvars;

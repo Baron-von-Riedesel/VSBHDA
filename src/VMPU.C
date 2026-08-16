@@ -11,7 +11,7 @@
 #include "PTRAP.H"
 #include "VMPU.H"
 #if SOUNDFONT
-#include "../tsf/TSF.H"
+#include "tsf/TSF.H"
 #endif
 
 #if VMPU

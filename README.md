@@ -14,7 +14,7 @@ Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also support
 
 Emulated modes/cards:
 8-bit, 16-bit, mono, stereo, high-speed;
-Sound blaster 1.0, 2.0, Pro, Pro2, 16.
+Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
 
 Requirements:
  * HDPMI32i - DPMI host with port trapping; 32-bit protected-mode

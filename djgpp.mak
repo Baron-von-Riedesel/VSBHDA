@@ -26,11 +26,11 @@ C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 endif
 
-vpath_src=src mpxplay
+vpath_src=src src/hw
 vpath %.c $(vpath_src)
 vpath %.cpp $(vpath_src)
 vpath %.asm $(vpath_src)
-vpath_header=src mpxplay
+vpath_header=src src/hw
 vpath %.h $(vpath_header)
 vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
@@ -44,8 +44,8 @@ OBJFILES=\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o	$(OUTD)/uninst.o	$(OUTD)/fileacc.o
 
-INCLUDE_DIRS=src mpxplay
-SRC_DIRS=src mpxplay
+INCLUDE_DIRS=src src/hw
+SRC_DIRS=src src/hw
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
 C_EXTRA_FLAGS=-march=i586
@@ -55,7 +55,7 @@ LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))
 LIBS=$(addprefix -l,stdcxx m)
 
-COMPILE.asm.o=jwasm.exe -q -djgpp -Istartup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
+COMPILE.asm.o=jwasm.exe -q -djgpp -Isrc/startup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
 COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
@@ -68,7 +68,7 @@ $(OUTD)/%.o: src/%.cpp
 $(OUTD)/%.o: src/%.asm
 	$(COMPILE.asm.o)
 
-$(OUTD)/%.o: mpxplay/%.c
+$(OUTD)/%.o: src/hw/%.c
 	$(COMPILE.c.o)
 
 all:: $(OUTD) $(OUTD)/$(NAME)d.exe
@@ -112,7 +112,7 @@ $(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h confi
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
 $(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h ctadpcm.h au.h
-$(OUTD)/tsf.o::      tsf.c       tsf/tsf.h
+$(OUTD)/tsf.o::      tsf.c       src/tsf/tsf.h
 $(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
 $(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
 $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h

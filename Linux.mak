@@ -87,7 +87,7 @@ INCLUDES=-I$(WATCOM)/h
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
-	@$(ASM) -q -D?MODEL=flat -Istartup $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -D?MODEL=flat -Isrc/startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -95,10 +95,10 @@ $(OUTD)/%.obj: src/%.C
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.obj: mpxplay/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Impxplay -Isrc $(INCLUDES) -fo=$@ $<
+$(OUTD)/%.obj: src/hw/%.C
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc/hw -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.obj: startup/%.ASM
+$(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -D?MODEL=flat $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 all: $(OUTD) $(OUTD)/$(NAME).exe $(OUTD16)/$(NAME)16.exe
@@ -122,18 +122,18 @@ $(OUTD16)/$(NAME)16.exe:
 $(OUTD)/$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME).lib $(OBJFILES)
 
-$(OUTD)/AC97MIX.obj:   mpxplay/AC97MIX.C
-$(OUTD)/AU_CARDS.obj:  mpxplay/AU_CARDS.C
-$(OUTD)/DMABUFF.obj:   mpxplay/DMABUFF.C
-$(OUTD)/PHYSMEM.obj:   mpxplay/PHYSMEM.C
-$(OUTD)/PCIBIOS.obj:   mpxplay/PCIBIOS.C
-$(OUTD)/SC_E1371.obj:  mpxplay/SC_E1371.C
-$(OUTD)/SC_ICH.obj:    mpxplay/SC_ICH.C
-$(OUTD)/SC_INTHD.obj:  mpxplay/SC_INTHD.C
-$(OUTD)/SC_SBL24.obj:  mpxplay/SC_SBL24.C
-$(OUTD)/SC_SBLIV.obj:  mpxplay/SC_SBLIV.C
-$(OUTD)/SC_VIA82.obj:  mpxplay/SC_VIA82.C
-$(OUTD)/TIMER.obj:     mpxplay/TIMER.C
+$(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
+$(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
+$(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
+$(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
+$(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
+$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
+$(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
+$(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
+$(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
+$(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
+$(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
+$(OUTD)/TIMER.obj:     src/hw/TIMER.C
 $(OUTD)/CV1TO2.obj:    src/CV1TO2.ASM
 $(OUTD)/DJDPMI.obj:    src/DJDPMI.ASM
 $(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
@@ -162,11 +162,11 @@ $(OUTD)/DBOPL.obj:     src/DBOPL.CPP
 $(OUTD)/VOPL3.obj:     src/VOPL3.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 endif
-$(OUTD)/CSTRTDHX.obj:  startup/CSTRTDHX.ASM
-$(OUTD)/GETENV.obj:    startup/GETENV.ASM
-$(OUTD)/MALLOC.obj:    startup/MALLOC.ASM
-$(OUTD)/SBRK.obj:      startup/SBRK.ASM
-$(OUTD)/STRTOL.obj:    startup/STRTOL.ASM
+$(OUTD)/CSTRTDHX.obj:  src/startup/CSTRTDHX.ASM
+$(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
+$(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
+$(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
+$(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
 
 
 # to avoid any issues with 16-bit relocations in PE binaries,

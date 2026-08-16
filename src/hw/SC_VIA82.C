@@ -346,9 +346,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 
 	/* v1.7: use /PS cmdline value if available */
 	card->pagesize = ( aui->gvars->period_size ? aui->gvars->period_size : PCMBUFFERPAGESIZE );
-	// alloc buffers
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pagesize, 2 );
-
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pagesize );
 	if (!MDma_alloc_cardmem( &card->dm, VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 )) return 0;
 
 	card->virtualpagetable = (void *)(((uint32_t)card->dm.pMem + 4095) & (~4095));
@@ -362,7 +360,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	if ( card->pci_dev.device_name )
 		VIA82XX_sndcard_info.shortname = card->pci_dev.device_name;
 
-	aui->card_DMABUFF = card->pcmout_buffer;
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 
 	// init chip
 	via82xx_chip_init(card);

@@ -101,13 +101,12 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 			aui->freq_card = gvars->freq;
 			aui->chan_card = 2;
 			aui->bits_card = 16;
-			aui->bytespersample_card = 16/8;
 			aui->card_irq = 0xff;
 			if ( aui->card_handler->card_detect(aui) ) {
 				if( !aui->card_handler->cardbuf_getpos ) {
 					dbgprintf(("AU_init: ERROR, cardbuf_getpos()=NULL!\n"));
 				} else {
-					aui->freq_card = aui->chan_card = aui->bits_card = 0;
+					//aui->freq_card = aui->chan_card = aui->bits_card = 0;
 					dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
 					return(aui);
 				}
@@ -232,9 +231,9 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 	if ( aui->card_infobits & AUI_CARDINFOBIT_PLAYING )
 		AU_stop(aui);
 
-	aui->freq_card = aui->freq_set = freq; /* may be modified below by card_setrate() */
-	aui->chan_card = aui->chan_set = outchannels;
-	aui->bits_card = aui->bits_set = bits;
+	aui->freq_card = freq; /* may be modified below by card_setrate() */
+	aui->chan_card = outchannels;
+	aui->bits_card = bits;
 	aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
 	aui->bytespersample_card = 0;
 
@@ -514,7 +513,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 
 /* functions AU_cardbuf_space() and AU_writedata() handle the hardware ring buffer:
  * - AU_cardbuf_space calculates the "free" space in the ring buffer (= aui->card_dmaspace, in byte units)
- * - AU_writedata writes into free space ( and updates aui->card_dmaspace and the write pointer (= aui->card_dmalastput)
+ * - AU_writedata writes into free space and updates aui->card_dmaspace and the write pointer (= aui->card_dmalastput)
  */
 
 #define BUFFER_PROTECTION_BYTES 32 /* SB PCI cards need this adjustment */
@@ -554,7 +553,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	if( aui->card_dmaspace > aui->card_dmasize ) // checking
 		aui->card_dmaspace = aui->card_dmasize;
 #ifdef DMABUFFLOG
-	dbgprintf(("AU_cardbuf_space: bufpos=%X, card_dmaspace new/old=%X/%X, card_dmalastput=%X\n", bufpos, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));
+	dbgprintf(("AU_cardbuf_space: bufpos=%X, card_dmaspace new/old=%X/%X card_dmalastput=%X\n", bufpos, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));
 #endif
 
 	if( aui->card_handler->infobits & SNDCARD_BUFFER_PROTECTION )
@@ -563,7 +562,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	return aui->card_dmaspace;
 }
 
-/* AU_writedata(): calls card's writedata() and updates card_dmaspace/card_dmalastput. */
+/* AU_writedata(): calls card's writedata() and updates card_dmalastput (also card_dmaspace). */
 
 int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int samples )
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -571,7 +570,7 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int 
 	unsigned int space;
 	unsigned int outbytes_left = samples * aui->bytespersample_card;
 #ifdef DMABUFFLOG
-	unsigned int old_card_dmaspace = aui->card_dmaspace;
+	unsigned int old_card_dmalastput = aui->card_dmalastput;
 #endif
 
 	if( aui->card_handler->infobits & SNDCARD_BUFFER_PROTECTION )
@@ -586,12 +585,12 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int 
 		pData         += outbytes_putblock;
 		outbytes_left -= outbytes_putblock;
 		space         -= outbytes_putblock;
-		aui->card_dmaspace -= outbytes_putblock;
+		aui->card_dmaspace -= outbytes_putblock; /* not really needed to update this var */
 		aui->card_dmalastput += outbytes_putblock;
 		aui->card_dmalastput %= aui->card_dmasize;
 	}
 #ifdef DMABUFFLOG
-	dbgprintf(("AU_writedata(%u): exit, card_dmaspace new/old=%X/%X, card_dmalastput=%X\n", samples, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));
+	dbgprintf(("AU_writedata(%u): exit, card_dmalastput new/old=%X/%X card_dmaspace=%X\n", samples, aui->card_dmalastput, old_card_dmalastput, aui->card_dmaspace ));
 #endif
 	return outbytes_left;
 }

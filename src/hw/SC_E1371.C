@@ -470,10 +470,10 @@ static unsigned int es1371_buffer_init( struct ensoniq_card_s *card, struct audi
 {
 	/* v1.7: use /PS cmdline option if set */
 	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN, 2);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
-	aui->card_DMABUFF = card->pcmout_buffer;
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 	dbgprintf(("es1371_buffer_init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }

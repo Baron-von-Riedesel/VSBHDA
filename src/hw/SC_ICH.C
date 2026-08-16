@@ -222,18 +222,16 @@ static unsigned int ich_codec_read( struct intel_card_s *card, unsigned int reg 
 static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
-    unsigned int bytes_per_sample = (aui->bits_set > 16) ? 4 : 2;
-
-    /* max periods is 32 */
+	/* for ICH, periods should be max 32 */
 	card->periods = min(ICH_DMABUF_PERIODS,(aui->gvars->buffers > 1) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT);
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, bytes_per_sample);
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN );
 
 	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
 	card->virtualpagetable = (struct bd_s *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * sizeof(struct bd_s);
-	aui->card_DMABUFF = card->pcmout_buffer;
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 #if 0//v1.8: memory cleared by MDma_alloc_cardmem()
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
@@ -306,8 +304,8 @@ static void ich_chip_close(struct intel_card_s *card)
 		ich_write_8(card,ICH_PO_CR,ICH_PO_CR_RESET); // reset codec
 }
 
-static void ich_ac97_init(struct intel_card_s *card, unsigned int freq_set)
-///////////////////////////////////////////////////////////////////////////
+static void ich_ac97_init(struct intel_card_s *card, unsigned int freq)
+///////////////////////////////////////////////////////////////////////
 {
 	uint16_t eastat;
 #if 1
@@ -331,7 +329,7 @@ static void ich_ac97_init(struct intel_card_s *card, unsigned int freq_set)
 	eastat |= AC97_EA_SPDIF;
 
 	// set/check variable bit rate bit
-	if( freq_set != 48000 )
+	if( freq != 48000 )
 		if(ich_codec_read( card, AC97_EXTENDED_ID ) & AC97_EA_VRA )
 			eastat |= AC97_EA_VRA;
 
@@ -371,7 +369,7 @@ static void ich_prepare_playback( struct intel_card_s *card, struct audioout_inf
 		cmd &= ~(ICH_GBL_CTL_PCM_246_MASK_SIS | ICH_GBL_CTL_PCM_20BIT);
 	else
 		cmd &= ~(ICH_GBL_CTL_PCM_246_MASK | ICH_GBL_CTL_PCM_20BIT);
-	if( aui->bits_set > 16 ) {
+	if( aui->bits_card > 16 ) {
 		if((card->device_type == DEVICE_INTEL_ICH4567) && ((ich_read_32(card,ICH_GBL_ST_REG) & ICH_GBL_ST_SAMPLE_CAP) == ICH_GBL_ST_SAMPLE_16_20 )) {
 			aui->bits_card = 32;
 			cmd |= ICH_GBL_CTL_PCM_20BIT;
@@ -540,7 +538,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	if( !ich_buffer_init( card, aui ) )
 		goto err_adetect;
 	ich_chip_init( card );
-	ich_ac97_init( card, aui->freq_set );
+	ich_ac97_init( card, aui->freq_card );
 	return 1;
 
 err_adetect:
@@ -665,7 +663,7 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 
 #ifdef _DEBUG
 	if ( pcmpos != card->period_size_bytes )
-		dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X dmalastput=0x%x\n", index, bufpos, pcmpos, aui->card_dmalastput ));
+		dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 #endif
 
 	if( !pcmpos || pcmpos > card->period_size_bytes ) {
@@ -679,9 +677,8 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 	pcmpos = card->period_size_bytes - pcmpos;
 
 	bufpos = index * card->period_size_bytes + pcmpos;
-	//bufpos = aui->card_dmalastput + card->period_size_bytes;
 
-	//dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X dmalastput=0x%x\n", index, bufpos, pcmpos, aui->card_dmalastput ));
+	//dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 
 	return bufpos;
 }
@@ -698,13 +695,13 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 	index = ich_read_8( card, ICH_PO_CIV );  // number of current period
 	pcmpos = readpicb(card);
 
-#if 0
+# if 0
 	dbgprintf(("ICH_getbufpos: CIV=%u LVI=%u PIV=%u pcmpos=0x%X\n",
 			   index,
 			   ich_read_8( card, ICH_PO_LVI ) & ( ICH_DMABUF_PERIODS - 1),
 			   ich_read_8( card, ICH_PO_PIV ),
 			   pcmpos ));
-#endif
+# endif
 
 	index2 = ( index - 1) % ICH_DMABUF_PERIODS;
 

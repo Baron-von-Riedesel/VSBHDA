@@ -115,6 +115,6 @@ void *fread( void *, int, int, void *);
 #define TSF_NO_STDIO
 
 #define TSF_IMPLEMENTATION
-#include "../tsf/TSF.H"
+#include "tsf/TSF.H"
 
 #endif

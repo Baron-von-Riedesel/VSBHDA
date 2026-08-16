@@ -225,8 +225,7 @@ static void snd_live24_hw_close( struct emu10k1_card *card)
 static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bytes_per_sample = (aui->bits_set >= 24) ? 4 : 2;
-    card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, bytes_per_sample );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN );
 	if (! MDma_alloc_cardmem(&card->dm, CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize) ) return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t);
@@ -308,13 +307,13 @@ static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_
 
 	aui->chan_card = 2;
 
-	if(aui->bits_set > 16)
+	if(aui->bits_card > 16)
 		aui->bits_card = 32;
 	else
 		aui->bits_card = 16;
 
-	if(aui->freq_set == 44100)     // forced 44.1k dac output
-		aui->freq_card = 44100;
+	if(aui->freq_card == 44100)     // forced 44.1k dac output
+		;//aui->freq_card = 44100;
 	else
 		if( aui->freq_card != 48000 ){
 			if(aui->freq_card <= 22050)

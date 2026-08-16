@@ -1,7 +1,7 @@
 #ifndef au_h
 #define au_h
 
-/* interface to the mpxplay card handler */
+/* interface to the sound hardware handler */
 
 #ifdef __cplusplus
 extern "C" {

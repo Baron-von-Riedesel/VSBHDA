@@ -884,7 +884,7 @@ static unsigned int snd_emu10k1_selector( struct emu10k1_card *card, struct audi
 static unsigned int snd_emu10k2_selector( struct emu10k1_card *card, struct audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if ((card->chips & EMU_CHIPS_10K2) && ((aui->bits_set <= 16) || !(card->chips & EMU_CHIPS_0151))) {
+	if ((card->chips & EMU_CHIPS_10K2) && ((aui->bits_card <= 16) || !(card->chips & EMU_CHIPS_0151))) {
 		card->chip_select &= ~EMU_CHIPS_0151;
 		return 1;
 	}
@@ -907,7 +907,7 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 	card->period_size = ( aui->gvars->period_size ? aui->gvars->period_size : 512 );
 	/* v2.0: use real period size */
 	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, EMUPAGESIZE, 2 );
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->period_size, 2 );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->period_size );
 	if (! MDma_alloc_cardmem( &card->dm, MAXPAGES * sizeof(uint32_t)  // virtualpage
 							 + EMUPAGESIZE					// silentpage
 							 + card->pcmout_bufsize 		// pcm output
@@ -941,6 +941,8 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 	return 1;
 }
 
+#define RATECHK 0 /* v2.0: don't check frequency */
+
 static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -950,6 +952,7 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	//aui->bits_card = 16;
 
 	dbgprintf(("snd_emu10kx_setrate(%u) enter\n", aui->freq_card));
+#if RATECHK
 	if ( aui->freq_card < 4000 )
 		aui->freq_card = 4000;
 	else {
@@ -957,12 +960,13 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 		if (aui->freq_card > limit)
 			aui->freq_card = limit;
 	}
+#endif
 
 	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE, 0 );
 	/* v2.0: use real period size */
 	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE );
 	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->period_size );
-
+#if RATECHK
 	/* v1.7: exclude 22050 and 11025 from 48k sampling as well ! */
 	//if ( aui->freq_card == 44100 )
 	if ( (aui->freq_card % 11025 ) == 0 )
@@ -971,6 +975,7 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 		/* v1.7: update freq_card member! */
 		aui->freq_card = (aui->freq_card <= 48000 ? 48000 : 96000 );
 	}
+#endif
 	/* fixme: next function seems valid for Audigy only?! */
 	//if (card->chips & EMU_CHIPS_10K2)
 	snd_emu_set_spdif_freq( card, aui->freq_card );
@@ -1116,7 +1121,7 @@ static unsigned int snd_p16v_selector( struct emu10k1_card *card, struct audioou
 	 * - chip EMU10KX NOT detected
 	 * used by vsbhda?
 	 */
-	if ((card->chips & EMU_CHIPS_0151) && ((aui->bits_set > 16) || !(card->chips & EMU_CHIPS_10KX))) {
+	if ((card->chips & EMU_CHIPS_0151) && ((aui->bits_card > 16) || !(card->chips & EMU_CHIPS_10KX))) {
 		card->chip_select &= ~EMU_CHIPS_10KX;
 		return 1;
 	}
@@ -1126,7 +1131,7 @@ static unsigned int snd_p16v_selector( struct emu10k1_card *card, struct audioou
 static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN, AUDIGY2_P16V_BYTES_PER_SAMPLE );
+	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem(&card->dm, AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize))
 		return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
@@ -1177,8 +1182,8 @@ static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s 
 	aui->chan_card = 2;
 	aui->bits_card = 32;
 
-	if (aui->freq_set == 44100)     // forced 44.1k dac output
-		aui->freq_card = 44100;
+	if (aui->freq_card == 44100)     // forced 44.1k dac output
+		;//aui->freq_card = 44100;
 	else
 		if (aui->freq_card != 48000) {
 			if (aui->freq_card <= 22050)
@@ -1475,7 +1480,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 	/* v1.7: set the detailed card name */
 	SBALL_sndcard_info.shortname = emucv->longname;
 
-	aui->card_DMABUFF = card->pcmout_buffer;
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 
 	if (card->driver_funcs->hw_init)
 		card->driver_funcs->hw_init( card, aui );

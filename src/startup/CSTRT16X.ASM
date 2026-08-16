@@ -362,7 +362,7 @@ endif
 	xchg eax, _STACKLOW
 	mov _LpCmdLine, eax         ; save command line address
 	mov _LpPgmName, esi         ; save program name address
-	mov eax, 0FFH               ; run all initalizers
+	mov eax, 0FFH               ; run all initializers
 	call __InitRtns             ; call initializer routines
 	push _argv
 	push _argc
@@ -421,7 +421,7 @@ __do_exit_with_msg_::
 L7:
 	xor eax, eax
 	mov edx,FINI_PRIORITY_EXIT-1; less than exit
-	call __FiniRtns              ; call finializer routines
+	call __FiniRtns              ; call finalizer routines
 	pop eax                      ; restore return code
 	mov ah, 4cH
 	int 21h

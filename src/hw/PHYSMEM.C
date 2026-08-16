@@ -52,17 +52,22 @@ static uint16_t xms_alloc( uint16_t sizeKB, uint32_t* addr )
 	uint16_t handle;
 	*addr = 0;
    
-	if(sizeKB == 0 || !_xms_init())
+	if(sizeKB == 0 || !_xms_init()) {
+		dbgprintf(("xms_alloc(%u): init failed\n", sizeKB));
 		return 0;
+	}
 	regs.h.ah = 0x09;    //alloc memory block
 	regs.x.dx = sizeKB;
 	__dpmi_simulate_real_mode_procedure_retf(&regs);
-	if ( regs.x.ax != 1 )
+	if ( regs.x.ax != 1 ) {
+		dbgprintf(("xms_alloc(%u) failed, ax=%X\n", sizeKB, regs.x.ax));
 		return 0;
+	}
 	handle = regs.x.dx;
 	regs.h.ah = 0x0C;    //lock memory block
 	__dpmi_simulate_real_mode_procedure_retf(&regs);
 	if( regs.x.ax != 1 ) {
+		dbgprintf(("xms_alloc(%u): xms lock(%X) failed, ax=%X\n", sizeKB, handle, regs.x.ax));
 		regs.h.ah = 0x0A; //free memory block
 		__dpmi_simulate_real_mode_procedure_retf(&regs);
 		return 0;
@@ -96,15 +101,14 @@ int _alloc_physical_memory( struct xmsmem_s * mem, uint32_t size)
 		__dpmi_meminfo info;
 		info.address = mem->physicalptr;
 		info.size = size;
-		if ( __dpmi_physical_address_mapping( &info ) == 0 ) {
+		if ( __dpmi_physical_address_mapping( &info ) ) {
+			dbgprintf(("physical_address_mapping(%X,%X) failed\n", info.address, info.size));
+			xms_free( mem->handle );
+			mem->handle = 0;
+		} else
 			mem->dwLinear = info.address;
-			return 1;
-		}
-		xms_free( mem->handle );
-		mem->handle = 0;
 	}
-	dbgprintf(("No XMS memory.\n"));
-	return 0;
+	return mem->handle;
 }
 
 void _free_physical_memory( struct xmsmem_s * mem)
