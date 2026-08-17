@@ -9,6 +9,8 @@
 	.dosseg
 
 LFN equ 0
+EXIT equ 0
+EXITWITHMSG equ 0
 
 FINI_PRIORITY_EXIT equ 16
 
@@ -35,28 +37,28 @@ endif
 	externdef c _LibMain         : near
 	externdef _edata             : near  ; end of DATA (start of BSS)
 	externdef _end               : near  ; end of BSS (start of STACK)
-	extern    __InitRtns         : near
-	extern    __FiniRtns         : near
+	externdef __InitRtns         : near
+	externdef __FiniRtns         : near
 ;	extern    __DOSseg__         : near
 ifndef OW19
-	extern    __child            : dword
+	externdef __child            : dword
 endif
 if NO87
-	extern    __no87             : byte
+	externdef __no87             : byte
 endif
-	extern c  _dynend            : dword
-	extern c  _curbrk            : dword
-	extern c  _psp               : word
-	extern c  _osmajor           : byte
-	extern c  _osminor           : byte
-	extern c  _STACKLOW          : dword
-	extern c  _STACKTOP          : dword
+	externdef c  _dynend            : dword
+	externdef c  _curbrk            : dword
+	externdef c  _psp               : word
+	externdef c  _osmajor           : byte
+	externdef c  _osminor           : byte
+	externdef c  _STACKLOW          : dword
+	externdef c  _STACKTOP          : dword
 if LFN
-	extern c  __uselfn           : byte
+	externdef c  __uselfn           : byte
 endif
-	extern c  _Extender          : byte
-	extern c  _ExtenderSubtype   : byte
-	extern c  _Envptr            : fword
+	externdef c  _Extender          : byte
+	externdef c  _ExtenderSubtype   : byte
+	externdef c  _Envptr            : fword
 ;	extern c  __FPE_handler      : dword
 
 ; this guarantees that no function pointer will equal NULL
@@ -151,8 +153,10 @@ CONST segment
 
 externdef ExpTable:ptr
 
+if EXITWITHMSG
 ConsoleName     db      "con",0
 NewLine         db      0Dh,0Ah
+endif
 
 CONST ends
 
@@ -198,45 +202,18 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	int 21h 				; modifies eax,ebx,ecx,edx
 	mov _osmajor,al
 	mov _osminor,ah
-	mov ecx,eax 			; remember DOS version number
-	sub esi,esi 			; offset 0 for environment strings
-	mov edi,81H 			; DOS command buffer es:edi
 
-if 0
-;--- get code alias - to allow DGROUP access for interrupt procs.
-;--- if needed, it may be stored in a _csalias variable.
-;--- currently it's released after usage.
-	mov ebx, cs
-	mov ax, 000AH
-	int 31h
-	mov ebx, eax
-endif
-	push es
-	mov es, [_psp]
-	mov cx, es:[DOS_PSP_ENV_SEG]; get environment segment into cx
-;	mov es, ebx					; get access to code segment
-;	mov es:__saved_DS,ds		; save DS value
-	pop es
-if 0
-	mov ax, 1
-	int 31h
-endif
 	mov al, X_RATIONAL
 	mov ah, XS_RATIONAL_NONZEROBASE
-
-;--- here: esi=0 (start env), ax=extender version, cx=env segment
-
 	mov _Extender,al			; record extender type
 	mov _ExtenderSubtype,ah 	; record extender subtype
-	mov dword ptr _Envptr+0,esi ; save offset of environment strings
-	mov word ptr _Envptr+4,cx	; save segment of environment area
-;
+
 ;	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 if NO87
 	mov __no87,0				; set state of "no87" environment var
 endif
 if LFN
-	and __uselfn,0				; set "LFN" support status
+	mov __uselfn,0				; set "LFN" support status
 endif
 	mov ebx, _STACKTOP
 	mov _dynend,ebx 			; set top of dynamic memory area
@@ -247,21 +224,23 @@ endif
 	ret
 __DLLstart_ endp
 
+if EXIT
 ;--- don't touch AL in __exit, it has the return code
 
-ifdef FC
+ ifdef FC
 EXITCC equ <fastcall>
-else
+ else
 EXITCC equ <>
-endif
+ endif
 
 ;	public EXITCC __exit
 
 __exit  proc EXITCC
 
-ifndef __STACK__
+ ifndef __STACK__
 	push eax			; get return code into eax
-endif
+ endif
+ if EXITWITHMSG
 	jmp L7
 
 	public  __do_exit_with_msg_
@@ -292,6 +271,7 @@ __do_exit_with_msg_::
 	mov ah, 40h
 	int 21h
 L7:
+ endif
 	xor eax, eax
 	mov edx,FINI_PRIORITY_EXIT - 1
 	call __FiniRtns			; call finalizer routines
@@ -300,6 +280,7 @@ L7:
 	mov ah, 4cH 			; DOS call to exit with return code
 	int 21h
 __exit endp
+endif
 
 	align 4
 
@@ -314,10 +295,8 @@ __GETDS proc
 	add eax,8
 	mov ds,eax
 	pop eax
-;	mov ds,cs:__saved_DS	; load saved DS value
 	ret
 ;	align dword
-;__saved_DS dw 0				; DS save area for interrupt routines
 __GETDS endp
 ;__GETDSEnd_ label near
 

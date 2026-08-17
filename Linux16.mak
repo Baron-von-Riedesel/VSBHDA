@@ -33,8 +33,8 @@ endif
 LIB=$(WATCOM)/binl/wlib
 ASM=jwasm
 
-NAME=vsbhda16
-NAME2=sndcard
+NAME=VSBHDA16
+NAME2=SNDCARD
 
 ifeq ($(DEBUG),1)
 OUTD=ow16d
@@ -98,12 +98,12 @@ $(OUTD)/%.obj: src/startup/%.ASM
 $(OUTD)/%.obj: src/startup/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)/$(NAME).exe $(OUTD)/$(NAME2).drv
+all: $(OUTD) $(OUTD)/$(NAME).EXE $(OUTD)/$(NAME2).DRV
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)/$(NAME).exe: $(OUTD)/$(NAME).lib $(OUTD)/CSTRT16X.obj $(OUTD)/INIT1632.obj
+$(OUTD)/$(NAME).EXE: $(OUTD)/$(NAME).lib $(OUTD)/CSTRT16X.obj $(OUTD)/INIT1632.obj
 	@$(LINK) \
 format dos \
 file $(OUTD)/INIT1632.obj, $(OUTD)/CSTRT16X.obj, $(OUTD)/MAIN.obj name $@ \
@@ -112,7 +112,7 @@ lib $(OUTD)/$(NAME).lib \
 op q,statics,m=$(OUTD)/$(NAME).map \
 disable 80
 
-$(OUTD)/$(NAME2).drv: $(OUTD)/$(NAME2).lib $(OUTD)/DSTRT16X.obj $(OUTD)/AUEXP16.obj
+$(OUTD)/$(NAME2).DRV: $(OUTD)/$(NAME2).lib $(OUTD)/DSTRT16X.obj $(OUTD)/AUEXP16.obj
 	@$(LINK) \
 format dos \
 file $(OUTD)/DSTRT16X.obj, $(OUTD)/AUEXP16.obj name $@ \
@@ -193,8 +193,8 @@ $(OUTD)/RMWRAP.obj:    src/RMWRAP.ASM src/RMCODE1.ASM src/RMCODE2.ASM
 clean:
 	@rm -f $(OUTD)/$(NAME).lib
 	@rm -f $(OUTD)/$(NAME2).lib
-	@rm -f $(OUTD)/$(NAME).exe
-	@rm -f $(OUTD)/$(NAME2).drv
+	@rm -f $(OUTD)/$(NAME).EXE
+	@rm -f $(OUTD)/$(NAME2).DRV
 	@rm -f $(OUTD)/*.obj
 	@rm -f $(OUTD)/*.map
 	@rm -f $(OUTD)/*.lst

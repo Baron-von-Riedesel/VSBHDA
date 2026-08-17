@@ -1102,7 +1102,7 @@ static unsigned int hda_calc_stream_format( struct audioout_info_s *aui, struct 
 		aui->freq_card = card->supported_max_freq;
 
 	for(i = 0; rate_bits[i].hz; i++)
-		/* update freq_card with the first supported value thats >= current freq_card */
+		/* update freq_card with the first supported value that's >= current freq_card */
 		if( (aui->freq_card <= rate_bits[i].hz) && (card->supported_formats & ( 1 << i ))) {
 			aui->freq_card = rate_bits[i].hz;
 			val = rate_bits[i].hda_fmt;

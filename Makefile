@@ -57,7 +57,7 @@ LINK=$(WATCOM)\binnt\wlink.exe
 FMTHX=
 !endif
 
-NAME=vsbhda
+NAME=VSBHDA
 
 !if $(DEBUG)
 OUTD=owd
@@ -121,21 +121,20 @@ all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD16)\$(NAME)16.exe
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrtdhx.obj
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).lib $(OUTD)\cstrtdhx.obj
 	@$(LINK) @<<
 format win pe $(FMTHX) runtime console
-file $(OUTD)\cstrtdhx, $(OUTD)\main, $(OUTD)\linear
-name $@
+file $(OUTD)\cstrtdhx, $(OUTD)\main, $(OUTD)\linear name $*.EXE
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $(OUTD)\$(NAME).lib
 op q,m=$(OUTD)\$(NAME).map,stub=res\loadpero.bin,stack=0x10000,heap=0x1000
 $(CONSTATTR) $(CONST2ATTR)
 <<
 !if !$(USEJWL)
-	@res\patchpe $*.exe
+	@res\patchpe $*.EXE
 !endif
 
-$(OUTD16)\$(NAME)16.exe: .always
+$(OUTD16)\$(NAME)16.EXE: .always
 	@wmake -h -f OW16.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
@@ -198,7 +197,7 @@ $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 
 clean: .SYMBOLIC
 	@wmake -h -f OW16.mak debug=$(DEBUG) clean
-	@del $(OUTD)\$(NAME).exe
+	@del $(OUTD)\$(NAME).EXE
 	@del $(OUTD)\$(NAME).lib
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\rmcode?.bin

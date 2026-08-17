@@ -235,7 +235,6 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 	aui->chan_card = outchannels;
 	aui->bits_card = bits;
 	aui->card_wave_id = WAVEID_PCM_SLE; // integer pcm
-	aui->bytespersample_card = 0;
 
 	if( aui->card_handler->card_setrate )
 		aui->card_handler->card_setrate(aui);
@@ -243,8 +242,7 @@ int FAREXP AU_setrate( struct audioout_info_s *aui, int freq, int outchannels, i
 	if(aui->card_wave_id == WAVEID_PCM_FLOAT)
 		aui->bytespersample_card = 4;
 	else
-		if(!aui->bytespersample_card) // card haven't set it (not implemented in the au_mixer yet!: bits/8 !=bytespersample_card)
-			aui->bytespersample_card = (aui->bits_card + 7) / 8;
+		aui->bytespersample_card = ((aui->bits_card > 16) ? 4 : aui->bits_card >> 3 );
 
 	//aui->card_ctrlbits |= AUI_CARDCTRLBIT_DMACLEAR;  /* triggers running AU_clearbuffs(); v2.0: obsolete */
 
@@ -513,7 +511,7 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
 
 /* functions AU_cardbuf_space() and AU_writedata() handle the hardware ring buffer:
  * - AU_cardbuf_space calculates the "free" space in the ring buffer (= aui->card_dmaspace, in byte units)
- * - AU_writedata writes into free space and updates aui->card_dmaspace and the write pointer (= aui->card_dmalastput)
+ * - AU_writedata writes into free space and updates the write pointer (= aui->card_dmalastput)
  */
 
 #define BUFFER_PROTECTION_BYTES 32 /* SB PCI cards need this adjustment */
@@ -562,7 +560,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	return aui->card_dmaspace;
 }
 
-/* AU_writedata(): calls card's writedata() and updates card_dmalastput (also card_dmaspace). */
+/* AU_writedata(): calls card's writedata() and updates ring buffer's write pointer (=card_dmalastput). */
 
 int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int samples )
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -578,17 +576,26 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int 
 	else
 		space = aui->card_dmaspace;
 
+#if 0 /* v2.0: no need for a loop */
 	while ( ( space >= aui->card_bytespersign ) && outbytes_left ) {
-
 		unsigned int outbytes_putblock = min( space, outbytes_left);
 		aui->card_handler->cardbuf_writedata( aui, pData, outbytes_putblock );
 		pData         += outbytes_putblock;
 		outbytes_left -= outbytes_putblock;
 		space         -= outbytes_putblock;
-		aui->card_dmaspace -= outbytes_putblock; /* not really needed to update this var */
+		aui->card_dmaspace -= outbytes_putblock; /* update of card_dmaspace isn't needed */
 		aui->card_dmalastput += outbytes_putblock;
 		aui->card_dmalastput %= aui->card_dmasize;
 	}
+#else
+	space = min( space, outbytes_left);
+	aui->card_handler->cardbuf_writedata( aui, pData, space );
+	aui->card_dmaspace -= space; /* update of card_dmaspace isn't needed */
+	aui->card_dmalastput += space;
+	aui->card_dmalastput %= aui->card_dmasize;
+	outbytes_left -= space; /* adjust return value; it's ignored! */
+#endif
+
 #ifdef DMABUFFLOG
 	dbgprintf(("AU_writedata(%u): exit, card_dmalastput new/old=%X/%X card_dmaspace=%X\n", samples, aui->card_dmalastput, old_card_dmalastput, aui->card_dmaspace ));
 #endif

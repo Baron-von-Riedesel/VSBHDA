@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
     /* if -? or unrecognised option was entered, display help and exit */
     if( gm.bHelp ) {
         gm.bHelp = false;
-        printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Usage:\n");
+        printf("VSBHDA v" VERMAJOR "." VERMINOR "; Sound Blaster emulation on HDA/AC97. Options:\n");
 
         for( i = 0; GOptions[i].option; i++ ) {
             char *tmp;

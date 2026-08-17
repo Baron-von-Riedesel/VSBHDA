@@ -40,8 +40,8 @@ LINK=$(WATCOM)\binnt\wlink.exe
 LIB=$(WATCOM)\binnt\wlib.exe
 ASM=jwasm.exe
 
-NAME=vsbhda16
-NAME2=sndcard
+NAME=VSBHDA16
+NAME2=SNDCARD
 
 !if $(DEBUG)
 OUTD=ow16d
@@ -104,25 +104,25 @@ LIBS=
 {src\startup}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)\$(NAME).exe $(OUTD)\$(NAME2).drv
+all: $(OUTD) $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME2).DRV
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)\$(NAME).exe: $(OUTD)\$(NAME).lib $(OUTD)\cstrt16x.obj $(OUTD)\init1632.obj
+$(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).lib $(OUTD)\cstrt16x.obj $(OUTD)\init1632.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\init1632.obj, $(OUTD)\cstrt16x.obj, $(OUTD)\main.obj name $@
+file $(OUTD)\init1632.obj, $(OUTD)\cstrt16x.obj, $(OUTD)\main.obj name $*.EXE
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $*.lib
 op q,statics,m=$*.map
 disable 80
 <<
 
-$(OUTD)\$(NAME2).drv: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj $(OUTD)\auexp16.obj
+$(OUTD)\$(NAME2).DRV: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj $(OUTD)\auexp16.obj
 	@$(LINK) @<<
 format dos 
-file $(OUTD)\dstrt16x.obj,$(OUTD)\auexp16.obj name $@
+file $(OUTD)\dstrt16x.obj,$(OUTD)\auexp16.obj name $*.DRV
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $*.lib
 op q,statics,m=$*.map
@@ -201,8 +201,8 @@ $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).lib
 	@del $(OUTD)\$(NAME2).lib
-	@del $(OUTD)\$(NAME).exe
-	@del $(OUTD)\$(NAME2).drv
+	@del $(OUTD)\$(NAME).EXE
+	@del $(OUTD)\$(NAME2).DRV
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst

@@ -41,7 +41,7 @@ LINK=$(WATCOM)/binl/wlink
 FMTHX=
 endif
 
-NAME=vsbhda
+NAME=VSBHDA
 
 ifeq ($(DEBUG),1)
 OUTD=owd
@@ -101,12 +101,12 @@ $(OUTD)/%.obj: src/hw/%.C
 $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -D?MODEL=flat $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
-all: $(OUTD) $(OUTD)/$(NAME).exe $(OUTD16)/$(NAME)16.exe
+all: $(OUTD) $(OUTD)/$(NAME).EXE $(OUTD16)/$(NAME)16.EXE
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)/$(NAME).exe: $(OUTD)/$(NAME).lib $(OUTD)/CSTRTDHX.obj
+$(OUTD)/$(NAME).EXE: $(OUTD)/$(NAME).lib $(OUTD)/CSTRTDHX.obj
 	@$(LINK) \
 format win pe $(FMTHX) runtime console \
 file $(OUTD)/CSTRTDHX.obj, $(OUTD)/MAIN.obj, $(OUTD)/LINEAR.obj \
@@ -116,7 +116,7 @@ lib $(OUTD)/$(NAME).lib \
 op q,m=$(OUTD)/$(NAME).map,stub=res/LOADPERO.BIN,stack=0x10000,heap=0x1000 \
 $(CONSTATTR) $(CONST2ATTR)
 
-$(OUTD16)/$(NAME)16.exe:
+$(OUTD16)/$(NAME)16.EXE:
 	@make -f Linux16.mak DEBUG=$(DEBUG) WATCOM=$(WATCOM) USE19=$(USE19) USEJWL=$(USEJWL)
 
 $(OUTD)/$(NAME).lib: $(OBJFILES)
@@ -181,5 +181,5 @@ clean:
 	@make -f Linux16.mak DEBUG=$(DEBUG) clean
 	@rm -f $(OUTD)/*.obj
 	@rm -f $(OUTD)/$(NAME).lib
-	@rm -f $(OUTD)/$(NAME).exe
+	@rm -f $(OUTD)/$(NAME).EXE
 	@rm -f $(OUTD)/rmcode?.bin

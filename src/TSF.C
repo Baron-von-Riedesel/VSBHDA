@@ -61,7 +61,7 @@ static void tsfimpl_free(void* ptr)
         return;
     handle = *((size_t*)(ptr) - 1);
 #if ALLOCOPT
-    if ( handle =! -1 )
+    if ( handle != -1 )
 #endif
         __dpmi_free_memory(handle);
     //dbgprintf(("tsfimpl_free(%X)\n", handle ));
