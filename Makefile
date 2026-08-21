@@ -86,7 +86,7 @@ OBJFILES = &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/cv1to2.obj		$(OUTD)/strtol.obj
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -152,7 +152,6 @@ $(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
-$(OUTD)/cv1to2.obj:    src\cv1to2.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm

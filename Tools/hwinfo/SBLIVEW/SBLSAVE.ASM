@@ -1,5 +1,5 @@
 
-;--- save/load SB Live/Audigy register contents.
+;--- save/load SB Live/Audigy register contents - experimental!
 
 	.286
 	.MODEL small

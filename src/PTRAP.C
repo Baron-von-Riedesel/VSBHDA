@@ -30,6 +30,9 @@
 #if VMPU
 #include "VMPU.H"
 #endif
+#if IRQONPORTACC
+extern void SNDISR_IrqOnPortAcc( void );
+#endif
 
 #define DOSMEMSTART 0x60 /* offset in PSP, bits 0-3 must be zero */
 #define HDPMI_MAXRANGE 8 /* hdpmi is restricted to 8 port ranges */
@@ -158,6 +161,15 @@ static void RM_TrapHandler( __dpmi_regs * regs)
         if( PortTable[i] == port ) {
             regs->h.al = PortHandler[i]( port, regs->h.al, regs->x.cx );
             regs->x.flags &= ~CPU_CFLAG; /* clear carry flag, indicates that access was handled */
+#if IRQONPORTACC
+            /* give the sound HW interrupt a chance to be triggered if:
+             * + interrupts disabled and OUT instr is emulated
+             * + port access isn't ISA DMA or PIC
+             * + no DSP DMA op is running
+             */
+            if ( ((regs->x.cx & TRAPF_IF) == TRAPF_OUT) && port >= 0x100 && !VSB_Running() )
+                SNDISR_IrqOnPortAcc();
+#endif
             return;
         }
     }

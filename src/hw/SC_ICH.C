@@ -36,6 +36,7 @@
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 
+#define SETUPIRQ 0 /* 1=set PCI irq to 11 if not defined - v2.0: obsolete */
 #define PCIR_CFG 0x41 // ICH4-7
 
 #define RETPOS 0 /* v2.0: 1=return position, 0=return space */
@@ -121,10 +122,10 @@ struct intel_card_s {
     struct cardmem_s dm; /* XMS memory struct */
     struct bd_s *virtualpagetable;  /* must be aligned to sizeof(struct bd_s) */
     char *pcmout_buffer;
-    long pcmout_bufsize;
+    unsigned int pcmout_bufsize;
 
     unsigned int periods; /* v2.0: # of periods */
-    unsigned int period_size_bytes;
+    unsigned int period_size;
     unsigned char last_civ; /* v2.0 */
 
     unsigned char vra;
@@ -225,7 +226,7 @@ static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_
 	/* for ICH, periods should be max 32 */
 	card->periods = min(ICH_DMABUF_PERIODS,(aui->gvars->buffers > 1) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT);
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN );
 
 	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
@@ -282,10 +283,10 @@ static void ich_chip_init(struct intel_card_s *card)
 
 	//ich_codec_read( card, 0); // clear semaphore flag (removed for ICH0)
 	ich_write_8( card, ICH_PO_CR, ICH_PO_CR_RESET); // reset channels
-#if 1 //def SBEMU
+
 	//pds_delay_10us(2000);
 	//ich_write_8( card, ICH_PO_CR, /*ICH_PO_CR_LVBIE*/ICH_PO_CR_IOCE );
-#endif
+
 	/* v1.7: support for SiS 7012 */
 	card->sr_reg = ICH_PO_SR;
 	if ( card->device_type == DEVICE_SIS ) {
@@ -349,7 +350,7 @@ static void ich_prepare_playback( struct intel_card_s *card, struct audioout_inf
 	unsigned int i,cmd,retry;
 	unsigned short codecdata, spdif_rate;
 
-	dbgprintf(("ich_prepare playback: enter, period_size_bytes=%d\n",card->period_size_bytes));
+	dbgprintf(("ich_prepare playback: enter, period_size=%d\n",card->period_size));
 
 	// wait until DMA stopped ???
 	for ( retry = ICH_DEFAULT_RETRY; retry; retry-- ) {
@@ -400,9 +401,9 @@ static void ich_prepare_playback( struct intel_card_s *card, struct audioout_inf
 
 	/* v1.7: support for SiS 7012 */
 	for( i = 0; i < ICH_DMABUF_PERIODS; i++ ) {
-		int ofs = ( i * card->period_size_bytes ) % aui->card_dmasize;
+		int ofs = ( i * card->period_size ) % aui->card_dmasize;
 		(card->virtualpagetable+i)->address = pds_cardmem_physicalptr(card->dm, card->pcmout_buffer + ofs );
-		(card->virtualpagetable+i)->size    = (card->device_type == DEVICE_SIS ) ? card->period_size_bytes : card->period_size_bytes >> 1;
+		(card->virtualpagetable+i)->size    = (card->device_type == DEVICE_SIS ) ? card->period_size : card->period_size >> 1;
 		(card->virtualpagetable+i)->flags   = ICH_BD_IOC;
 	}
 	ich_write_32(card,ICH_PO_BDBAR, pds_cardmem_physicalptr(card->dm,(void *)card->virtualpagetable));
@@ -452,7 +453,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	if(pcibios_search_devices(ich_devices,&card->pci_dev) != PCI_SUCCESSFUL)
 		goto err_adetect;
 
-#if 1 //def SBEMU
+#if 1
 	if( card->pci_dev.device_type == DEVICE_INTEL_ICH4567 ) {
 		/*
 		 * enable legacy IO space; makes values at ofs 04h/10h/14h R/W.
@@ -514,7 +515,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 
 	//aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	aui->card_irq = card->pci_dev.bIrq;
-#if 1
+#if SETUPIRQ
 	/* if no interrupt assigned, assign #11?
 	 * Also a doubtful action - BIOS should know better what IRQs are to be used.
 	 * Probably it's better to just display an error -
@@ -580,10 +581,10 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN);
+	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
+	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	/* v2.0: variable # of periods */
-	card->period_size_bytes = dmabufsize / card->periods;
+	card->period_size = dmabufsize / card->periods;
 
 	ich_prepare_playback(card,aui);
 	dbgprintf(("ICH_setrate() exit\n"));
@@ -662,11 +663,11 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 	pcmpos = readpicb( card );
 
 #ifdef _DEBUG
-	if ( pcmpos != card->period_size_bytes )
+	if ( pcmpos != card->period_size )
 		dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 #endif
 
-	if( !pcmpos || pcmpos > card->period_size_bytes ) {
+	if( !pcmpos || pcmpos > card->period_size ) {
 		if( ich_read_8(card,ICH_PO_LVI) == index ) {
 			//aui->card_infobits |= AUI_CARDINFOBIT_DMAUNDERRUN;
 			dbgprintf(("ICH_getbufpos: DMA underrun pcmpos=0x%X\n",pcmpos));
@@ -674,9 +675,9 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 		pcmpos = 0;
 	}
 
-	pcmpos = card->period_size_bytes - pcmpos;
+	pcmpos = card->period_size - pcmpos;
 
-	bufpos = index * card->period_size_bytes + pcmpos;
+	bufpos = index * card->period_size + pcmpos;
 
 	//dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 
@@ -705,19 +706,19 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 
 	index2 = ( index - 1) % ICH_DMABUF_PERIODS;
 
-	space = card->period_size_bytes - ( aui->card_dmalastput % card->period_size_bytes );
+	space = card->period_size - ( aui->card_dmalastput % card->period_size );
 
 	/* if interrupts were disabled, sound IRQs may have got lost... */
 	if ( card->last_civ != index2 ) {
 		i = index2 - card->last_civ;
 		if ( i < 0 ) i += ICH_DMABUF_PERIODS;
-		space += card->period_size_bytes * i;
+		space += card->period_size * i;
 	}
 
 	/* has the buffers description table to be set dynamically? */
 	if ( ICH_DMABUF_PERIODS % card->periods ) {
 		unsigned int ofs;
-		ofs = ( aui->card_dmalastput % aui->card_dmasize ) & ~( card->period_size_bytes - 1 );
+		ofs = ( aui->card_dmalastput % aui->card_dmasize ) & ~( card->period_size - 1 );
 		(card->virtualpagetable+index)->address = pds_cardmem_physicalptr(card->dm, card->pcmout_buffer + ofs );
 	}
 

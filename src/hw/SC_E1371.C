@@ -469,8 +469,8 @@ static unsigned int es1371_buffer_init( struct ensoniq_card_s *card, struct audi
 //////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	/* v1.7: use /PS cmdline option if set */
-	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN );
+	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
 	aui->card_pDmaBuffer = card->pcmout_buffer;
@@ -665,7 +665,6 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 {
 	struct ensoniq_card_s *card = aui->card_private_data;
 	/* v1.7: use /PS cmdline option if set */
-	unsigned int pagesize = aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN;
 
 	dbgprintf(("ES1371_setrate\n"));
 	//aui->card_wave_id = WAVEID_PCM_SLE;
@@ -677,9 +676,8 @@ static void ES1371_setrate( struct audioout_info_s *aui )
 	else if(aui->freq_card > 48000)
 		aui->freq_card = 48000;
 
-	//MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, ES1371_DMABUF_ALIGN, 0);
-	//MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, pagesize, 0);
-	MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, pagesize);
+	//MDma_initbuf(aui, card->pcmout_bufsize, ES1371_DMABUF_ALIGN, 0);
+	MDma_initbuf(aui, card->pcmout_bufsize);
 
 	es1371_prepare_playback(card,aui);
 }

@@ -18,6 +18,8 @@ XS_RATIONAL_NONZEROBASE equ 1
 
 NO87 equ 0
 LFN equ 0	;1=support LFN (here not needed for C)
+DEFINECRTVARS equ 1  ; 1=avoid including OW's crwdata module
+USESTDARGC    equ 0  ; 0=replace OW's argc/argv setup code
 
 DOS_PSP_ENV_SEG equ 2Ch
 if NO87
@@ -42,7 +44,7 @@ endif
 main proto c :dword, :ptr
 
 	externdef c _argc:dword
-	externdef c _argv:ptr
+	externdef c _argv:dword
 
 	externdef c _DSBase   : dword
 ;	externdef __CMain     : near
@@ -105,6 +107,28 @@ _NULL ends
 _AFTERNULL segment dword public 'BEGDATA'
 _AFTERNULL ends
 
+if DEFINECRTVARS
+_DATA   segment dword public 'DATA'
+if DEFINECRTVARS
+ ife USESTDARGC
+_argc      dd 0
+_argv      dd 0
+ endif
+_dynend    dd 0
+_curbrk    dd 0
+_STACKLOW  dd 0
+_STACKTOP  dd 0
+_LpCmdLine dd 0
+_LpPgmName dd 0
+_Envptr    df 0
+_psp       dw 0
+_osmajor   db 0
+_osminor   db 0
+_Extender  db 0
+_ExtenderSubtype db 0
+endif
+_DATA   ends
+endif
 DATA    segment dword public 'DATA'
 DATA    ends
 CONST   segment dword public 'DATA'
@@ -170,6 +194,9 @@ szNoDosExt      db "No DOS-Extender",13,10,0
 
 	.code
 
+ife USESTDARGC
+	include SETARGV.INC
+endif
 ;--- entry: ds,ss=dgroup, es=psp
 
 _cstart_ proc
@@ -364,6 +391,9 @@ endif
 	mov _LpPgmName, esi         ; save program name address
 	mov eax, 0FFH               ; run all initializers
 	call __InitRtns             ; call initializer routines
+ife USESTDARGC
+	call _setargv
+endif
 	push _argv
 	push _argc
 	call main

@@ -25,7 +25,7 @@
 
 //#define AUCARDS_DMABUFSIZE_NORMAL 32768
 #define AUCARDS_DMABUFSIZE_MAX    131072
-#define AUCARDS_DMABUFSIZE_BLOCK  512    /* default page (block) size */
+#define AUCARDS_DMABUFSIZE_BLOCK  512    /* default page (=period) size */
 
 /* alloc physical memory block (it's always an XMS EMB, aligned to 1kB ) */
 
@@ -57,40 +57,38 @@ void MDma_free_cardmem(struct cardmem_s *dm)
 }
 
 /* called by card-specific code during adetect(), before card is initialized.
- * max_bufsize currently is always 0, pagesize usually is "period size" (for SB Live/Audigy, it's always 4096),
+ * maxbufsize currently is always 0, pagesize usually is "period size";
  * the value returned is used by the card driver code to allocate the hardware buffers.
  * v2.0: AUCARDS_DMABUFSIZE_NORMAL obsolete, replaced by /B argument.
  */
 
-unsigned int MDma_get_max_pcmoutbufsize( struct audioout_info_s *aui, unsigned int max_bufsize, unsigned int pagesize )
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+unsigned int MDma_get_bufsize( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize )
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int bufsize;
-	dbgprintf(("MDma_get_max_pcmoutbufsize( max=0x%X, pgsiz=0x%X )\n", max_bufsize, pagesize));
-	if (!max_bufsize)
-		max_bufsize = AUCARDS_DMABUFSIZE_MAX; /* max is 128kB */
+	unsigned int bufsize = (maxbufsize ? maxbufsize : AUCARDS_DMABUFSIZE_MAX);
 	if (!pagesize)
-		pagesize = AUCARDS_DMABUFSIZE_BLOCK; /* =512 */
-	max_bufsize -= max_bufsize % pagesize;
+		pagesize = ( aui->gvars->period_size ? aui->gvars->period_size : AUCARDS_DMABUFSIZE_BLOCK );
+	bufsize -= bufsize % pagesize; /* align */
 	/* v2.0: max buffer size now limited - using the new /B option */
-	//bufsize = ( min(max_bufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
-	bufsize = min( max_bufsize, ((aui->gvars->buffers > 1 ) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT ) * pagesize );
-	dbgprintf(("MDma_get_max_pcmoutbufsize()=0x%X\n", bufsize ));
+	//bufsize = ( min(maxbufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
+	bufsize = min( bufsize, ((aui->gvars->buffers > 1 ) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT ) * pagesize );
+	dbgprintf(("MDma_get_bufsize(max=0x%X,pgsiz=0x%X)=0x%X\n", maxbufsize, pagesize, bufsize));
 	return bufsize;
 }
 
-/* MDma_init_pcmoutbuf() is called by the card_setrate() functions;
- * however, since the rate has no impact anymore on the DMA buffer size,
- * this could be changed now.
- * maxbufsize usually is the value returned by Mdma_get_max_pcmoutbufsize();
+/* MDma_initbuf() is called by the card_setrate() functions;
+ * bufsize usually is the value returned by Mdma_get_bufsize();
+ * v1.9: since the rate has no impact anymore on the DMA buffer size,
+ *       this function has become somewhat obsolete.
+ * v2.0: all checks removed, it's assumed that the card driver uses the value
+ *       returned by MDma_get_bufsize().
  */
-unsigned int MDma_init_pcmoutbuf( struct audioout_info_s *aui, unsigned int maxbufsize, unsigned int pagesize )
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+unsigned int MDma_initbuf( struct audioout_info_s *aui, unsigned int bufsize )
+//////////////////////////////////////////////////////////////////////////////
 {
-	/* card_dmasize must be a multiple of pagesize */
-	aui->card_dmasize = (maxbufsize < (pagesize * 2)) ? pagesize * 2 : (maxbufsize - maxbufsize % pagesize);
-	dbgprintf(("MDma_init_pcmoutbuf(maxbufsize=0x%X pgsize=0x%X): card_dmasize=0x%X\n", maxbufsize, pagesize, aui->card_dmasize ));
-	return aui->card_dmasize;
+	aui->card_dmasize = bufsize;
+	dbgprintf(("MDma_initbuf(bufsize=0x%X)\n", bufsize ));
+	return bufsize;
 }
 
 void MDma_clearbuf( struct audioout_info_s *aui )

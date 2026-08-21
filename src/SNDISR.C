@@ -702,6 +702,22 @@ isrexit:
     return(1);
 }
 
+#if IRQONPORTACC
+/* This function is meant to allow a sound HW IRQ if interrupts are disabled.
+ * It's supposed to be called while trapped FM/MPU ports are handled.
+ */
+void SNDISR_IrqOnPortAcc( void )
+////////////////////////////////
+{
+    uint16_t mask = PIC_GetIRQMask();
+    PIC_SetIRQMask(mask & ~(1 << AU_getirq(isr.hAU)));
+    _enable_ints();
+    _disable_ints();
+    PIC_SetIRQMask(mask);
+    return;
+}
+#endif
+
 /* init sound hw - called by main() */
 
 bool SNDISR_Init( void *hAU, uint16_t vol )

@@ -89,10 +89,10 @@ struct intelhd_card_s {
     unsigned long *corb_buffer;
     unsigned long long* rirb_buffer;
     char          *pcmout_buffer;
-    long          pcmout_bufsize; /* return value of MDma_get_max_pcmoutbufsize() */
-    unsigned long pcmout_dmasize; /* return value of MDma_init_pcmoutbuf() */
+    unsigned int  pcmout_bufsize; /* return value of MDma_get_bufsize() */
+    unsigned int  pcmout_dmasize; /* return value of MDma_initbuf() */
     unsigned int  pcmout_num_periods;
-    unsigned long pcmout_period_size;
+    unsigned int  pcmout_period_size;
     volatile struct HDASTREAM_s *sd;  /* stream descriptor (one playback stream only) */
     unsigned int  format_val; // stream type
     unsigned int  dacout_num_bits;
@@ -214,7 +214,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
 	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
 
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pcmout_period_size );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, card->pcmout_period_size );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize + BDL_SIZE + HDA_CORB_MAXSIZE + HDA_RIRB_MAXSIZE )) return 0;
 	card->table_buffer = (struct BDL_s *)card->dm.pMem;
 	card->corb_buffer = (unsigned long *)((uint32_t)card->table_buffer + BDL_SIZE);
@@ -1475,9 +1475,9 @@ static void HDA_setrate( struct audioout_info_s *aui )
 		card->dacout_num_bits = aui->bits_card;
 
 	card->format_val = hda_calc_stream_format( aui, card); /* may modify aui->freq_card */
-	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
-	//card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size, 0);
-	card->pcmout_dmasize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->pcmout_period_size );
+	//card->pcmout_dmasize = MDma_initbuf( aui, card->pcmout_bufsize, AZX_PERIOD_SIZE, 0);
+	//card->pcmout_dmasize = MDma_initbuf( aui, card->pcmout_bufsize, card->pcmout_period_size, 0);
+	card->pcmout_dmasize = MDma_initbuf( aui, card->pcmout_bufsize );
 	dbgprintf(("HDA_setrate: freq_card=%u, chan_card=%u, bits_card=%u\n", aui->freq_card, aui->chan_card, aui->bits_card ));
 
 	azx_setup_periods( card );

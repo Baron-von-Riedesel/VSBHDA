@@ -225,7 +225,7 @@ static void snd_live24_hw_close( struct emu10k1_card *card)
 static unsigned int snd_live24_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN );
 	if (! MDma_alloc_cardmem(&card->dm, CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize) ) return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t);
@@ -326,8 +326,8 @@ static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_
 		}
 
 	/* v1.7: use /PS value if set */
-	//dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
-	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN);
+	//dmabufsize = MDma_initbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
+	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	//card->period_size = (dmabufsize / CA0106_DMABUF_PERIODS);
 	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / CA0106_DMABUF_PERIODS);
 	dbgprintf(("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));

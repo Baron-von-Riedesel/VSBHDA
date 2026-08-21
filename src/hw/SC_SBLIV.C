@@ -906,8 +906,8 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 	dbgprintf(("snd_emu10kx_buffer_init enter\n"));
 	card->period_size = ( aui->gvars->period_size ? aui->gvars->period_size : 512 );
 	/* v2.0: use real period size */
-	//card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, EMUPAGESIZE, 2 );
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->period_size );
+	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, EMUPAGESIZE, 2 );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, card->period_size );
 	if (! MDma_alloc_cardmem( &card->dm, MAXPAGES * sizeof(uint32_t)  // virtualpage
 							 + EMUPAGESIZE					// silentpage
 							 + card->pcmout_bufsize 		// pcm output
@@ -962,10 +962,10 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	}
 #endif
 
-	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE, 0 );
+	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, EMUPAGESIZE, 0 );
 	/* v2.0: use real period size */
-	//dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, EMUPAGESIZE );
-	dmabufsize = MDma_init_pcmoutbuf( aui, card->pcmout_bufsize, card->period_size );
+	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, EMUPAGESIZE );
+	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 #if RATECHK
 	/* v1.7: exclude 22050 and 11025 from 48k sampling as well ! */
 	//if ( aui->freq_card == 44100 )
@@ -1131,7 +1131,7 @@ static unsigned int snd_p16v_selector( struct emu10k1_card *card, struct audioou
 static unsigned int snd_p16v_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize(aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem(&card->dm, AUDIGY2_P16V_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize))
 		return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
@@ -1195,8 +1195,8 @@ static void snd_p16v_setrate( struct emu10k1_card *card, struct audioout_info_s 
 					aui->freq_card = 192000;
 		}
 
-	//dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN,0);
-	dmabufsize = MDma_init_pcmoutbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN);
+	//dmabufsize = MDma_initbuf(aui,card->pcmout_bufsize,aui->gvars->period_size ? aui->gvars->period_size : AUDIGY2_P16V_DMABUF_ALIGN,0);
+	dmabufsize = MDma_initbuf( aui,card->pcmout_bufsize );
 	//card->period_size = (dmabufsize / AUDIGY2_P16V_PERIODS);
 	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / AUDIGY2_P16V_PERIODS);
 	dbgprintf(("snd_p16v_setrate: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));

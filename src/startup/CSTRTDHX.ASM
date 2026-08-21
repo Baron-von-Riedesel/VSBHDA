@@ -66,11 +66,13 @@ endif
 if LFN
 FLG_LFN         equ 1
 endif
+DEFINECRTVARS equ 1  ; 1=avoid including OW's crwdata module
+USESTDARGC    equ 0  ; 0=replace OW's argc/argv setup code
 
 main proto c :dword, :ptr
 
 	externdef c _argc:dword
-	externdef c _argv:ptr
+	externdef c _argv:dword
 
 ;	externdef __CMain : near
 	externdef __InitRtns : near
@@ -95,11 +97,11 @@ if LFN
 endif
 	externdef c _Extender : byte
 	externdef c _ExtenderSubtype : byte
-	externdef c _Envptr : fword
+	externdef c _Envptr : dword
 ;	externdef c _Envseg : word
 ;	externdef c __FPE_handler : dword
-	externdef c _LpCmdLine : dword
-	externdef c _LpPgmName : dword
+;	externdef c _LpCmdLine : dword
+;	externdef c _LpPgmName : dword
 
 	public __do_exit_with_msg_
 	public __do_exit_with_msg__	; needed for OW v1.9
@@ -124,6 +126,24 @@ _AFTERNULL ends
 
 _DATA segment
 __saved_DS	dd 0	; saved DS for interrupt routines
+if DEFINECRTVARS
+ ife USESTDARGC
+_argc      dd 0
+_argv      dd 0
+ endif
+_dynend    dd 0
+_curbrk    dd 0
+_STACKLOW  dd 0
+_STACKTOP  dd 0
+_LpCmdLine dd 0
+_LpPgmName dd 0
+;_Envptr    dd 0
+_psp       dw 0
+_osmajor   db 0
+_osminor   db 0
+_Extender  db 0
+_ExtenderSubtype db 0
+endif
 _DATA ends
 
 DATA    segment dword public 'DATA'
@@ -160,6 +180,10 @@ szMSDOS         db      "MS-DOS",0
 szNoDosExt      db      "No DOS-Extender",13,10,0
 
 	.code
+
+ife USESTDARGC
+	include SETARGV.INC
+endif
 
 _cstart_ proc
 
@@ -213,8 +237,6 @@ dosext:
 	mov ds, ebx
 	mov bx,ds:[DOS_PSP_ENV_SEG] 	; get environment selector
 	pop ds
-;	mov al,X_HX
-;	mov al,X_RATIONAL
 	mov al,0
 	mov ah,0				; meaning "zero-based"
 	mov _Extender,al		; record extender type
@@ -222,8 +244,11 @@ dosext:
 	mov __saved_DS,ds		; save DS value
 	mov ax,6
 	int 31h
-	mov word ptr [_Envptr+0], dx
-	mov word ptr [_Envptr+2], cx
+	push cx
+	push dx
+	pop esi
+;	mov word ptr [_Envptr+0], dx
+;	mov word ptr [_Envptr+2], cx
 ;
 ;--- convert cmdline to asciiz format
 ;
@@ -244,7 +269,7 @@ dosext:
 ;--- get pgmname in environment
 ;
 	cld
-	mov esi,dword ptr [_Envptr]
+;	mov esi,[_Envptr]
 if LFN
 	mov bx,FLG_LFN*256		; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 elseif NO87
@@ -308,8 +333,11 @@ endif
 
 	mov eax,0FFH			; run all initializers
 	call __InitRtns			; call initializer routines
-	push _argv
-	push _argc
+ife USESTDARGC
+	call _setargv
+endif
+	push [_argv]
+	push [_argc]
 	call main
 _cstart_ endp ; fall thru
 

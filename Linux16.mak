@@ -60,7 +60,7 @@ OBJFILES = \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DJDPMI.obj		$(OUTD)/UNINST.obj		$(FMOBJS) \
 	$(OUTD)/AUIMP16.obj		$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj \
-	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/CV1TO2.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj
+	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj
 
 OBJFILES2 = \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
@@ -142,7 +142,6 @@ $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
-$(OUTD)/CV1TO2.obj:    src/CV1TO2.ASM
 $(OUTD)/DJDPMI.obj:    src/DJDPMI.ASM
 $(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
 $(OUTD)/FILEACC.obj:   src/FILEACC.ASM

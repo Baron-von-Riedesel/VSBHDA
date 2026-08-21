@@ -29,6 +29,7 @@
 #include "PCIBIOS.H"
 #include "AC97.H"
 
+#define SETUPIRQ 0  /* 1=set PCI irq to 10 if not defined - v2.0: obsolete */
 #define SETPCMVOL 0 /* 1=PCM/HP vol depending on /VOL, 0=PCM/HP vol max */
 
 #if SETPCMVOL
@@ -177,19 +178,19 @@
 
 struct via82xx_card
 {
-    unsigned long   iobase;
-    unsigned short  model;
+    unsigned long  iobase;
+    unsigned short model;
     //unsigned int    irq; /* v2.0: obsolete */
-    unsigned char   chiprev;
-    struct pci_config_s pci_dev;
-    struct cardmem_s dm;
+    unsigned char  chiprev;
+    struct         pci_config_s pci_dev;
+    struct         cardmem_s dm;
     unsigned long *virtualpagetable;
-    char *pcmout_buffer;
-    long pcmout_bufsize;
-    int pcmout_pages;
-    int pagesize; /* v1.7 */
+    char          *pcmout_buffer;
+    unsigned int   pcmout_bufsize;
+    int            pcmout_pages;
+    int            period_size; /* v1.7 */
 #ifdef _DEBUG
-    int config; /* to test multiple configurations */
+    int            config; /* to test multiple configurations */
 #endif
 };
 
@@ -335,7 +336,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID);
 	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);
 	aui->card_irq = card->pci_dev.bIrq;
-#if 1 /* modifying the IRQ if not set? Better fix is to set PnP-OS to NO in BIOS setup */
+#if SETUPIRQ
 	if (aui->card_irq == 0 || aui->card_irq == 0xFF) {
 		printf("VIA82XX_adetect: no IRQ set, setting to 10\n");
 		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 10);
@@ -345,8 +346,8 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	dbgprintf(("VIA82XX_adetect: model=%s, revision=%X, irq=%d\n",card->pci_dev.device_name ? card->pci_dev.device_name : "<unknown>", card->chiprev, aui->card_irq));
 
 	/* v1.7: use /PS cmdline value if available */
-	card->pagesize = ( aui->gvars->period_size ? aui->gvars->period_size : PCMBUFFERPAGESIZE );
-	card->pcmout_bufsize = MDma_get_max_pcmoutbufsize( aui, 0, card->pagesize );
+	card->period_size = ( aui->gvars->period_size ? aui->gvars->period_size : PCMBUFFERPAGESIZE );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, card->period_size );
 	if (!MDma_alloc_cardmem( &card->dm, VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 )) return 0;
 
 	card->virtualpagetable = (void *)(((uint32_t)card->dm.pMem + 4095) & (~4095));
@@ -408,12 +409,12 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	//aui->bits_card = 16;
 	//aui->card_wave_id = WAVEID_PCM_SLE;
 
-	//dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize, 0);
-	dmabufsize = MDma_init_pcmoutbuf(aui, card->pcmout_bufsize, card->pagesize);
+	//dmabufsize = MDma_initbuf(aui, card->pcmout_bufsize, card->period_size, 0);
+	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 
 	// page tables
 	//card->pcmout_pages = dmabufsize / PCMBUFFERPAGESIZE;
-	card->pcmout_pages = dmabufsize / card->pagesize;
+	card->pcmout_pages = dmabufsize / card->period_size;
 	pcmbufp = (unsigned long)card->pcmout_buffer;
 	dbgprintf(("VIA82XX_setrate: PCM pages=%u\n", card->pcmout_pages));
 
@@ -422,8 +423,8 @@ static void VIA82XX_setrate(struct audioout_info_s *aui)
 	 */
 	for ( pagecount = 0; pagecount < card->pcmout_pages; pagecount++) {
 		card->virtualpagetable[pagecount * 2 + 0] = pds_cardmem_physicalptr(card->dm,pcmbufp);
-		card->virtualpagetable[pagecount * 2 + 1] = card->pagesize | ( pagecount == (card->pcmout_pages - 1) ? VIA_TBL_BIT_EOL : VIA_TBL_BIT_FLAG );
-		pcmbufp += card->pagesize;
+		card->virtualpagetable[pagecount * 2 + 1] = card->period_size | ( pagecount == (card->pcmout_pages - 1) ? VIA_TBL_BIT_EOL : VIA_TBL_BIT_FLAG );
+		pcmbufp += card->period_size;
 	}
 
 	// ac97 config
@@ -520,7 +521,7 @@ static unsigned int VIA82XX_getbufpos(struct audioout_info_s *aui)
 	}
 	count &= 0xffffff;
 
-	bufpos = (idx * card->pagesize) + card->pagesize - count;
+	bufpos = (idx * card->period_size) + card->period_size - count;
 	return bufpos;
 }
 

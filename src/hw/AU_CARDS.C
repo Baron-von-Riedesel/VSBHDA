@@ -82,11 +82,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 		dbgprintf(("AU_init: out of memory\n"));
 		return(NULL);
 	}
-	/* 65535=maxbufsize, 4608=pagesize? 2=samplesize */
-	//aui->card_dmasize = MDma_get_max_pcmoutbufsize( aui, 0x10000-1, 0x1200, 2, 0);
 	/* v1.7: global settings can be accessed directly - card_select_ variables removed */
-	//aui->card_select_devicenum = gvars->device;
-	//aui->card_select_config = gvars->pin;
 	aui->gvars = gvars;
 
 	for ( i = 0; i < NUMCARDS; i++ ) {

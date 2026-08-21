@@ -16,10 +16,12 @@
 #define SOUNDFONT 1   /* 1=support soundfonts if VMPU is on */
 #define PT0V86    1   /* 1=support read access to v86 page table 0 */
 #define HOSTRT    0   /* 0=protect SB irq, so it's not modified by programs; must match setting in SBISR.ASM */
+#define IRQONPORTACC 0 /* v2.0: 1=allow hw sound IRQs when IF==0 */
 
-#define HW_CHANNELS 2
+#define HW_FREQ_DEFAULT 22050 /* default value for /F */
+#define HW_CHANNELS 2         /* must be 2 */
 #define HW_BITS 16
-#define HW_BUFFERS_DEFAULT 8 /* v2.0 */
+#define HW_BUFFERS_DEFAULT 8  /* v2.0; default value for /B */
 
 #if SOUNDFONT
 #define VOICES_DEFAULT 64

@@ -115,7 +115,7 @@ NULL, /* /SF: */
 VOICES_DEFAULT, /* /MV */
 #endif
 0, /* CF */
-22050,  /* frequency */
+HW_FREQ_DEFAULT,  /* frequency */
 };
 
 static const struct {

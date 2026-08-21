@@ -32,7 +32,7 @@ void VSB_Init(int irq, int dma, int hdma, int DSPVer, void *hAU );
 uint8_t VSB_GetIRQ( void );
 int VSB_GetDMA( void );
 //int VSB_GetHDMA( void );
-int VSB_Running( void );
+int VSB_Running( void ); /* DSP op running? ( either DMA cmd or "Emit Silence") */
 void VSB_Stop( void );
 
 //int VSB_GetDACSpeaker( void );

@@ -96,17 +96,17 @@
    /P or /T, are similar to the settings of the BLASTER environment variable
    ( this variable is NOT altered by VSBHDA ). The others are:
 
+     /VOL    : Set master volume
      /OPL    : Set OPL3 emulation
      /PM     : Set protected-mode support
      /RM     : Set real-mode support
      /F      : Set frequency
-     /VOL    : Set master volume
      /B      : Set number of hardware buffers (=periods)
+     /PS     : Set period size
      /BS     : Set resampling buffer size
      /SD     : Set slowdown factor
      /O      : Set output connector (HDA & SB Live/Audigy only)
      /DEV    : Set start index for device scan (HDA only)
-     /PS     : Set period size
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit for MPU synthesizer
      /CF     : Set compatibility flags
@@ -116,16 +116,19 @@
    and /P expect the number to be in hexadecimal, else decimal numbers are
    required.
 
-   - /F: note that if the frequency isn't supported by the codec, it can't be
-     used - that's also true for the default value ( 22050 Hz ). In such cases
-     VSBHDA will use a frequency that is supported AND is at least the value
-     set by /F ( or the default ).
    - /VOL: needs a one-digit value ( /VOL0 - /VOL9 ). This option sets the
      volume of the real sound hardware ( hda, ac97 ).
+   - /F: note that if the frequency isn't supported by the codec, it won't be
+     used - that's also true for the default value ( 22050 Hz ). In such cases
+     VSBHDA will use a frequency that is supported AND is at least the value
+     set by /F ( or the default ). Option /F influences both latency and cpu
+     load.
    - /B: the hardware buffers multiplied with period size gives the total
      amount of the soundcard's PCM buffer (maximum is 128 kB). Increasing this
      value increases latency, but may be needed to avoid distorsion if the
      application disables interrupts for a significant amount of time.
+     For the AC'97 "ICH, NVidia, SiS" family of cards it's not useful to define
+     more than 32 buffers.
    - /PS: "period size" is space (in bytes) for samples rendered during one
      interrupt request. A period size of 512, for example, means that about
      128 samples will be rendered ( since output is always 16-bit, stereo ).

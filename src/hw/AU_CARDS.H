@@ -94,13 +94,13 @@ struct audioout_info_s {
  unsigned char bytespersample_card;
  unsigned char card_irq;
  unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
+ unsigned short card_bytespersign; /* bytespersample_card * chan_card */
  unsigned int  card_ctrlbits;     // card control flags
  unsigned int  card_infobits;     // card info flags
  unsigned int  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
- unsigned int  card_dmalastput;   /* current dma buffer write offset; updated when pcm data is copied to output buffer */
- unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in dmabuff.c & au_cards.c; */
-                                  /* should usually contain period size before writing, 0 afterwards */
- unsigned int  card_bytespersign; /* bytespersample_card * chan_card */
+ unsigned int  card_dmalastput;   /* current dma buffer write offset; updated in AU_writedata() */
+ unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in AU_get_bufpos_space(); */
+                                  /* should usually be set to ~period size if no IRQs got lost */
  char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
 
  const struct sndcard_info_s *card_handler; // function structure of the card
