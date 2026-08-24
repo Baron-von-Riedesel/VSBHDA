@@ -282,8 +282,10 @@
      IRQ number than the emulated SB ( 2, 5 or 7 ). This is currently rejected
      ( it may confuse the emulator ).
 
-   - "Error: no IRQ assigned to sound card": This may happen on some systems
-     if the BIOS setting "Plug & Play OS" has been set to "Yes".
+   - "Error: no IRQ assigned to sound card": This may happen on some systems,
+     perhaps because the BIOS setting "Plug & Play OS" has been set to "Yes".
+     If one knows the correct IRQ, tool PCISND may be used to set it *before*
+     VSBHDA is launched.
 
    - "SB found - probably VSBHDA already installed": a SoundBlaster was
      detected. If it's due to an installed VSBHDA, use UNINST.EXE to remove the

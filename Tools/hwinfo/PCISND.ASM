@@ -154,7 +154,7 @@ szHelp label byte
 	db "Usage:",lf
 	db "PCISND [options]",lf
 	db "options:",lf
-	db " -i<n>: set IRQ if not set yet [n=0-15]",lf
+	db " -i<n>: set IRQ if not set yet [n=0-15]"
 	db 0
 szErr1 db "no PCI BIOS",0
 
@@ -162,7 +162,7 @@ szErr1 db "no PCI BIOS",0
 
 main proc c
 
-	invoke printf, CStr("PCISND v1.0, displays all PCI sound devices.",lf)
+	invoke printf, CStr("PCISND v1.0, displays all PCI sound devices.",lf,lf)
 	call scancmdline
 	cmp bHelp, 1
 	jz help

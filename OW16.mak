@@ -66,7 +66,7 @@ OBJFILES = &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj &
 	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
-	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj
+	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
 
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
@@ -188,6 +188,7 @@ $(OUTD)/getenv.obj:    src\startup\getenv.asm
 $(OUTD)/malloc.obj:    src\startup\malloc.asm
 $(OUTD)/sbrk.obj:      src\startup\sbrk.asm
 $(OUTD)/strtol.obj:    src\startup\strtol.asm
+$(OUTD)/_matherr.obj:  src\startup\_matherr.asm
 $(OUTD)/libmain.obj:   src\startup\libmain.c
 
 # the 16-bit code is included in binary format into rmwrap.asm.

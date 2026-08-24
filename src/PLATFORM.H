@@ -32,6 +32,8 @@ void fpu_restore(void * buffer);
 #define FPU_SRSIZE 108
 static inline void _disable_ints(void) { asm("movw $0x900, %%ax\n\t" "int $0x31" ::: "eax" ); }
 static inline void  _enable_ints(void) { asm("movw $0x901, %%ax\n\t" "int $0x31" ::: "eax" ); }
+static inline void  _settextmode(void) { asm("movw     $3, %%ax\n\t" "int $0x10" ::: "eax" ); }
+static inline void  _clearFSGS(void)   { asm("xor %%eax, %%eax\n\t" "mov %%eax, %%gs\n\t" "mov %%eax, %%fs\n\t" ::: "eax" ); }
 
 #define _my_psp() _go32_info_block.linear_address_of_original_psp
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
@@ -101,6 +103,13 @@ void  _enable_ints(void);
 	parm[] \
 	modify exact [ax]
 #endif
+
+void _settextmode(void);
+#pragma aux _settextmode = \
+    "mov ax, 0003" \
+    "int 10h" \
+    parm[] \
+    modify exact [ax]
 
 unsigned int _my_ds();
 #pragma aux _my_ds = \

@@ -73,8 +73,8 @@ endif
 	externdef c  _ExtenderSubtype   : byte
 	externdef c  _Envptr            : fword
 ;	externdef c  __FPE_handler      : dword
-	externdef c  _LpCmdLine         : dword
-	externdef c  _LpPgmName         : dword
+;	externdef c  _LpCmdLine         : dword
+;	externdef c  _LpPgmName         : dword
 ;	externdef c __GETDSStart_       : near
 ;	externdef c __GETDSEnd_         : near
 
@@ -109,7 +109,6 @@ _AFTERNULL ends
 
 if DEFINECRTVARS
 _DATA   segment dword public 'DATA'
-if DEFINECRTVARS
  ife USESTDARGC
 _argc      dd 0
 _argv      dd 0
@@ -126,7 +125,6 @@ _osmajor   db 0
 _osminor   db 0
 _Extender  db 0
 _ExtenderSubtype db 0
-endif
 _DATA   ends
 endif
 DATA    segment dword public 'DATA'

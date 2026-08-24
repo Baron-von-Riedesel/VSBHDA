@@ -86,7 +86,7 @@ OBJFILES = &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/djdpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -184,6 +184,7 @@ $(OUTD)/getenv.obj:    src\startup\getenv.asm
 $(OUTD)/malloc.obj:    src\startup\malloc.asm
 $(OUTD)/sbrk.obj:      src\startup\sbrk.asm
 $(OUTD)/strtol.obj:    src\startup\strtol.asm
+$(OUTD)/_matherr.obj:  src\startup\_matherr.asm
 
 
 # to avoid any issues with 16-bit relocations in PE binaries,
@@ -199,4 +200,6 @@ clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).EXE
 	@del $(OUTD)\$(NAME).lib
 	@del $(OUTD)\*.obj
+	@del $(OUTD)\*.lst
+	@del $(OUTD)\*.map
 	@del $(OUTD)\rmcode?.bin

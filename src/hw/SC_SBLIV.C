@@ -43,6 +43,7 @@
 #define AUDIGY_PCMVOLUME_DEFAULT  66  // 0-100
 
 #define emu10k1_writefn0(card,reg,data) outpd(card->iobase+reg,data)
+#define emu10k1_readfn0(card,reg) inpd(card->iobase+reg)
 
 #define A_PTR_ADDRESS_MASK 0x0fff0000
 
@@ -112,7 +113,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 	int ch;
 	uint32_t silent_page;
 
-	dbgprintf(("snd_emu10k1_hw_init enter\n"));
+	dbgprintf(("snd_emu10k1_hw_init enter, HCFG=%X\n", emu10k1_readfn0( card, HCFG ) ));
 	// disable audio and lock cache
 	emu10k1_writefn0(card, HCFG, HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
 
@@ -219,6 +220,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 		// Hacks for Alice3 to work independent of haP16V driver
 		uint32_t tmp;
 
+		dbgprintf(("snd_emu10k1_hw_init: 0151, HCFG2=%X\n", emu10k1_readfn0( card, HCFG2 ) ));
 		/* Setup SRCMulti_I2S SamplingRate;
 		 * see snd_emu_set_spdif_freq(), which is called later;
 		 * note: modifies bits 9-11, but in emu10k1.h the relevant
@@ -234,9 +236,10 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 		// Setup SRCMulti Input Audio Enable
 		emu10k1_ptr20_write(card, SRCMULTI_ENABLE, 0, 0xFFFFFFFF);
 
-		/* HCFG2: bit0: 1=enable P16V audio
-		 * bit 9: 1=phased (8-channel) playback
-		 *        0=2 channel playback
+		/* HCFG2
+		 *  bit 0: 1=enable P16V audio
+		 *  bit 9: 1=phased (8-channel) playback
+		 *         0=2 channel playback
 		 */
 		emu10k1_writefn0(card, HCFG2, 1);
 
@@ -281,6 +284,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 		/* v1.8: A_IOCFG is a 16-bit register only. However, this is no real Audigy. */
 		tmp = inpd(card->iobase + A_IOCFG) & ~0x8; // Clear bit 3 (A_IOCFG=0x18)
 		outpd(card->iobase + A_IOCFG, tmp);
+		dbgprintf(("snd_emu10k1_hw_init: 0108, IOCFG=%X\n", tmp ));
 	}
 
 	if (card->chip_select & EMU_CHIPS_10KX) {
@@ -326,7 +330,8 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 		snd_emu10kx_fx_init(card, aui->gvars);
 
 	//Enable the audio bit
-	outpd(card->iobase + HCFG, inpd(card->iobase + HCFG) | HCFG_AUDIOENABLE);
+	//outpd(card->iobase + HCFG, inpd(card->iobase + HCFG) | HCFG_AUDIOENABLE);
+	emu10k1_writefn0(card, HCFG, emu10k1_readfn0(card, HCFG) | HCFG_AUDIOENABLE);
 
 	if ( card->chips & EMU_CHIPS_10K2 ) {
 		/* v1.8: A_IOCFG is 16-bit only */
@@ -347,8 +352,9 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 			}
 		//outpd(card->iobase + A_IOCFG, tmp);
 		outpw(card->iobase + A_IOCFG, tmp);
+		dbgprintf(("snd_emu10k1_hw_init: IOCFG=%X\n", tmp ));
 	}
-	dbgprintf(("snd_emu10k1_hw_init exit\n"));
+	dbgprintf(("snd_emu10k1_hw_init exit, HCFG=%X\n", emu10k1_readfn0( card, HCFG ) ));
 	return;
 }
 
@@ -393,9 +399,10 @@ static void snd_emu10k1_hw_close( struct emu10k1_card *card)
 	emu10k1_writeptr(card, SOLEH, 0, 0);
 
 	// disable audio and lock cache
-	outpd(card->iobase + HCFG, HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
+	//outpd(card->iobase + HCFG, HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
+	emu10k1_writefn0(card, HCFG, HCFG_LOCKSOUNDCACHE | HCFG_LOCKTANKCACHE_MASK | HCFG_MUTEBUTTONENABLE);
 	emu10k1_writeptr(card, PTB, 0, 0);
-	dbgprintf(("snd_emu10k1_hw_close exit\n"));
+	dbgprintf(("snd_emu10k1_hw_close exit, HCFG=%X\n", emu10k1_readfn0( card, HCFG )));
 	return;
 }
 

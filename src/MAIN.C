@@ -187,15 +187,7 @@ static int IsInstalled( void )
 void fatal_error( int nError )
 //////////////////////////////
 {
-#ifdef DJGPP
-	asm( /* set text mode 3 */
-		"mov $3, %ax\n\t"
-		"int $0x10"
-	   );
-#else
-	_asm mov ax,3
-	_asm int 10h
-#endif
+	_settextmode();
 	printf("VSBHDA: fatal error %u\n", nError );
 	for (;;);
 }
@@ -643,12 +635,7 @@ int main(int argc, char* argv[])
 #ifdef DJGPP
         __djgpp_exception_toggle();
         _go32_info_block.size_of_transfer_buffer = 0; /* ensure it's not used anymore */
-        asm( /* clear fs/gs before calling DOS "terminate and stay resident" */
-            "push $0\n\t"
-            "pop %gs\n\t"
-            "push $0\n\t"
-            "pop %fs"
-           );
+        _clearFSGS(); /* clear protected-mode regs FS & GS before calling DOS "terminate and stay resident" */
 #else
         __dpmi_free_dos_memory( rmstksel ); /* free _linear_rmstack */
 #endif

@@ -21,6 +21,7 @@ XS_RATIONAL_NONZEROBASE equ 1
 XS_PHARLAP_NORMAL       equ 0
 
 DOS_PSP_ENV_SEG equ 2Ch
+DEFINECRTVARS   equ 1
 
 NO87 equ 0
 LFN  equ 0
@@ -48,17 +49,17 @@ if NO87
 endif
 	externdef c  _dynend            : dword
 	externdef c  _curbrk            : dword
-	externdef c  _psp               : word
-	externdef c  _osmajor           : byte
-	externdef c  _osminor           : byte
-	externdef c  _STACKLOW          : dword
-	externdef c  _STACKTOP          : dword
+;	externdef c  _psp               : word
+;	externdef c  _osmajor           : byte
+;	externdef c  _osminor           : byte
+;	externdef c  _STACKLOW          : dword
+;	externdef c  _STACKTOP          : dword
 if LFN
 	externdef c  __uselfn           : byte
 endif
-	externdef c  _Extender          : byte
-	externdef c  _ExtenderSubtype   : byte
-	externdef c  _Envptr            : fword
+;	externdef c  _Extender          : byte
+;	externdef c  _ExtenderSubtype   : byte
+;	externdef c  _Envptr            : fword
 ;	extern c  __FPE_handler      : dword
 
 ; this guarantees that no function pointer will equal NULL
@@ -103,6 +104,19 @@ if 0
 	public __x386_zero_base_selector
 ;--- this is referenced in inirmsel.c!
 __x386_zero_base_selector dw 0  ; base 0 selector for X-32VM
+endif
+if DEFINECRTVARS
+_dynend    dd 0
+_curbrk    dd 0
+_STACKLOW  dd 0
+_STACKTOP  dd 0
+_LpCmdLine dd 0
+_LpPgmName dd 0
+_psp       dw 0
+_osmajor   db 0
+_osminor   db 0
+_Extender  db 0
+_ExtenderSubtype db 0
 endif
 _DATA    ends
 

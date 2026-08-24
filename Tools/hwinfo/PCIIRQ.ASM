@@ -173,7 +173,7 @@ local bIrq:byte
 	cmp edx," ICP"
 	jnz err1
 
-	invoke printf, CStr("PCIIRQ v1.2, displays all PCI devices that use an Interrupt.",lf)
+	invoke printf, CStr("PCIIRQ v1.3, displays all PCI devices that use an Interrupt.",lf,lf)
 
 	invoke printf, CStr("%s"), addr coltext
 

@@ -26,7 +26,7 @@
 #define VOPL3_ADLG_VOLL_REG_INDEX 9 //left volume
 #define VOPL3_ADLG_VOLR_REG_INDEX 10 //right volume
 //data
-#define KEY_ON 0x10 //channel on bit
+//#define KEY_ON 0x10 //channel on bit ( todo: "key on" bit 5 in B0-B8? )
 
 /* 388: R: adlib status port
  *         bits 5-7: status timer 1, timer2, global timer, bits 0-4: rsvd.
@@ -43,7 +43,7 @@
  *     80-95: Sustain level / Release Rate
  *     A0-A8: Frequency ( low 8 bits )
  *     B0-B8: Key on / Octave / Frequency ( high 2 bits )
- *      BD:  AM depth / Vibrato depth, Rhythm control
+ *        BD: AM depth / Vibrato depth, Rhythm control
  *     C0-C8: Feedback strength / Connection type
  *     E0-F5: Wave Select
  */

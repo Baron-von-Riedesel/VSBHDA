@@ -4,6 +4,8 @@
  TEST02: DSP cmd 0xB6 (16-bit mono unsigned autoinit), zigzag
  TEST03: DSP cmd 0xB6 (16-bit mono signed autoinit), sine
  TEST04: DSP cmd 0x14, uses EMS page frame as sound buffer
+ TEST05: FM synthesizer test
+ TEST06: MIDI synthesizer test
  
  The assembly binaries can be created with JWasm, using its -mz option.
  

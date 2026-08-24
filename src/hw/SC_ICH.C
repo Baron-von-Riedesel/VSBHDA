@@ -104,10 +104,10 @@ struct bd_s {
 #define ICH_BD_IOC        0x8000 // buffer descriptor flags: interrupt on completion (IOC)
 
 #define ICH_DMABUF_PERIODS  32  /* max number of BDL entries in buffer list */
-#define ICH_MAX_CHANNELS     2
-#define ICH_MAX_BYTES        4
+//#define ICH_MAX_CHANNELS     2
+//#define ICH_MAX_BYTES        4
 //#define ICH_DMABUF_ALIGN (ICH_DMABUF_PERIODS * ICH_MAX_CHANNELS * ICH_MAX_BYTES) // 256
-#define ICH_DMABUF_ALIGN 512 /* v1.7 to match the setting of HDA/ES1371 */
+#define ICH_DMABUF_PERIODSIZE 512 /* v1.7 default period size */
 #define ICH_INT_INTERVAL     1 //interrupt interval in periods
 
 #define ICH_DEFAULT_RETRY 1000
@@ -226,7 +226,7 @@ static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_
 	/* for ICH, periods should be max 32 */
 	card->periods = min(ICH_DMABUF_PERIODS,(aui->gvars->buffers > 1) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT);
 
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE );
 
 	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
@@ -399,10 +399,10 @@ static void ich_prepare_playback( struct intel_card_s *card, struct audioout_inf
 		pds_delay_10us(1600);
 	}
 
-	/* v1.7: support for SiS 7012 */
 	for( i = 0; i < ICH_DMABUF_PERIODS; i++ ) {
 		int ofs = ( i * card->period_size ) % aui->card_dmasize;
 		(card->virtualpagetable+i)->address = pds_cardmem_physicalptr(card->dm, card->pcmout_buffer + ofs );
+		/* v1.7: support for SiS 7012 */
 		(card->virtualpagetable+i)->size    = (card->device_type == DEVICE_SIS ) ? card->period_size : card->period_size >> 1;
 		(card->virtualpagetable+i)->flags   = ICH_BD_IOC;
 	}
@@ -581,7 +581,7 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_ALIGN, aui->freq_card);
+	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE, aui->freq_card);
 	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	/* v2.0: variable # of periods */
 	card->period_size = dmabufsize / card->periods;

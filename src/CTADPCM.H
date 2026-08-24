@@ -17,14 +17,14 @@
  */
 
 //Creative Labs ADPCM decoding
-//This is not an original DOSBox header, but is copied & modifed from DOSBox sourcce code: sblaster.cpp
+//This is not an original DOSBox header, but is copied & modified from DOSBox source code: sblaster.cpp
 
 static void MUTE_(const char* s) {}
 #define INLINE
-#define LOG(x,y) MUTE_
-#define LOG_SB
-#define LOG_ERROR
-#include <stdint.h>
+//#define LOG(x,y) MUTE_
+//#define LOG_SB
+//#define LOG_ERROR
+//#include <stdint.h>
 typedef int Bits_t;
 
 
@@ -52,7 +52,7 @@ static INLINE uint8_t decode_ADPCM_4_sample(uint8_t sample,uint8_t * reference, 
     Bits_t ref;
 
     if ((samp < 0) || (samp > 63)) {
-        LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-4 sample");
+        //LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-4 sample");
         if(samp < 0 ) samp =  0;
         if(samp > 63) samp = 63;
     }
@@ -85,7 +85,7 @@ static INLINE uint8_t decode_ADPCM_2_sample(uint8_t sample,uint8_t * reference, 
     Bits_t ref;
 
     if ((samp < 0) || (samp > 23)) {
-        LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-2 sample");
+        //LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-2 sample");
         if(samp < 0 ) samp =  0;
         if(samp > 23) samp = 23;
     }
@@ -121,7 +121,7 @@ static INLINE uint8_t decode_ADPCM_3_sample(uint8_t sample,uint8_t * reference, 
     Bits_t ref;
 
     if ((samp < 0) || (samp > 39)) {
-        LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-3 sample");
+        //LOG(LOG_SB,LOG_ERROR)("Bad ADPCM-3 sample");
         if(samp < 0 ) samp =  0;
         if(samp > 39) samp = 39;
     }
