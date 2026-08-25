@@ -14,9 +14,15 @@ ifdef DJGPP
 	assume ds:_DATA
 endif
 
-ifndef DJGPP
-__GETDS proto near
-endif
+;--- usually ax=0 is handled by int 41h ( =output text )
+;--- but the logfile may be misused to write PCM data (ax=80h/81h).
+HDLFUNC equ 0
+;HDLFUNC equ 80h	;activate if 16-bit PCM data is to be logged
+;HDLFUNC equ 81h	;activate if 8-bit PCM data is to be logged
+
+;ifndef DJGPP
+;__GETDS proto near
+;endif
 
 fopen  proto c :ptr, :ptr
 fwrite proto c :ptr, :dword, :dword, :ptr
@@ -39,7 +45,7 @@ szWriteErr db "logfile write error",13,10,'$'
 ;--- logfile write uses Int 41h, ax=0
 
 myint41 proc
-	cmp ax,0
+	cmp ax,HDLFUNC
 	jnz exit
 	push ds
 	push ebx
@@ -51,6 +57,11 @@ myint41 proc
 	mov [ebx], dl
 	inc logfile_ofs
 	and logfile_ofs, LOGFILESIZE - 1
+if HDLFUNC eq 80h
+	mov [ebx+1], dh
+	inc logfile_ofs
+	and logfile_ofs, LOGFILESIZE - 1
+endif
 	pop ebx
 	pop ds
 exit:

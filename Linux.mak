@@ -71,7 +71,7 @@ OBJFILES = \
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DJDPMI.obj		$(OUTD)/UNINST.obj		$(OUTD)/GETENV.obj \
-	$(OUTD)/MALLOC.obj		$(OUTD)/SBRK.obj		$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/STRTOL.obj
+	$(OUTD)/MALLOC.obj		$(OUTD)/SBRK.obj		$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -166,6 +166,7 @@ $(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
 $(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
 $(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
 $(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
+$(OUTD)/_MATHERR.obj:  src/startup/_MATHERR.ASM
 
 
 # to avoid any issues with 16-bit relocations in PE binaries,

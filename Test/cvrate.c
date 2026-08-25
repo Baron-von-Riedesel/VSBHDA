@@ -2,6 +2,7 @@
 /* test cv_rate() in sndisr.c */
 
 #include <stdio.h>
+#include <memory.h>
 #include <sys\stat.h>
 
 #define VARIANT1
@@ -40,6 +41,7 @@ unsigned int cv_rate( short *pcmsrc, const unsigned int samplenum, const unsigne
 #endif
 	short *buff = tmpbuff;
 	short *pcmdst = tmpbuff;
+	memset( tmpbuff, 0, sizeof( tmpbuff) );
 
 #ifdef TOTAL
 	total = samplenum >> ( channels - 1);
@@ -63,13 +65,13 @@ unsigned int cv_rate( short *pcmsrc, const unsigned int samplenum, const unsigne
 #else
 		intmp2 = intmp1 + channels;
 #endif
-		printf("ipi=%4u m1=%4u, m2=%4u, intmp1=%X, intmp2=%X (src=%X)\n", ipi, m1, m2, intmp1 - pcmsrc, intmp2 - pcmsrc, pcmsrc );
+		//printf("ipi=%4u m1=%4u, m2=%4u, intmp1=%X, intmp2=%X (src=%X)\n", ipi, m1, m2, intmp1 - pcmsrc, intmp2 - pcmsrc, pcmsrc );
 		*pcmdst = ( *intmp1 * m1 + *intmp2 * m2) >> 12;
 		if ( channels > 1 )
 			*(pcmdst+1) = ( *(intmp1+1) * m1 + *(intmp2+1) * m2) >> 12;
 	}
 
-	printf("cv_rate: samples=%u\n", (pcmdst - pcmsrc) >> (channels - 1) );
+	printf("cv_rate: samples=%u\n", (pcmdst - tmpbuff) >> (channels - 1) );
 #if 1
 	for ( i = 0; buff < pcmdst; buff += 8, i += 8 )
 		printf("samples[%4u]: %6d %6d %6d %6d %6d %6d %6d %6d\n",
@@ -91,6 +93,8 @@ int main(int argc, const char * argv[])
 	cv_rate( smplbuff, 60, 1, 11025, 44100 );
 	//cv_rate( smplbuff,128, 1, 11025, 44100 );
 	cv_rate( smplbuff, 30, 2, 11025, 44100 );
+	/* for ADPCM */
+	cv_rate( smplbuff, 12, 1, 4000, 44100 );
 	return 0;
 }
 

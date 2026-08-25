@@ -102,56 +102,78 @@ static void delay_10us(unsigned int ticks)
 
 ADPCM_STATE ISR_adpcm_state;
 
-static int DecodeADPCM(uint8_t *adpcm, int bytes)
+/* argument 'count' does NOT include the ref byte! */
+
+static int DecodeADPCM( uint8_t *pcm, int count )
 /////////////////////////////////////////////////
 {
     int start = 0;
-    int i;
+    int i = 0;
     int bits = VSB_GetBits();
-    int outbytes;
-    int outcount = 0;
-    uint8_t* pcm;
+    uint8_t *dst = pcm;
+    uint8_t *src;
+#ifdef _DEBUG
+    uint8_t old_useRef = ISR_adpcm_state.useRef;
+    uint8_t ref = *pcm;
+#endif
+
+    /* bits may be 2,3,4 -> new count = bytes * 4,3,2 */
+    src = pcm + ((count * ( 6 - bits ) + 3) & ~0x3 );
 
     if( ISR_adpcm_state.useRef ) {
         ISR_adpcm_state.useRef = false;
-        ISR_adpcm_state.ref = *adpcm;
+        ISR_adpcm_state.ref = *pcm;
         ISR_adpcm_state.step = 0;
         start = 1;
+        src++;
     }
 
-    /* bits may be 2,3,4 -> outbytes = bytes * 4,3,2 */
-    outbytes = bytes * ( 9 / bits );
-    pcm = (uint8_t*)malloc( outbytes );
-    dbgprintf(("DecodeADPCM( %X, %u ): malloc(%u)=%X, bits=%u\n", adpcm, bytes, outbytes, pcm, bits ));
+    memcpy( src, pcm + start, count );
 
     switch ( bits ) {
     case 2:
-        for( i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 6) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 4) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 2) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_2_sample((adpcm[i] >> 0) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        for( ; i < count; i++, src++) {
+            *dst++ = decode_ADPCM_2_sample((*src >> 6),       &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_2_sample((*src >> 4) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_2_sample((*src >> 2) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_2_sample(*src & 0x3,        &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
         }
         break;
     case 3:
-        for( i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 5) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] >> 2) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_3_sample((adpcm[i] & 0x3) << 1, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        for( ; i < count; i++, src++) {
+            *dst++ = decode_ADPCM_3_sample((*src >> 5),       &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_3_sample((*src >> 2) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_3_sample((*src & 0x3) << 1, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
         }
         break;
     default:
-        for( i = start; i < bytes; ++i) {
-            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] >> 4,  &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            pcm[outcount++] = decode_ADPCM_4_sample(adpcm[i] & 0xf, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+        for( ; i < count; i++, src++) {
+            *dst++ = decode_ADPCM_4_sample(*src >> 4,         &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
+            *dst++ = decode_ADPCM_4_sample(*src & 0xf,        &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
         }
         break;
     }
-    //assert(outcount <= outbytes);
-    dbgprintf(("DecodeADPCM: outcount=%u\n", outcount ));
-    memcpy( adpcm, pcm, outcount );
-    free(pcm);
-    return outcount;
+    /* v2.0: cv_rate() now expects one byte more to be present; for ADPCM, this extra byte
+     * can only be set NOW, after decoding!
+     */
+    *dst = *(dst-1);
+
+    dbgprintf(("DecodeADPCM( %X, %u ): bits=%u useRef=%u, new count=%u\n", pcm, count, bits, old_useRef, dst - pcm ));
+#ifdef _DEBUG
+# if 0 /* activate if src bytes are to be displayed */
+    dbgprintf(("ADPCMbytes: "));
+    if ( old_useRef )
+        dbgprintf(("ref=%02X ", ref));
+    for ( i = 0, src -= count ; i < count; i++, src++ )
+        dbgprintf(("%02X%c", *src, i == (count-1) ? '\n' : ' '));
+# endif
+# if 0 /* activate if dst bytes are to be displayed */
+    dbgprintf(("PCMbytes: "));
+    for ( src = pcm; src < dst; src++ )
+        dbgprintf(("%02X%c", *src, (src == dst - 1) ? '\n' : ' '));
+# endif
+#endif
+    return dst - pcm;
 }
 #endif
 
@@ -177,7 +199,7 @@ static int DecodeADPCM(uint8_t *adpcm, int bytes)
  */
 
 static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples, const unsigned int channels, unsigned int srcrate, unsigned int dstrate)
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) - 1) / (dstrate - 1)) & 0xFFF);
 	const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) + dstrate - 1 ) / dstrate) & 0xFFF);
@@ -280,6 +302,29 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples
 extern void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples );
 #endif
 
+#ifdef _DEBUG
+
+#define LOGPCM8DATA  0 /* log happens BEFORE sample rate conversion! */
+#define LOGPCM16DATA 0 /* log happens AFTER sample rate conversion! */
+
+# if LOGPCM8DATA
+void writepcm8data(unsigned char);
+#pragma aux writepcm8data = \
+    "mov ax, 0081h" \
+    "int 41h" \
+    parm [dl] \
+    modify exact [eax edx]
+# endif
+# if LOGPCM16DATA
+void writepcm16data(short);
+#pragma aux writepcm16data = \
+    "mov ax, 0080h" \
+    "int 41h" \
+    parm [dx] \
+    modify exact [eax edx]
+# endif
+#endif
+
 static int SNDISR_Interrupt( void )
 ///////////////////////////////////
 {
@@ -352,6 +397,7 @@ static int SNDISR_Interrupt( void )
         int sbcnt;
         bool resample;
         int bytes;
+        int bits = VSB_GetBits();
         int channels = VSB_GetChannels();
         uint32_t DMA_Base;
         uint32_t DMA_Index;
@@ -422,19 +468,25 @@ static int SNDISR_Interrupt( void )
         ocnt = count;
         //dbgprintf(("isr(%u): c=0x%02X ocnt=0x%02X\n", loop, count, ocnt ));
 #endif
-        if (!IsSilent) {
-            /* adjust count if sample size is < 8 (ADPCM) */
-            if( VSB_GetBits() < 8 )
-                count = count / (9 / VSB_GetBits());
-        }
-        /* samplesize and channels can be either 1 or 2 */
-        sbcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
-        /* v2.0: ensure that count hasn't become < samples - that would distort sound */
-        if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
-            sbcnt++;
+#if ADPCM
+        if( bits < 8 ) { /* ADPCM? */
+            count = min( count, (SB_BuffSize - SB_Pos ) * (6 - bits) );
+            bytes = count / (6 - bits);
+            if ( count % (6 - bits) ) bytes++;
+            if ( ISR_adpcm_state.useRef ) bytes++;
+            dbgprintf(("isr(%u): ADPCM bits=%u bytes=%u count=%u sb_bufspace=%u\n", loop, bits, bytes, count, SB_BuffSize - SB_Pos ));
+        } else
+#endif
+        {
+            /* samplesize and channels can be either 1 or 2 */
+            sbcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
+            /* v2.0: ensure that count hasn't become < samples - that would distort sound */
+            if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
+                sbcnt++;
 
-        count = min( count, max(1, sbcnt));
-        bytes = count * samplesize * channels;
+            count = min( count, max(1, sbcnt));
+            bytes = count * samplesize * channels;
+        }
 
         /* copy samples to our PCM buffer */
         if( IsSilent ) {
@@ -490,17 +542,38 @@ static int SNDISR_Interrupt( void )
 
         /* format conversion needed? */
 #if ADPCM
-        if( VSB_GetBits() < 8)
-            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes);
+        if( VSB_GetBits() < 8 )
+            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes - ISR_adpcm_state.useRef );
 #endif
-        if( samplesize != 2 )
+        if( samplesize != 2 ) {
+#ifdef _DEBUG
+# if LOGPCM8DATA /* log 8-bit PCM data; file logfile.asm (HDLFUNC!) must also be changed! */
+            {
+                unsigned char *tmp = (unsigned char *)isr.pPCM + IdxSm * 2;
+                for ( i = 0; i < count; i++, tmp++ )
+                    writepcm8data(*tmp);
+            }
+# endif
+#endif
             cv_bits_8_to_16( isr.pPCM + IdxSm * 2, (count+1) * channels, VSB_IsSigned() ); /* converts unsigned 8-bit to signed 16-bit */
+        }
 #if SUP16BITUNSIGNED
         else if ( !VSB_IsSigned() )
             for ( i = IdxSm * 2, j = i + (count+1) * channels; i < j; *(isr.pPCM+i) ^= 0x8000, i++ );
 #endif
         if( resample ) /* SB_Rate != freq? */
             count = cv_rate( isr.pPCM + IdxSm * 2, count * channels, channels, SB_Rate, freq );
+
+#ifdef _DEBUG
+# if LOGPCM16DATA /* log 16-bit PCM data; file logfile.asm (HDLFUNC!) must also be changed! */
+        {
+            short *tmp = isr.pPCM;
+            for ( i = 0; i < count; i++, tmp++ )
+                writepcm16data(*tmp);
+        }
+# endif
+#endif
+
         if( channels == 1) //should be the last step
             cv_channels_1_to_2( isr.pPCM + IdxSm * 2, count);
 

@@ -520,9 +520,11 @@ static void DSP_DoCommand( uint32_t flags )
     switch ( vsb.dsp_cmd ) {
     case SB_DSP_SPEAKER_ON: /* D1 */
         vsb.bSpeaker = 0xff;
+        dbgprintf(("DSP_DoCommand(%X): speaker on\n", vsb.dsp_cmd ));
         break;
     case SB_DSP_SPEAKER_OFF: /* D3 */
         vsb.bSpeaker = 0;
+        dbgprintf(("DSP_DoCommand(%X): speaker off\n", vsb.dsp_cmd ));
         break;
     case SB_DSP_SPEAKER_STATUS: /* D8 */
         DSP_AddData( vsb.bSpeaker );
@@ -541,7 +543,7 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_CONT_16BIT_AUTO: /* 47 - SB16 only */
     case SB_DSP_CONT_8BIT_AUTO: SB16_ONLY(); /* 45 - SB16 only */
         vsb.Auto = true;
-        //dbgprintf(("DSP_DoCommand(%X): continue autoinit\n", vsb.dsp_cmd ));
+        dbgprintf(("DSP_DoCommand(%X): continue autoinit\n", vsb.dsp_cmd ));
         break;
     case SB_DSP_EXIT_16BIT_AUTO: SB16_ONLY(); /* D9 */
     case SB_DSP_EXIT_8BIT_AUTO:  /* DA */
@@ -574,7 +576,11 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Position = 0;
         dbgprintf(("DSP_DoCommand(%X): single cycle, length=%u (0x%x), Rate=%u, started\n", vsb.dsp_cmd, vsb.Samples, vsb.Samples, vsb.SampleRate ));
         break;
-    case SB_DSP_8BIT_OUT_SNGL_HS: /* 91 - SB2+, HS mode exit when block transfer ends */
+    case SB_DSP_8BIT_OUT_SNGL_HS: /* 91 - SB2+ */
+        /* HS mode exits when block transfer ends.
+         * Unlike DSP cmd 0x14, this cmd doesn't expect to be followed by 2 bytes for the length;
+         * instead, the length is defined with DSP cmd 0x48.
+         */
     case SB_DSP_8BIT_OUT_AUTO_HS: /* 90 - SB2+, HS mode exit with reset (on SBPro) */
     case SB_DSP_8BIT_OUT_AUTO: /* 1C - SB2+ */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
@@ -588,6 +594,7 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Position = 0;
         dbgprintf(("DSP_DoCommand(%X): 8bit, autoinit=%u, HS=%u, started\n", vsb.dsp_cmd, vsb.Auto, vsb.HighSpeed ));
         break;
+#if ADPCM
     case SB_DSP_2BIT_OUT_SNGL_NREF: /* 16; NREF: bit 0=0 */
     case SB_DSP_2BIT_OUT_SNGL:      /* 17 */
     case SB_DSP_2BIT_OUT_AUTO:      /* 1F; AUTO: bit 3=1 */
@@ -612,8 +619,9 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Signed = false;
         vsb.Started = true;
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, samples=%u, started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, vsb.Samples ));
+        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, ref=%u, samples=0x%X (%u), started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, ISR_adpcm_state.useRef, vsb.Samples, vsb.Samples ));
         break;
+#endif
     case 0xb0:  case 0xb1:  case 0xb2:  case 0xb3:  case 0xb4:  case 0xb5:  case 0xb6:  case 0xb7:
     case 0xb8:  case 0xb9:  case 0xba:  case 0xbb:  case 0xbc:  case 0xbd:  case 0xbe:  case 0xbf:
     case 0xc0:  case 0xc1:  case 0xc2:  case 0xc3:  case 0xc4:  case 0xc5:  case 0xc6:  case 0xc7:
@@ -664,9 +672,9 @@ static void DSP_DoCommand( uint32_t flags )
 #endif
         dbgprintf(("DSP_DoCommand(%X): 8Bit Direct mode, data=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
         break;
-    case SB_DSP_SET_SIZE: /* 48 - set DMA block size - used for autoinit cmds (and cmd 91?) */
+    case SB_DSP_SET_SIZE: /* 48 - set block size for autoinit/highspeed cmds (cmd 91?) */
         vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
-        dbgprintf(("DSP_DoCommand(%X): set DMA size for autoinit mode, size=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ) ));
+        dbgprintf(("DSP_DoCommand(%X): set block size for autoinit mode, size=0x%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ) ));
         break;
     case SB_DSP_SILENCE_DAC: /* 80 - output silence samples */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;

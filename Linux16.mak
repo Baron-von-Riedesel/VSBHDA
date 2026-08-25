@@ -60,7 +60,7 @@ OBJFILES = \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DJDPMI.obj		$(OUTD)/UNINST.obj		$(FMOBJS) \
 	$(OUTD)/AUIMP16.obj		$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj \
-	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj
+	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
 
 OBJFILES2 = \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
@@ -180,6 +180,7 @@ $(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
 $(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
 $(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
 $(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
+$(OUTD)/_MATHERR.obj:  src/startup/_MATHERR.ASM
 $(OUTD)/LIBMAIN.obj:   src/startup/LIBMAIN.C
 
 # the 16-bit code is included in binary format into rmwrap.asm.
