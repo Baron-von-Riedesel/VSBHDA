@@ -10,15 +10,6 @@ extern "C"
 {
 #endif
 
-#if ADPCM
-typedef struct 
-{
-    int step;
-    uint8_t ref;
-    uint8_t useRef;
-} ADPCM_STATE;
-#endif
-
 //generic IO functions
 uint8_t VSB_MixerAddr(uint16_t port, uint8_t val, uint16_t flags);
 uint8_t VSB_MixerData(uint16_t port, uint8_t val, uint16_t flags);

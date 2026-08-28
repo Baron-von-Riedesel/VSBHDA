@@ -12,9 +12,7 @@ Supported Sound cards:
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 
-Emulated modes/cards:
-8-bit, 16-bit, mono, stereo, high-speed;
-Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
+Emulated cards: Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
 
 Requirements:
  * HDPMI32i - DPMI host with port trapping; 32-bit protected-mode
@@ -23,7 +21,7 @@ Requirements:
  
 VSBHDA uses some source codes from:
  * MPXPlay: https://mpxplay.sourceforge.net/ - sound card access
- * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation
+ * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation & ADPCM decoding
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
 A few makefiles are supplied to create the binaries:

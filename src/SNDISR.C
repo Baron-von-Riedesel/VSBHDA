@@ -14,19 +14,52 @@
 #include "VIRQ.H"
 #include "VOPL3.H"
 #include "VSB.H"
-#include "CTADPCM.H"
 #include "PTRAP.H"
+#include "ADPCM.H"
 
 #ifdef _DEBUG
-//#define SNDISRLOG /* usually defined in makefile */
+//#define SNDISRLOG /* enables sound interrupt logs */
 #include <stdio.h>
+
+/* optionally emit PCM data;
+ * if activated, file logfile.asm (HDLFUNC!) must also be changed!
+ * LOGPCM8DATA: log happens BEFORE sample rate conversion
+ * LOGPCM16DATA: log happens AFTER sample rate conversion
+ */
+#define LOGPCM8DATA  0 /* 8-bit PCM data, mono only */
+#define LOGPCM16DATA 0 /* 16-bit PCM data, mono only */
+
+# if LOGPCM8DATA
+#  ifdef DJGPP
+static inline void writepcm8data(unsigned char x) { asm("movb %0, %%dl\n\t" "movw $0x81, %%ax\n\t" "int $0x41" ::"r" (x): "%eax", "%edx"); }
+#  else
+void writepcm8data(unsigned char);
+#pragma aux writepcm8data = \
+    "mov ax, 0081h" \
+    "int 41h" \
+    parm [dl] \
+    modify exact [eax edx]
+#  endif
+# endif
+# if LOGPCM16DATA
+#  ifdef DJGPP
+static inline void writepcm16data(short x) { asm("movw %0, %%dx\n\t" "movw $0x82, %%ax\n\t" "int $0x41" ::"r" (x): "%eax", "%edx" ); }
+#  else
+void writepcm16data(short);
+#pragma aux writepcm16data = \
+    "mov ax, 0082h" \
+    "int 41h" \
+    parm [dx] \
+    modify exact [eax edx]
+#  endif
+# endif
+
 #endif
 
 #include "AU.H"
 
 #if SOUNDFONT
 #include "VMPU.H"
-//#include "../tsf/TSF.H"
 //extern tsf* tsfrenderer;
 extern void* tsfrenderer;
 void tsf_render_short(void *, short *, int, int);
@@ -95,85 +128,6 @@ static void delay_10us(unsigned int ticks)
 		newtsc = rdtsc();
 	} while ( (newtsc - oldtsc) < ( ticks << 18 ) );
 	oldtsc = newtsc;
-}
-#endif
-
-#if ADPCM
-
-ADPCM_STATE ISR_adpcm_state;
-
-/* argument 'count' does NOT include the ref byte! */
-
-static int DecodeADPCM( uint8_t *pcm, int count )
-/////////////////////////////////////////////////
-{
-    int start = 0;
-    int i = 0;
-    int bits = VSB_GetBits();
-    uint8_t *dst = pcm;
-    uint8_t *src;
-#ifdef _DEBUG
-    uint8_t old_useRef = ISR_adpcm_state.useRef;
-    uint8_t ref = *pcm;
-#endif
-
-    /* bits may be 2,3,4 -> new count = bytes * 4,3,2 */
-    src = pcm + ((count * ( 6 - bits ) + 3) & ~0x3 );
-
-    if( ISR_adpcm_state.useRef ) {
-        ISR_adpcm_state.useRef = false;
-        ISR_adpcm_state.ref = *pcm;
-        ISR_adpcm_state.step = 0;
-        start = 1;
-        src++;
-    }
-
-    memcpy( src, pcm + start, count );
-
-    switch ( bits ) {
-    case 2:
-        for( ; i < count; i++, src++) {
-            *dst++ = decode_ADPCM_2_sample((*src >> 6),       &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_2_sample((*src >> 4) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_2_sample((*src >> 2) & 0x3, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_2_sample(*src & 0x3,        &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-        }
-        break;
-    case 3:
-        for( ; i < count; i++, src++) {
-            *dst++ = decode_ADPCM_3_sample((*src >> 5),       &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_3_sample((*src >> 2) & 0x7, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_3_sample((*src & 0x3) << 1, &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-        }
-        break;
-    default:
-        for( ; i < count; i++, src++) {
-            *dst++ = decode_ADPCM_4_sample(*src >> 4,         &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-            *dst++ = decode_ADPCM_4_sample(*src & 0xf,        &ISR_adpcm_state.ref, &ISR_adpcm_state.step);
-        }
-        break;
-    }
-    /* v2.0: cv_rate() now expects one byte more to be present; for ADPCM, this extra byte
-     * can only be set NOW, after decoding!
-     */
-    *dst = *(dst-1);
-
-    dbgprintf(("DecodeADPCM( %X, %u ): bits=%u useRef=%u, new count=%u\n", pcm, count, bits, old_useRef, dst - pcm ));
-#ifdef _DEBUG
-# if 0 /* activate if src bytes are to be displayed */
-    dbgprintf(("ADPCMbytes: "));
-    if ( old_useRef )
-        dbgprintf(("ref=%02X ", ref));
-    for ( i = 0, src -= count ; i < count; i++, src++ )
-        dbgprintf(("%02X%c", *src, i == (count-1) ? '\n' : ' '));
-# endif
-# if 0 /* activate if dst bytes are to be displayed */
-    dbgprintf(("PCMbytes: "));
-    for ( src = pcm; src < dst; src++ )
-        dbgprintf(("%02X%c", *src, (src == dst - 1) ? '\n' : ' '));
-# endif
-#endif
-    return dst - pcm;
 }
 #endif
 
@@ -300,29 +254,6 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples
 }
 #else
 extern void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples );
-#endif
-
-#ifdef _DEBUG
-
-#define LOGPCM8DATA  0 /* log happens BEFORE sample rate conversion! */
-#define LOGPCM16DATA 0 /* log happens AFTER sample rate conversion! */
-
-# if LOGPCM8DATA
-void writepcm8data(unsigned char);
-#pragma aux writepcm8data = \
-    "mov ax, 0081h" \
-    "int 41h" \
-    parm [dl] \
-    modify exact [eax edx]
-# endif
-# if LOGPCM16DATA
-void writepcm16data(short);
-#pragma aux writepcm16data = \
-    "mov ax, 0080h" \
-    "int 41h" \
-    parm [dx] \
-    modify exact [eax edx]
-# endif
 #endif
 
 static int SNDISR_Interrupt( void )
@@ -470,10 +401,10 @@ static int SNDISR_Interrupt( void )
 #endif
 #if ADPCM
         if( bits < 8 ) { /* ADPCM? */
-            count = min( count, (SB_BuffSize - SB_Pos ) * (6 - bits) );
-            bytes = count / (6 - bits);
-            if ( count % (6 - bits) ) bytes++;
-            if ( ISR_adpcm_state.useRef ) bytes++;
+            sbcnt = SB_BuffSize - (SB_Pos + adpcm_state.useRef);
+            count += count % ( 6 - bits );
+            count = min( count, sbcnt * (6 - bits) );
+            bytes = count / (6 - bits) + adpcm_state.useRef;
             dbgprintf(("isr(%u): ADPCM bits=%u bytes=%u count=%u sb_bufspace=%u\n", loop, bits, bytes, count, SB_BuffSize - SB_Pos ));
         } else
 #endif
@@ -543,11 +474,11 @@ static int SNDISR_Interrupt( void )
         /* format conversion needed? */
 #if ADPCM
         if( VSB_GetBits() < 8 )
-            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes - ISR_adpcm_state.useRef );
+            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes - adpcm_state.useRef );
 #endif
         if( samplesize != 2 ) {
 #ifdef _DEBUG
-# if LOGPCM8DATA /* log 8-bit PCM data; file logfile.asm (HDLFUNC!) must also be changed! */
+# if LOGPCM8DATA
             {
                 unsigned char *tmp = (unsigned char *)isr.pPCM + IdxSm * 2;
                 for ( i = 0; i < count; i++, tmp++ )

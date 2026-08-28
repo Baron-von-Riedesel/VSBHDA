@@ -16,9 +16,9 @@
 #if ALLOCOPT
 #define SIZETH 4096*2 /* size threshold */
 #define BLKSIZE 65536
-char *pHeap = NULL;
-uint32_t dwSize = 0;
-char bOpt = 1;
+static char *pHeap = NULL;
+static uint32_t dwSize = 0;
+static char bOpt = 1;
 #endif
 
 static void* tsfimpl_malloc(size_t size)

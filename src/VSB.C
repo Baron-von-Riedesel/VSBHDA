@@ -15,6 +15,7 @@
 #include "VMPU.H"
 #endif
 #include "AU.H"
+#include "ADPCM.H"
 
 /* compatibility switches */
 #define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
@@ -123,10 +124,6 @@ static const uint16_t DSP_cmd_sb16only[16] = {
 #define SB16_ONLY() /* now dummy, replaced by DSP_cmd_sb16only[] */
 
 static const uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992.";
-
-#if ADPCM
-extern ADPCM_STATE ISR_adpcm_state;
-#endif
 
 #define VSB_DIRECTBUFFER_SIZE 256  /* max is 256 so long as DirIdxR/W is uint8_t */
 
@@ -612,14 +609,14 @@ static void DSP_DoCommand( uint32_t flags )
             vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* the value is #samples-1! */
         }
         vsb.Bits = (vsb.dsp_cmd <= SB_DSP_2BIT_OUT_AUTO) ? 2 : ( vsb.dsp_cmd & 0x2 ) ? 3 : 4;
-        ISR_adpcm_state.useRef = ( vsb.dsp_cmd & 1 );
-        ISR_adpcm_state.step = 0;
+        adpcm_state.useRef = ( vsb.dsp_cmd & 1 );
+        adpcm_state.step = 0;
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
         vsb.Silent = false;
         vsb.Signed = false;
         vsb.Started = true;
         vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, ref=%u, samples=0x%X (%u), started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, ISR_adpcm_state.useRef, vsb.Samples, vsb.Samples ));
+        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, ref=%u, samples=0x%X (%u), started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, adpcm_state.useRef, vsb.Samples, vsb.Samples ));
         break;
 #endif
     case 0xb0:  case 0xb1:  case 0xb2:  case 0xb3:  case 0xb4:  case 0xb5:  case 0xb6:  case 0xb7:

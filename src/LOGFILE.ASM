@@ -14,11 +14,11 @@ ifdef DJGPP
 	assume ds:_DATA
 endif
 
-;--- usually ax=0 is handled by int 41h ( =output text )
-;--- but the logfile may be misused to write PCM data (ax=80h/81h).
+;--- usually ax=0 is handled by int 41h ( =output text ),
+;--- however, the logfile may be misused to write PCM data (ax=81h/82h);
 HDLFUNC equ 0
-;HDLFUNC equ 80h	;activate if 16-bit PCM data is to be logged
-;HDLFUNC equ 81h	;activate if 8-bit PCM data is to be logged
+;HDLFUNC equ 81h	;to set if 8-bit PCM data is to be written
+;HDLFUNC equ 82h	;to set if 16-bit PCM data is to be written
 
 ;ifndef DJGPP
 ;__GETDS proto near
@@ -57,7 +57,7 @@ myint41 proc
 	mov [ebx], dl
 	inc logfile_ofs
 	and logfile_ofs, LOGFILESIZE - 1
-if HDLFUNC eq 80h
+if HDLFUNC eq 82h
 	mov [ebx+1], dh
 	inc logfile_ofs
 	and logfile_ofs, LOGFILESIZE - 1

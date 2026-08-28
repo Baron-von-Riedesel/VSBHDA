@@ -2,7 +2,8 @@
 ; Play 8bit DMA mode with DSP cmd 0x14
 
 ; this variant uses the EMS page frame as sound buffer.
-; Nothing is done to translate the address to a physical one.
+; The sound buffer address isn't translated to a physical address -
+; this is supposed to be done by the v86 monitor program.
 ;
 ; + DSP command 14h  ... play 8bit mono no autoinit
 ; + DSP command 40h  ... set sample rate
@@ -56,11 +57,11 @@ SampleBuffer LABEL BYTE
 
 SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 
-information db 'TEST04 - play a 8bit mono sample one time using DSP cmd 0x14.',13,10
-            db 'EMS page frame is used as sound buffer!',13,10
-            db '$'
+information label byte 
+	db 'TEST04 - play a 8bit mono sample one time using DSP cmd 0x14.',10
+	db 'EMS page frame is used as sound buffer!',10
+	db 0
 
-info2       db 'Stop playing with ESC.',13,10,'$'
 sberror     db 'No SoundBlaster at base address 220h.',13,10,'$'
 emserror    db 'No EMM installed.',13,10,'$'
 emserror2   db 'No EMS page frame set.',13,10,'$'
@@ -74,6 +75,8 @@ wFrame      dw 0	;EMS page frame segment
 wHandle     dw 0	;EMS handle
 ready       db 0
 oldpic      db 0
+bPage       db 0
+wAddr       dw 0
 
 	.CODE
 	.386
@@ -81,92 +84,91 @@ oldpic      db 0
 	.286
 
 main proc c
-		mov dx,offset information
-		mov ah,9
-		int 21h
 
-		RESET_DSP
-
-		; ENABLE SB SPEAKERS (for all SBs <SB16)
-		mov dx,BASEADDR+00Ch 		;DX = DSP Write Data or Command
-		WAITWRITE
-		mov al,0D1h					; AL = Enable speaker
-		out dx,al					; Output: DSP Write Data or Command
-
-		; SETUP IRQ
-		xor ax,ax
-		mov es,ax					; es to page 0 (Interrupt table)
-		mov si,(SBIRQ+8)*4			; si = position in interrupt table
-		cli
-		mov ax,es:[si+0]
-		mov word ptr [oldInterrupt+0],ax
-		mov ax,es:[si+2]
-		mov word ptr [oldInterrupt+2],ax
-		mov es:[si+0],offset SB_IRQ ; set offset of new interrupt routine
-		mov es:[si+2],cs 			; set segment of new interrupt routine
-		sti
-
-		; unmask SB IRQ in PIC
-		in al, 21h
-		mov oldpic, al
-		and al,PICANDMASK
-		out 21h,al
+	invoke printf, addr information
 
 ;--- EMS stuff
 
-		mov ax,es:[67h*4+0]
-		mov dx,es:[67h*4+2]
-		mov cx,ax
-		or cx,dx
-		jnz @F
-		mov dx,offset emserror
-		mov ah,9
-		int 21h
-		jmp exit2
+	mov ax,es:[67h*4+0]
+	mov dx,es:[67h*4+2]
+	mov cx,ax
+	or cx,dx
+	jnz @F
+	mov dx,offset emserror
+	mov ah,9
+	int 21h
+	jmp done
 @@:
-		mov ah,41h	;get page frame segment
-		int 67h
-		cmp ah,0
-		jz @F
-		mov dx,offset emserror2
-		mov ah,9
-		int 21h
-		jmp exit
+	mov ah,41h	;get page frame segment
+	int 67h
+	cmp ah,0
+	jz @F
+	mov dx,offset emserror2
+	mov ah,9
+	int 21h
+	jmp done
 @@:
-		mov wFrame,bx
-		mov ah,43h	;alloc EMS (BX pages)
-		mov bx,4
-		int 67h
-		cmp ah,0
-		jz @F
-		mov dx,offset emserror3
-		mov ah,9
-		int 21h
-		jmp exit
+	mov wFrame,bx
+	mov ah,43h	;alloc EMS (BX pages)
+	mov bx,4
+	int 67h
+	cmp ah,0
+	jz @F
+	mov dx,offset emserror3
+	mov ah,9
+	int 21h
+	jmp done
 @@:
-		mov wHandle,dx
-		mov cx,4
-		mov al,0
-		xor bx,bx
+	mov wHandle,dx
+	mov cx,4
+	mov al,0
+	xor bx,bx
 nextpage:
-		mov ah,44h	;map memory
-		int 67h
-		cmp ah,0
-		jz @F
-		mov dx,offset emserror4
-		mov ah,9
-		int 21h
-		jmp exit
+	mov ah,44h	;map memory
+	int 67h
+	cmp ah,0
+	jz @F
+	mov dx,offset emserror4
+	mov ah,9
+	int 21h
+	jmp done
 @@:
-		inc al
-		inc bx
-		loop nextpage
+	inc al
+	inc bx
+	loop nextpage
 
-		mov es,wFrame
-		xor di,di
-		mov si,offset SampleBuffer
-		mov cx,SAMPLEBUFFERLENGTH
-		rep movsb
+	mov es,wFrame
+	xor di,di
+	mov si,offset SampleBuffer
+	mov cx,SAMPLEBUFFERLENGTH
+	rep movsb
+
+	RESET_DSP
+
+;--- ENABLE SB SPEAKERS (for all SBs <SB16)
+	mov dx,BASEADDR+00Ch 		;DX = DSP Write Data or Command
+	WAITWRITE
+	mov al,DSP_ENABLESPEAKER	; AL = Enable speaker
+	out dx,al					; Output: DSP Write Data or Command
+
+;--- SETUP IRQ
+	xor ax,ax
+	mov es,ax					; es to page 0 (Interrupt table)
+	mov si,(SBIRQ+8)*4			; si = position in interrupt table
+	cli
+	mov ax,es:[si+0]
+	mov word ptr [oldInterrupt+0],ax
+	mov ax,es:[si+2]
+	mov word ptr [oldInterrupt+2],ax
+	mov es:[si+0],offset SB_IRQ ; set offset of new interrupt routine
+	mov es:[si+2],cs 			; set segment of new interrupt routine
+	sti
+
+;--- unmask SB IRQ in PIC
+	in al, 21h
+	mov oldpic, al
+	and al,PICANDMASK
+	out 21h,al
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; calculate page and offset for DMAcontroller :
@@ -174,153 +176,151 @@ nextpage:
 ; segment*16+offset - 20bit memory location -> upper 4 bits  = page
 ;                                              lower 16 bits = offset
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
-		mov cx,SAMPLEBUFFERLENGTH-1
-		mov si,wFrame
-		mov bx,si
-		shr bx,12	 ;bits 16-19 into bl
-		shl si,4
+	mov cx,SAMPLEBUFFERLENGTH-1
+	mov si,wFrame
+	mov bx,si
+	shr bx,12	 ;bits 16-19 into bl
+	shl si,4
+	mov bPage,bl
+	mov wAddr,si
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; Setup DMA-controller :
 ;
 ; 1st  MASK DMA CHANNEL
 ;
-		mov al,DMAchannel
-		or al,4
-		out WRITEMASK,al
+	mov al,DMAchannel
+	or al,4
+	out WRITEMASK,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 2nd  CLEAR FLIPFLOP
 ;
-		out CLEARFLIPFLOP,al
+	out CLEARFLIPFLOP,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 3rd  WRITE TRANSFER MODE
 ;
-		mov al,WANTEDMODE
-		add al,DMAchannel
-		out WRITEMODE,al
+	mov al,WANTEDMODE
+	add al,DMAchannel
+	out WRITEMODE,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 4th  WRITE PAGE NUMBER
 ;
-		mov al,bl
-		out PAGE_CHN,al
+	mov al,bl
+	out PAGE_CHN,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 5th  WRITE BASEADDRESS
 ;
-		mov ax,si
-		out BASE_CHN,al
-		mov al,ah
-		out BASE_CHN,al
+	mov ax,si
+	out BASE_CHN,al
+	mov al,ah
+	out BASE_CHN,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 6th  WRITE SAMPLELENGTH-1
 ;
-		mov al,cl
-		out COUNT_CHN,al
-		mov al,ch
-		out COUNT_CHN,al
+	mov al,cl
+	out COUNT_CHN,al
+	mov al,ch
+	out COUNT_CHN,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 7th  DEMASK CHANNEL
 ;
-		mov al,DMAchannel
-		out WRITEMASK,al
+	mov al,DMAchannel
+	out WRITEMASK,al
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; Setup SoundBlaster :
 ;
 ; 1st  SET TIMECONSTANT
 ;
-		mov dx,BASEADDR+SB_DSPWRITE
-		WAITWRITE
-		mov al,040h					;AL = Set timeconstant
-		out dx,al
-		WAITWRITE
-		mov al,TIMECONST
-		out dx,al
+	mov dx,BASEADDR+SB_DSPWRITE
+	WAITWRITE
+	mov al,040h					;AL = Set timeconstant
+	out dx,al
+	WAITWRITE
+	mov al,TIMECONST
+	out dx,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 2nd  use 8bit mono nonautoinit (DSPcommand 014h XXXXh)
 ;
-		WAITWRITE
-		mov al,014h					;AL = DMA DAC 8bit
-		out dx,al
-		mov cx,SAMPLEBUFFERLENGTH-1
-		WAITWRITE
-		mov al,cl					;AL = LOWER PART SAMPLELENGTH
-		out dx,al
-		WAITWRITE
-		mov al,ch					;AL = HIGHER PART SAMPLELENGTH
-		out dx,al
-
-		mov dx,offset info2
-		mov ah,9
-		int 21h
+	WAITWRITE
+	mov al,014h					;AL = DMA DAC 8bit
+	out dx,al
+	mov cx,SAMPLEBUFFERLENGTH-1
+	WAITWRITE
+	mov al,cl
+	out dx,al
+	WAITWRITE
+	mov al,ch
+	out dx,al
 
 waitloop:
-		cmp [ready],0				; check if sound sent
-		jnz exit
-		mov ah,01					;AH = Check for character function
-		int 16h
-		jz waitloop
-		xor ah,ah					;Read character, flush keypress
-		int 16h
-		cmp ah,1
-		jnz waitloop
+	cmp [ready],0				; check if sound sent
+	jnz exit
+	mov ah,01					;AH = Check for character function
+	int 16h
+	jz waitloop
+	xor ah,ah					;Read character, flush keypress
+	int 16h
+	cmp ah,1
+	jnz waitloop
 
 exit:
 ;--- mask DMA channel
-		mov al,DMAchannel
-		or al,4
-		out WRITEMASK,al
-;--- unmap pages and release EMS handle
-		mov dx,wHandle
-		and dx,dx
-		jz noems
-		mov cx,4
-		mov al,0
-nextpage2:
-		mov bx,-1
-		mov ah,44h
-		int 67h
-		inc al
-		loop nextpage2
+	mov al,DMAchannel
+	or al,4
+	out WRITEMASK,al
 
-		mov dx,wHandle
-		mov ah,45h	;release EMS handle
-		int 67h
-noems:
+	RESET_DSP
 
-exit2:
-		RESET_DSP
+;--- RESTORE PIC MASK
+	mov al, oldpic
+	out 21h,al
 
-		; RESTORE PIC MASK
-		mov al, oldpic
-		out 21h,al
+;--- RESTORE IRQ
+	cli
+	xor ax,ax
+	mov es,ax
+	mov si,(SBIRQ+8)*4
+	mov ax,word ptr [oldInterrupt+0]
+	mov es:[si+0],ax
+	mov ax,word ptr [oldInterrupt+2]
+	mov es:[si+2],ax
+	sti
 
-		; RESTORE IRQ
-		cli
-		xor ax,ax
-		mov es,ax
-		mov si,(SBIRQ+8)*4
-		mov ax,word ptr [oldInterrupt+0]
-		mov es:[si+0],ax
-		mov ax,word ptr [oldInterrupt+2]
-		mov es:[si+2],ax
-		sti
+	invoke printf, CStr("SampleBuffer Address=%X%04X",10), bPage, wAddr
+	invoke printf, CStr("SampleBuffer Length=%X",10), SAMPLEBUFFERLENGTH
+	out CLEARFLIPFLOP,al
+	in al,COUNT_CHN
+	mov ah,al
+	in al,COUNT_CHN
+	xchg al,ah
+	invoke printf, CStr("DMA channel 1, cnt=%X",10), ax
 
-		invoke  printf, CStr("SampleBufferLength=%X",10), SAMPLEBUFFERLENGTH
-		out CLEARFLIPFLOP,al
-		in al,COUNT_CHN
-		mov ah,al
-		in al,COUNT_CHN
-		xchg al,ah
-		invoke printf, CStr("DMA channel 1, cnt=%X",10), ax
 done:
-		ret
+;--- unmap pages and release EMS handle
+	mov dx,wHandle
+	and dx,dx
+	jz noems
+	mov cx,4
+	mov al,0
+nextpage2:
+	mov bx,-1
+	mov ah,44h
+	int 67h
+	inc al
+	loop nextpage2
+	mov dx,wHandle
+	mov ah,45h	;release EMS handle
+	int 67h
+noems:
+	ret
 
-; display information if Soundblaster is not on this baseaddress
 RESET_ERROR:
-		mov dx,offset sberror
-		mov ah,9
-		int 21h
-		jmp done
+;--- display information if Soundblaster is not on this baseaddress
+	mov dx,offset sberror
+	mov ah,9
+	int 21h
+	jmp done
 
 main endp
 
@@ -329,32 +329,32 @@ main endp
 ; It's generated by the SoundBlaster hardware
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 SB_IRQ proc
-		push ax
-		push dx
-		push ds
-		mov dx,BASEADDR+00Eh 		;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
-		in al,dx
-		mov ax,@data
-		mov ds,ax
-		mov [ready],1
-		mov al,020h
-		out 020h,al					;ACKNOWLEDGE HARDWARE INTERRUPT
-		pop ds
-		pop dx
-		pop ax
-		IRET
+	push ax
+	push dx
+	push ds
+	mov dx,BASEADDR+00Eh 		;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
+	in al,dx
+	mov ax,@data
+	mov ds,ax
+	mov [ready],1
+	mov al,020h
+	out 020h,al					;ACKNOWLEDGE HARDWARE INTERRUPT
+	pop ds
+	pop dx
+	pop ax
+	IRET
 SB_IRQ endp
 
 start:
-		mov ax,DGROUP
-		mov ds,ax
-		mov bx,ss
-		sub bx,ax
-		shl bx,004h
-		mov ss,ax
-		add sp,bx
-		call main
-		mov ax,4c00h
-		int 21h
+	mov ax,DGROUP
+	mov ds,ax
+	mov bx,ss
+	sub bx,ax
+	shl bx,004h
+	mov ss,ax
+	add sp,bx
+	call main
+	mov ax,4c00h
+	int 21h
 
 	END start

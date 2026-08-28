@@ -57,7 +57,8 @@ endif
 OBJFILES = \
 	$(OUTD)/MAIN.obj		$(OUTD)/SNDISR.obj		$(OUTD)/PTRAP.obj		$(OUTD)/LINEAR.obj		$(OUTD)/PIC.obj \
 	$(OUTD)/VSB.obj			$(OUTD)/VDMA.obj		$(OUTD)/VIRQ.obj		$(OUTD)/VMPU.obj		$(OUTD)/TSF.obj \
-	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
+	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj \
+	$(OUTD)/MIXER.obj		$(OUTD)/ADPCM.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DJDPMI.obj		$(OUTD)/UNINST.obj		$(FMOBJS) \
 	$(OUTD)/AUIMP16.obj		$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj \
 	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
@@ -140,6 +141,7 @@ $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
+$(OUTD)/ADPCM.obj:     src/ADPCM.C
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
 $(OUTD)/DJDPMI.obj:    src/DJDPMI.ASM

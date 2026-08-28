@@ -133,12 +133,12 @@ SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 	db SAMPLEBUFFERLENGTH dup (0)
 
 	.const
-information     db 'TEST08 [frequency]',13,10
-                db 'plays a 4bit ADPCM single-cycle sound',13,10
-                db 'frequency: default ~4000)',13,10
-                db '$'
-sberror         db 'No SoundBlaster at base address 220h.',13,10,'$'
-rateerror       db 'Invalid rate entered.',13,10,'$'
+information label byte
+	db 'TEST08 plays a 4bit ADPCM single-cycle sound',10
+	db 'usage: TEST08 [frequency;default ~%u]',10
+	db 0
+sberror db 'No SoundBlaster at base address 220h.',13,10,'$'
+rateerror db 'Invalid rate entered (3907-65535)',13,10,'$'
 
 	.data
 
@@ -205,268 +205,258 @@ getdec endp
 
 main proc c argc:word, argv:ptr
 
-;--- start msg
-		mov dx,offset information
-		mov ah,9
-		int 21h
-
-		cmp argc, 2
-		jb options_done
-		mov si, argv
-		mov bx, [si+2]
-		call getdec
-		jc rate_invalid
-		mov rate, ax
+	invoke printf, addr information, rate
+	cmp argc, 2
+	jb options_done
+	mov si, argv
+	mov bx, [si+2]
+	call getdec
+	jc rate_invalid
+	mov rate, ax
 if 0
-		cmp argc, 3
-		jb options_done
-		mov bx, [si+4]
-		call getdec
-		jc length_invalid
-		mov sblength, ax
+	cmp argc, 3
+	jb options_done
+	mov bx, [si+4]
+	call getdec
+	jc length_invalid
+	mov sblength, ax
 endif
 options_done:
 
-		RESET_DSP
+	RESET_DSP
 
 ;--- ENABLE SB SPEAKERS (for all SBs < SB16)
-		mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command
-		WAITWRITE
-		mov al,DSP_ENABLESPEAKER
-		out dx,al
+	mov dx,BASEADDR+00Ch
+	WAITWRITE
+	mov al,DSP_ENABLESPEAKER
+	out dx,al
 
-;--- SETUP IRQ
-		xor ax,ax
-		mov es,ax
-		mov si,(SBIRQ+8)*4
-		mov ax,es:[si+0]
-		mov word ptr [oldInterrupt+0],ax
-		mov ax,es:[si+2]
-		mov word ptr [oldInterrupt+2],ax
-		cli
-		mov ax,OFFSET SB_IRQ
-		mov es:[si+0],ax				; set offset of new interrupt routine
-		mov es:[si+2],cs				; set segment of new interrupt routine
-		sti
+;--- calculate page and offset for DMAcontroller
+
+	mov si,offset SampleBuffer
+	mov ax,ds
+	rol ax,4	; * 16 - higher 4 bits in al
+	mov bl,al
+	and bl,00fh ; BL - higher 4 bits
+	and al,0f0h ; clear higher 4bits in AL
+	add si,ax	; SI = offset
+	adc bl,0	; BL = page
+
+;--- now BL:SI holds 20-bit linear address of SampleBuffer
+
+	mov cx,SAMPLEBUFFERLENGTH-1
+	mov ax, si
+	add ax, cx
+	jnc nooverride
+
+;--- 2. part must be used, copy PCM data
+
+	mov si,offset SampleBuffer
+	lea di,[si+SAMPLEBUFFERLENGTH]
+	inc cx
+	push ds
+	pop es
+	rep movsb
+
+	mov si, ax
+	inc si		; si=si+1 - start of second part
+	inc bl		; second part is on the next page
+nooverride:
+	mov dmabase, si
+
+;--- Setup DMA-controller
+;--- 1. mask DMA channel
+
+	mov al,DMAchannel
+	add al,4
+	out WRITEMASK,al
+
+;--- 2. clear flipflop
+
+	out CLEARFLIPFLOP,al
+
+;--- 3. set transfer mode
+
+	mov al,WANTEDMODE
+	or al,DMAchannel
+	out WRITEMODE,al
+
+;--- 4. set page number
+;
+	mov al,bl
+	out PAGE_CHN,al
+
+;--- 5. set base address
+
+	mov ax,si
+	out BASE_CHN,al
+	mov al,ah
+	out BASE_CHN,al
+
+;--- 6. set SAMPLELENGTH-1
+
+	mov ax,SAMPLEBUFFERLENGTH-1
+	out COUNT_CHN,al
+	mov al,ah
+	out COUNT_CHN,al
+
+;--- 7. unmask channel
+
+	mov al,DMAchannel
+	out WRITEMASK,al
+
+;--- Setup SoundBlaster
+;--- set time constant
+
+	mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command
+	WAITWRITE
+	mov al,DSP_SETTIMECONST
+	out dx,al
+	WAITWRITE
+
+	mov cx,dx
+	mov ax,lowword 1000000
+	mov dx,highword 1000000
+	mov bx,rate
+	cmp bx,100
+	jb rate_invalid
+	div bx
+	cmp ah,00h
+	jnz rate_invalid
+	neg al
+	mov timeconst,al
+	mov dx,cx
+	out dx,al
+
+;--- setup IRQ
+
+	xor ax,ax
+	mov es,ax
+	mov si,(SBIRQ+8)*4
+	mov ax,es:[si+0]
+	mov word ptr [oldInterrupt+0],ax
+	mov ax,es:[si+2]
+	mov word ptr [oldInterrupt+2],ax
+	cli
+	mov ax,OFFSET SB_IRQ
+	mov es:[si+0],ax				; set offset of new interrupt routine
+	mov es:[si+2],cs				; set segment of new interrupt routine
+	sti
 
 ;--- unmask SB IRQ
-		in al, 21h
-		mov oldpic, al
-		and al, PICANDMASK
-		out 21h, al
 
-;------------------------------------------------
-; calculate page and offset for DMAcontroller :
-;
-; segment*16+offset - 20bit memory location -> upper 4 bits  = page
-;                                              lower 16 bits = offset
-;------------------------------------------------
-		mov si,offset SampleBuffer
-		lea di,[si+SAMPLEBUFFERLENGTH]
-		mov cx,SAMPLEBUFFERLENGTH
-		push si
-		push ds
-		pop es
-		rep movsb
-		pop si
+	in al, 21h
+	mov oldpic, al
+	and al, PICANDMASK
+	out 21h, al
 
-		mov ax,ds
-		rol ax,4	; * 16 - higher 4 bits in al
-		mov bl,al
-		and bl,00fh ; BL - higher 4 bits
-		and al,0f0h ; clear higher 4bits in AL
-		add si,ax	; SI = offset
-		adc bl,0	; BL = page
+;--- use 4bit ADPCM single-cycle (DSP command 075h XXXXh)
 
-;--- now BL:SI holds 20-bit linear address
-
-		mov cx,SAMPLEBUFFERLENGTH-1
-		mov ax, si
-		add ax, cx
-		jnc nooverride
-
-;--- 2. part must be used
-		mov si, ax
-		inc si		; si=si+1 - start of second part
-		inc bl		; second part is then on the next page
-nooverride:
-		mov dmabase, si
-
-;------------------------------------------------
-; Setup DMA-controller
-;
-; MASK DMA CHANNEL
-;
-		mov al,DMAchannel
-		add al,4
-		out WRITEMASK,al
-;------------------------------------------------
-; CLEAR FLIPFLOP
-;
-		out CLEARFLIPFLOP,al
-;------------------------------------------------
-; WRITE TRANSFER MODE
-;
-		mov al,WANTEDMODE
-		or al,DMAchannel
-		out WRITEMODE,al
-;------------------------------------------------
-; WRITE PAGE NUMBER
-;
-		mov al,bl
-		out PAGE_CHN,al
-;------------------------------------------------
-; WRITE BASEADDRESS
-;
-		mov ax,si
-		out BASE_CHN,al
-		mov al,ah
-		out BASE_CHN,al
-;------------------------------------------------
-; WRITE SAMPLELENGTH-1
-;
-		mov ax,SAMPLEBUFFERLENGTH-1
-		out COUNT_CHN,al
-		mov al,ah
-		out COUNT_CHN,al
-;------------------------------------------------
-; DEMASK CHANNEL
-;
-		mov al,DMAchannel
-		out WRITEMASK,al
-
-;------------------------------------------------
-; Setup SoundBlaster
-;
-; SET TIMECONSTANT
-;
-		mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command
-		WAITWRITE
-		mov al,DSP_SETTIMECONST
-		out dx,al
-		WAITWRITE
-
-		mov cx,dx
-		mov ax,lowword 1000000
-		mov dx,highword 1000000
-		mov bx,rate
-		cmp bx,100
-		jb rate_invalid
-		div bx
-		cmp ah,00h
-		jnz rate_invalid
-		neg al
-		mov timeconst,al
-		mov dx,cx
-		out dx,al
-;------------------------------------------------
-; use 8bit mono single-cycle (DSP command 014h XXXXh)
-;
-		WAITWRITE
-		mov al,DSP_ADPCM4BITREF
-		out dx,al
-		mov cx,sblength
-		WAITWRITE
-		mov al,cl						;AL = LOWER PART SAMPLELENGTH
-		out dx,al
-		WAITWRITE
-		mov al,ch						;AL = HIGHER PART SAMPLELENGTH
-		out dx,al
+	WAITWRITE
+	mov al,DSP_ADPCM4BITREF
+	out dx,al
+	mov cx,sblength
+	WAITWRITE
+	mov al,cl
+	out dx,al
+	WAITWRITE
+	mov al,ch
+	out dx,al
 
 waitloop:
-		cmp [ready],0					; check if IRQ happened
-		jnz exit
-		mov ah,01
-		int 16h
-		jz waitloop
-		mov ah,00
-		int 16h
-		cmp ah,1
-		jnz waitloop
+	cmp [ready],0					; check if IRQ happened
+	jnz exit
+	mov ah,01
+	int 16h
+	jz waitloop
+	mov ah,00
+	int 16h
+	cmp ah,1
+	jnz waitloop
 exit:
-		RESET_DSP
+	RESET_DSP
 
 ;--- restore PIC mask
-		mov al,oldpic
-		out 21h,al
+	mov al,oldpic
+	out 21h,al
 
 ;--- restore IRQ
-		xor ax,ax
-		mov es,ax
-		mov si,(SBIRQ+8)*4
-		cli
-		mov ax,word ptr [oldInterrupt+0]
-		mov es:[si+0],ax
-		mov ax,word ptr [oldInterrupt+2]
-		mov es:[si+2],ax
-		sti
+	xor ax,ax
+	mov es,ax
+	mov si,(SBIRQ+8)*4
+	cli
+	mov ax,word ptr [oldInterrupt+0]
+	mov es:[si+0],ax
+	mov ax,word ptr [oldInterrupt+2]
+	mov es:[si+2],ax
+	sti
 
-		invoke printf, CStr("DMA Buffer Length=%u",10), SAMPLEBUFFERLENGTH
-		invoke printf, CStr("SB Buffer Length=%u",10), sblength
-		out CLEARFLIPFLOP,al
-		in al,BASE_CHN
-		mov bl,al
-		in al,BASE_CHN
-		mov bh,al
-		sub bx,dmabase
+	invoke printf, CStr("DMA Buffer Length=%u",10), SAMPLEBUFFERLENGTH
+	invoke printf, CStr("SB Buffer Length=%u",10), sblength
+	out CLEARFLIPFLOP,al
+	in al,BASE_CHN
+	mov bl,al
+	in al,BASE_CHN
+	mov bh,al
+	sub bx,dmabase
 
-		in al,COUNT_CHN
-		mov cl,al
-		in al,COUNT_CHN
-		mov ch,al
-		invoke printf, CStr("DMA channel 1: idx/cnt=%Xh/%Xh",10), bx, cx
-		invoke printf, CStr("timer constant: %u",10), timeconst
+	in al,COUNT_CHN
+	mov cl,al
+	in al,COUNT_CHN
+	mov ch,al
+	invoke printf, CStr("DMA channel 1: idx/cnt=%Xh/%Xh",10), bx, cx
+	invoke printf, CStr("timer constant: %u",10), timeconst
 done:
-		ret
+	ret
 
-;--- error 'no sb found'
 RESET_ERROR:
-		mov dx, offset sberror
-		mov ah, 9
-		int 21h
-		jmp done
+;--- error 'no sb found'
+	mov dx, offset sberror
+	mov ah, 9
+	int 21h
+	jmp done
 rate_invalid:
-		mov dx, offset rateerror
-		mov ah, 9
-		int 21h
-		jmp done
+	mov dx, offset rateerror
+	mov ah, 9
+	int 21h
+	jmp done
 if 0
 length_invalid:
-		mov dx, offset lengtherror
-		mov ah, 9
-		int 21h
-		jmp done
+	mov dx, offset lengtherror
+	mov ah, 9
+	int 21h
+	jmp done
 endif
 main endp
 
 ;--- SB IRQ
 
 SB_IRQ proc
-		push ax
-		push dx
-		mov dx,BASEADDR+00Eh			;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
-		in al,dx
-		mov cs:[ready],1
-		mov al,20h
-		out 20h,al
-		pop dx
-		pop ax
-		IRET
+	push ax
+	push dx
+	mov dx,BASEADDR+00Eh			;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
+	in al,dx
+	mov cs:[ready],1
+	mov al,20h
+	out 20h,al
+	pop dx
+	pop ax
+	IRET
 SB_IRQ endp
 
 	include SETARGV.INC
 
 start:
-		mov ax,cs
-		mov ds,ax
-		mov bx,ss
-		sub bx,ax
-		shl bx,004h
-		mov ss,ax
-		add sp,bx
-		call _setargv
-		invoke main, [_argc], [_argv]
-		mov ax,4c00h
-		int 21h
+	mov ax,cs
+	mov ds,ax
+	mov bx,ss
+	sub bx,ax
+	shl bx,004h
+	mov ss,ax
+	add sp,bx
+	call _setargv
+	invoke main, [_argc], [_argv]
+	mov ax,4c00h
+	int 21h
 
 	END start

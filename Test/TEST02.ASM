@@ -61,10 +61,12 @@ SampleBuffer LABEL BYTE
 SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 	CreateData
 
-information     db 'TEST02 [frequency] [SB buffer length-1]',13,10
-                db 'plays zigzag wave, 16bit mono unsigned (SB16 only).',13,10
-                db 'frequency: default 22050; SB buffer length-1: default 65531.',13,10
-                db '$'
+information label byte
+	db 'TEST02 [frequency] [SB buffer length-1]',13,10
+	db 'plays zigzag wave, 16bit mono unsigned (SB16 only).',13,10
+	db 'frequency: default 22050; SB buffer length-1: default 65531.',13,10
+	db '$'
+
 info2           db 'Press ESC to exit!',13,10,'$'
 sberror         db 'No SoundBlaster at base address 220h.',13,10,'$'
 rateerror       db 'Invalid rate entered.',13,10,'$'

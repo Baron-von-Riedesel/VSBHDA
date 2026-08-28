@@ -8,7 +8,10 @@
 	.dosseg
 	option casemap:none
 
-SBPORT equ 228h		;FM out, both left & right
+SBBASE equ 220h
+SBPORT equ SBBASE+8	;FM out, both left & right (SB16 only?)
+
+	include SB.INC
 
 	.const
 
@@ -47,16 +50,32 @@ snd1    label byte
 	.code
 
 wait1 proc
+	push ax
 	mov  cx,10
+	in al, 61h
+	mov ah, al
 @@:
+	in al, 61h
+	xor al,ah
+	test al,10h
+	jz @B
 	loop @B
+	pop ax
 	ret
 wait1 endp
 
 wait2 proc
-	mov  cx,50
+	push ax
+	mov  cx,10
+	in al, 61h
+	mov ah, al
 @@:
+	in al, 61h
+	xor al,ah
+	test al,10h
+	jz @B
 	loop @B
+	pop ax
 	ret
 wait2 endp
 
@@ -100,6 +119,13 @@ writebytes endp
 main proc c
 
 	call reset
+if 1
+	mov dx,SBBASE+00Ch			;DX = DSP Write Data or Command
+	WAITWRITE
+	mov al,DSP_ENABLESPEAKER
+	out dx,al
+endif
+
 	invoke writebytes, addr snd1
 	push 40h
 	pop es
@@ -110,6 +136,14 @@ main proc c
 	cmp ecx, es:[6ch]
 	jae @B
 	.286
+
+if 1
+	mov dx,SBBASE+00Ch			;DX = DSP Write Data or Command
+	WAITWRITE
+	mov al,DSP_DISABLESPEAKER
+	out dx,al
+endif
+
 	call reset
 	ret
 

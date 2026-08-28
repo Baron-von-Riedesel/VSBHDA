@@ -22,6 +22,7 @@ DSP_SINGLECYCLEOUT8		equ 0C0h	;8 bit single-cycle for output
 DSP_AUTOINITOUT8 		equ 0C6h	;8 bit autoinit for output
 DSP_PAUSE8BIT           equ 0D0h
 DSP_ENABLESPEAKER		equ 0D1h
+DSP_DISABLESPEAKER		equ 0D3h
 DSP_CONTINUE8BIT        equ 0D4h
 DSP_PAUSE16BIT          equ 0D5h
 DSP_CONTINUE16BIT       equ 0D6h

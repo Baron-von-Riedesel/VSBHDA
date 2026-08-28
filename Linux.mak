@@ -66,7 +66,7 @@ endif
 OBJFILES = \
 	$(OUTD)/MAIN.obj		$(OUTD)/SNDISR.obj		$(OUTD)/PTRAP.obj		$(OUTD)/LINEAR.obj		$(OUTD)/PIC.obj \
 	$(OUTD)/VSB.obj			$(OUTD)/VDMA.obj		$(OUTD)/VIRQ.obj		$(OUTD)/VMPU.obj		$(OUTD)/TSF.obj \
-	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj	$(FMOBJS) \
+	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj	$(OUTD)/ADPCM.obj		$(FMOBJS) \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj \
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
@@ -134,6 +134,8 @@ $(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
 $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
+
+$(OUTD)/ADPCM.obj:     src/ADPCM.C
 $(OUTD)/DJDPMI.obj:    src/DJDPMI.ASM
 $(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
 $(OUTD)/FILEACC.obj:   src/FILEACC.ASM

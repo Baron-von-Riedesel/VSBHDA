@@ -60,6 +60,7 @@ OW19=-DOW19
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
 	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
+	$(OUTD)/adpcm.obj &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
@@ -148,6 +149,7 @@ $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 
+$(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/djdpmi.obj:    src\djdpmi.asm
