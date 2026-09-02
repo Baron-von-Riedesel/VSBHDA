@@ -26,8 +26,8 @@
  * LOGPCM8DATA: log happens BEFORE sample rate conversion
  * LOGPCM16DATA: log happens AFTER sample rate conversion
  */
-#define LOGPCM8DATA  0 /* 8-bit PCM data, mono only */
-#define LOGPCM16DATA 0 /* 16-bit PCM data, mono only */
+#define LOGPCM8DATA  1 /* support /LM1 - 8-bit PCM data, mono only */
+#define LOGPCM16DATA 1 /* support /LM2 - 16-bit PCM data, mono only */
 
 # if LOGPCM8DATA
 #  ifdef DJGPP
@@ -134,36 +134,30 @@ static void delay_10us(unsigned int ticks)
 /* rate conversion.
  * src & dst are 16-bit, channels is either 1 or 2; if it's 2, nSamples is even!
  * out: new sample cnt.
- * example A: 16 samples, 1 channel, srcrate=22050, dstrate=44100:
- * 1. instep = (0 << 12) | (((4096 * ( 22050 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
- *           = (( 4096 * 22050 + 44100 - 1 ) / 44100 ) & 0xfff
- *           = ( 90.404.899 / 44100 ) & 0xfff
- *           = 2049 & 0xfff -> 2049
- * 2. inend  = ( 16 / 1 ) << 12  -> 65536
- * 3. do {} while loop: 65536 / 2049 = 31 (interpolation steps; = 16*2-1)
  *
- * example B: 16 samples, 1 channel, srcrate=11025, dstrate=44100:
- * 1. instep = (0 << 12) | (((4096 * ( 11025 % 44100 ) + 44100 - 1 ) / 44100) & 0xfff)
- *           = (( 4096 * 11025 + 44100 - 1 ) / 44100 ) & 0xfff
- *           = ( 45.202.499 / 44100 ) & 0xfff
- *           = 1024 & 0xfff -> 1024
- * 2. inend  = ( 16 / 1 ) << 12  -> 65536
- * 3. do {} while loop: 65536 / 1024 = 64???
+ * example: 16 samples, 1 channel, srcrate=11025, dstrate=44100:
+ * 1. instep = (0 << 12) | ((4096 * ( 11025 % 44100 ) / 44100 + 1) & 0xfff)
+ *           = (( 4096 * 11025 ) / 44100 + 1) & 0xfff
+ *           = ( 45.158.400 / 44100 + 1) & 0xfff
+ *           = 1025 & 0xfff -> 1025
+ * 2. loops: 65536 / 1025 = 63
  *
  */
 
 static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples, const unsigned int channels, unsigned int srcrate, unsigned int dstrate)
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) - 1) / (dstrate - 1)) & 0xFFF);
-	const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) + dstrate - 1 ) / dstrate) & 0xFFF);
-	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((4096 * (srcrate % dstrate) ) / dstrate + 1 ) & 0xFFF);
+	/* v2.0: new instep calculation seems a bit more intuitive */
+	//const unsigned int instep = ((srcrate / dstrate) << 12) | (((((srcrate % dstrate) << 12 ) + dstrate - 1 ) / dstrate) & 0xFFF);
+	const unsigned int instep = ((srcrate / dstrate) << 12) | ((((srcrate % dstrate) << 12 ) / dstrate + 1 ) & 0xFFF);
 
 	const unsigned int inend = (nSamples >> (channels - 1)) << 12;
 	PCM_CV_TYPE_S *pcmdst;
-	unsigned int ipi;
+#ifdef _DEBUG
+	unsigned int idx;
+#endif
 	//unsigned int inpos = (srcrate < dstrate) ? (instep >> 1) : 0;
-	unsigned int inpos = 0;
+	unsigned int inpos = 0; /* bits 0-11 are position between 2 samples, bits 12-31 are sample index */
 #if MALLOCSTATIC
 	static int maxsample = 0;
 	static PCM_CV_TYPE_S* buff = NULL;
@@ -171,8 +165,8 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples,
 	PCM_CV_TYPE_S* buff;
 #endif
 
-	if(!nSamples)
-		return 0;
+	//if(!nSamples)
+	//	return 0;
 
 #if MALLOCSTATIC
 	if ( nSamples > maxsample ) {
@@ -188,37 +182,40 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples,
 
 	pcmdst = pcmsrc;
 
-    /* v2.0: one additional sample is suppied, so the logical last sample can
-     *       now be handled like the other ones ( variable total removed ).
+    /* v2.0: one additional sample is now supplied, so the last sample won't
+     *       need special treatment ( variable total removed ).
      */
 
-	do {
+	for ( inpos = 0; inpos < inend; inpos += instep ) {
 		unsigned int m1,m2;
-		unsigned int ipi;
-		PCM_CV_TYPE_S *intmp1,*intmp2;
+#ifndef _DEBUG
+		unsigned int idx;
+#endif
+		PCM_CV_TYPE_S *incurr,*innext;
 
-		ipi = (inpos >> 12 ) << ( channels - 1);
+		idx = (inpos >> 12 ) << ( channels - 1);
 		m2 = inpos & 0xFFF;
 		m1 = 4096 - m2;
-		intmp1 = buff + ipi;
-		intmp2 = buff + ipi + channels;
-		*pcmdst = ( *intmp1 * m1 + *intmp2 * m2 ) >> 12;
+		incurr = buff + idx;
+		innext = buff + idx + channels;
+		*pcmdst++ = ( *incurr * m1 + *innext * m2 ) >> 12;
 		if ( channels > 1 )
-			*(pcmdst+1) = ( *(intmp1+1) * m1 + *(intmp2+1) * m2 ) >> 12;
-		inpos +=instep;
-		pcmdst += channels;
-	} while ( inpos < inend );
+			*pcmdst++ = ( *(incurr+1) * m1 + *(innext+1) * m2 ) >> 12;
+	}
 
-	//dbgprintf(("cv_rate(src/dst rates=%u/%u chn=%u smpl=%u step=%x end=%x)=%u\n", srcrate, dstrate, channels, nSamples, instep, inend, pcmdst - pcmsrc ));
+#ifdef SNDISRLOG
+	dbgprintf(("cv_rate(smpl=%u, chn=%u) in step/end=%u/%u idx=%u new smpl=%u\n", nSamples, channels, instep, inend, idx, (pcmdst - pcmsrc) >> ( channels - 1) ));
+#endif
 
 #if !MALLOCSTATIC
 	free(buff);
 #endif
-    //return ( pcmdst - pcmsrc ); /* v2.0: shift added to return "true" sample count */
+	/* v2.0: shift added to return "true" sample count */
+	//return ( pcmdst - pcmsrc );
 	return ( (pcmdst - pcmsrc) >> ( channels - 1 ) );
 }
 
-/* convert 8 to 16 bits. It's assumed that 8 bit is unsigned, 16-bit is signed */
+/* convert 8-bits signed/unsigned to 16-bits signed. */
 
 static void cv_bits_8_to_16( PCM_CV_TYPE_S *pcm, unsigned int nSamples, uint8_t issigned )
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -268,7 +265,7 @@ static int SNDISR_Interrupt( void )
 #endif
     int16_t* pPCMOPL;
     uint32_t freq;
-    int samples;
+    int nSamples; /* # of samples requested by sound hardware */
     int IdxSm; /* sample index in 16bit PCM buffer */
     int i;
 #if COMPAT4
@@ -302,39 +299,38 @@ static int SNDISR_Interrupt( void )
 #endif
 
     //AU_setoutbytes( isr.hAU ); //v1.9: now obsolete
-    samples = AU_cardbuf_space( isr.hAU ) / ( sizeof(int16_t) * 2 ); //16 bit, 2 channels
-    if ( !samples ) { /* no free space in DMA buffer? Shouldn't happen... */
+    nSamples = AU_cardbuf_space( isr.hAU ) / ( sizeof(int16_t) * 2 ); //16 bit, 2 channels
+    if ( !nSamples ) { /* no free space in DMA buffer? Shouldn't happen... */
         dbgprintf(("isr: ERROR - AU_cardbuf_space() returned 0 samples\n" ));
         goto isrexit;
     }
     freq = AU_getfreq( isr.hAU );
 #ifdef _DEBUG
-    if (samples > isr.max_samples)
-        isr.max_samples = samples;
-    isr.total_samples += samples;
+    if ( nSamples > isr.max_samples )
+        isr.max_samples = nSamples;
+    isr.total_samples += nSamples;
     isr.cntTotal++;
-    //dbgprintf(("isr: samples:%u ",samples));
+    //dbgprintf(("isr: samples:%u ",nSamples));
     loop = 0;
-    for ( IdxSm = 0, isr.cntDigital++; VSB_Running() && IdxSm < samples; loop++ ) {
+    for ( IdxSm = 0, isr.cntDigital++; VSB_Running() && IdxSm < nSamples; loop++ ) {
         int ocnt;
 #else
-    for ( IdxSm = 0; VSB_Running() && IdxSm < samples; ) {
+    for ( IdxSm = 0; VSB_Running() && IdxSm < nSamples; ) {
 #endif
         /* a loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         int i,j;
         int dmachannel = VSB_GetDMA();
-        int samplesize = max( 1, VSB_GetBits() / 8 );
-        int count = samples - IdxSm; /* samples to handle in this turn */
-        int sbcnt;
-        bool resample;
-        int bytes;
+        int bytes; /* no of bytes to be copied from SB DMA buffer */
         int bits = VSB_GetBits();
         int channels = VSB_GetChannels();
+        int samplesize = ( bits + 7 ) >> 3;
+        int count = nSamples - IdxSm; /* samples to handle in this turn */
+        int sbcnt;
+        bool resample;
         uint32_t DMA_Base;
         uint32_t DMA_Index;
         int32_t DMA_Count;
-        uint32_t SB_BuffSize = VSB_GetSampleBufferSize(); /* buffer size in bytes */
-        uint32_t SB_Pos = VSB_GetPos();
+        uint32_t SB_BuffSpace = VSB_GetBuffSpace(); /* remaining buffer size in bytes */
         uint32_t SB_Rate = VSB_GetSampleRate();
         int IsSilent = VSB_IsSilent();
 
@@ -401,18 +397,20 @@ static int SNDISR_Interrupt( void )
 #endif
 #if ADPCM
         if( bits < 8 ) { /* ADPCM? */
-            sbcnt = SB_BuffSize - (SB_Pos + adpcm_state.useRef);
-            count += count % ( 6 - bits );
+            sbcnt = SB_BuffSpace - adpcm_state.useRef;
+            //count += count % ( 6 - bits );
             count = min( count, sbcnt * (6 - bits) );
-            bytes = count / (6 - bits) + adpcm_state.useRef;
-            dbgprintf(("isr(%u): ADPCM bits=%u bytes=%u count=%u sb_bufspace=%u\n", loop, bits, bytes, count, SB_BuffSize - SB_Pos ));
+            bytes = (count+(6 - bits)-1) / (6 - bits) + adpcm_state.useRef;
+# ifdef SNDISRLOG
+            dbgprintf(("isr(%u): ADPCM bits=%u bytes=%u samples=%u count=%u SB BuffSpace=%u\n", loop, bits, bytes, nSamples, count, SB_BuffSpace ));
+# endif
         } else
 #endif
         {
             /* samplesize and channels can be either 1 or 2 */
-            sbcnt = (SB_BuffSize - SB_Pos) / (samplesize * channels);
+            sbcnt = SB_BuffSpace / (samplesize * channels);
             /* v2.0: ensure that count hasn't become < samples - that would distort sound */
-            if ( (SB_BuffSize - SB_Pos) % (samplesize * channels) )
+            if ( SB_BuffSpace % (samplesize * channels) )
                 sbcnt++;
 
             count = min( count, max(1, sbcnt));
@@ -431,7 +429,7 @@ static int SNDISR_Interrupt( void )
                 int chunk;
                 int tmpbytes;
 #ifdef SNDISRLOG
-                dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, samples, DMA_Index, DMA_Count ));
+                dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=0x%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, nSamples, DMA_Index, DMA_Count ));
 #endif
                 if ( !VDMA_IsAuto(dmachannel) ) {
                     count = DMA_Count / (samplesize * channels );
@@ -459,9 +457,10 @@ static int SNDISR_Interrupt( void )
                  * may be a problem if SB buffer is at its end
                  * ( especially if DSP cmd is single-cycle only );
                  * in that case, just copy the last sample!
+                 * ADPCM is special, it's handled inside DecodeADPCM().
                  */
                 memcpy( pDest + bytes,
-                       (SB_Pos + bytes == SB_BuffSize) ?
+                       ( bytes == SB_BuffSpace ) ?
                        pDest + bytes - samplesize * channels :
                        NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ),
                        samplesize * channels );
@@ -469,17 +468,17 @@ static int SNDISR_Interrupt( void )
         }
 
         /* update DSP regs */
-        SB_Pos = VSB_SetPos( SB_Pos + bytes ); /* will set mixer IRQ status if pos beyond buffer */
+        VSB_ReduceBuffSpace( bytes ); /* will set mixer IRQ status if space becomes <= 0 */
 
         /* format conversion needed? */
 #if ADPCM
-        if( VSB_GetBits() < 8 )
-            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes - adpcm_state.useRef );
+        if( bits < 8 )
+            count = DecodeADPCM((uint8_t*)(isr.pPCM + IdxSm * 2), bytes - adpcm_state.useRef, bits );
 #endif
         if( samplesize != 2 ) {
 #ifdef _DEBUG
 # if LOGPCM8DATA
-            {
+            if ( gvars.logmode == 1 ) {
                 unsigned char *tmp = (unsigned char *)isr.pPCM + IdxSm * 2;
                 for ( i = 0; i < count; i++, tmp++ )
                     writepcm8data(*tmp);
@@ -497,8 +496,8 @@ static int SNDISR_Interrupt( void )
 
 #ifdef _DEBUG
 # if LOGPCM16DATA /* log 16-bit PCM data; file logfile.asm (HDLFUNC!) must also be changed! */
-        {
-            short *tmp = isr.pPCM;
+        if ( gvars.logmode == 2 ) {
+            short *tmp = isr.pPCM + IdxSm * 2;
             for ( i = 0; i < count; i++, tmp++ )
                 writepcm16data(*tmp);
         }
@@ -512,16 +511,16 @@ static int SNDISR_Interrupt( void )
 
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X SB Pos/Size=0x%X/0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, bytes, SB_Pos, SB_BuffSize, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X SB BufSpace=%u DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, bytes, SB_BuffSpace, DMA_Index, DMA_Count ));
 #endif
-            if ( VSB_IsAuto() )
-                VSB_SetPos(0);
-            else
+            if ( VSB_IsAuto() ) {
+                VSB_ResetBuffSpace();
+            } else
                 VSB_Stop(); /* v1.8: does no longer reset SB position */
             VIRQ_Invoke();
         } else {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c(o)/b=0x%02X/0x%02X(0x%02X)/0x%03X SB Pos=0x%X DMA Idx/Cnt=%X/%X\n", loop, samples, count, ocnt, bytes, SB_Pos, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c(o)/b=0x%02X/0x%02X(0x%02X)/0x%03X SB Space=0x%X DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, ocnt, bytes, SB_BuffSpace, DMA_Index, DMA_Count ));
 #endif
             /* v1.9: to exit the loop here (unconditionally) was incorrect -
              *       might be that DMA buffer < SB buffer!
@@ -539,17 +538,24 @@ static int SNDISR_Interrupt( void )
          * v1.5: it's better to reduce samples to IdxSm. If mode isn't autoinit,
          * the program may want to instantly initiate another DSP play cmd.
          * v1.8: returned to filling the rest with silence...
+         * v2.0: in case there were MORE samples produced than required ( may happen
+         * because of rate conversion or ADPCM ), adjust # of samples!
          */
-#if 1
+#ifdef _DEBUG
 # ifdef SNDISRLOG
-        if ( IdxSm < samples )
-            dbgprintf(("isr: %u samples to add\n", samples - IdxSm ));
+        if ( IdxSm < nSamples ) dbgprintf(("isr: %u samples to add\n", nSamples - IdxSm ));
 # endif
-        for( i = IdxSm; i < samples; i++ )
-            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
-#else
-        samples = IdxSm;
 #endif
+        for( i = IdxSm; i < nSamples; i++ )
+            *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
+
+#if 1 /* TEST TEST TEST */
+        /* v2.0: adjust nSamples - we don't want to loose generated sound data;
+         *       the sound hardware buffers are able to handle this.
+         */
+        nSamples = i;
+#endif
+
     } else if ( IdxSm = VSB_ReadDirectSamples( (uint8_t *)isr.pPCM ) ) {
 
         char *pDest = (char *)isr.pPCM;
@@ -559,16 +565,17 @@ static int SNDISR_Interrupt( void )
          * x / dst-freq = src-smpls / dst-smpls
          * x = src-smpl * dst-freq / dst-smpls
          */
-        uint32_t SB_Rate = IdxSm * freq / samples;
+        uint32_t SB_Rate = IdxSm * freq / nSamples;
 
         /* v2.0: cv_rate() now expects an extra, final sample */
         *(pDest + IdxSm) = *(pDest + IdxSm - 1);
-
-        //dbgprintf(("isr, direct samples: IdxSm=%d, samples=%d, rate=%u\n", IdxSm, samples, SB_Rate ));
+#ifdef SNDISRLOG
+        dbgprintf(("isr, direct samples: IdxSm=%d, samples=%d, rate=%u\n", IdxSm, nSamples, SB_Rate ));
+#endif
         cv_bits_8_to_16( isr.pPCM, IdxSm + 1, 0 );
         IdxSm = cv_rate( isr.pPCM, IdxSm, 1, SB_Rate, freq );
         cv_channels_1_to_2( isr.pPCM, IdxSm );
-        for( i = IdxSm; i < samples; i++ )
+        for( i = IdxSm; i < nSamples; i++ )
             *(isr.pPCM + i*2+1) = *(isr.pPCM + i*2) = 0;
     }
 
@@ -616,12 +623,12 @@ static int SNDISR_Interrupt( void )
 #ifndef NOFM
     if( VOPL3_IsActive() ) {
         int channels;
-        pPCMOPL = IdxSm ? isr.pPCM + samples * 2 : isr.pPCM;
-        VOPL3_GenSamples( pPCMOPL, samples ); //will generate samples*2 if stereo
+        pPCMOPL = IdxSm ? isr.pPCM + nSamples * 2 : isr.pPCM;
+        VOPL3_GenSamples( pPCMOPL, nSamples ); //will generate samples*2 if stereo
         //always use 2 channels
         channels = VOPL3_GetMode() ? 2 : 1;
         if( channels == 1 )
-            cv_channels_1_to_2( pPCMOPL, samples );
+            cv_channels_1_to_2( pPCMOPL, nSamples );
 
         if( IdxSm ) {
 # if MIXERROUTINE==0
@@ -629,7 +636,7 @@ static int SNDISR_Interrupt( void )
             voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
             if ( voicevol2 == 0xff ) voicevol2 = 0x100;
 #  endif
-            for( i = 0; i < samples * 2; i++ ) {
+            for( i = 0; i < nSamples * 2; i++ ) {
                 int a = (*(isr.pPCM+i) * (int)voicevol / 256) + 32768;    /* convert to 0-65535 */
                 int b = (*(pPCMOPL+i) * (int)midivol / 256 ) + 32768; /* convert to 0-65535 */
                 int mixed = (a < 32768 || b < 32768) ? ((a*b)/32768) : ((a+b)*2 - (a*b)/32768 - 65536);
@@ -644,17 +651,17 @@ static int SNDISR_Interrupt( void )
             }
 # elif MIXERROUTINE==1
             /* this variant is simple, but quiets too much ... */
-            for( i = 0; i < samples * 2; i++ ) *(isr.pPCM+i) = ( *(isr.pPCM+i) * voicevol + *(pPCMOPL+i) * midivol ) >> (8+1);
+            for( i = 0; i < nSamples * 2; i++ ) *(isr.pPCM+i) = ( *(isr.pPCM+i) * voicevol + *(pPCMOPL+i) * midivol ) >> (8+1);
 # else
             /* in assembly it's probably easier to handle signed/unsigned shifts */
-            SNDISR_Mixer( isr.pPCM, pPCMOPL, samples * 2, voicevol, midivol );
+            SNDISR_Mixer( isr.pPCM, pPCMOPL, nSamples * 2, voicevol, midivol );
 # endif
 # ifdef _LOGBUFFMAX
-            if ( (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
-                isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
+            if ( (( pPCMOPL + nSamples * 2 ) - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
+                isr.dwMaxBytes = (( pPCMOPL + nSamples * 2 ) - isr.pPCM ) * sizeof(int16_t);
 # endif
         } else
-            for( i = 0; i < samples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * midivol ) >> 8;
+            for( i = 0; i < nSamples * 2; i++, pPCMOPL++ ) *pPCMOPL = ( *pPCMOPL * midivol ) >> 8;
     } else {
 #endif
         if( IdxSm ) {
@@ -662,7 +669,7 @@ static int SNDISR_Interrupt( void )
             voicevol2 = ( (voicevol2 | 0xF + 1) * (mastervol2 | 0xF + 1) - 1) >> 8;
             if ( voicevol2 == 0xff ) voicevol2 = 0x100;
 # endif
-            for( i = 0, pPCMOPL = isr.pPCM; i < samples * 2; i++, pPCMOPL++ ) {
+            for( i = 0, pPCMOPL = isr.pPCM; i < nSamples * 2; i++, pPCMOPL++ ) {
                 *pPCMOPL = ( *pPCMOPL * voicevol ) >> 8;
 # if VOICELR
                 pPCMOPL++; i++;
@@ -671,14 +678,14 @@ static int SNDISR_Interrupt( void )
             }
 #ifdef _LOGBUFFMAX
             if ( ( pPCMOPL - isr.pPCM ) * sizeof(int16_t) > isr.dwMaxBytes )
-                isr.dwMaxBytes = (( pPCMOPL + samples * 2 ) - isr.pPCM ) * sizeof(int16_t);
+                isr.dwMaxBytes = (( pPCMOPL + nSamples * 2 ) - isr.pPCM ) * sizeof(int16_t);
 #endif
         } else
-            memset( isr.pPCM, 0, samples * sizeof(int16_t) * 2 );
+            memset( isr.pPCM, 0, nSamples * sizeof(int16_t) * 2 );
 #ifndef NOFM
     }
 #endif
-    //aui.samplenum = samples * 2;
+    //aui.samplenum = nSamples * 2;
     //aui.pcm_sample = ISR_PCM;
 #if SOUNDFONT
     if (tsfrenderer) {
@@ -686,11 +693,11 @@ static int SNDISR_Interrupt( void )
         fpu_save( fpu_buffer );
         VMPU_Process_Messages();
         //tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
-        tsf_render_short(tsfrenderer, isr.pPCM, samples, 1);
+        tsf_render_short(tsfrenderer, isr.pPCM, nSamples, 1);
         fpu_restore( fpu_buffer );
     }
 #endif
-    AU_writedata( isr.hAU, isr.pPCM, samples * 2 );
+    AU_writedata( isr.hAU, isr.pPCM, nSamples * 2 );
 
 #if SLOWDOWN
     if ( gvars.slowdown )

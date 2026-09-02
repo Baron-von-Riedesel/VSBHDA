@@ -66,9 +66,8 @@ SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 	CreateData
 
 information label byte
-	db 'TEST07 [frequency] [SB buffer length-1]',10
-	db 'plays a 8bit mono single-cycle highspeed sound',10
-	db 'frequency: default ~%u); SB buffer length-1: default %u.',10
+	db 'TEST07 plays a 8bit mono single-cycle highspeed sound',10
+	db 'Usage: TEST07 [frequency; def ~%u] [SB buffer length-1; def %u]',10
 	db 0
 
 sberror db 'No SoundBlaster at base address 220h.',13,10,'$'

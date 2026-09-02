@@ -129,9 +129,9 @@ static const uint8_t SB_Copyright[] = "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 19
 
 struct VSB_Status {
     int SampleRate;        /* sample rate current op */
-    unsigned int Samples;  /* the length argument after a play command, unmodified (samples - 1) */
-    unsigned int Position; /* byte position in sample buffer? modified by VSB_SetPos() */
-    unsigned int Bits;     /* bits current op */
+    unsigned int Length;   /* the (sound buffer) length argument, unmodified */
+    unsigned int BytesPlayed; /* bytes read from sound buffer */
+    unsigned int Bits;     /* bits of current play op */
 #if FASTCMD14
     unsigned int Cmd14Cnt;
 #endif
@@ -335,17 +335,19 @@ static void DSP_AddData( uint8_t data )
     vsb.DataBytes %= sizeof vsb.DataBuffer;
     vsb.DataBuffer[vsb.DataBytes] = data;
     vsb.DataBytes++;
+    return;
 }
 
 #if DISPSTAT
 static void VSB_DispStatus( void )
 //////////////////////////////////
 {
-	printf("VSB Samples/Pos/Bits: %u/0x%X/%u\n", vsb.Samples, vsb.Position, vsb.Bits );
+	printf("VSB Length/Played/Bits: %u/0x%X/%u\n", vsb.Length, vsb.BytesPlayed, vsb.Bits );
 	printf("VSB Started/Auto/Silent/Signed: %u/%u/%u/%u\n", vsb.Started, vsb.Auto, vsb.Silent, vsb.Signed );
 # if !HOSTRT
     VIRQ_Check();
 # endif
+    return;
 }
 #endif
 
@@ -375,7 +377,7 @@ static void DSP_Reset( uint8_t value )
         vsb.DataBytes = 0;
         VSB_Stop();
         vsb.SampleRate = 0;
-        vsb.Samples = 0;
+        vsb.Length = 0;
         vsb.HighSpeed = false;
         vsb.Auto = false;
         vsb.Signed = false;
@@ -420,6 +422,14 @@ static void DSP_Reset( uint8_t value )
         }
         vsb.ResetState = false;
     }
+    return;
+}
+
+static void VSB_SetIRQStatus( uint8_t flag )
+////////////////////////////////////////////
+{
+    vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= flag;
+    return;
 }
 
 /* translate time constant to frequency
@@ -553,12 +563,12 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_8BIT_OUT_SNGL: /* 14 - single cycle 8-bit DMA transfer */
     case 0x15: /* 15 */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
-        vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* actually it's length (=samples-1) */
+        vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
 #if FASTCMD14
         /* v1.7: IRQ detection routines may have a very short wait loop;
          * the sound hardware interrupt may have a latency of several ms.
          */
-        if ( ( vsb.Samples < 32 ) && ( flags & TRAPF_IF ) ) {
+        if ( ( vsb.Length < 32 ) && ( flags & TRAPF_IF ) ) {
             if ( vsb.Cmd14Cnt ) {
                 vsb.Cmd14Cnt--;
                 VIRQ_WaitForSndIrq();
@@ -570,8 +580,8 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true;
-        vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): single cycle, length=%u (0x%x), Rate=%u, started\n", vsb.dsp_cmd, vsb.Samples, vsb.Samples, vsb.SampleRate ));
+        vsb.BytesPlayed = 0;
+        dbgprintf(("DSP_DoCommand(%X): single cycle, length=%u (0x%x), Rate=%u, started\n", vsb.dsp_cmd, vsb.Length, vsb.Length, vsb.SampleRate ));
         break;
     case SB_DSP_8BIT_OUT_SNGL_HS: /* 91 - SB2+ */
         /* HS mode exits when block transfer ends.
@@ -588,7 +598,7 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true; //start transfer
-        vsb.Position = 0;
+        vsb.BytesPlayed = 0;
         dbgprintf(("DSP_DoCommand(%X): 8bit, autoinit=%u, HS=%u, started\n", vsb.dsp_cmd, vsb.Auto, vsb.HighSpeed ));
         break;
 #if ADPCM
@@ -599,24 +609,25 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_4BIT_OUT_SNGL:      /* 75 */
     case SB_DSP_3BIT_OUT_SNGL_NREF: /* 76; 3bit: cmd 0111xx1x */
     case SB_DSP_3BIT_OUT_SNGL:      /* 77 */
-    case SB_DSP_4BIT_OUT_AUTO:      /* 7D */
+    case SB_DSP_4BIT_OUT_AUTO:      /* 7D the autoinit variants are with ref byte - is useRef handled correctly then? */
     case SB_DSP_3BIT_OUT_AUTO:      /* 7F */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         if ( vsb.dsp_cmd & 8 )
             vsb.Auto = true;
         else {
             vsb.Auto = false;
-            vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* the value is #samples-1! */
+            vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
         }
         vsb.Bits = (vsb.dsp_cmd <= SB_DSP_2BIT_OUT_AUTO) ? 2 : ( vsb.dsp_cmd & 0x2 ) ? 3 : 4;
         adpcm_state.useRef = ( vsb.dsp_cmd & 1 );
-        adpcm_state.step = 0;
+        /* v2.0: scale (=stepsize) is cleared only when useRef changes from 1 to 0! */
+        //adpcm_state.scale = 0;
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
         vsb.Silent = false;
         vsb.Signed = false;
         vsb.Started = true;
-        vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, ref=%u, samples=0x%X (%u), started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, adpcm_state.useRef, vsb.Samples, vsb.Samples ));
+        vsb.BytesPlayed = 0;
+        dbgprintf(("DSP_DoCommand(%X): ADPCM autoinit=%u, bits=%u, ref=%u, length=0x%X (%u), started\n", vsb.dsp_cmd, vsb.Auto, vsb.Bits, adpcm_state.useRef, vsb.Length, vsb.Length ));
         break;
 #endif
     case 0xb0:  case 0xb1:  case 0xb2:  case 0xb3:  case 0xb4:  case 0xb5:  case 0xb6:  case 0xb7:
@@ -627,7 +638,7 @@ static void DSP_DoCommand( uint32_t flags )
 #if 1 /* v1.9 */
         /* cmd bit3=1? ADC - ignore cmd! */
         if ( vsb.dsp_cmd & 8 ) {
-            dbgprintf(("DSP_DoCommand(%X): SB16 mode=%X (ADC), samples=%u\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.Samples ));
+            dbgprintf(("DSP_DoCommand(%X): SB16 mode=%X (ADC)\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
             break;
         }
 #endif
@@ -645,12 +656,11 @@ static void DSP_DoCommand( uint32_t flags )
         else
             vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO;
 
-        //vsb.Samples = ( vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 ) ) - 1;
-        vsb.Samples = vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 );
+        vsb.Length = vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 );
         vsb.Silent = false;
         vsb.Started = true;
-        vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): SB16 mode=%X, samples=%u, started\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.Samples ));
+        vsb.BytesPlayed = 0;
+        dbgprintf(("DSP_DoCommand(%X): SB16 mode=%X, length=%u, started\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.Length ));
         break;
     case SB_DSP_SET_TIMECONST: /* 40 */
         vsb.SampleRate = 0;
@@ -670,19 +680,19 @@ static void DSP_DoCommand( uint32_t flags )
         dbgprintf(("DSP_DoCommand(%X): 8Bit Direct mode, data=%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] ));
         break;
     case SB_DSP_SET_SIZE: /* 48 - set block size for autoinit/highspeed cmds (cmd 91?) */
-        vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
+        vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
         dbgprintf(("DSP_DoCommand(%X): set block size for autoinit mode, size=0x%X\n", vsb.dsp_cmd, vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ) ));
         break;
-    case SB_DSP_SILENCE_DAC: /* 80 - output silence samples */
+    case SB_DSP_SILENCE_DAC: /* 80 - output silence */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
-        vsb.Samples = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 ); /* the value is #samples-1! */
+        vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
         vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
         vsb.Signed = false;
         vsb.Bits = 8;
         vsb.Silent = true;
         vsb.Started = true;
-        vsb.Position = 0;
-        dbgprintf(("DSP_DoCommand(%X): emit silence, samples=%u, started\n", vsb.dsp_cmd, vsb.Samples ));
+        vsb.BytesPlayed = 0;
+        dbgprintf(("DSP_DoCommand(%X): emit silence, length=%u, started\n", vsb.dsp_cmd, vsb.Length ));
         break;
     case 0x0E: /* SB16 "ASP set register" - used by diagnose.exe, expect 2 bytes */
         SB16_ONLY();
@@ -942,7 +952,7 @@ void VSB_Stop()
     vsb.Started = false;
     vsb.HighSpeed = false;
     /* v1.8: no need to reset position */
-    //vsb.Position = 0;
+    //vsb.BytesPlayed = 0;
 }
 
 #if 0
@@ -982,45 +992,57 @@ int VSB_GetSampleRate()
     return vsb.SampleRate;
 }
 
-/* returns size of sample buffer in bytes */
-
-uint32_t VSB_GetSampleBufferSize()
-//////////////////////////////////
-{
-    //return vsb.Samples + 1;
-    //return(( vsb.Samples + 1 ) * vsb.Bits / 8 );
-    //return((vsb.Samples + 1) * max(1, vsb.Bits >> 3));
-    //if ( !vsb.Samples ) asm("int3"); /* 1 sample, used by card detection software */
-    return((vsb.Samples + 1) * ((vsb.Bits+7) >> 3));
-}
-
 int VSB_IsAuto()
 ////////////////
 {
     return vsb.Auto;
 }
 
-uint32_t VSB_GetPos()
-/////////////////////
+/* for ADPCM, the length is always in bytes! for 16-bit, the length is in samples!
+ * 2 >> 4 = 0
+ * 3 >> 4 = 0
+ * 4 >> 4 = 0
+ * 8 >> 4 = 0
+ * 16 >> 4 = 1
+ */
+static inline uint32_t GetBuffSizeBytes( void )
+///////////////////////////////////////////////
 {
-    return vsb.Position;
+    return((vsb.Length + 1) << (vsb.Bits >> 4));
 }
 
-/* set pos (and IRQ status if pos beyond sample buffer) */
+/* v2.0: returns remaining size of sample buffer in bytes */
 
-uint32_t VSB_SetPos(uint32_t pos)
+uint32_t VSB_GetBuffSpace( void )
 /////////////////////////////////
 {
-    /* new pos above size of sample buffer? */
-    if( pos >= VSB_GetSampleBufferSize() )
-        VSB_SetIRQStatus( (VSB_GetBits() <= 8 ) ? SB_MIXERREG_IRQ_STAT8BIT : SB_MIXERREG_IRQ_STAT16BIT );
-    return vsb.Position = pos;
+    return( GetBuffSizeBytes() - vsb.BytesPlayed );
 }
 
-void VSB_SetIRQStatus( uint8_t flag )
-/////////////////////////////////////
+/* v2.0: reduce remaining buffer space (and set IRQ status if space becomes <= 0);
+ */
+
+void VSB_ReduceBuffSpace( uint32_t bytes )
+//////////////////////////////////////////
 {
-    vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= flag;
+    vsb.BytesPlayed += bytes;
+    /* remaining space <= 0? */
+    if( vsb.BytesPlayed >= GetBuffSizeBytes() )
+        VSB_SetIRQStatus( ( vsb.Bits <= 8 ) ? SB_MIXERREG_IRQ_STAT8BIT : SB_MIXERREG_IRQ_STAT16BIT );
+    return;
+}
+
+/* v2.0: called only if vsb.Auto is set */
+
+void VSB_ResetBuffSpace( void )
+///////////////////////////////
+{
+    vsb.BytesPlayed = 0;
+#if ADPCM
+    if ( vsb.Bits < 8 )
+        adpcm_state.useRef = 1; /* v2.0: ADPCM autoinit always expects a ref byte! */
+#endif
+    return;
 }
 
 int VSB_GetIRQStatus( void )

@@ -129,7 +129,7 @@ strings label word
 
 	.code
 
-	include printf.inc
+	include PRINTF.INC
 
 getclass proc
 	mov cx, CStr("unknown class")

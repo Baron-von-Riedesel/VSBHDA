@@ -32,7 +32,6 @@ extern "C" {
 
 //struct sndcard_info_s->infobits
 #define SNDCARD_CARDBUF_SPACE     4 /* if set: cardbuf_getpos() gives back the cardbuf space, not the bufpos */
-#define SNDCARD_BUFFER_PROTECTION 8 /* v2.0 if set: cardbuf_getpos() returns 32 bytes less than normal */
 
 //#define WAVEID_UNKNOWN   0x0000
 #define WAVEID_PCM_SLE   0x0001 // signed little endian
@@ -91,7 +90,7 @@ struct audioout_info_s {
  unsigned int  freq_card;
  unsigned char chan_card;
  unsigned char bits_card;
- unsigned char bytespersample_card;
+ unsigned char sampleshift_card;  /* samples << sampleshift_card = size of samples in bytes */
  unsigned char card_irq;
  unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
  unsigned short card_bytespersign; /* bytespersample_card * chan_card */
@@ -99,8 +98,9 @@ struct audioout_info_s {
  unsigned int  card_infobits;     // card info flags
  unsigned int  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
  unsigned int  card_dmalastput;   /* current dma buffer write offset; updated in AU_writedata() */
- unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in AU_get_bufpos_space(); */
+ unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in AU_get_bufpos_space() */
                                   /* should usually be set to ~period size if no IRQs got lost */
+ unsigned int  buffer_protection; /* v2.0: gap between read/write buffer pointer in bytes */
  char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
 
  const struct sndcard_info_s *card_handler; // function structure of the card

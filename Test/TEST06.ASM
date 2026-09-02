@@ -180,8 +180,8 @@ mididata label byte
 oldi15 dd 0
 
 	.386
-	include printf.inc
-	include getenv.inc
+	include PRINTF.INC
+	include GETENV.INC
 	.286
 
 ;--- int 1Ch; emit midi data

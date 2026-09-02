@@ -16,9 +16,9 @@ endif
 
 ;--- usually ax=0 is handled by int 41h ( =output text ),
 ;--- however, the logfile may be misused to write PCM data (ax=81h/82h);
-HDLFUNC equ 0
+;HDLFUNC equ 0
 ;HDLFUNC equ 81h	;to set if 8-bit PCM data is to be written
-;HDLFUNC equ 82h	;to set if 16-bit PCM data is to be written
+HDLFUNC equ 82h	;to set if 16-bit PCM data is to be written
 
 ;ifndef DJGPP
 ;__GETDS proto near
@@ -31,6 +31,7 @@ fclose proto c :ptr
 	.data
 
 oldint41 PFAR ?
+i41func dw 0
 externdef c logfile_start:ptr
 externdef c logfile_ofs:dword
 
@@ -45,35 +46,44 @@ szWriteErr db "logfile write error",13,10,'$'
 ;--- logfile write uses Int 41h, ax=0
 
 myint41 proc
-	cmp ax,HDLFUNC
-	jnz exit
 	push ds
 	push ebx
 	mov ebx, cs
 	add ebx, 8
 	mov ds, ebx
+	cmp ax,[i41func]
+	jnz exit
 	mov ebx, logfile_start
 	add ebx, logfile_ofs
+	cmp ax, 82h
+	jz @F
 	mov [ebx], dl
 	inc logfile_ofs
 	and logfile_ofs, LOGFILESIZE - 1
-if HDLFUNC eq 82h
-	mov [ebx+1], dh
-	inc logfile_ofs
+	jmp done
+@@:
+	mov [ebx], dx
+	add logfile_ofs, 2
+done:
 	and logfile_ofs, LOGFILESIZE - 1
-endif
+exit:
 	pop ebx
 	pop ds
-exit:
 	insIRET
 myint41 endp
 
-Int41_Init proc c public uses ebx
+Int41_Init proc c public uses ebx logmode:dword, start:ptr
 	mov bl,41h
 	mov ax,204h
 	int 31h
 	mov dword ptr [oldint41+0],edx
 	mov word ptr [oldint41+SEGOFS],cx
+	mov eax, logmode
+	and eax, eax
+	jz @F
+	or al,80h		;translate 1/2 -> 81h/82h
+@@:
+	mov i41func, ax
 	mov edx, offset myint41
 	mov ecx, cs
 	mov ax,205h

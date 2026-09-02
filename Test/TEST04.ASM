@@ -53,12 +53,12 @@ endm
 	.const
 
 SampleBuffer LABEL BYTE
-    INCLUDE PCMDATA.INC
+    INCBIN <TEST04.VOC>,20h
 
 SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 
 information label byte 
-	db 'TEST04 - play a 8bit mono sample one time using DSP cmd 0x14.',10
+	db 'TEST04 plays a 8bit mono sample one time using DSP cmd 0x14.',10
 	db 'EMS page frame is used as sound buffer!',10
 	db 0
 

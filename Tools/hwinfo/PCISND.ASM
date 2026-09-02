@@ -27,7 +27,7 @@ bHelp db 0
 
 	.code
 
-	include printf.inc
+	include PRINTF.INC
 
 listdev proc stdcall uses si di class:word
 	mov si, 0

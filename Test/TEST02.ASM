@@ -62,10 +62,9 @@ SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 	CreateData
 
 information label byte
-	db 'TEST02 [frequency] [SB buffer length-1]',13,10
-	db 'plays zigzag wave, 16bit mono unsigned (SB16 only).',13,10
-	db 'frequency: default 22050; SB buffer length-1: default 65531.',13,10
-	db '$'
+	db 'TEST02 plays zigzag wave, 16bit autoinit mono unsigned (SB16 only).',10
+	db 'Usage: TEST02 [frequency; def %u] [SB buffer length-1; def %u]',10
+	db 0
 
 info2           db 'Press ESC to exit!',13,10,'$'
 sberror         db 'No SoundBlaster at base address 220h.',13,10,'$'
@@ -73,6 +72,10 @@ rateerror       db 'Invalid rate entered.',13,10,'$'
 lengtherror     db 'Invalid SB buffer length entered.',13,10,'$'
 
 	.CODE
+
+	.386
+	include PRINTF.INC
+	.286
         
 dectest proc near
 	cmp al,'0'
@@ -124,9 +127,7 @@ getdec endp
 main proc c argc:word, argv:ptr
 
 ;--- write logo
-	mov dx,offset information
-	mov ah,9
-	int 21h
+	invoke printf, offset information, rate, sblength
 
 	cmp argc, 2
 	jb options_done

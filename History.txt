@@ -1,5 +1,5 @@
 
-  v2.0,
+  v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state
     of DMA channel mask.
   - improved handling of the case where DMA buffer size is smaller than
@@ -14,6 +14,8 @@
   - soundfont dynamic memory handling made less wasteful.
   - period size value (/PS) now used by SB Live/Audigy card driver.
   - added tool pcisnd.exe.
+  - debug version: support for cmdline option /LM added.
+  - cmdline option /BP added to make buffer protection configurable.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).

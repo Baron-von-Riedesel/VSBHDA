@@ -1,5 +1,5 @@
 
-;--- play ADPCM 4bit single-cycle ( DSP cmd 0x75 )
+;--- play ADPCM 4bit single-cycle ( DSP cmds 0x75/0x74 )
 
 	.286
 	.MODEL tiny
@@ -29,7 +29,8 @@ BASE_CHN           EQU DMABaseReg(DMAchannel) ;Base address register
 COUNT_CHN          EQU DMACntReg(DMAchannel)  ;Count register
 
 ;--- DMA MODE ( singlemode, nonautoinit, readmode )
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_SINGLECYCLE or DMA_MODE_READ
+;WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_SINGLECYCLE or DMA_MODE_READ
+WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 CStr macro text:vararg
 local sym
@@ -147,7 +148,8 @@ oldInterrupt        dd 0
 dmabase             dw 0
 sblength            dw SAMPLEBUFFERLENGTH-1
 rate                dw 4000
-ready               db 0
+count               db 0
+irq_happened        db 0
 timeconst           db 0
 oldpic              db 0
 
@@ -203,6 +205,35 @@ exit:
 	ret
 getdec endp
 
+;--- trigger another DMA op, without ref byte
+
+setup_adpcm proc
+	out CLEARFLIPFLOP,al
+	mov ax,dmabase
+	inc ax           ; skip ref byte
+	out BASE_CHN,al
+	mov al,ah
+	out BASE_CHN,al
+	mov ax,SAMPLEBUFFERLENGTH-2
+	out COUNT_CHN,al
+	mov al,ah
+	out COUNT_CHN,al
+
+	mov dx,BASEADDR+00Ch
+	WAITWRITE
+	mov al,DSP_ADPCM4BIT
+	out dx,al
+	mov cx,sblength
+	dec cx           ; skip ref byte
+	WAITWRITE
+	mov al,cl
+	out dx,al
+	WAITWRITE
+	mov al,ch
+	out dx,al
+	ret
+setup_adpcm endp
+
 main proc c argc:word, argv:ptr
 
 	invoke printf, addr information, rate
@@ -222,6 +253,17 @@ if 0
 	mov sblength, ax
 endif
 options_done:
+
+	mov ax,lowword 1000000
+	mov dx,highword 1000000
+	mov bx,rate
+	cmp bx,100
+	jb rate_invalid
+	div bx
+	cmp ah,00h
+	jnz rate_invalid
+	neg al
+	mov timeconst,al
 
 	RESET_DSP
 
@@ -313,19 +355,7 @@ nooverride:
 	mov al,DSP_SETTIMECONST
 	out dx,al
 	WAITWRITE
-
-	mov cx,dx
-	mov ax,lowword 1000000
-	mov dx,highword 1000000
-	mov bx,rate
-	cmp bx,100
-	jb rate_invalid
-	div bx
-	cmp ah,00h
-	jnz rate_invalid
-	neg al
-	mov timeconst,al
-	mov dx,cx
+	mov al,timeconst
 	out dx,al
 
 ;--- setup IRQ
@@ -352,6 +382,7 @@ nooverride:
 
 ;--- use 4bit ADPCM single-cycle (DSP command 075h XXXXh)
 
+	mov dx,BASEADDR+00Ch
 	WAITWRITE
 	mov al,DSP_ADPCM4BITREF
 	out dx,al
@@ -364,8 +395,13 @@ nooverride:
 	out dx,al
 
 waitloop:
-	cmp [ready],0					; check if IRQ happened
-	jnz exit
+	cmp [count],3				; check if IRQ happened
+	jnb exit
+	cmp [irq_happened],1
+	jnz @F
+	mov [irq_happened],0
+	call setup_adpcm			; init new DPS cmd, this time without ref byte
+@@:
 	mov ah,01
 	int 16h
 	jz waitloop
@@ -436,7 +472,8 @@ SB_IRQ proc
 	push dx
 	mov dx,BASEADDR+00Eh			;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
 	in al,dx
-	mov cs:[ready],1
+	inc cs:[count]
+	mov cs:[irq_happened],1
 	mov al,20h
 	out 20h,al
 	pop dx

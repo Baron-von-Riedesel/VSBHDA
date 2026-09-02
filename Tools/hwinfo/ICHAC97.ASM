@@ -125,7 +125,7 @@ buffer dw 128 dup (?)
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 	.code
 
-	include printf.inc
+	include PRINTF.INC
 
 ;--- scan PCI for Multimedia Audio Controller with vendor == Intel
 

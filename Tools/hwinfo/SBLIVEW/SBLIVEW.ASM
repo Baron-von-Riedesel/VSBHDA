@@ -231,8 +231,8 @@ _TEXT32 ends
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 	.CODE
 
-	include printf.inc
-	include dpmihlp.inc
+	include PRINTF.INC
+	include DPMIHLP.INC
 
 ;--- check for vendor Creative, devices SB Live or SB Audigy
 ;--- BX holds bus/device/function
@@ -492,7 +492,7 @@ nextptrreg:
 
 main endp
 
-	include initpm16.inc
+	include INITPM16.INC
 
 start:
 	mov ax, @data

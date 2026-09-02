@@ -142,6 +142,7 @@ static const struct {
     "F",   "Set frequency [multiples of 11025|16000, def 22050]", &gvars.freq,
     "VOL", "Set master volume [0-9, def 7]", &gvars.vol,
     "B",   "Set hardware buffers [def 8]", &gvars.buffers,
+    "BP",  "Set hardware buffer protection [def 64]", &gvars.buffer_protection,
     "BS",  "Set resampling buffer size [in 4kB units, def 16]", &gvars.buffsize,
 #if SLOWDOWN
     "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
@@ -156,6 +157,7 @@ static const struct {
     "CF",  "Set compatibility flags [def 0]", &gvars.compatflags,
 #ifdef _DEBUG
     "LF:", "Set log file name", (int *)&gvars.logfile,
+    "LM",  "Set log mode [0-2, def 0]", &gvars.logmode,
 #endif
     NULL, NULL, 0,
 };
@@ -198,7 +200,7 @@ void fatal_error( int nError )
 char *logfile_start;
 uint32_t logfile_ofs;
 
-extern void Int41_Init( char * );
+extern void Int41_Init( int, char * );
 extern void Int41_Exit( void );
 extern void LogfileDump( char * );
 
@@ -216,7 +218,7 @@ int LogfileInit( void )
     if (__dpmi_allocate_linear_memory(&info, 1) == -1)
         return 0;
     logfile_start = NearPtr( info.address );
-    Int41_Init( logfile_start );
+    Int41_Init( gvars.logmode, logfile_start );
     return 1;
 }
 
@@ -441,6 +443,9 @@ int main(int argc, char* argv[])
         printf("Error: Invalid PCM buffer size %d\n", gvars.buffsize );
         return(1);
     }
+    /* ensure buffer protection value is a multiple of 4 */
+    gvars.buffer_protection = (gvars.buffer_protection + 3) & ~3;
+
     /* v2.0: allow multiples of 11025 and 16000 */
     //if( gvars.freq != 11025 && gvars.freq != 22050 && gvars.freq != 44100 ) {
     if( (gvars.freq % 11025) * (gvars.freq % 16000) ) {

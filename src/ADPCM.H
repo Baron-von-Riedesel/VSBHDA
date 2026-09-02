@@ -11,7 +11,7 @@ struct ADPCM_STATE {
 
 extern struct ADPCM_STATE adpcm_state;
 
-extern int DecodeADPCM( uint8_t *pcm, int count );
+extern int DecodeADPCM( uint8_t *pcm, int count, int bits );
 
 #endif
 

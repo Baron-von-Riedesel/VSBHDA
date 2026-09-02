@@ -33,13 +33,12 @@ int VSB_IsAuto( void );
 int VSB_GetChannels( void );
 int VSB_GetSampleRate( void );
 unsigned int VSB_GetBits( void );
-uint32_t VSB_GetSampleBufferSize( void );
-uint32_t VSB_GetPos( void ); //get pos in bytes
-uint32_t VSB_SetPos(uint32_t pos); //set pos in bytes
-void VSB_SetIRQStatus( uint8_t );
+uint32_t VSB_GetBuffSpace( void );
+void VSB_ReduceBuffSpace( uint32_t bytes ); /* reduce space in bytes */
+void VSB_ResetBuffSpace( void ); /* autoinit: reset buffer space */
 int VSB_GetIRQStatus( void );
-uint8_t VSB_GetMixerReg(uint8_t index);
-int VSB_ReadDirectSamples(uint8_t *);
+uint8_t VSB_GetMixerReg( uint8_t index );
+int VSB_ReadDirectSamples( uint8_t * );
 
 #ifdef __cplusplus
 }

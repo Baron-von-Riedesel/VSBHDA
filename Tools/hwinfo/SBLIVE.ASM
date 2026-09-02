@@ -120,7 +120,7 @@ audigyregs label word
 
 	.code
 
-	include printf.inc
+	include PRINTF.INC
 
 ;--- check for vendor Creative, devices SB Live or SB Audigy
 ;--- BX holds bus/device/function

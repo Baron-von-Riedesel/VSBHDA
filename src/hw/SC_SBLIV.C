@@ -1639,7 +1639,7 @@ static int SBALL_IRQRoutine( struct audioout_info_s *aui )
 
 struct sndcard_info_s SBALL_sndcard_info = {
  "SB Live!/Audigy",
- SNDCARD_BUFFER_PROTECTION,
+ 0,
  &SBALL_adetect,
  &SBALL_start,
  &SBALL_stop,
