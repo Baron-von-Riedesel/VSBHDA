@@ -484,6 +484,8 @@ static void es1371_chip_init(struct ensoniq_card_s *card)
 	int idx;
 	unsigned long x;
 
+	/* v2.0: enable joystick to fix problems with "Lion King" */
+	card->ctrl |= ES_1371_JYSTK_EN;
 	outpd((card->port + ES_REG_CONTROL), card->ctrl);
 	outpd((card->port + ES_REG_SERIAL), card->sctrl);
 	outpd((card->port + ES_REG_1371_LEGACY), 0);
