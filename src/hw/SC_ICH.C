@@ -39,8 +39,6 @@
 #define SETUPIRQ 0 /* 1=set PCI irq to 11 if not defined - v2.0: obsolete */
 #define PCIR_CFG 0x41 // ICH4-7
 
-#define RETPOS 0 /* v2.0: 1=return position, 0=return space */
-
 /* port offsets and flags for Native Audio Bus Master Control Registers
  * 00-0F PCM in
  * 10-1F PCM out
@@ -226,7 +224,12 @@ static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_
 	/* for ICH, periods should be max 32 */
 	card->periods = min(ICH_DMABUF_PERIODS,(aui->gvars->buffers > 1) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT);
 
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE );
+	/* v2.0: valid periods are 2,4,8,16,32 only;
+	 * that's why MDma_get_bufsize() can't be used (gvars->buffers must be ignored)
+	 */
+	while ( ICH_DMABUF_PERIODS % card->periods ) card->periods++;
+	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE );
+	card->pcmout_bufsize =  card->periods * (aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE);
 
 	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
@@ -648,8 +651,6 @@ static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned int 
 	ich_write_8(card,ICH_PO_LVI,(ich_read_8(card,ICH_PO_CIV) - 1 ) % ICH_DMABUF_PERIODS );
 }
 
-#if RETPOS /* v2.0: ICH_getbufpos() reimplemented, returns size now (RETPOS=0) */
-
 /* ICH implementation of cardbuf_getpos() */
 
 static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
@@ -662,7 +663,7 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 	index = ich_read_8( card, ICH_PO_CIV );  // number of current period
 	pcmpos = readpicb( card );
 
-#ifdef _DEBUG
+#if 0//def _DEBUG
 	if ( pcmpos != card->period_size )
 		dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 #endif
@@ -675,58 +676,13 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 		pcmpos = 0;
 	}
 
-	pcmpos = card->period_size - pcmpos;
-
-	bufpos = index * card->period_size + pcmpos;
+	bufpos = (index * card->period_size + card->period_size - pcmpos ) % aui->card_dmasize;
 
 	//dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 
 	return bufpos;
 }
 
-#else
-
-static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////////////
-{
-	struct intel_card_s *card = aui->card_private_data;
-	unsigned int index, index2, pcmpos, space;
-	int i;
-
-	index = ich_read_8( card, ICH_PO_CIV );  // number of current period
-	pcmpos = readpicb(card);
-
-# if 0
-	dbgprintf(("ICH_getbufpos: CIV=%u LVI=%u PIV=%u pcmpos=0x%X\n",
-			   index,
-			   ich_read_8( card, ICH_PO_LVI ) & ( ICH_DMABUF_PERIODS - 1),
-			   ich_read_8( card, ICH_PO_PIV ),
-			   pcmpos ));
-# endif
-
-	index2 = ( index - 1) % ICH_DMABUF_PERIODS;
-
-	space = card->period_size - ( aui->card_dmalastput % card->period_size );
-
-	/* if interrupts were disabled, sound IRQs may have got lost... */
-	if ( card->last_civ != index2 ) {
-		i = index2 - card->last_civ;
-		if ( i < 0 ) i += ICH_DMABUF_PERIODS;
-		space += card->period_size * i;
-	}
-
-	/* has the buffers description table to be set dynamically? */
-	if ( ICH_DMABUF_PERIODS % card->periods ) {
-		unsigned int ofs;
-		ofs = ( aui->card_dmalastput % aui->card_dmasize ) & ~( card->period_size - 1 );
-		(card->virtualpagetable+index)->address = pds_cardmem_physicalptr(card->dm, card->pcmout_buffer + ofs );
-	}
-
-	card->last_civ = index;
-	return space;
-}
-
-#endif
 /*--------------------------------------------------------------------------
  * mixer access; 4 volumes are set (AU_CARDS.C au_mixchan_outs[]):
  * AU_MIXCHAN_MASTER
@@ -771,11 +727,7 @@ static int ICH_IRQRoutine( struct audioout_info_s* aui )
 /* v1.7: const attribute removed, since shortname member must be r/w now */
 struct sndcard_info_s ICH_sndcard_info = {
  "ICH AC97",
-#if RETPOS
  0,
-#else
- SNDCARD_CARDBUF_SPACE,
-#endif
  &ICH_adetect,      /* autodetect */
  &ICH_start,
  &ICH_stop,

@@ -129,8 +129,8 @@
      amount of the soundcard's PCM buffer (maximum is 128 kB). Increasing this
      value increases latency, but may be needed to avoid distorsion if the
      application disables interrupts for a significant amount of time.
-     For the AC'97 "ICH, NVidia, SiS" family of cards it's not useful to define
-     more than 32 buffers.
+     For the AC'97 "ICH, NVidia, SiS" family of cards the value for /B will
+     be rounded up to 2/4/8/16 or 32.
    - /PS: "period size" is space (in bytes) for samples rendered during one
      interrupt request. A period size of 512, for example, means that about
      128 samples will be rendered ( since output is always 16-bit, stereo ).

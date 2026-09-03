@@ -16,6 +16,7 @@
   - added tool pcisnd.exe.
   - debug version: support for cmdline option /LM added.
   - cmdline option /BP added to make buffer protection configurable.
+  - ES1371/ES1373 cards: joystick enabled.
 
   v1.9, 04.06.2026
   - support DSP cmd 0xFD (DSP cmd status).

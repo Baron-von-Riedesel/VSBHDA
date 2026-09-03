@@ -540,8 +540,9 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	unsigned int old_card_dmaspace = aui->card_dmaspace;
 #endif
 
-	if( aui->card_dmalastput >= aui->card_dmasize ) /* ensure write pointer is valid */
-		aui->card_dmalastput = 0;
+	/* v2.0: the only function that should update card_dmalastput is AU_writedata()! */
+	//if( aui->card_dmalastput >= aui->card_dmasize ) /* ensure write pointer is valid */
+	//	aui->card_dmalastput = 0;
 
 	bufpos = aui->card_handler->cardbuf_getpos(aui);
 	bufpos %= aui->card_dmasize;
@@ -561,11 +562,11 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 		if( bufpos > aui->card_dmalastput )
 			aui->card_dmaspace = bufpos - aui->card_dmalastput;
 		else
-			aui->card_dmaspace = aui->card_dmasize - aui->card_dmalastput + bufpos;
+			aui->card_dmaspace = bufpos + aui->card_dmasize - aui->card_dmalastput;
 	}
 
-	if( aui->card_dmaspace > aui->card_dmasize ) // checking
-		aui->card_dmaspace = aui->card_dmasize;
+	//if( aui->card_dmaspace > aui->card_dmasize ) // checking
+	//	aui->card_dmaspace = aui->card_dmasize;
 #ifdef DMABUFFLOG
 	dbgprintf(("AU_cardbuf_space: bufpos=%X, card_dmaspace new/old=%X/%X card_dmalastput=%X\n", bufpos, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));
 #endif
