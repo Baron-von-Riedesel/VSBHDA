@@ -124,7 +124,6 @@ struct intel_card_s {
 
     unsigned int periods; /* v2.0: # of periods */
     unsigned int period_size;
-    unsigned char last_civ; /* v2.0 */
 
     unsigned char vra;
     //unsigned char dra;
@@ -638,19 +637,6 @@ static int64_t gettimeu(void)
 
 //------------------------------------------------------------------------
 
-static void ICH_writedata( struct audioout_info_s *aui, char *src, unsigned int left )
-//////////////////////////////////////////////////////////////////////////////////////
-{
-	struct intel_card_s *card = aui->card_private_data;
-
-	//dbgprintf(("ICH_writedata(%u): CIV=%u LVI=%u PIV=%u\n", left, ich_read_8(card,ICH_PO_CIV), ich_read_8(card,ICH_PO_LVI) & ( ICH_DMABUF_PERIODS - 1), ich_read_8(card,ICH_PO_PIV) ));
-
-	MDma_writedata(aui,src,left);
-
-	/* update LVI to ensure the loop doesn't end */
-	ich_write_8(card,ICH_PO_LVI,(ich_read_8(card,ICH_PO_CIV) - 1 ) % ICH_DMABUF_PERIODS );
-}
-
 /* ICH implementation of cardbuf_getpos() */
 
 static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
@@ -665,20 +651,23 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 
 #if 0//def _DEBUG
 	if ( pcmpos != card->period_size )
-		dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
+		dbgprintf(("ICH_getbufpos: index=%u pcmpos=0x%X\n", index, pcmpos ));
 #endif
 
 	if( !pcmpos || pcmpos > card->period_size ) {
 		if( ich_read_8(card,ICH_PO_LVI) == index ) {
 			//aui->card_infobits |= AUI_CARDINFOBIT_DMAUNDERRUN;
-			dbgprintf(("ICH_getbufpos: DMA underrun pcmpos=0x%X\n",pcmpos));
+			dbgprintf(("ICH_getbufpos: DMA underrun pcmpos=0x%X\n", pcmpos));
 		}
 		pcmpos = 0;
 	}
 
 	bufpos = (index * card->period_size + card->period_size - pcmpos ) % aui->card_dmasize;
 
-	//dbgprintf(("ICH_getbufpos: index=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
+	/* update LVI to ensure the loop doesn't end */
+	ich_write_8(card,ICH_PO_LVI, (index - 1 ) % ICH_DMABUF_PERIODS );
+
+	dbgprintf(("ICH_getbufpos: CIV=%u bufpos=0x%X pcmpos=0x%X\n", index, bufpos, pcmpos ));
 
 	return bufpos;
 }
@@ -734,7 +723,7 @@ struct sndcard_info_s ICH_sndcard_info = {
  &ICH_close,
  &ICH_setrate,
 
- &ICH_writedata,
+ &MDma_writedata, /* =cardbuf_writedata() */
  &ICH_getbufpos,
  &ICH_IRQRoutine,
  &ICH_writeMIXER,
