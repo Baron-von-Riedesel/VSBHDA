@@ -17,10 +17,10 @@ Emulated cards: Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
 Requirements:
  * HDPMI32i - DPMI host with port trapping; 32-bit protected-mode
  * HDPMI16i - DPMI host with port trapping; 16-bit protected-mode
- * JEMMEX 5.84 - V86 monitor with port trapping; v86-mode
+ * JEMM386/JEMMEX - V86 monitor with port trapping; v86-mode
  
-VSBHDA uses some source codes from:
- * MPXPlay: https://mpxplay.sourceforge.net/ - sound card access
+VSBHDA uses source code from:
+ * MPXPlay: https://mpxplay.sourceforge.net/ - sound hardware access
  * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation & ADPCM decoding
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 

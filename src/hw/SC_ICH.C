@@ -44,7 +44,7 @@
  * 10-1F PCM out
  * 20-2B Mic in
  * 2C-34 Global ( Global Control (32), Global Status (32), Codec Write Semaphore (8) )
- * 40-4F Mic2 in
+ * 40-4F Mic2 in ( probably not for SiS 7012 )
  * 50-5F PCM2 in
  * 60-6F S/PDIF
  */
@@ -255,7 +255,7 @@ static void ich_chip_init(struct intel_card_s *card)
 
 	cmd = ich_read_32( card, ICH_GBL_ST_REG);
 	cmd &= ICH_GBL_ST_RCS; // ???
-	ich_write_32( card, ICH_GBL_ST_REG, cmd);
+	ich_write_32( card, ICH_GBL_ST_REG, cmd);  /* register is RO, so it's useless */
 
 	cmd = ich_read_32(card, ICH_GBL_CTL_REG);
 	/* v1.7: support for SiS 7012 */
@@ -643,7 +643,7 @@ static unsigned int ICH_getbufpos( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;
-	unsigned long bufpos = 0;
+	unsigned int bufpos;
 	unsigned int index,pcmpos;
 
 	index = ich_read_8( card, ICH_PO_CIV );  // number of current period
@@ -693,7 +693,7 @@ static unsigned long ICH_readMIXER( struct audioout_info_s *aui, unsigned long r
 {
 	struct intel_card_s *card = aui->card_private_data;
 #ifdef _DEBUG
-	unsigned long tmp = ich_codec_read(card,reg);
+	unsigned int tmp = ich_codec_read(card,reg);
 	dbgprintf(("ICH_readMIXER(%X)=%X\n", reg, tmp ));
 	return tmp;
 #else
@@ -701,7 +701,7 @@ static unsigned long ICH_readMIXER( struct audioout_info_s *aui, unsigned long r
 #endif
 }
 
-static int ICH_IRQRoutine( struct audioout_info_s* aui )
+static int ICH_IRQRoutine( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////
 {
 	struct intel_card_s *card = aui->card_private_data;

@@ -41,6 +41,9 @@ extern struct sndcard_info_s VIA82XX_sndcard_info;
 #ifndef NOSBLIVE
 extern struct sndcard_info_s SBALL_sndcard_info;
 #endif
+#ifndef NOSBXFI
+extern struct sndcard_info_s SBXFI_sndcard_info;
+#endif
 
 static const struct sndcard_info_s *sndcard_info_table[] = {
 #ifndef NOES1371
@@ -54,6 +57,9 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 #endif
 #ifndef NOSBLIVE
 	&SBALL_sndcard_info,
+#endif
+#ifndef NOSBXFI
+	&SBXFI_sndcard_info,
 #endif
 #ifndef NOVIA82
 	&VIA82XX_sndcard_info,
@@ -118,7 +124,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 			aui->buffer_protection = gvars->buffer_protection ? gvars->buffer_protection : BUFFER_PROTECTION_DEFAULT;
 			if ( aui->card_handler->card_detect(aui) ) {
 				if( !aui->card_handler->cardbuf_getpos ) {
-					dbgprintf(("AU_init: ERROR, cardbuf_getpos()=NULL!\n"));
+					dbgprintf(("AU_init: ERROR, cardbuf_getpos==NULL!\n"));
 				} else {
 					//aui->freq_card = aui->chan_card = aui->bits_card = 0;
 					dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
@@ -139,26 +145,26 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 int FAREXP AU_getirq( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////
 {
-    return( aui->card_irq );
+	return( aui->card_irq );
 }
 
 char * FAREXP AU_getshortname( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////
 {
-    return( aui->card_handler->shortname );
+	return( aui->card_handler->shortname );
 }
 
 int FAREXP AU_getfreq( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////
 {
-    return( aui->freq_card );
+	return( aui->freq_card );
 }
 
 int FAREXP AU_isirq( struct audioout_info_s *aui )
 //////////////////////////////////////////////////
 {
-    /* check if the irq belongs to the sound card */
-    return( aui->card_handler->irq_routine(aui) );
+	/* check if the irq belongs to the sound card */
+	return( aui->card_handler->irq_routine(aui) );
 }
 
 #if 0 /* v2.0: cardbuf_clear() removed */
@@ -176,8 +182,8 @@ static void AU_clearbuffs( struct audioout_info_s *aui )
 void AU_setsamplenum( struct audioout_info_s *aui, int samples )
 ////////////////////////////////////////////////////////////////
 {
-    aui->samplenum = samples ;
-    return;
+	aui->samplenum = samples ;
+	return;
 }
 #endif
 
@@ -476,8 +482,8 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 	 * it's a volume percentage already. Thus it's ensured that the values in submixch_shift/max
 	 * are never used.
 	 */
-    if ( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
-        maxchval = (1 << subchi->submixch_bits) - 1;
+	if ( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
+		maxchval = (1 << subchi->submixch_bits) - 1;
 		value >>= subchi->submixch_shift;                         // shift
 		value &= maxchval;                                        // mask
 
@@ -568,16 +574,18 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	//if( aui->card_dmaspace > aui->card_dmasize ) // checking
 	//	aui->card_dmaspace = aui->card_dmasize;
 #ifdef DMABUFFLOG
-	dbgprintf(("AU_cardbuf_space: bufpos=%X, card_dmaspace new/old=%X/%X card_dmalastput=%X\n", bufpos, aui->card_dmaspace, old_card_dmaspace, aui->card_dmalastput ));
+	dbgprintf(("AU_cardbuf_space: free space=%X [bufpos=%X, card_dmaspace new/old=%X/%X]\n",
+		(aui->card_dmaspace > aui->buffer_protection) ? aui->card_dmaspace - aui->buffer_protection: 0,
+		bufpos, aui->card_dmaspace, old_card_dmaspace ));
 #endif
 
-    return (aui->card_dmaspace > aui->buffer_protection) ? aui->card_dmaspace - aui->buffer_protection: 0;
+	return (aui->card_dmaspace > aui->buffer_protection) ? aui->card_dmaspace - aui->buffer_protection: 0;
 
 }
 
 /* AU_writedata(): calls card's writedata() and updates ring buffer's write pointer (=card_dmalastput).
  * v2.0: all checks and limitations removed. If more samples are provided than card_dmaspace can hold,
- * they are accepted - should be no problem at all.
+ * they are accepted - should be no problem if buffer protection works.
  */
 
 int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int samples )
@@ -599,7 +607,7 @@ int FAREXP AU_writedata( struct audioout_info_s *aui, char *pData, unsigned int 
 	aui->card_dmalastput %= aui->card_dmasize;
 
 #ifdef DMABUFFLOG
-    dbgprintf(("AU_writedata(samples=%u [bytes=%u]): exit, card_dmalastput new/old=%X/%X\n", samples, samples << aui->sampleshift_card, aui->card_dmalastput, old_card_dmalastput ));
+	dbgprintf(("AU_writedata(samples=%u [bytes=%u]): exit, card_dmalastput new/old=%X/%X\n", samples, samples << aui->sampleshift_card, aui->card_dmalastput, old_card_dmalastput ));
 #endif
 	return 1;
 }

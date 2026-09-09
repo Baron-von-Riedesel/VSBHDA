@@ -73,13 +73,14 @@ OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
+	$(OUTD)/sc_sbxfi.obj &
 	$(OUTD)/djdpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
 CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=-DNOTFLAT
+C_EXTRA_FLAGS=-DNOTFLAT -DNOSBXFI
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
@@ -146,6 +147,7 @@ $(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
 $(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
 $(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
+$(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 

@@ -76,7 +76,7 @@ OBJFILES = \
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -oxa -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=
+C_EXTRA_FLAGS= -DNOSBXFI
 ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif

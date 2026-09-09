@@ -100,6 +100,7 @@ int LogfileExit( void );
 #define LOGFILESIZE 0x1000000 /* size of logfile buffer (16 MB) */
 #else
 #define dbgprintf(x)
+#define dbgcprintf(x)
 #define dbgcondbrk(x)
 #endif
 
