@@ -1,4 +1,9 @@
 
+  v2.1,
+  - SB16 mode now compatible with SB Pro stereo cmds. Option /CF16 added
+    to allow reverting to previous behavior (SB16 plays SB Pro stereo in
+    mono).
+
   v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state
     of DMA channel mask.

@@ -105,7 +105,10 @@ static uint32_t emu10k1_ptr20_read( struct emu10k1_card *card, uint32_t reg, uin
 	return val;
 }
 
-// init & close
+/* init; this function is called for both EMU10K1 & EMU10K2;
+ * however, flag EMU_CHIPS_10KX isn't necessarily set - it may
+ * have been reset inside snd_p16v_selector().
+ */
 
 static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info_s *aui)
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -306,17 +309,19 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 
 	// setup HCFG
 	if (card->chips & EMU_CHIPS_10KX) {
+		unsigned int hcfg;
 		if (card->chips & EMU_CHIPS_10K2) { // Audigy
 			if (card->chiprev == 4) // Audigy 2,4
-				emu10k1_writefn0(card, HCFG, HCFG_AC3ENABLE_CDSPDIF | HCFG_AC3ENABLE_GPSPDIF | HCFG_AUTOMUTE | HCFG_JOYENABLE);
+				hcfg = HCFG_AC3ENABLE_CDSPDIF | HCFG_AC3ENABLE_GPSPDIF | HCFG_AUTOMUTE | HCFG_JOYENABLE;
 			else                   // Audigy 1
-				emu10k1_writefn0(card, HCFG, HCFG_AUTOMUTE | HCFG_JOYENABLE);
+				hcfg = HCFG_AUTOMUTE | HCFG_JOYENABLE;
 		} else { // SB Live
 			if (card->model == 0x20 || card->model == 0xc400 || (card->model == 0x21 && card->chiprev < 6))
-				emu10k1_writefn0(card, HCFG, HCFG_LOCKTANKCACHE_MASK | HCFG_AUTOMUTE);
+				hcfg = HCFG_LOCKTANKCACHE_MASK | HCFG_AUTOMUTE;
 			else
-				emu10k1_writefn0(card, HCFG, HCFG_LOCKTANKCACHE_MASK | HCFG_AUTOMUTE | HCFG_JOYENABLE);
+				hcfg = HCFG_LOCKTANKCACHE_MASK | HCFG_AUTOMUTE | HCFG_JOYENABLE;
 		}
+		emu10k1_writefn0(card, HCFG, hcfg);
 	}
 
 	if (card->chips & EMU_CHIPS_10K2) {    // enable analog output
@@ -358,14 +363,18 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 	return;
 }
 
+/* close; this function is called for both EMU10K1 & EMU10K2. */
+
 static void snd_emu10k1_hw_close( struct emu10k1_card *card)
 ////////////////////////////////////////////////////////////
 {
 	int ch;
 
 	dbgprintf(("snd_emu10k1_hw_close enter\n"));
-	/* v1.8: done in SBALL_stop() already */
-	//emu10k1_writefn0(card, EMU10K_INTENABLE, 0);
+	/* v1.8: done in SBALL_stop() already
+	 * v2.1: reactivated, since SBALL_stop() is also used by non-EMU10KX driver code.
+	 */
+	emu10k1_writefn0(card, EMU10K_INTENABLE, 0);
 
 	// Shutdown the chip
 	for (ch = 0; ch < NUM_G; ch++)
@@ -1000,9 +1009,27 @@ static void snd_emu10kx_setrate( struct emu10k1_card *card, struct audioout_info
 	return;
 }
 
+static void snd_emu10kx_enable_int( struct emu10k1_card *card)
+//////////////////////////////////////////////////////////////
+{
+	//emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB );
+#if !LOOPINT
+	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER | INTE_INTERVALTIMERENB );
+	/* v1.8: in 04/2023, the timer value was selected by trial & error (0x200);
+	 * it "worked", but it has turned out that FastTracker 2 had problems, so it was reduced to 0x1E0.
+	 * v1.9: value derived from period size: period_size * 48000 / (freq * 4); (4=channels * bytes_per_sample)
+	 * however, default is now LOOPINT 1 - the timer isn't used then.
+	 */
+	outpw(card->iobase + TIMER, ( aui->gvars->period_size ? aui->gvars->period_size : 512 ) * 48000 / (aui->freq_card * 4) );
+#else
+	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER );
+#endif
+	return;
+}
 static void snd_emu10kx_pcm_start_playback( struct emu10k1_card *card)
 //////////////////////////////////////////////////////////////////////
 {
+	snd_emu10kx_enable_int(card);
 	snd_emu10k1_playback_start_voice(card,0,VOICE_FLAGS_MASTER);
 	snd_emu10k1_playback_start_voice(card,1,0);
 #if LOOPINT
@@ -1034,7 +1061,7 @@ static unsigned int snd_emu10kx_pcm_pointer_playback( struct emu10k1_card *card,
 static void snd_emu10kx_clear_cache( struct emu10k1_card *card)
 ///////////////////////////////////////////////////////////////
 {
-	snd_emu10k1_playback_invalidate_cache(card,0,VOICE_FLAGS_STEREO|VOICE_FLAGS_16BIT);
+	snd_emu10k1_playback_invalidate_cache(card,0,VOICE_FLAGS_STEREO | VOICE_FLAGS_16BIT);
 	return;
 }
 
@@ -1175,8 +1202,12 @@ static void snd_p16v_pcm_prepare_playback( struct emu10k1_card *card,unsigned in
 	emu10k1_ptr20_write(card, 0x07, channel, 0x0); /* 0x07 = PLAYBACK_FIFO_END_ADDRESS */
 	emu10k1_ptr20_write(card, 0x08, channel, 0); /* 0x08 = PLAYBACK_FIFO_POINTER */
 
-	/* v1.8: EMU10K_INTENABLE is set in SBALL_start() */
+	/* v1.8: EMU10K_INTENABLE is set in SBALL_start()
+	 * v2.1: reverted, since SBALL_start() is used by non-EMU10KX driver code.
+	 */
 	//emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB );
+	snd_emu10kx_enable_int(card);
+	/* fixme: is next line to be active? */
 	//emu10k1_writefn0(card, P16V_INTENABLE, INTE2_PLAYBACK_CH_0_HALF_LOOP | INTE2_PLAYBACK_CH_0_LOOP);
 	return;
 }
@@ -1339,7 +1370,9 @@ static const struct pci_device_s creative_devices[] = {
  { NULL,0,0 }
 };
 
-/* list of variants that are supported */
+/* list of variants that are supported
+ * name, device, revision, subsystem, chips, max channels
+ */
 
 static const struct emu_card_version_s emucard_versions[] = {
  {"Audigy 4 [SB0610]"          ,0x0008,0,0x10211102,EMU_CHIPS_10K2|EMU_CHIPS_0108,8},
@@ -1538,18 +1571,6 @@ static void SBALL_start( struct audioout_info_s *aui )
 {
 	struct emu10k1_card *card = aui->card_private_data;
 
-	//emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_FXDSPENABLE | INTE_INTERVALTIMERENB );
-#if !LOOPINT
-	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER | INTE_INTERVALTIMERENB );
-	/* v1.8: in 04/2023, the timer value was selected by trial & error (0x200);
-	 * it "worked", but it has turned out that FastTracker 2 had problems, so it was reduced to 0x1E0.
-	 * v1.9: value derived from period size: period_size * 48000 / (freq * 4); (4=channels * bytes_per_sample)
-	 * however, default is now LOOPINT 1 - the timer isn't used then.
-	 */
-	outpw(card->iobase + TIMER, ( aui->gvars->period_size ? aui->gvars->period_size : 512 ) * 48000 / (aui->freq_card * 4) );
-#else
-	emu10k1_writefn0(card, EMU10K_INTENABLE, INTE_SAMPLERATETRACKER );
-#endif
 	/* v2.0: added, makes SBALL_clearbuf() obsolete */
 	if ( card->driver_funcs->clear_cache )
 		card->driver_funcs->clear_cache( card );
@@ -1564,8 +1585,10 @@ static void SBALL_stop( struct audioout_info_s *aui )
 {
 	struct emu10k1_card *card = aui->card_private_data;
 
-	/* v1.8: added */
-	emu10k1_writefn0(card, EMU10K_INTENABLE, 0 );
+	/* v1.8: added;
+	 * v2.1: removed - SBALL_stop() is also used by non-EMU10kx code!
+	 */
+	//emu10k1_writefn0(card, EMU10K_INTENABLE, 0 );
 
 	if ( card->driver_funcs->stop_playback )
 		card->driver_funcs->stop_playback( card );

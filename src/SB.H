@@ -46,10 +46,11 @@
 //register index through mixer port
 #define SB_MIXERREG_RESET        0x00 /* write only */
 #define SB_MIXERREG_STATUS       0x01 /* read only: previously selected index */
-#define SB_MIXERREG_MASTERVOL    0x02 /* SB, bits[1-3]; SBPro: bits[1-3/5-7], R/L */
-#define SB_MIXERREG_MIDIVOL      0x06 /* SB, FM Level, 3 bits [1-3]; SBPro: bits 5+6: L/R on/off */
+#define SB_MIXERREG_MASTERVOL    0x02 /* SB, bits[1-3] */ /* ??? SBPro: bits[1-3/5-7], R/L ??? */
+#define SB_MIXERREG_MIDIVOL      0x06 /* SB, FM Level, 3 bits [1-3] */
 #define SB_MIXERREG_VOICEVOL     0x0A /* SB, Voice Level, 2 bits [1-2]; SBPro+ - Microphone level, 2/3 bits */
 
+#define SB_MIXERREG_FMCTL        0x06 /* SBPro: bits 5+6: L/R on/off */
 #define SB_MIXERREG_INPUTFILTER  0x0C /* SBPro only */
 #define SB_MIXERREG_MODEFILTER   0x0E /* SBPro only - bit 1:Stereo select, bit 5: Filter output */
 #define SB_MIXERREG_MODEFILTER_STEREO 2
@@ -96,7 +97,8 @@
 #define SB_MIXERREG_IRQ_STATMPU   4
 /* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */
 /* mixer regs 0x84-0xff always return 0xff */
-#define SB_MIXERREG_MAX          0x83
+#define SB_MIXERREG_MAX16        0x83
+#define SB_MIXERREG_MAXPRO       0x2E
 
 //DSP commands
 //time constant used

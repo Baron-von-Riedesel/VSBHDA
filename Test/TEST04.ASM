@@ -32,8 +32,6 @@ CLEARFLIPFLOP      EQU 00ch
 PAGE_CHN           EQU 083h         ;PAGE REGISTER FOR DMAchannel 1
 BASE_CHN           EQU 002h         ;BASEADDRESS REGISTER DMA 1
 COUNT_CHN          EQU 003h         ;COUNT REGISTER DMAchannel 1
-
-;--- SAMPLERATE : (if you change it pay attention to maximum samplerate)
 TIMECONST          EQU 165          ; = 10989 Hz (256-1000000/11000)
 
 ;--- DMA WRITE MODE
@@ -53,7 +51,7 @@ endm
 	.const
 
 SampleBuffer LABEL BYTE
-    INCBIN <TEST04.VOC>,20h
+	INCBIN <TEST04.VOC>,20h
 
 SAMPLEBUFFERLENGTH equ $ - offset SampleBuffer
 

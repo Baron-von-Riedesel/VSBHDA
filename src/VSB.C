@@ -18,18 +18,16 @@
 #include "ADPCM.H"
 
 /* compatibility switches */
-#define FASTCMD14 1  /* 1=DSP cmd 0x14 for SB detection is handled instantly */
-
-#define SBMIDIUART 1 /* support DSP cmds 0x34-0x37 */
-#define CMD10NOWAIT 1 /* 1=don't set busy flag if DSP cmd==0x10 (both cmd & data) */
+#define FASTCMD14     1 /* 1=DSP cmd 0x14 for SB detection is handled instantly */
+#define SBMIDIUART    1 /* support DSP cmds 0x34-0x37 */
+#define CMD10NOWAIT   1 /* 1=don't set busy flag if DSP cmd==0x10 (both cmd & data) */
 #define CMD10LASTSMPL 1 /* 1=save last sample and supply it as first in next read */
-
 #define CMDPORTMASK 0x3 /* mask to determine when a cmd port is to be "busy" */
-#ifndef DISPSTAT
-#define DISPSTAT 0 /* 1=support displaying DSP status - obsolete */
-#endif
+#define DISPSTAT      0 /* 1=support displaying DSP status - obsolete */
+#define TCADJ         0 /* 1=adjust rate 10989 (TC 165) to 11025 */
+#define CT1345        1 /* 1=SB16 optionally supports SB Pro mixer CT1345 */
+
 #define MIXERREADLOG /* debug log mixer read on */
-#define TCADJ 0 /* 1=adjust rate 10989 (TC 165) to 11025 */
 
 extern struct globalvars gvars;
 
@@ -43,7 +41,7 @@ static const uint16_t VSB_DSPVersion[] =
     0,
     0x0100,
     0x0105, /* type 2: SB 1.5?  */
-    0x0202, /* type 3: ?        */
+    0x0202, /* type 3: SB 2.01  */
     0x0302, /* type 4: SB Pro 2 */
     0x0302, /* type 5: ?        */
     0x0405, /* type 6: SB16     */
@@ -107,6 +105,10 @@ static const uint8_t DSP_cmd_len_sb16[256] = {
   1,0,1,0, 1,0,0,0, 0,0,0,0, 0,0,0,0,  // 0xe0
   0,0,0,0, 0,0,0,0, 0,1,0,0, 0,0,0,0   // 0xf0
 };
+/* SB Pro mixer CT1345 registers (2/6/C/E);
+ * register 2 isn't really a CT1345 register (it's r/o on a SB Pro)
+ */
+static const uint16_t CT1345_Ports = 1 << 2 | 1 << 6 | 1 << 12 | 1 << 14;
 #endif
 
 /* bitfield for SB16-only DSP cmds */
@@ -132,6 +134,7 @@ struct VSB_Status {
     unsigned int Length;   /* the (sound buffer) length argument, unmodified */
     unsigned int BytesPlayed; /* bytes read from sound buffer */
     unsigned int Bits;     /* bits of current play op */
+    unsigned int Channels;
 #if FASTCMD14
     unsigned int Cmd14Cnt;
 #endif
@@ -145,6 +148,7 @@ struct VSB_Status {
     uint8_t Irq;      /* IRQ, set by Init (2/5/7) */
     uint8_t Dma8;     /* 8-bit DMA channel */
     uint8_t Dma16;    /* 16-bit DMA channel */
+    uint8_t MixerMax;
     uint8_t MixerRegIndex;
     uint8_t DirIdxW; /* current write index to DirectBuffer */
     uint8_t DirIdxR; /* v1.9: current read index to DirectBuffer */
@@ -170,7 +174,7 @@ struct VSB_Status {
     uint8_t DataBuffer[48];
     uint8_t bSpeaker;
     uint8_t bTimeConst;
-    uint8_t MixerRegs[SB_MIXERREG_MAX+1];
+    uint8_t MixerRegs[SB_MIXERREG_MAX16+1];
 
     uint8_t DirectBuffer[VSB_DIRECTBUFFER_SIZE];
 };
@@ -203,9 +207,11 @@ static void VSB_MixerReset( void )
 //////////////////////////////////
 {
 	vsb.MixerRegs[SB_MIXERREG_MASTERVOL] = 0xD; /* 02: bits 1-3, L&R?, default 0x99?, for SBPro+: map to 0x22? */
-	vsb.MixerRegs[SB_MIXERREG_MIDIVOL] = 0xD;   /* 06: bits 1-3 */
+	vsb.MixerRegs[SB_MIXERREG_FMCTL] = 0xD;     /* 06: bits 1-3; SB Pro bits 5+6 */
 	/* todo: SB_MIXERREG_VOICEVOL is for SB20 only, for SBPro+ it's MIC level 2/3 bits */
 	vsb.MixerRegs[SB_MIXERREG_VOICEVOL] = 0x6;  /* 0A: bits 1-2, default ? */
+	/* v2.1: reset SB Pro output mode filter */
+	vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0x11; /* SB Pro: mono, no filter */
 
 	vsb.MixerRegs[SB_MIXERREG_VOICESTEREO] = 0xCC;  /* 04: */
 	vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xCC; /* 22: */
@@ -235,14 +241,14 @@ static void VSB_Mixer_Write( uint8_t value )
 ////////////////////////////////////////////
 {
     dbgprintf(("VSB_Mixer_Write[%u]: value=0x%x\n", vsb.MixerRegIndex, value));
-    if ( vsb.MixerRegIndex > SB_MIXERREG_MAX )
+    if ( vsb.MixerRegIndex > vsb.MixerMax )
         return;
+
     if ( vsb.MixerRegIndex == SB_MIXERREG_RESET )
         VSB_MixerReset();
     /* INT and DMA setup are readonly */
     if ( vsb.MixerRegIndex == SB_MIXERREG_INT_SETUP || vsb.MixerRegIndex == SB_MIXERREG_DMA_SETUP )
         return;
-    vsb.MixerRegs[vsb.MixerRegIndex] = value;
 #if SB16
     if( vsb.DSPVER >= 0x0400 ) { //SB16
         if( vsb.MixerRegIndex >= SB16_MIXERREG_MASTERL && vsb.MixerRegIndex <= SB16_MIXERREG_CDR ) {
@@ -256,22 +262,22 @@ static void VSB_Mixer_Write( uint8_t value )
                 mask = 0x0F;
             }
             switch(vsb.MixerRegIndex) {
-            case SB16_MIXERREG_MASTERL:
+            case SB16_MIXERREG_MASTERL: /* translate 30/31 to 22 */
             case SB16_MIXERREG_MASTERR:
                 vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] &= mask;
                 vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] |= value;
                 break;
-            case SB16_MIXERREG_VOICEL:
+            case SB16_MIXERREG_VOICEL: /* translate 32/33 to 04 */
             case SB16_MIXERREG_VOICER:
                 vsb.MixerRegs[SB_MIXERREG_VOICESTEREO]  &= mask;
                 vsb.MixerRegs[SB_MIXERREG_VOICESTEREO]  |= value;
                 break;
-            case SB16_MIXERREG_MIDIL:
+            case SB16_MIXERREG_MIDIL: /* translate 34/35 to 26 */
             case SB16_MIXERREG_MIDIR:
                 vsb.MixerRegs[SB_MIXERREG_MIDISTEREO]   &= mask;
                 vsb.MixerRegs[SB_MIXERREG_MIDISTEREO]   |= value;
                 break;
-            case SB16_MIXERREG_CDL:
+            case SB16_MIXERREG_CDL: /* translate 36/37 to 28 */
             case SB16_MIXERREG_CDR:
                 vsb.MixerRegs[SB_MIXERREG_CDSTEREO]     &= mask;
                 vsb.MixerRegs[SB_MIXERREG_CDSTEREO]     |= value;
@@ -302,15 +308,17 @@ static void VSB_Mixer_Write( uint8_t value )
                 vsb.MixerRegs[SB16_MIXERREG_CDL]     = (value & 0xF0) | 8;
                 AU_setmixer_one( vsb.hAU, AU_MIXCHAN_CDIN, AU_MIXCHANFUNC_VOLUME, MIXER_SETMODE_ABSOLUTE, (vsb.MixerRegs[SB_MIXERREG_CDSTEREO] & 0xF) * 100 / 16 );
                 break;
-#if 1 /* for SB16, don't allow to set the Pro Modefilter */
-            case SB_MIXERREG_MODEFILTER: /* 0E */
-                vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0;
+            default:
+                /* v2.1: if SB16 DSP, protect all CT1345 ports ( not just 14 ); enabled by /CF16 */
+                if ((gvars.compatflags & CF_CT1345) && vsb.MixerRegIndex < 16 && (CT1345_Ports & (1 << vsb.MixerRegIndex )))
+                    return;
                 break;
-#endif
             }
         }
     }
 #endif
+    vsb.MixerRegs[vsb.MixerRegIndex] = value;
+    return;
 }
 
 /* read port 2x5 */
@@ -319,12 +327,16 @@ static uint8_t VSB_Mixer_Read( void )
 /////////////////////////////////////
 {
 #ifdef MIXERREADLOG
-    dbgprintf(("VSB_Mixer_Read[%u]: value=0x%x\n", vsb.MixerRegIndex, vsb.MixerRegIndex <= SB_MIXERREG_MAX ? vsb.MixerRegs[vsb.MixerRegIndex] : 0xFF ));
+    dbgprintf(("VSB_Mixer_Read[%u]: value=0x%x\n", vsb.MixerRegIndex, vsb.MixerRegIndex <= vsb.MixerMax ? vsb.MixerRegs[vsb.MixerRegIndex] : 0xFF ));
 #endif
-    /* v1.8: mixer reg 1 returns value of last (valid) register read op */
-    if ( vsb.MixerRegIndex <= SB_MIXERREG_MAX ) {
-        vsb.MixerRegs[1] = vsb.MixerRegs[vsb.MixerRegIndex];
-        return vsb.MixerRegs[vsb.MixerRegIndex];
+    if ( vsb.MixerRegIndex <= vsb.MixerMax ) {
+        if ( vsb.MixerRegIndex < 0x30 && (vsb.MixerRegIndex & 0x11)) /* v2.1: skip odd addresses in 02-2F range */
+            ;
+        else {
+            /* v1.8: mixer reg 1 returns value of last (valid) register read op ??? */
+            vsb.MixerRegs[1] = vsb.MixerRegs[vsb.MixerRegIndex];
+            return vsb.MixerRegs[vsb.MixerRegIndex];
+        }
     }
     return(0xFF);
 }
@@ -371,7 +383,8 @@ static void DSP_Reset( uint8_t value )
         /* v1.7: now done in VSB_Init() - INT_SETUP and DMA_SETUP are r/o registers */
         //vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
-        vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0x11; //SB Pro: mono, no filter
+        /* v2.1: don't reset mixer regs on DSP reset! */
+        //vsb.MixerRegs[SB_MIXERREG_MODEFILTER] = 0x11; //SB Pro: mono, no filter
         vsb.MixerRegIndex = 0;
         vsb.dsp_cmd = SB_DSP_NOCMD;
         vsb.DataBytes = 0;
@@ -443,7 +456,7 @@ static int CalcSampleRate( uint16_t value )
 {
     int rc;
     uint8_t limit;
-    unsigned int channels = 1;
+    unsigned int shift;
 
     if( vsb.DSPVER < 0x300 )
         limit = ( vsb.Bits == 2 ? 189 : (vsb.Bits <= 4 ? 172 : 210));
@@ -451,7 +464,7 @@ static int CalcSampleRate( uint16_t value )
         limit = vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 234));
     else {
         /* v1.7: only for SBPro the channel # are used - reduces SB16 compatibility with SBPro */
-        channels = VSB_GetChannels();
+        //channels = VSB_GetChannels();
         if( vsb.HighSpeed )
             limit = 234;
         else
@@ -462,8 +475,8 @@ static int CalcSampleRate( uint16_t value )
         return 11025;
 #endif
     value = min(value, limit);
-    //rc = 1000000 / (( 256 - value ) * channels );
-    rc = 256000000u / (( 65536u - (value << 8) ) * channels );
+    shift = (vsb.Bits == 8 && (vsb.MixerRegs[SB_MIXERREG_MODEFILTER] & 2)) ? 1 : 0;
+    rc = 256000000u / (( 65536u - (value << 8) ) << shift );
     return rc;
 }
 
@@ -577,6 +590,7 @@ static void DSP_DoCommand( uint32_t flags )
 #endif
         vsb.Auto = false; /* v1.7: added */
         vsb.Bits = 8;
+        vsb.Channels = 1 + ((vsb.MixerRegs[SB_MIXERREG_MODEFILTER] >> 1) & 1);
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true;
@@ -593,13 +607,14 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Auto = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Bits = 8;
+        vsb.Channels = 1 + ((vsb.MixerRegs[SB_MIXERREG_MODEFILTER] >> 1) & 1);
         if ( vsb.DSPVER < 0x400 )
             vsb.HighSpeed = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_SNGL_HS || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Signed = false;
         vsb.Silent = false;
         vsb.Started = true; //start transfer
         vsb.BytesPlayed = 0;
-        dbgprintf(("DSP_DoCommand(%X): 8bit, autoinit=%u, HS=%u, started\n", vsb.dsp_cmd, vsb.Auto, vsb.HighSpeed ));
+        dbgprintf(("DSP_DoCommand(%X): 8bit, autoinit=%u, HS=%u, channels=%u, started\n", vsb.dsp_cmd, vsb.Auto, vsb.HighSpeed, VSB_GetChannels() ));
         break;
 #if ADPCM
     case SB_DSP_2BIT_OUT_SNGL_NREF: /* 16; NREF: bit 0=0 */
@@ -622,7 +637,7 @@ static void DSP_DoCommand( uint32_t flags )
         adpcm_state.useRef = ( vsb.dsp_cmd & 1 );
         /* v2.0: scale (=stepsize) is cleared only when useRef changes from 1 to 0! */
         //adpcm_state.scale = 0;
-        vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
+        vsb.Channels = 1;
         vsb.Silent = false;
         vsb.Signed = false;
         vsb.Started = true;
@@ -651,10 +666,7 @@ static void DSP_DoCommand( uint32_t flags )
         /* bit 4 of value: 1=signed */
         vsb.Signed = ( vsb.dsp_in_data[0] & 0x10 ) ? true : false;
         /* bit 5 of value: 1=stereo */
-        if ( vsb.dsp_in_data[0] & 0x20 )
-            vsb.MixerRegs[SB_MIXERREG_MODEFILTER] |= SB_MIXERREG_MODEFILTER_STEREO;
-        else
-            vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO;
+        vsb.Channels = ( vsb.dsp_in_data[0] & 0x20 ) ? 2 : 1;
 
         vsb.Length = vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 );
         vsb.Silent = false;
@@ -686,7 +698,7 @@ static void DSP_DoCommand( uint32_t flags )
     case SB_DSP_SILENCE_DAC: /* 80 - output silence */
         vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] &= ~0x7;
         vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
-        vsb.MixerRegs[SB_MIXERREG_MODEFILTER] &= ~SB_MIXERREG_MODEFILTER_STEREO; /* reset stereo */
+        vsb.Channels = 1; /* always mono */
         vsb.Signed = false;
         vsb.Bits = 8;
         vsb.Silent = true;
@@ -872,12 +884,16 @@ void VSB_Init(int irq, int dma, int hdma, int type, void *hAU )
     vsb.DSPVER = VSB_DSPVersion[type];
     vsb.hAU = hAU;
     if ( vsb.DSPVER >= 0x400 ) {
+        vsb.MixerMax = SB_MIXERREG_MAX16; /* CT1745 */
         switch ( vsb.DSPVER & 0xFF ) {
         case 0x5: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x20; break;
         case 0x12: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x80; break;
         default: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x10;
         }
-    }
+    } else if ( vsb.DSPVER >= 0x300 )
+        vsb.MixerMax = SB_MIXERREG_MAXPRO; /* CT1345 */
+    else
+        vsb.MixerMax = 0x0A; /* CT1335 ( SB 2 with CD ) */
     /* mixer regs INT_SETUP/DMA_SETUP must be initialized no matter what SB type has been set */
     vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
     //vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xEB;
@@ -978,8 +994,7 @@ int VSB_IsSigned()
 int VSB_GetChannels()
 /////////////////////
 {
-    /* MIXERREG_MODEFILTER is for SB Pro only, but in vsbhda also set for sb16 */
-    return (vsb.MixerRegs[SB_MIXERREG_MODEFILTER] & SB_MIXERREG_MODEFILTER_STEREO) ? 2 : 1;
+    return vsb.Channels;
 }
 
 int VSB_GetSampleRate()

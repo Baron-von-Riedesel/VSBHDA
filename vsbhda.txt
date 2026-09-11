@@ -158,12 +158,14 @@
      value /O2 has no meaning for these cards.
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
-            0 = interrupt will be triggered delayed (default).
+            0 = interrupt will be triggered delayed.
      Bit 1: 1 = enable interrupts when EOI to be sent to master/slave PIC
                 is detected.
      Bit 2: 1 = mask PIT interrupt during sound hardware interrupt.
      Bit 3: 1 = vsbhda16 only: fix Borland's runtime error 200 for 16-bit
                 protected-mode programs.
+     Bit 4: 1 = no access to SB Pro Mixer registers for SB16. This makes SB16
+                emulation to play SB Pro stereo sound in mono.
    - /LF: set a filename for log writes. This option is understood by the
      so-called debug variant of VSBHDA only, where various log messages are
      generated ( without the /LF: option, those messages are written to the

@@ -203,7 +203,7 @@ static unsigned int cv_rate( PCM_CV_TYPE_S *pcmsrc, const unsigned int nSamples,
 			*pcmdst++ = ( *(incurr+1) * m1 + *(innext+1) * m2 ) >> 12;
 	}
 
-#ifdef SNDISRLOG
+#if 0//def SNDISRLOG
 	dbgprintf(("cv_rate(smpl=%u, chn=%u) in step/end=%u/%u idx=%u new smpl=%u\n", nSamples, channels, instep, inend, idx, (pcmdst - pcmsrc) >> ( channels - 1) ));
 #endif
 
@@ -581,7 +581,7 @@ static int SNDISR_Interrupt( void )
 
     /* get volumes for software mixer */
 
-    if( gvars.type < 4) { //SB2.0 and before
+    if( gvars.type < 4) { /* SB2.0 and before: mixer regs 2, 10, 6 */
         mastervol = (VSB_GetMixerReg( SB_MIXERREG_MASTERVOL) & 0xF) << 4; /* 3 bits (1-3) */
         voicevol  = (VSB_GetMixerReg( SB_MIXERREG_VOICEVOL)  & 0x7) << 5; /* 2 bits (1-2) */
         midivol   = (VSB_GetMixerReg( SB_MIXERREG_MIDIVOL)   & 0xF) << 4; /* 3 bits (1-3) */

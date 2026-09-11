@@ -16,7 +16,7 @@
 //based on ALSA (http://www.alsa-project.org)
 
 // untested and currently restricted to EMU20K1 (non-titanium cards)!
-// mixer isn't set.
+// mixer functions are dummies.
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -29,7 +29,7 @@
 #include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
-#include "SC_SBXFI.H"
+#include "EMU20K1.H"
 
 struct emu20kx_card_s
 {
@@ -675,7 +675,7 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	card->subsys_id = pcibios_ReadConfig_Word(&card->pci_dev,PCIR_SSID);
 
 	dbgprintf(("emu20kx_adetect: vend_id:%4X dev_id:%4X subid:%8X port:%8X\n",
-			  card->pci_dev->vendor_id,card->pci_dev->device_id,card->subsys_id,card->iobase));
+			  card->pci_dev.vendor_id,card->pci_dev.device_id,card->subsys_id,card->iobase));
 
 	if(!snd_emu20kx_buffer_init(card,aui))
 		goto err_adetect;

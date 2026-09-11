@@ -26,8 +26,9 @@
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "SC_SBLIV.H"
-#include "AC97MIX.H"
 #include "SC_SBL24.H"
+#include "AC97MIX.H"
+#include "CA0106.H"
 
 #define CA0106_DMABUF_PERIODS    8 // max
 #define CA0106_PERIOD_ALIGN     64
@@ -397,31 +398,25 @@ static void snd_live24_mixer_write( struct emu10k1_card *card,unsigned int reg,u
 	return;
 }
 
-#define RESETIPR 0
-
 static int snd_live24_isr( struct emu10k1_card *card)
 /////////////////////////////////////////////////////
 {
-	//const uint32_t channel = 0;
-# if RESETIPR
-	int intmask1;
-# endif
-	int intmask2;
+	unsigned int status;
+	unsigned int stat76;
 
 	//dbgprintf(("snd_live24_isr\n"));
-# if RESETIPR
-	intmask1 = inpd(card->iobase + IPR );
-	outpd( card->iobase + IPR, intmask1 );
-# endif
+	status = inpd(card->iobase + IPR );
+	if (!status)
+		return 0;
 
-	/* v1.7:  todo: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK. */
-	intmask2 = snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0);
-	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, intmask2); //ack
-# if RESETIPR
-	return intmask1 | intmask2;
-# else
-	return intmask2;
-# endif
+	/* v1.7: todo: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK.
+	 * v2.1: EXTENDED_INT is used.
+	 */
+	stat76 = snd_ca0106_ptr_read(card, EXTENDED_INT, 0);
+	snd_ca0106_ptr_write(card, EXTENDED_INT, 0, stat76); //ack
+	outpd( card->iobase + IPR, status ); //also ack here
+
+	return stat76 | status;
 }
 
 static const struct aucards_mixerchan_s emu_live24_analog_front = {

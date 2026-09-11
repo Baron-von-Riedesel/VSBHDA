@@ -75,6 +75,7 @@ enum {
     CF_STIONEOI   = 2, /* run STI when OUT 20h,al (al=20h) is trapped */
     CF_MASKPIT    = 4, /* mask PIT during Snd interrupt */
     CF_NODIVERR   = 8, /* 16-bit pmode only: catch divide error (borland rtm bug) */
+    CF_CT1345    = 16, /* if DSP >= 4, refuse to modify SB Pro mixer regs */
 };
 enum {
     OM_DOS = 1,
@@ -100,7 +101,6 @@ int LogfileExit( void );
 #define LOGFILESIZE 0x1000000 /* size of logfile buffer (16 MB) */
 #else
 #define dbgprintf(x)
-#define dbgcprintf(x)
 #define dbgcondbrk(x)
 #endif
 

@@ -9,6 +9,7 @@
  TEST07: DSP cmd 0x91 (8-bit mono unsigned, highspeed), zigzag
  TEST08: DSP cmds 0x75/0x74 (4-bit ADPCM single-cycle with/without ref byte)
  TEST09: DSP cmd 0x7D (4-bit ADPCM autoinit)
+ TEST10: DSP cmd 0x90 (8-bit unsigned, highspeed, autoinit, stereo )
  CVRATE: to test the resampling part of VSBHDA
  
  The assembly binaries can be created with JWasm, using its -mz option.

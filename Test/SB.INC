@@ -17,6 +17,7 @@ DSP_SETSIZE				equ 048h
 DSP_ADPCM4BIT			equ 074h	;4 bit single-cycle ADPCM
 DSP_ADPCM4BITREF		equ 075h	;4 bit single-cycle ADPCM with Ref
 DSP_ADPCM4BITAUTO		equ 07Dh	;4 bit autoinit ADPCM (with Ref)
+DSP_DMADAC8BITHSAUTO	equ 090h	;8 bit autoinit highspeed
 DSP_DMADAC8BITHS		equ 091h	;8 bit single-cycle highspeed
 DSP_SINGLECYCLEOUT16	equ 0B0h	;16 bit single-cycle for output
 DSP_AUTOINITOUT16		equ 0B6h	;16 bit autoinit for output
