@@ -165,7 +165,8 @@
      Bit 3: 1 = vsbhda16 only: fix Borland's runtime error 200 for 16-bit
                 protected-mode programs.
      Bit 4: 1 = no access to SB Pro Mixer registers for SB16. This makes SB16
-                emulation to play SB Pro stereo sound in mono.
+                emulation to play SB Pro stereo sound in mono ( like a real
+                SB16 would do ).
    - /LF: set a filename for log writes. This option is understood by the
      so-called debug variant of VSBHDA only, where various log messages are
      generated ( without the /LF: option, those messages are written to the
@@ -266,7 +267,19 @@
    receiving real interrupt requests. However, this protection isn't 100% safe.
 
 
-   4.6 Windows 3.1
+   4.6 Tool MixMono
+
+    The SB Pro card supports stereo output. This feature is activated by setting
+   a bit in one of the SB Pro mixer registers. This may cause problems if the
+   program doesn't restore the old setting before exiting, because the mixer
+   registers aren't initialized by a DSP reset. If an 8-bit mono sound
+   is initiated, with the "stereo bit" in the mixer still set, the pitch will
+   be wrong. This can be fixed by reloading VSBHDA, but to run tool MixMono may
+   be better in this case - it just resets the "stereo" bit in the mixer
+   register.
+
+
+   4.7 Windows 3.1
 
     Windows 3.1 runs as a 16-bit DPMI client and is compatible with HDPMI in
    so-called Standard mode. A few things have to be considered, though:

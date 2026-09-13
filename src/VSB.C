@@ -139,7 +139,7 @@ struct VSB_Status {
     unsigned int Cmd14Cnt;
 #endif
     void *hAU;
-    uint16_t DSPVER;
+    uint16_t DSPVer;
 
     uint8_t dsp_cmd;
     uint8_t dsp_cmd_len;
@@ -217,7 +217,7 @@ static void VSB_MixerReset( void )
 	vsb.MixerRegs[SB_MIXERREG_MASTERSTEREO] = 0xCC; /* 22: */
 	vsb.MixerRegs[SB_MIXERREG_MIDISTEREO] = 0xCC;   /* 26: */
 #if SB16
-	if(vsb.DSPVER >= 0x0400) { //SB16
+	if(vsb.DSPVer >= 0x0400) { //SB16
 		vsb.MixerRegs[SB16_MIXERREG_MASTERL] = 0xC0; /* 5 bits only (3-7) */
 		vsb.MixerRegs[SB16_MIXERREG_MASTERR] = 0xC0;
 		vsb.MixerRegs[SB16_MIXERREG_VOICEL] = 0xC0;
@@ -250,7 +250,7 @@ static void VSB_Mixer_Write( uint8_t value )
     if ( vsb.MixerRegIndex == SB_MIXERREG_INT_SETUP || vsb.MixerRegIndex == SB_MIXERREG_DMA_SETUP )
         return;
 #if SB16
-    if( vsb.DSPVER >= 0x0400 ) { //SB16
+    if( vsb.DSPVer >= 0x0400 ) { //SB16
         if( vsb.MixerRegIndex >= SB16_MIXERREG_MASTERL && vsb.MixerRegIndex <= SB16_MIXERREG_CDR ) {
             //5bits, drop lowest bit
             uint8_t mask;
@@ -446,9 +446,14 @@ static void VSB_SetIRQStatus( uint8_t flag )
 }
 
 /* translate time constant to frequency
- * magic values:
- * 234: 45454
- * 212: 22727
+ * magic limit values:
+ * 234: 1.000.000 / 22 = 45454
+ * 212: 1.000.000 / 44 = 22727
+ * 210: 1.000.000 / 46 = 21739
+ * 189: 1.000.000 / 67 = 14925
+ * 179: 1.000.000 / 77 = 12987
+ * 172: 1.000.000 / 84 = 11904
+ * 165: 1.000.000 / 91 = 10989
  */
 
 static int CalcSampleRate( uint16_t value )
@@ -456,27 +461,22 @@ static int CalcSampleRate( uint16_t value )
 {
     int rc;
     uint8_t limit;
-    unsigned int shift;
 
-    if( vsb.DSPVER < 0x300 )
+    if ( vsb.DSPVer < 0x300 )
         limit = ( vsb.Bits == 2 ? 189 : (vsb.Bits <= 4 ? 172 : 210));
-    else if( vsb.DSPVER >= 0x0400 )
-        limit = vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 234));
-    else {
-        /* v1.7: only for SBPro the channel # are used - reduces SB16 compatibility with SBPro */
-        //channels = VSB_GetChannels();
-        if( vsb.HighSpeed )
-            limit = 234;
-        else
-            limit = ( vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : (vsb.Bits == 4 ? 172 : 212)));
-    }
-#if TCADJ
-    if ( value == 165 )
-        return 11025;
-#endif
+    else if ( vsb.Bits < 8 )
+        limit = ( vsb.Bits == 2 ? 165 : (vsb.Bits == 3 ? 179 : 172));
+    else
+        limit = ((vsb.DSPVer >= 0x0400) || vsb.HighSpeed ) ? 234 : 212;
+
     value = min(value, limit);
-    shift = (vsb.Bits == 8 && (vsb.MixerRegs[SB_MIXERREG_MODEFILTER] & 2)) ? 1 : 0;
-    rc = 256000000u / (( 65536u - (value << 8) ) << shift );
+    //rc = 256000000u / (( 65536u - (value << 8) ) << shift );
+    rc = 1000000u / ( 256 - value );
+    if (vsb.Bits == 8 && (vsb.MixerRegs[SB_MIXERREG_MODEFILTER] & 2))
+        rc >>= 1;
+#if TCADJ
+    if ( rc == 10989 ) rc = 11025;
+#endif
     return rc;
 }
 
@@ -509,7 +509,7 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
         if ( value == 0x10 ) vsb.bWS = 0;
 #endif
 #if SB16
-        if (vsb.DSPVER >= 0x400)
+        if (vsb.DSPVer >= 0x400)
             vsb.dsp_cmd_len = DSP_cmd_len_sb16[value];
         else
 #endif
@@ -530,7 +530,7 @@ static void DSP_DoCommand( uint32_t flags )
 {
     /* check if cmd is SB16-only */
 #if SB16
-    if ( ( vsb.DSPVER < 0x400 ) && ( DSP_cmd_sb16only[vsb.dsp_cmd >> 4] & (1 << (vsb.dsp_cmd & 0xf) ) ) )
+    if ( ( vsb.DSPVer < 0x400 ) && ( DSP_cmd_sb16only[vsb.dsp_cmd >> 4] & (1 << (vsb.dsp_cmd & 0xf) ) ) )
 #else
     if ( DSP_cmd_sb16only[vsb.dsp_cmd >> 4] & (1 << (vsb.dsp_cmd & 0xf) ) )
 #endif
@@ -608,7 +608,7 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.Auto = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Bits = 8;
         vsb.Channels = 1 + ((vsb.MixerRegs[SB_MIXERREG_MODEFILTER] >> 1) & 1);
-        if ( vsb.DSPVER < 0x400 )
+        if ( vsb.DSPVer < 0x400 )
             vsb.HighSpeed = ( vsb.dsp_cmd == SB_DSP_8BIT_OUT_SNGL_HS || vsb.dsp_cmd == SB_DSP_8BIT_OUT_AUTO_HS );
         vsb.Signed = false;
         vsb.Silent = false;
@@ -634,10 +634,10 @@ static void DSP_DoCommand( uint32_t flags )
             vsb.Length = vsb.dsp_in_data[0] | ( vsb.dsp_in_data[1] << 8 );
         }
         vsb.Bits = (vsb.dsp_cmd <= SB_DSP_2BIT_OUT_AUTO) ? 2 : ( vsb.dsp_cmd & 0x2 ) ? 3 : 4;
+        vsb.Channels = 1;
         adpcm_state.useRef = ( vsb.dsp_cmd & 1 );
         /* v2.0: scale (=stepsize) is cleared only when useRef changes from 1 to 0! */
         //adpcm_state.scale = 0;
-        vsb.Channels = 1;
         vsb.Silent = false;
         vsb.Signed = false;
         vsb.Started = true;
@@ -663,11 +663,10 @@ static void DSP_DoCommand( uint32_t flags )
          */
         vsb.Auto = ( ( vsb.dsp_cmd & 0x4 ) ? true : false );
         vsb.Bits = ( ( vsb.dsp_cmd & 0x40 ) ? 8 : 16 );
-        /* bit 4 of value: 1=signed */
-        vsb.Signed = ( vsb.dsp_in_data[0] & 0x10 ) ? true : false;
         /* bit 5 of value: 1=stereo */
         vsb.Channels = ( vsb.dsp_in_data[0] & 0x20 ) ? 2 : 1;
-
+        /* bit 4 of value: 1=signed */
+        vsb.Signed = ( vsb.dsp_in_data[0] & 0x10 ) ? true : false;
         vsb.Length = vsb.dsp_in_data[1] | ( vsb.dsp_in_data[2] << 8 );
         vsb.Silent = false;
         vsb.Started = true;
@@ -745,8 +744,8 @@ static void DSP_DoCommand( uint32_t flags )
         dbgprintf(("DSP_DoCommand(%X): DSP ID, data=%X, databytes=%u\n", vsb.dsp_cmd, vsb.dsp_in_data[0], vsb.DataBytes ));
         break;
     case SB_DSP_GETVER: /* E1 */
-        DSP_AddData( vsb.DSPVER >> 8 );
-        DSP_AddData( vsb.DSPVER & 0xFF );
+        DSP_AddData( vsb.DSPVer >> 8 );
+        DSP_AddData( vsb.DSPVer & 0xFF );
         dbgprintf(("DSP_DoCommand(%X): get DSP version, databytes=%u\n", vsb.dsp_cmd, vsb.DataBytes ));
         break;
     case SB_DSP_DMA_ID: /* E2 - undocumented */
@@ -802,13 +801,13 @@ static void DSP_DoCommand( uint32_t flags )
         break;
 #if 0
     case 0x04: 
-        if ( vsb.DSPVER >= 0x400 ) {/* SB16? */
+        if ( vsb.DSPVer >= 0x400 ) {/* SB16? */
             dbgprintf(("DSP_DoCommand(%X): ASP init\n", vsb.dsp_cmd ));
             ; /* ASP init */
         } else {
             dbgprintf(("DSP_DoCommand(%X)\n", vsb.dsp_cmd ));
             /* SB,SB2,SPPro: supposed to return a byte */
-            DSP_AddData( vsb.DSPVER >= 0x300 ? 0x7b : vsb.DSPVER >= 0x201 ? 0x00 : 0xff );
+            DSP_AddData( vsb.DSPVer >= 0x300 ? 0x7b : vsb.DSPVer >= 0x201 ? 0x00 : 0xff );
         }
 #endif
     case 0x05: /* SB16 ASP cmd */
@@ -881,16 +880,16 @@ void VSB_Init(int irq, int dma, int hdma, int type, void *hAU )
     vsb.Irq = irq;
     vsb.Dma8 = dma;
     vsb.Dma16 = hdma;
-    vsb.DSPVER = VSB_DSPVersion[type];
+    vsb.DSPVer = VSB_DSPVersion[type];
     vsb.hAU = hAU;
-    if ( vsb.DSPVER >= 0x400 ) {
+    if ( vsb.DSPVer >= 0x400 ) {
         vsb.MixerMax = SB_MIXERREG_MAX16; /* CT1745 */
-        switch ( vsb.DSPVER & 0xFF ) {
+        switch ( vsb.DSPVer & 0xFF ) {
         case 0x5: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x20; break;
         case 0x12: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x80; break;
         default: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x10;
         }
-    } else if ( vsb.DSPVER >= 0x300 )
+    } else if ( vsb.DSPVer >= 0x300 )
         vsb.MixerMax = SB_MIXERREG_MAXPRO; /* CT1345 */
     else
         vsb.MixerMax = 0x0A; /* CT1335 ( SB 2 with CD ) */

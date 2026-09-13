@@ -197,12 +197,13 @@ main proc c argc:word, argv:ptr
 options_done:
 
 ;--- calculate time constant
+;--- tc = 256 - (1.000.000 / ( rate * channel ))
+;--- or: tc = 256 - ( 500.000 / rate )
 
-	mov ax,lowword 1000000
-	mov dx,highword 1000000
+	mov ax,lowword (1000000 shr 1)
+	mov dx,highword (1000000 shr 1)
 	mov bx,rate
-	shl bx, 1		;bx = rate * channels
-	cmp bx,100
+	cmp bx,8
 	jb rate_invalid
 	div bx
 	cmp ah,00h
