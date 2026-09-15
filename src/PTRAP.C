@@ -89,15 +89,15 @@ static uint16_t PortTable[] = {
 	0x388, 0x389, 0x38A, 0x38B | 0x8000,
 	0x20, 0x21 | 0x8000,
 	0xA1 | 0x8000,
-	0x02, 0x03,                   /* ch 1; will be modified if LDMA != 1 */
+	0x02, 0x03,                   /* ch 1 ports; will be modified if LDMA != 1 */
 	0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F | 0x8000,
 #if SB16
-	0x83, 0x8B | 0x8000,          /* ch 1 & ch 5: page regs */
+	0x83, 0x8B | 0x8000,          /* page ports for low/high dma (ch 1 & ch 5) */
 #else
-	0x83 | 0x8000,
+	0x83 | 0x8000,                /* page port for low dma */
 #endif
 #if SB16
-	0xC4, 0xC6,                   /* ch 5; will be modified if HDMA != 5 */
+	0xC4, 0xC6,                   /* ch 5 ports; will be modified if HDMA != 5 */
 	0xD0, 0xD2, 0xD4, 0xD6, 0xD8, 0xDA, 0xDC, 0xDE | 0x8000,
 #endif
 	0x220, 0x221, 0x222, 0x223, /* FM */
@@ -108,23 +108,22 @@ static uint16_t PortTable[] = {
 #if VMPU
 	0x330, 0x331 | 0x8000,
 #endif
-    0xffff
 };
 
 
-/* PortHandler array must match port array */
+/* PortHandler[] must match PortTable[] */
 static PORT_TRAP_HANDLER PortHandler[] = {
 	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B,
 	VPIC_Acc, VPIC_Acc,    /* 0x20, 0x21 */
 	VPIC_Acc,              /* 0xA1 */
-	VDMA_Acc, VDMA_Acc,    /* base+cnt for ch 1; will be modified if LDMA != 1 */
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for low dma; will be modified if LDMA != 1 */
 	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0x08-0x0F */
-	VDMA_Acc,              /* page reg for ch 1; will be modified if LDMA != 1 */
+	VDMA_Acc,              /* page reg for low dma; will be modified if LDMA != 1 */
 #if SB16
-	VDMA_Acc,              /* page reg for ch 5; will be modified if HDMA != 5 */
+	VDMA_Acc,              /* page reg for high dma; will be modified if HDMA != 5 */
 #endif
 #if SB16
-	VDMA_Acc, VDMA_Acc,    /* base+cnt for ch 5; will be modified if HDMA != 5 */
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for high dma; will be modified if HDMA != 5 */
 	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0xD0-0xDE */
 #endif
 	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B, /* 0x220-0x223 */
@@ -288,7 +287,7 @@ void PTRAP_InitPortMax( void )
 {
     int i, j;
     /* setup port ranges */
-    for ( i = 0, j = 1, portranges[0] = 0; PortTable[i] != 0xffff; i++ ) {
+    for ( i = 0, j = 1, portranges[0] = 0; i < countof(PortTable); i++ ) {
         if ( PortTable[i] & 0x8000 ) {
             portranges[j] = i+1;
             PortTable[i] &= 0x7fff;
@@ -343,9 +342,9 @@ bool PTRAP_Prepare_RM_PortTrap()
 
     /* the code starts with a rmcode1 struct, now to be initialized...  */
     dosmem->rmcb = rmcb.segofs;
-#if !RMPICTRAPDYN
+# if !RMPICTRAPDYN
     dosmem->qpi = (QPI_regs.x.cs << 16) | QPI_regs.x.ip;
-#endif
+# endif
     /* set new trap handler ES:DI */
     //r.x.di = 4+2+2+4;
     QPI_regs.x.di = offsetof(struct rmcode1, codev86);

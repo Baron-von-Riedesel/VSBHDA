@@ -2,37 +2,35 @@
 ; short dma buffer, 16-bit mono data, unsigned, SB16 only
 
 	.286
-	.MODEL small
+	.MODEL tiny
 	.dosseg
 	.stack 400h
 	option casemap:none
 
-BASEADDR           EQU 0220h       ;SoundBlaster base address
-DMAchannel         EQU 5           ;SoundBlaster DMA channel
-SBIRQ              EQU 5           ;SoundBlaster IRQ
+;--- default values
 
-;--- PIC MASKS FOR MASK/DEMASK IRQ
-PICORMASK          EQU 1 shl SBIRQ
-PICANDMASK         EQU 0FFh xor PICORMASK
+BASEADDR           EQU 0220h       ; SB base address
+SBIRQ              EQU 5           ; SB IRQ
+DMACHANNEL         EQU 5           ; SB high DMA channel
 
 	include DMA.INC
 	include SB.INC
         
-;--- DMA CONTROLLER REGISTERS (16bit)
-WRITEMASK          EQU DMABase + 10 * DMAWidth ; Mask register
-WRITEMODE          EQU DMABase + 11 * DMAWidth ; Mode register
-CLEARFLIPFLOP      EQU DMABase + 12 * DMAWidth
-PAGE16_CHN         EQU DMAPageReg(DMAchannel) ;Page register for DMAchannel
-BASE16_CHN         EQU DMABaseReg(DMAchannel) ;Base address register
-COUNT16_CHN        EQU DMACntReg(DMAchannel)  ;Count register
+;--- DMA registers
+WRITEMASK          EQU HDMABASE + DMAMASKREG * 2
+WRITEMODE          EQU HDMABASE + DMAMODEREG * 2
+CLEARFLIPFLOP      EQU HDMABASE + DMAFLIPFLOP * 2
 
-;--- DMA MODE
+;--- DMA mode
 WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 	.DATA
 
 rate            dw 22050
 sblength        dw 0fffch - 1
+baseaddr        dw BASEADDR
+sbirq           dw SBIRQ
+dmachn          dw DMACHANNEL
 OLDInterrupt    dd ?
 oldpic          db ?
 
@@ -67,9 +65,14 @@ information label byte
 	db 0
 
 info2           db 'Press ESC to exit!',13,10,'$'
-sberror         db 'No SoundBlaster at base address 220h.',13,10,'$'
+sberror         db 'No SoundBlaster at base address %X.',10,0
 rateerror       db 'Invalid rate entered.',13,10,'$'
 lengtherror     db 'Invalid SB buffer length entered.',13,10,'$'
+szBlaster       db 'BLASTER',0
+
+	.data?
+
+buffer db 128 dup (?)
 
 	.CODE
 
@@ -124,10 +127,48 @@ exit:
 	ret
 getdec endp
 
+getpageport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapport]
+	mov dh,0
+	ret
+mapport db 87h,83h,81h,82h,8Fh,8Bh,89h,8Ah
+getpageport endp
+
+getbaseport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapbase]
+	mov dh,0
+	ret
+mapbase db 00h,02h,04h,06h,0C0h,0C4h,0C8h,0CCh
+getbaseport endp
+
+getcntport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapcnt]
+	mov dh,0
+	ret
+mapcnt db 01h,03h,05h,07h,0C2h,0C6h,0CAh,0CEh
+getcntport endp
+
+
+	include GETENV.INC
+	include SCANVAR.INC
+
 main proc c argc:word, argv:ptr
 
 ;--- write logo
 	invoke printf, offset information, rate, sblength
+
+	invoke getenv, addr szBlaster, addr buffer
+	.if ax
+		invoke scanvar, 'A', addr buffer, 16, addr baseaddr
+		invoke scanvar, 'I', addr buffer, 10, addr sbirq
+		invoke scanvar, 'H', addr buffer, 10, addr dmachn
+	.endif
 
 	cmp argc, 2
 	jb options_done
@@ -145,10 +186,11 @@ main proc c argc:word, argv:ptr
 
 options_done:
 
-	RESET_DSP
+	RESET_DSP baseaddr
 
 ;--- enable SB speakers (for all SBs < SB16)
-	mov dx,BASEADDR + SB_DSPWRITE
+	mov dx,baseaddr
+	add dx,SB_DSPWRITE
 	WAITWRITE
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
@@ -157,7 +199,9 @@ options_done:
 	cli
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
+	mov si,sbirq
+	add si,8
+	shl si,2
 	mov ax,es:[si+0]
 	mov dx,es:[si+2]
 	mov word ptr [OLDInterrupt+0],ax
@@ -167,10 +211,14 @@ options_done:
 	sti
 
 ;--- unmask SB IRQ in PIC
-	in al, 21h
-	mov oldpic, al
-	and al, PICANDMASK
-	out 21h, al
+	in al,21h
+	mov oldpic,al
+	mov cx,sbirq
+	mov ah,1
+	shl ah,cl
+	xor ah,-1
+	and al,ah
+	out 21h,al
 
 ;------------------------------------------------
 ; Setup DMA-controller :
@@ -211,7 +259,8 @@ nooverride:
 ;------------------------------------------------
 ; MASK DMA CHANNEL
 ;
-	mov al,DMAchannel-4 			; channels 0..3 for the 2nd DMAC
+	mov al,byte ptr dmachn
+	and al,11b
 	or al,DMA_MASK_DISABLE_CHN
 	out WRITEMASK,al
 ;------------------------------------------------
@@ -221,34 +270,39 @@ nooverride:
 ;------------------------------------------------
 ; WRITE TRANSFER MODE
 ;
-	mov al,WANTEDMODE
-	add al,DMAchannel-4
+	mov al,byte ptr dmachn
+	and al,11b
+	or al,WANTEDMODE
 	out WRITEMODE,al
 ;------------------------------------------------
 ; WRITE PAGE NUMBER
 ;
+	call getpageport
 	mov al,bl
-	out PAGE16_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE BASEADDRESS
 ;
+	call getbaseport
 	mov ax,si
 	shr ax, 1		; must be shifted 1 to the right for 16-bit!
-	out BASE16_CHN,al
+	out dx,al
 	mov al,ah
-	out BASE16_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE BUFFERLENGTH (in words)-1
 ;
+	call getcntport
 	mov cx,SAMPLEBUFFERLENGTH/2-1		; count of words we need :)
 	mov al,cl
-	out COUNT16_CHN,al
+	out dx,al
 	mov al,ch
-	out COUNT16_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; DEMASK CHANNEL
 ;
-	mov al,DMAchannel-4
+	mov al,byte ptr dmachn
+	and al,3
 	or al,DMA_MASK_ENABLE_CHN
 	out WRITEMASK,al
 
@@ -257,7 +311,8 @@ nooverride:
 ;
 ; SET SAMPLERATE
 ;
-	mov dx, BASEADDR+SB_DSPWRITE
+	mov dx, baseaddr
+	add dx, SB_DSPWRITE
 	WAITWRITE
 	mov al, DSP_SETOUTSAMPLERATE    ;AL = 41, Set DAC Samplerate
 	out dx, al
@@ -300,7 +355,7 @@ waitloop:
 	cmp al,27
 	jne waitloop
 exit:
-	RESET_DSP
+	RESET_DSP baseaddr
 
 ;--- restore PIC mask
 	mov al,oldpic
@@ -310,7 +365,9 @@ exit:
 	cli
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
+	mov si,sbirq
+	add si,8
+	shl si,2
 	mov ax,word ptr [OLDInterrupt+0]
 	mov dx,word ptr [OLDInterrupt+2]
 	mov es:[si+0],ax
@@ -321,9 +378,7 @@ done:
 
 ; display error if Soundblaster is not on expected base address
 RESET_ERROR:
-	mov dx,offset sberror
-	mov ah,9
-	int 21h
+	invoke printf, offset sberror, baseaddr
 	jmp done
 rate_invalid:
 	mov dx, offset rateerror
@@ -342,7 +397,8 @@ main endp
 SB_IRQ proc
 	push ax
 	push dx
-	mov dx,BASEADDR+SB16_DSPINTACK ;DX = IRQ ACKNOWLEDGE 16Bit
+	mov dx,cs:baseaddr
+	add dx,SB16_DSPINTACK ;DX = IRQ ACKNOWLEDGE 16Bit
 	in al,dx
 	mov al,20h
 	out 20h,al
@@ -354,7 +410,7 @@ SB_IRQ endp
 	include SETARGV.INC
 
 start:
-	mov ax,DGROUP
+	mov ax,cs
 	mov ds,ax
 	mov bx,ss
 	sub bx,ax

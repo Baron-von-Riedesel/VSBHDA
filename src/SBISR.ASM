@@ -416,6 +416,9 @@ endif
 	align 4
 _SB_InstallISR endp
 
+;--- restore protected-mode SB irq proc
+;--- if SB IRQ is 7, restore v86 IRQ 7
+
 _SB_UninstallISR proc public uses ebx interrupt:byte
 
 	mov bl, interrupt

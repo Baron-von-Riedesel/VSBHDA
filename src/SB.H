@@ -37,7 +37,7 @@
  * 2E: line volume ( 2*3 bits, 2*4 bits for SB16 )
  *
  * mixer chip 1745 ( SB16 )
- * compatible with 1345 ( regs 04, 0a, 22, 26, 28, 2E )
+ * partly compatible with 1345 ( regs 04, 0a, 22, 26, 28, 2E ), but missing regs 0c, 0e
  * 3x/4X: 5 bits ( D3-D7) , default 24
  * 3D: input L switches ( mic, cd.r, cr.l, line.r, line.l, midi.r, midi.l )
  * 3E: R switches
@@ -45,7 +45,8 @@
 
 //register index through mixer port
 #define SB_MIXERREG_RESET        0x00 /* write only */
-#define SB_MIXERREG_STATUS       0x01 /* read only: previously selected index */
+#define SB_MIXERREG_STATUS       0x01 /* read only: value of last valid read */
+
 #define SB_MIXERREG_MASTERVOL    0x02 /* SB, bits[1-3] */ /* ??? SBPro: bits[1-3/5-7], R/L ??? */
 #define SB_MIXERREG_MIDIVOL      0x06 /* SB, FM Level, 3 bits [1-3] */
 #define SB_MIXERREG_VOICEVOL     0x0A /* SB, Voice Level, 2 bits [1-2]; SBPro+ - Microphone level, 2/3 bits */
@@ -91,14 +92,15 @@
 #endif
 #define SB_MIXERREG_INT_SETUP    0x80 /* IRQ select, bits 0-3; SB16 only, but used internally */
 #define SB_MIXERREG_DMA_SETUP    0x81 /* DMA select, bits 0-7; SB16 only, but used internally */
+/* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */
 #define SB_MIXERREG_IRQ_STATUS   0x82 /* IRQ status, bits 0-2; SB16 only, but used internally */
 #define SB_MIXERREG_IRQ_STAT8BIT  1 /* bit 0 is also used for SB-MIDI interrupt status */
 #define SB_MIXERREG_IRQ_STAT16BIT 2
 #define SB_MIXERREG_IRQ_STATMPU   4
-/* bits 4-7 of IRQ_STATUS: 01=4.04, 02=4.05, 08=4.12 */
-/* mixer regs 0x84-0xff always return 0xff */
-#define SB_MIXERREG_MAX16        0x83
+
+#define SB_MIXERREG_MAX16        0x83 /* mixer regs 0x84-0xff always return 0xff */
 #define SB_MIXERREG_MAXPRO       0x2E
+#define SB_MIXERREG_MAXV2        0x0A
 
 //DSP commands
 //time constant used

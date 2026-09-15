@@ -93,13 +93,14 @@ else
 endif                        
 ENDM
 
-RESET_DSP MACRO
+RESET_DSP MACRO base
 local SBthere
 ;          Arguments : n/a
 ;          Returns   : n/a
 ;          Destroys  : DX,AL
 
-	mov dx,BASEADDR+SB_DSPRESET
+	mov dx,base
+	add dx,SB_DSPRESET
 	mov al,1
 	out dx,al         ; start DSP reset
 
@@ -111,9 +112,9 @@ local SBthere
 	xor al,al
 	out dx,al         ; end DSP Reset
 
-	mov dx,BASEADDR+SB_DSPSTATUS
+	add dx,SB_DSPSTATUS-SB_DSPRESET
 	WAITREAD
-	mov dx,BASEADDR+SB_DSPREAD
+	sub dx,SB_DSPSTATUS-SB_DSPREAD
 	in al,dx
 	cmp al,0aah       ; if there is a SB then it returns 0AAh
 	je SBthere

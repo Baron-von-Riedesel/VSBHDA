@@ -254,70 +254,7 @@ nokey:
 	jmp cs:[oldi15]
 int15 endp
 
-;--- scan BLASTER environment variable
-
-scanvar proc uses si var:byte, pBuffer:ptr, pValue:ptr
-	mov si, pBuffer
-	mov bx, -1
-	.while byte ptr [si]
-		lodsb
-		.if (al == ' ')
-			mov bx,-1
-			.continue
-		.endif
-		.if (al >= 'a') && (al <= 'z')
-			sub al,20h
-		.endif
-		.if (bx == -1)
-			.if (al == var)
-				mov cl,16
-				mov bx, pValue
-				mov word ptr [bx], 0
-			.endif
-			.continue
-		.endif
-		.if (cl == 10)
-			call chkdec
-		.else
-			call chkhex
-		.endif
-		jc numdone
-		mov ah, 0
-		.if (bx != -1)
-			mov dx, [bx]
-			.if (cl == 16)
-				shl dx, 4
-			.else
-				push ax
-				mov ax,dx
-				mov ch,0
-				mul cx
-				pop dx
-			.endif
-			add dx, ax
-			mov [bx],dx
-		.endif
-numdone:
-	.endw
-	ret
-chkdec:
-	sub al,'0'
-	jc err1
-	cmp al,9
-	ja err1
-	clc
-	retn
-err1:
-	stc
-	retn
-chkhex:
-	cmp al,'A'
-	jb chkdec
-	cmp al,'F'
-	ja err1
-	sub al,37h
-	retn
-scanvar endp
+	include SCANVAR.INC
 
 main proc c
 
@@ -325,7 +262,7 @@ local buffer[256]:byte
 
 	invoke getenv, CStr("BLASTER"), addr buffer
 	.if ax
-		invoke scanvar, 'P', addr buffer, addr wPort
+		invoke scanvar, 'P', addr buffer, 16, addr wPort
 	.endif
 	mov ax,3515h
 	int 21h

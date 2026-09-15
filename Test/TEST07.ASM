@@ -8,28 +8,21 @@
 	.STACK 400h
 	option casemap:none
 
-;--- SoundBlaster constants
+;--- default values
 
-BASEADDR           EQU 0220h       ;SoundBlaster base address
-SBIRQ              EQU 5           ;SoundBlaster IRQ
-DMAchannel         EQU 1           ;SoundBlaster DMA channel
+BASEADDR           EQU 220h        ; base address
+SBIRQ              EQU 5           ; IRQ
+DMACHANNEL         EQU 1           ; low DMA channel
 
 	include DMA.INC
 	include SB.INC
 
-;--- PIC MASKS FOR MASK/DEMASK IRQ
-PICORMASK          EQU 1 shl SBIRQ
-PICANDMASK         EQU 0FFh xor PICORMASK
+;--- DMA registers
+WRITEMASK          EQU LDMABASE + DMAMASKREG
+WRITEMODE          EQU LDMABASE + DMAMODEREG
+CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
-;--- DMA CONTROLLER REGISTERS
-WRITEMASK          EQU 00ah         ; Mask register
-WRITEMODE          EQU 00bh         ; Mode register
-CLEARFLIPFLOP      EQU 00ch
-PAGE_CHN           EQU DMAPageReg(DMAchannel) ;Page register for DMAchannel
-BASE_CHN           EQU DMABaseReg(DMAchannel) ;Base address register
-COUNT_CHN          EQU DMACntReg(DMAchannel)  ;Count register
-
-;--- DMA MODE ( singlemode, nonautoinit, readmode )
+;--- DMA mode
 WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 CStr macro text:vararg
@@ -70,9 +63,10 @@ information label byte
 	db 'Usage: TEST07 [frequency; def ~%u] [SB buffer length-1; def %u]',10
 	db 0
 
-sberror db 'No SoundBlaster at base address 220h.',13,10,'$'
+sberror db 'No SoundBlaster at base address %X.',10,0
 rateerror db 'Invalid rate entered.',13,10,'$'
 lengtherror db 'Invalid SB buffer length entered.',13,10,'$'
+szBlaster db 'BLASTER',0
 
 	.data
 
@@ -80,9 +74,16 @@ oldInterrupt        dd 0
 dmabase             dw 0
 sblength            dw 65532-1
 rate                dw 11000
+baseaddr            dw BASEADDR  ; SB base port
+sbirq               dw SBIRQ
+dmachn              dw DMACHANNEL
 ready               db 0
 timeconst           db 0
 oldpic              db 0
+
+	.data?
+
+buffer db 128 dup (?)
 
 	.CODE
 	.386
@@ -136,9 +137,44 @@ exit:
 	ret
 getdec endp
 
+	include GETENV.INC
+	include SCANVAR.INC
+
+getpageport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapport]
+	mov dh,0
+	ret
+mapport db 87h,83h,81h,82h,8Fh,8Bh,89h,8Ah
+getpageport endp
+
+getbaseport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapbase]
+	mov dh,0
+	ret
+mapbase db 00h,02h,04h,06h,0C0h,0C4h,0C8h,0CCh
+getbaseport endp
+
+getcntport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapcnt]
+	mov dh,0
+	ret
+mapcnt db 01h,03h,05h,07h,0C2h,0C6h,0CAh,0CEh
+getcntport endp
+
 main proc c argc:word, argv:ptr
 
-	RESET_DSP
+	invoke getenv, addr szBlaster, addr buffer
+	.if ax
+		invoke scanvar, 'A', addr buffer, 16, addr baseaddr
+		invoke scanvar, 'I', addr buffer, 10, addr sbirq
+		invoke scanvar, 'D', addr buffer, 10, addr dmachn
+	.endif
 
 	cmp argc, 2
 	jb options_done
@@ -155,6 +191,8 @@ main proc c argc:word, argv:ptr
 	mov sblength, ax
 
 options_done:
+
+	RESET_DSP baseaddr
 
 ;--- start msg
 	invoke printf, addr information, rate, sblength
@@ -174,7 +212,8 @@ options_done:
 
 ;--- enable SB SPEAKERS (for all SBs < SB16)
 
-	mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command
+	mov dx,baseaddr
+	add dx,SB_DSPWRITE
 	WAITWRITE
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
@@ -182,7 +221,9 @@ options_done:
 ;--- SETUP IRQ
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
+	mov si,sbirq
+	add si,8
+	shl si,2
 	mov ax,es:[si+0]
 	mov word ptr [oldInterrupt+0],ax
 	mov ax,es:[si+2]
@@ -196,8 +237,12 @@ options_done:
 ;--- unmask SB IRQ
 	in al, 21h
 	mov oldpic, al
-	and al, PICANDMASK
-	out 21h, al
+	mov cx,sbirq
+	mov ah,1
+	shl ah,cl
+	xor ah,-1
+	and al,ah
+	out 21h,al
 
 ;------------------------------------------------
 ; calculate page and offset for DMAcontroller :
@@ -234,8 +279,9 @@ nooverride:
 ;
 ; MASK DMA CHANNEL
 ;
-	mov al,DMAchannel
-	add al,4
+	mov al,byte ptr dmachn
+	and al,11b
+	or al,4
 	out WRITEMASK,al
 ;------------------------------------------------
 ; CLEAR FLIPFLOP
@@ -244,32 +290,37 @@ nooverride:
 ;------------------------------------------------
 ; WRITE TRANSFER MODE
 ;
-	mov al,WANTEDMODE
-	or al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
+	or al,WANTEDMODE
 	out WRITEMODE,al
 ;------------------------------------------------
 ; WRITE PAGE NUMBER
 ;
+	call getpageport
 	mov al,bl
-	out PAGE_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE BASEADDRESS
 ;
+	call getbaseport
 	mov ax,si
-	out BASE_CHN,al
+	out dx,al
 	mov al,ah
-	out BASE_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE SAMPLELENGTH-1
 ;
+	call getcntport
 	mov ax,SAMPLEBUFFERLENGTH-1
-	out COUNT_CHN,al
+	out dx,al
 	mov al,ah
-	out COUNT_CHN,al
+	out dx,al
 ;------------------------------------------------
 ; DEMASK CHANNEL
 ;
-	mov al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
 	out WRITEMASK,al
 
 ;------------------------------------------------
@@ -277,7 +328,8 @@ nooverride:
 ;
 ; SET TIMECONSTANT
 ;
-	mov dx,BASEADDR+00Ch			;DX = DSP Write Data or Command
+	mov dx,baseaddr
+	add dx,SB_DSPWRITE
 	WAITWRITE
 	mov al,DSP_SETTIMECONST
 	out dx,al
@@ -315,7 +367,7 @@ waitloop:
 	cmp ah,1
 	jnz waitloop
 exit:
-	RESET_DSP
+	RESET_DSP baseaddr
 
 ;--- restore PIC mask
 	mov al,oldpic
@@ -324,7 +376,9 @@ exit:
 ;--- restore IRQ
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
+	mov si,sbirq
+	add si,8
+	shl si,2
 	cli
 	mov ax,word ptr [oldInterrupt+0]
 	mov es:[si+0],ax
@@ -335,26 +389,26 @@ exit:
 	invoke printf, CStr("DMA Buffer Length=%u",10), SAMPLEBUFFERLENGTH
 	invoke printf, CStr("SB Buffer Length=%u",10), sblength
 	out CLEARFLIPFLOP,al
-	in al,BASE_CHN
+	call getbaseport
+	in al,dx
 	mov bl,al
-	in al,BASE_CHN
+	in al,dx
 	mov bh,al
 	sub bx,dmabase
 
-	in al,COUNT_CHN
+	call getcntport
+	in al,dx
 	mov cl,al
-	in al,COUNT_CHN
+	in al,dx
 	mov ch,al
-	invoke printf, CStr("DMA channel 1: idx/cnt=%Xh/%Xh",10), bx, cx
+	invoke printf, CStr("DMA channel %u: idx/cnt=%Xh/%Xh",10), dmachn, bx, cx
 	invoke printf, CStr("timer constant: %u",10), timeconst
 done:
 	ret
 
 RESET_ERROR:
 ;--- error 'no sb found'
-	mov dx, offset sberror
-	mov ah, 9
-	int 21h
+	invoke printf, addr sberror, baseaddr
 	jmp done
 rate_invalid:
 	mov dx, offset rateerror
@@ -373,7 +427,8 @@ main endp
 SB_IRQ proc
 	push ax
 	push dx
-	mov dx,BASEADDR+00Eh			;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
+	mov dx,cs:baseaddr
+	add dx,SB_DSPSTATUS
 	in al,dx
 	mov cs:[ready],1
 	mov al,20h

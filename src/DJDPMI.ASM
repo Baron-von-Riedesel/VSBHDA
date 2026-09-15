@@ -17,6 +17,8 @@ MEMINFO ends
 
 	.code
 
+;--- LDT functions ( ah=00 )
+
 if @Model ne 7
 __dpmi_get_segment_base_address proc c public uses ebx dwSeg:dword, pBase:ptr dword
 	mov ebx, dwSeg
@@ -46,6 +48,8 @@ __dpmi_set_segment_limit proc c public uses ebx dwSeg:dword, dwLimit:dword
 __dpmi_set_segment_limit endp
 endif
 
+;--- DOS memory functions ( ah=01 )
+
 __dpmi_free_dos_memory proc c public dwSelector:dword
 	mov edx, dwSelector
 	mov ax,101h
@@ -54,6 +58,37 @@ __dpmi_free_dos_memory proc c public dwSelector:dword
 	ret
 	align 4
 __dpmi_free_dos_memory endp
+
+if 0
+;--- interrupt vectors ( ah=02 )
+
+__dpmi_get_real_mode_interrupt_vector proc c public uses ebx intno:byte, paddr:ptr
+	mov bl, intno
+	mov ax, 200h
+	int 31h
+	jc @F
+	mov eax, paddr
+	mov [eax+0],dx
+	mov [eax+2],cx
+@@:
+	sbb eax, eax
+	ret
+__dpmi_get_real_mode_interrupt_vector endp
+
+__dpmi_set_real_mode_interrupt_vector proc c public uses ebx intno:byte, paddr:ptr
+	mov eax, paddr
+	mov dx, [eax+0]
+	mov cx, [eax+2]
+	mov bl, intno
+	mov ax, 201h
+	int 31h
+	sbb eax, eax
+	ret
+__dpmi_set_real_mode_interrupt_vector endp
+
+endif
+
+;--- real-mode code functions ( ah=03 )
 
 __dpmi_simulate_real_mode_interrupt proc c public uses ebx edi intno:byte, pRegs:ptr
 	mov edi, pRegs
@@ -100,6 +135,8 @@ __dpmi_free_real_mode_callback proc c public pRMCB:ptr
 	ret
 	align 4
 __dpmi_free_real_mode_callback endp
+
+;--- extended memory functions ( ah=05 )
 
 if 1  ; needed for soundfonts
 
@@ -185,6 +222,8 @@ __dpmi_set_page_attr proc c public uses ebx edi esi handle:ptr, ofs:dword, pages
 	align 4
 __dpmi_set_page_attr endp
 
+;--- physical memory mapping ( ah=08 )
+
 __dpmi_physical_address_mapping proc c public uses ebx esi edi pInfo:ptr
 	mov eax, pInfo
 	mov di, word ptr [eax].MEMINFO.dwSize+0
@@ -213,6 +252,8 @@ __dpmi_free_physical_address_mapping proc c public uses ebx pInfo:ptr
 	ret
 	align 4
 __dpmi_free_physical_address_mapping endp
+
+;--- coprocessor ( ah=0Eh )
 
 __dpmi_set_coprocessor_emulation proc c public uses ebx bMode:byte
 	mov bl, bMode

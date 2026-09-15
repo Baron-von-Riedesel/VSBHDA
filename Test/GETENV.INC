@@ -1,4 +1,6 @@
 
+;--- get environment variable
+
 getenv proc c uses ds bx si di pVar:ptr, pBuffer:ptr
 
 	mov ah, 51h

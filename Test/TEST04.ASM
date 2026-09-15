@@ -16,29 +16,24 @@
 	.STACK 400h
 	option casemap:none
 
-;--- SoundBlaster SETUP
-BASEADDR           EQU 0220h       ;SoundBlaster base address
-SBIRQ              EQU 5           ;SoundBlaster IRQ
-DMAchannel         EQU 1           ;SoundBlaster DMA channel
+;--- default values
 
-;--- PIC MASKS FOR MASK/DEMASK IRQ
-PICORMASK          EQU 1 shl SBIRQ
-PICANDMASK         EQU 0FFh xor PICORMASK
-
-;--- DMA CONTROLLER REGISTERS :
-WRITEMASK          EQU 00ah         ;WRITE MASK REGISTER
-WRITEMODE          EQU 00bh         ;WRITE MODE REGISTER
-CLEARFLIPFLOP      EQU 00ch
-PAGE_CHN           EQU 083h         ;PAGE REGISTER FOR DMAchannel 1
-BASE_CHN           EQU 002h         ;BASEADDRESS REGISTER DMA 1
-COUNT_CHN          EQU 003h         ;COUNT REGISTER DMAchannel 1
-TIMECONST          EQU 165          ; = 10989 Hz (256-1000000/11000)
-
-;--- DMA WRITE MODE
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_READ ; singlemode, nonautoinit, readmode
+BASEADDR           EQU 220h        ; base address
+SBIRQ              EQU 5           ; IRQ
+DMACHANNEL         EQU 1           ; DMA channel
 
 	include DMA.INC
 	include SB.INC
+
+;--- DMA registers
+WRITEMASK          EQU LDMABASE + DMAMASKREG
+WRITEMODE          EQU LDMABASE + DMAMODEREG
+CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
+
+;--- DMA mode
+WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_READ ; singlemode, nonautoinit, readmode
+
+TIMECONST          EQU 165          ; = 10989 Hz (256-1000000/11000)
 
 CStr macro text:vararg
 local sym
@@ -59,8 +54,9 @@ information label byte
 	db 'TEST04 plays a 8bit mono sample one time using DSP cmd 0x14.',10
 	db 'EMS page frame is used as sound buffer!',10
 	db 0
+szBlaster db 'BLASTER',0
 
-sberror     db 'No SoundBlaster at base address 220h.',13,10,'$'
+sberror     db 'No SoundBlaster at base address %X.',10,0
 emserror    db 'No EMM installed.',13,10,'$'
 emserror2   db 'No EMS page frame set.',13,10,'$'
 emserror3   db 'EMS alloc failed.',13,10,'$'
@@ -71,22 +67,68 @@ emserror4   db 'EMS map failed.',13,10,'$'
 oldInterrupt dd 0
 wFrame      dw 0	;EMS page frame segment
 wHandle     dw 0	;EMS handle
+baseaddr    dw BASEADDR  ; SB base port
+sbirq       dw SBIRQ
+dmachn      dw DMACHANNEL
 ready       db 0
 oldpic      db 0
 bPage       db 0
 wAddr       dw 0
 
+	.data?
+
+buffer db 128 dup (?)
+
 	.CODE
 	.386
-	include printf.inc
+	include PRINTF.INC
 	.286
+
+	include GETENV.INC
+	include SCANVAR.INC
+
+getpageport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapport]
+	mov dh,0
+	ret
+mapport db 87h,83h,81h,82h,8Fh,8Bh,89h,8Ah
+getpageport endp
+
+getbaseport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapbase]
+	mov dh,0
+	ret
+mapbase db 00h,02h,04h,06h,0C0h,0C4h,0C8h,0CCh
+getbaseport endp
+
+getcntport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapcnt]
+	mov dh,0
+	ret
+mapcnt db 01h,03h,05h,07h,0C2h,0C6h,0CAh,0CEh
+getcntport endp
 
 main proc c
 
 	invoke printf, addr information
 
+	invoke getenv, addr szBlaster, addr buffer
+	.if ax
+		invoke scanvar, 'A', addr buffer, 16, addr baseaddr
+		invoke scanvar, 'I', addr buffer, 10, addr sbirq
+		invoke scanvar, 'D', addr buffer, 10, addr dmachn
+	.endif
+
 ;--- EMS stuff
 
+	xor ax,ax
+	mov es,ax
 	mov ax,es:[67h*4+0]
 	mov dx,es:[67h*4+2]
 	mov cx,ax
@@ -141,10 +183,11 @@ nextpage:
 	mov cx,SAMPLEBUFFERLENGTH
 	rep movsb
 
-	RESET_DSP
+	RESET_DSP baseaddr
 
 ;--- ENABLE SB SPEAKERS (for all SBs <SB16)
-	mov dx,BASEADDR+00Ch 		;DX = DSP Write Data or Command
+	mov dx,baseaddr
+	add dx,00Ch
 	WAITWRITE
 	mov al,DSP_ENABLESPEAKER	; AL = Enable speaker
 	out dx,al					; Output: DSP Write Data or Command
@@ -152,7 +195,9 @@ nextpage:
 ;--- SETUP IRQ
 	xor ax,ax
 	mov es,ax					; es to page 0 (Interrupt table)
-	mov si,(SBIRQ+8)*4			; si = position in interrupt table
+	mov si,sbirq
+	add si,8
+	shl si,2					; si = position in interrupt table
 	cli
 	mov ax,es:[si+0]
 	mov word ptr [oldInterrupt+0],ax
@@ -165,7 +210,11 @@ nextpage:
 ;--- unmask SB IRQ in PIC
 	in al, 21h
 	mov oldpic, al
-	and al,PICANDMASK
+	mov cx,sbirq
+	mov ah,1
+	shl ah,cl
+	xor ah,-1
+	and al,ah
 	out 21h,al
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
@@ -187,7 +236,8 @@ nextpage:
 ;
 ; 1st  MASK DMA CHANNEL
 ;
-	mov al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
 	or al,4
 	out WRITEMASK,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
@@ -197,32 +247,37 @@ nextpage:
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 3rd  WRITE TRANSFER MODE
 ;
-	mov al,WANTEDMODE
-	add al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
+	or al,WANTEDMODE
 	out WRITEMODE,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 4th  WRITE PAGE NUMBER
 ;
+	call getpageport
 	mov al,bl
-	out PAGE_CHN,al
+	out dx,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 5th  WRITE BASEADDRESS
 ;
+	call getbaseport
 	mov ax,si
-	out BASE_CHN,al
+	out dx,al
 	mov al,ah
-	out BASE_CHN,al
+	out dx,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 6th  WRITE SAMPLELENGTH-1
 ;
+	call getcntport
 	mov al,cl
-	out COUNT_CHN,al
+	out dx,al
 	mov al,ch
-	out COUNT_CHN,al
+	out dx,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 7th  DEMASK CHANNEL
 ;
-	mov al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
 	out WRITEMASK,al
 
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
@@ -230,7 +285,8 @@ nextpage:
 ;
 ; 1st  SET TIMECONSTANT
 ;
-	mov dx,BASEADDR+SB_DSPWRITE
+	mov dx,baseaddr
+	add dx,SB_DSPWRITE
 	WAITWRITE
 	mov al,040h					;AL = Set timeconstant
 	out dx,al
@@ -264,21 +320,24 @@ waitloop:
 
 exit:
 ;--- mask DMA channel
-	mov al,DMAchannel
+	mov al,byte ptr dmachn
+	and al,11b
 	or al,4
 	out WRITEMASK,al
 
-	RESET_DSP
+	RESET_DSP baseaddr
 
 ;--- RESTORE PIC MASK
 	mov al, oldpic
 	out 21h,al
 
 ;--- RESTORE IRQ
-	cli
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
+	mov si,sbirq
+	add si,8
+	shl si,2
+	cli
 	mov ax,word ptr [oldInterrupt+0]
 	mov es:[si+0],ax
 	mov ax,word ptr [oldInterrupt+2]
@@ -288,11 +347,12 @@ exit:
 	invoke printf, CStr("SampleBuffer Address=%X%04X",10), bPage, wAddr
 	invoke printf, CStr("SampleBuffer Length=%X",10), SAMPLEBUFFERLENGTH
 	out CLEARFLIPFLOP,al
-	in al,COUNT_CHN
+	call getcntport
+	in al,dx
 	mov ah,al
-	in al,COUNT_CHN
+	in al,dx
 	xchg al,ah
-	invoke printf, CStr("DMA channel 1, cnt=%X",10), ax
+	invoke printf, CStr("DMA channel %u, cnt=%X",10), dmachn, ax
 
 done:
 ;--- unmap pages and release EMS handle
@@ -315,25 +375,20 @@ noems:
 
 RESET_ERROR:
 ;--- display information if Soundblaster is not on this baseaddress
-	mov dx,offset sberror
-	mov ah,9
-	int 21h
+	invoke printf, addr sberror, baseaddr
 	jmp done
 
 main endp
 
-;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
-; SB IRQ for detecting end of playing
-; It's generated by the SoundBlaster hardware
-;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 SB_IRQ proc
 	push ax
 	push dx
 	push ds
-	mov dx,BASEADDR+00Eh 		;DX = DSP DATA AVAILABLE (IRQ ACKNOWLEDGE)
-	in al,dx
 	mov ax,@data
 	mov ds,ax
+	mov dx,baseaddr
+	add dx,00Eh
+	in al,dx
 	mov [ready],1
 	mov al,020h
 	out 020h,al					;ACKNOWLEDGE HARDWARE INTERRUPT

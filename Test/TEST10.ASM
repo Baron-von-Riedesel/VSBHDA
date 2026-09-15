@@ -1,13 +1,5 @@
-;
-; Play 8bit stereo for SB Pro
-;
-; - DSP command 48h  set DMA block size
-; - DSP command 90h  play highspeed DMA 8bit autoinit
-; - DSP command 40h  set sample rate
-; - DSP command D1h  Enable Speaker
-; - DSP command D3h  Disable Speaker
-; - DSP command D0h  Halt Autoinit 8 bit DMA operation
-; - DSP command D4h  Continue Autoinit 8 bit DMA operation
+
+;--- Play 8bit DMA (DSP cmd 0x90) in stereo on SB Pro.
 
 	.286
 	.model small
@@ -15,30 +7,28 @@
 	.dosseg
 	option casemap:none
 
-; SoundBlaster SETUP
+;--- default values
+
 BASEADDR           EQU 220h        ;SoundBlaster base address
 SBIRQ              EQU 5           ;SoundBlaster IRQ
-DMAchannel         EQU 1           ;SoundBlaster DMA channel
+DMACHANNEL         EQU 1           ;SoundBlaster DMA channel
 
-; PIC MASKS FOR MASK/DEMASK IRQ
-PICORMASK          EQU 1 shl SBIRQ
-PICANDMASK         EQU 0FFh xor PICORMASK
+	include DMA.INC
+	include SB.INC
 
-; DMA CONTROLLER REGISTERS :
-WRITEMASK          EQU 00ah         ;WRITE MASK REGISTER
-WRITEMODE          EQU 00bh         ;WRITE MODE REGISTER
-CLEARFLIPFLOP      EQU 00ch
-PAGE_CHN           EQU 083h         ;PAGE REGISTER FOR DMAchannel 1
-BASE_CHN           EQU 002h         ;BASEADDRESS REGISTER DMA 1
-COUNT_CHN          EQU 003h         ;COUNT REGISTER DMAchannel 1
+;--- DMA registers
+WRITEMASK          EQU LDMABASE + DMAMASKREG
+WRITEMODE          EQU LDMABASE + DMAMODEREG
+CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
-; DMA WRITE MODE
+;--- DMA mode
 WANTEDMODE         EQU 01011000b    ; singlemode, autoinit, readmode
 
 SBLENGTH equ 04000h
 
 WriteMixer macro index, value
-	mov dx,BASEADDR+4
+	mov dx,baseaddr
+	add dx,4
 	mov al, index
 	out dx,al
 	inc dx
@@ -47,14 +37,17 @@ WriteMixer macro index, value
 	out dx,al
 endm
 
-	include SB.INC
+NODMAMACROS equ 1
 
 	.data
 
 OLDInterrupt    dd ?
 rate            dw 22050
 irqcnt          dw 0
-bPic            db ?
+baseaddr        dw BASEADDR
+sbirq           dw SBIRQ
+dmachn          dw DMACHANNEL
+oldpic          db ?
 bPart           db 0
 timeconst       db ?
 
@@ -89,8 +82,13 @@ information label byte
 	db 'Stop playing with <ESC>.',13,10
 	db '$'
 
-sberror   db 'No SoundBlaster found at 220h.',13,10,'$'
+sberror   db 'No SoundBlaster at base address 220h.',13,10,'$'
 rateerror db 'Invalid rate entered.',13,10,'$'
+szBlaster db 'BLASTER',0
+
+	.data?
+
+buffer db 128 dup (?)
 
 	.code
 
@@ -180,11 +178,48 @@ switchdata proc uses es si di
 	ret
 switchdata endp
 
+getpageport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapport]
+	mov dh,0
+	ret
+mapport db 87h,83h,81h,82h,8Fh,8Bh,89h,8Ah
+getpageport endp
+
+getbaseport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapbase]
+	mov dh,0
+	ret
+mapbase db 00h,02h,04h,06h,0C0h,0C4h,0C8h,0CCh
+getbaseport endp
+
+getcntport proc uses bx
+	mov bx, dmachn
+	and bx, 7
+	mov dl, [bx+mapcnt]
+	mov dh,0
+	ret
+mapcnt db 01h,03h,05h,07h,0C2h,0C6h,0CAh,0CEh
+getcntport endp
+
+	include GETENV.INC
+	include SCANVAR.INC
+
 main proc c argc:word, argv:ptr
 
 	mov dx,offset information
 	mov ah,9
 	int 21h
+
+	invoke getenv, addr szBlaster, addr buffer
+	.if ax
+		invoke scanvar, 'A', addr buffer, 16, addr baseaddr
+		invoke scanvar, 'I', addr buffer, 10, addr sbirq
+		invoke scanvar, 'D', addr buffer, 10, addr dmachn
+	.endif
 
 	cmp argc, 2
 	jb options_done
@@ -211,22 +246,19 @@ options_done:
 	neg al
 	mov timeconst,al
 
-	RESET_DSP
+	RESET_DSP baseaddr
 
-	mov dx,BASEADDR+00Ch
+	mov dx,baseaddr
+	add dx,0Ch
 	WAITWRITE
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
 	xor ax,ax
 	mov es,ax
-	mov si,(SBIRQ+8)*4
-
-	; DISABLE IRQ
-	in  al, 21h
-	mov bPic, al
-	and al, PICANDMASK
-	out 21h, al
+	mov si,sbirq
+	add si,8
+	shl si,2
 
 	mov ax,es:[si+0]
 	mov word ptr [OLDInterrupt+0],ax
@@ -235,9 +267,15 @@ options_done:
 	cli
 	mov word ptr es:[si+0],offset OWN_IRQ
 	mov es:[si+2],cs
+	sti
 
-	in  al,021h
-	and al,PICANDMASK	; CLEAR MASK REGISTER BIT TO ENABLE INTERRUPT
+	in  al,21h
+	mov oldpic,al
+	mov cx,sbirq
+	mov ah,1
+	shl ah,cl
+	xor ah,-1
+	and al,ah
 	out 021h,al
 
 	mov si,offset SampleBuffer
@@ -270,31 +308,37 @@ nooverride:
 ;
 ; Setup DMA-controller: BL=addr 16-19, SI=addr 0-15, CX=length-1
 ;
-	mov al,DMAchannel
-	add al,4
+	mov al,byte ptr dmachn
+	and al,3
+	or al,DMA_MASK_DISABLE_CHN
 	out WRITEMASK,al
 	out CLEARFLIPFLOP,al
 	mov al,WANTEDMODE
-	add al,DMAchannel
+	add al,byte ptr dmachn
 	out WRITEMODE,al
+	call getpageport
 	mov al,bl
-	out PAGE_CHN,al
+	out dx,al
+	call getbaseport
 	mov ax,si
-	out BASE_CHN,al
+	out dx,al
 	mov al,ah
-	out BASE_CHN,al
+	out dx,al
+	call getcntport
 	mov al,cl
-	out COUNT_CHN,al
+	out dx,al
 	mov al,ch
-	out COUNT_CHN,al
-	mov al,DMAchannel
+	out dx,al
+	mov al,byte ptr dmachn
+	and al,3
 	out WRITEMASK,al
 
 	WriteMixer 14,2			;enable stereo
 ;
 ; Setup SoundBlaster :
 ;
-	mov dx,BASEADDR+00Ch	;DX = DSP Write Data or Command
+	mov dx,baseaddr
+	add dx,0Ch
 	WAITWRITE
 	mov al,DSP_SETTIMECONST
 	out dx,al
@@ -335,30 +379,35 @@ waitloop:
 	jne waitloop
 	jmp exit
 do_pause:
-	mov dx,BASEADDR+00Ch
+	mov dx,baseaddr
+	add dx,0Ch
 	WAITWRITE
 	mov al,DSP_PAUSE8BIT
 	out dx,al
 	xor ah,ah
 	int 16h
-	mov dx,BASEADDR+00Ch
+	mov dx,baseaddr
+	add dx,0Ch
 	WAITWRITE
 	mov al,DSP_CONTINUE8BIT
 	out dx,al
 	jmp waitloop
 
 exit:
-	RESET_DSP
+	RESET_DSP baseaddr
 
-	WriteMixer 0,0		; reset mixer
+;	WriteMixer 0,0		; reset mixer
+	WriteMixer 14,0		; reset stereo bit in SB Pro mixer
 
-	mov al,bPic
+	mov al,oldpic
 	out 021h,al
 
 	xor ax,ax
 	mov es,ax
+	mov si,sbirq
+	add si,8
+	shl si,2
 	cli
-	mov si,(SBIRQ+8)*4
 	mov ax,word ptr [OLDInterrupt+0]
 	mov es:[si+0],ax
 	mov ax,word ptr [OLDInterrupt+2]
@@ -389,10 +438,11 @@ OWN_IRQ proc
 	mov ax,@data
 	mov ds,ax
 	inc [irqcnt]
-	mov dx,BASEADDR+00Eh
+	mov dx,baseaddr
+	add dx,SB_DSPSTATUS
 	in  al,dx
-	mov al,020h
-	out 020h,al
+	mov al,20h
+	out 20h,al
 	pop ds
 	popa
 	IRET
