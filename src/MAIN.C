@@ -17,9 +17,9 @@
 #include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
+#include "DPMI.H"
 #include "LINEAR.H"
 #include "PTRAP.H"
-#include "VDMA.H"
 #include "VIRQ.H"
 #include "VOPL3.H"
 #include "VSB.H"
@@ -33,11 +33,7 @@
 #define IRQ_DEFAULT 7
 #define DMA_DEFAULT 1
 #define TYPE_DEFAULT 4
-#if TYPE_DEFAULT < 6
-#define HDMA_DEFAULT 0
-#else
-#define HDMA_DEFAULT 5
-#endif
+#define HDMA_DEFAULT -1
 #define VOL_DEFAULT 7
 
 bool _InstallInt31( struct globalvars * );
@@ -249,12 +245,8 @@ static void ReleaseRes( void )
 		SNDISR_Exit();
 	}
 
-	if( gvars.rm )
-		PTRAP_Uninstall_RM_PortTraps();
+	PTRAP_Uninstall_PortTraps( gvars.rm, gvars.rm );
 
-	if( gvars.pm ) {
-		PTRAP_Uninstall_PM_PortTraps();
-	}
 #ifdef _DEBUG
 	if ( gvars.logfile ) LogfileExit();
 #endif
@@ -346,7 +338,7 @@ int main(int argc, char* argv[])
     }
     dbgprintf(("SB values before cmdline: A=%x I=%u D=%u T=%u", gvars.base, gvars.irq, gvars.dma, gvars.type ));
 #if SB16
-    dbgprintf((" H=%u", gvars.hdma ));
+    dbgprintf((" H=%d", gvars.hdma ));
 #endif
 #if VMPU
     dbgprintf((" P=%x", gvars.mpu ));
@@ -416,7 +408,7 @@ int main(int argc, char* argv[])
         return(1);
     }
 #if SB16
-    if( gvars.hdma != 0x0 && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
+    if( gvars.hdma != HDMA_DEFAULT && ( gvars.hdma <= 4 || gvars.hdma > 7)) {
         printf("Error: valid HDMA channels: 5, 6 or 7\n" );
         return(1);
     }
@@ -484,16 +476,17 @@ int main(int argc, char* argv[])
     if( gvars.rm ) {
         int bcd = PTRAP_GetQEMMVersion();
         //dbgprintf(("QEMM version: %x.%02x\n", bcd>>8, bcd&0xFF));
-        if(bcd < 0x703) {
+        if( bcd < 0x703 ) {
             printf("Jemm+QPIEmu/Qemm not found [or version (%x.%02x) below 7.03]; no real-mode support.\n", bcd >> 8, bcd & 0xFF);
             gvars.rm = false;
-        }
+        } else
+            gm.bQemm = 1;
     }
     if( gvars.pm ) {
-        bool hasHDPMI = PTRAP_DetectHDPMI(); //another DPMI host used than HDPMI?
-        if(!hasHDPMI)
+        gm.bHdpmi = PTRAP_DetectHDPMI(); //another DPMI host used than HDPMI?
+        if(!gm.bHdpmi)
             printf("HDPMI not installed - no protected mode support.\n");
-        gvars.pm = hasHDPMI;
+        gvars.pm = gm.bHdpmi;
     }
     if ( (gm.hAU = AU_init( &gvars ) ) == 0 ) {
         printf("Error: no soundcard found\n");
@@ -516,11 +509,10 @@ int main(int argc, char* argv[])
 
     gvars.freq = AU_setrate( gm.hAU, gvars.freq, HW_CHANNELS, HW_BITS );
 
-    PTRAP_InitPortMax(); /* v1.6: init port trap ranges */
     if( gvars.rm ) {
-        gvars.rm = PTRAP_Prepare_RM_PortTrap();
+        gvars.rm = PTRAP_Init_RM();
         if ( !gvars.rm ) {
-            printf("Error: preparing IO port traps for real-mode failed\n");
+            printf("Error: IO port trap init for real-mode failed\n");
             goto errexit;
         }
     }
@@ -540,7 +532,7 @@ int main(int argc, char* argv[])
 
 #if SB16
     if ( gvars.type < 6 )
-        gvars.hdma = 0;
+        gvars.hdma = HDMA_DEFAULT;
 #endif
 
     VPIC_Init( AU_getirq( gm.hAU ) );
@@ -549,19 +541,9 @@ int main(int argc, char* argv[])
     gvars.opl3 = 0;
 #endif
 #if SB16
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, gvars.hdma, AU_getirq( gm.hAU ) );
+    VSB_Init( gvars.base, gvars.irq, gvars.dma, gvars.hdma, gvars.type, gm.hAU );
 #else
-	PTRAP_Prepare( gvars.opl3, gvars.base, gvars.dma, 0, AU_getirq( gm.hAU ) );
-#endif
-#if SB16
-    VSB_Init( gvars.irq, gvars.dma, gvars.hdma, gvars.type, gm.hAU );
-#else
-    VSB_Init( gvars.irq, gvars.dma, 0, gvars.type, gm.hAU );
-#endif
-    VDMA_Virtualize( gvars.dma, true );
-#if SB16
-    if( gvars.hdma > 0 )
-        VDMA_Virtualize( gvars.hdma, true );
+    VSB_Init( gvars.base, gvars.irq, gvars.dma, -1, gvars.type, gm.hAU );
 #endif
 
     /* v1.7: installing RM/PM port traps done here before v1.7 */
@@ -574,7 +556,7 @@ int main(int argc, char* argv[])
 #endif
     printf("SB emulation: Addr=%x, Irq=%d, Dma=%d, ", gvars.base, gvars.irq, gvars.dma );
 #if SB16
-    if (gvars.hdma) printf("HDma=%d, ", gvars.hdma );
+    if (gvars.type >= 6) printf("HDma=%d, ", gvars.hdma );
 #endif
 #if VMPU
     if (gvars.mpu)  printf("P=%X, ", gvars.mpu );
@@ -604,23 +586,17 @@ int main(int argc, char* argv[])
 
     gm.bISR = SNDISR_Init( gm.hAU, gvars.vol * 256/9 ); /* vol: translate 0-9 to 0-256 */
 
-    if ( gvars.rm ) {
-        if ((gm.bQemm = PTRAP_Install_RM_PortTraps()) == 0 )
-            printf("Failed installing IO port trap for real-mode\n");
-    }
-    if ( gvars.pm ) {
-        if(( gm.bHdpmi = PTRAP_Install_PM_PortTraps()) == 0 )
-            printf("Failed installing IO port trap for protected-mode\n");
-    }
+#if VMPU
+    VMPU_Init( gvars.freq );
+#endif
+
+    if (( PTRAP_Install_PortTraps( gvars.rm, gvars.pm ) ) == 0 )
+        printf("Failed installing IO port traps\n");
 
     if ( gm.bISR ) {
         VIRQ_Init( gvars.irq );
         _InstallInt31( &gvars );
     }
-
-#if VMPU
-    VMPU_Init( gvars.freq );
-#endif
 
     PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
 

@@ -8,25 +8,18 @@ extern "C"
 
 typedef uint8_t (*PORT_TRAP_HANDLER)(uint16_t port, uint8_t val, uint16_t flags);
 
-#define PDT_FLGS_RMINST 1
-#define PDT_FLGS_PMINST 2
-
 #define TRAPF_OUT 4
 #define TRAPF_IF  0x200
 
 //get QEMM version
 uint16_t PTRAP_GetQEMMVersion(void);
 
-void PTRAP_Prepare( int opl, int sbaddr, int dma, int hdma, int sndint );
-void PTRAP_InitPortMax(void);
-bool PTRAP_Prepare_RM_PortTrap(void);
-bool PTRAP_Install_RM_PortTraps( void );
-bool PTRAP_Uninstall_RM_PortTraps( void );
+int  PTRAP_AddRange( int start, unsigned int portmap, const PORT_TRAP_HANDLER * );
+bool PTRAP_Init_RM(void);
 void PTRAP_SetPICPortTrap( int );
-
 bool PTRAP_DetectHDPMI();
-bool PTRAP_Install_PM_PortTraps( void );
-bool PTRAP_Uninstall_PM_PortTraps( void );
+bool PTRAP_Install_PortTraps( int, int );
+bool PTRAP_Uninstall_PortTraps( int, int );
 
 void    PTRAP_UntrappedIO_OUT(uint16_t port, uint8_t value);
 uint8_t PTRAP_UntrappedIO_IN(uint16_t port);

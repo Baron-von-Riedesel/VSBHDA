@@ -2,29 +2,24 @@
 ; short dma buffer, 16-bit mono data, unsigned, SB16 only
 
 	.286
-	.MODEL tiny
+	.model tiny
 	.dosseg
 	.stack 400h
 	option casemap:none
 
 ;--- default values
 
-BASEADDR           EQU 0220h       ; SB base address
-SBIRQ              EQU 5           ; SB IRQ
-DMACHANNEL         EQU 5           ; SB high DMA channel
+BASEADDR   EQU 220h        ; SB base address
+SBIRQ      EQU 5           ; SB IRQ
+DMACHANNEL EQU 5           ; SB DMA channel
 
 	include DMA.INC
 	include SB.INC
         
-;--- DMA registers
-WRITEMASK          EQU HDMABASE + DMAMASKREG * 2
-WRITEMODE          EQU HDMABASE + DMAMODEREG * 2
-CLEARFLIPFLOP      EQU HDMABASE + DMAFLIPFLOP * 2
-
 ;--- DMA mode
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
-	.DATA
+	.data
 
 rate            dw 22050
 sblength        dw 0fffch - 1
@@ -64,17 +59,17 @@ information label byte
 	db 'Usage: TEST02 [frequency; def %u] [SB buffer length-1; def %u]',10
 	db 0
 
-info2           db 'Press ESC to exit!',13,10,'$'
-sberror         db 'No SoundBlaster at base address %X.',10,0
-rateerror       db 'Invalid rate entered.',13,10,'$'
-lengtherror     db 'Invalid SB buffer length entered.',13,10,'$'
-szBlaster       db 'BLASTER',0
+info2       db 'Press ESC to exit!',13,10,'$'
+sberror     db 'No SoundBlaster at base address %X.',10,0
+rateerror   db 'Invalid rate entered.',13,10,'$'
+lengtherror db 'Invalid SB buffer length entered.',13,10,'$'
+szBlaster   db 'BLASTER',0
 
 	.data?
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
 
 	.386
 	include PRINTF.INC
@@ -126,6 +121,33 @@ done:
 exit:
 	ret
 getdec endp
+
+getmaskport proc
+	mov dx, LDMABASE + DMAMASKREG
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAMASKREG * 2
+@@:
+	ret
+getmaskport endp
+
+getmodeport proc
+	mov dx, LDMABASE + DMAMODEREG
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAMODEREG * 2
+@@:
+	ret
+getmodeport endp
+
+getffport proc
+	mov dx, LDMABASE + DMAFLIPFLOP
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAFLIPFLOP * 2
+@@:
+	ret
+getffport endp
 
 getpageport proc uses bx
 	mov bx, dmachn
@@ -186,12 +208,12 @@ main proc c argc:word, argv:ptr
 
 options_done:
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- enable SB speakers (for all SBs < SB16)
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -259,21 +281,24 @@ nooverride:
 ;------------------------------------------------
 ; MASK DMA CHANNEL
 ;
+	call getmaskport
 	mov al,byte ptr dmachn
 	and al,11b
 	or al,DMA_MASK_DISABLE_CHN
-	out WRITEMASK,al
+	out dx,al
 ;------------------------------------------------
 ; CLEAR FLIPFLOP
 ;
-	out CLEARFLIPFLOP,al
+	call getffport
+	out dx,al
 ;------------------------------------------------
 ; WRITE TRANSFER MODE
 ;
+	call getmodeport
 	mov al,byte ptr dmachn
 	and al,11b
 	or al,WANTEDMODE
-	out WRITEMODE,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE PAGE NUMBER
 ;
@@ -301,10 +326,11 @@ nooverride:
 ;------------------------------------------------
 ; DEMASK CHANNEL
 ;
+	call getmaskport
 	mov al,byte ptr dmachn
 	and al,3
 	or al,DMA_MASK_ENABLE_CHN
-	out WRITEMASK,al
+	out dx,al
 
 ;------------------------------------------------
 ; Setup SoundBlaster :
@@ -313,31 +339,31 @@ nooverride:
 ;
 	mov dx, baseaddr
 	add dx, SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_SETOUTSAMPLERATE    ;AL = 41, Set DAC Samplerate
 	out dx, al
 	mov cx, rate
-	WAITWRITE
+	WaitWrite
 	mov al, ch
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, cl
 	out dx, al
 
 ;------------------------------------------------
 ; USE 16bit MONO UNSIGNED MODE (DSPC B6h 00h)
 ;
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_AUTOINITOUT16
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_MODE_MONO + DSP_MODE_UNSIGNED
 	out dx, al
 	mov cx, sblength
-	WAITWRITE
+	WaitWrite
 	mov al, cl
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, ch
 	out dx, al
 
@@ -376,8 +402,7 @@ exit:
 done:
 	ret
 
-; display error if Soundblaster is not on expected base address
-RESET_ERROR:
+reset_error:
 	invoke printf, offset sberror, baseaddr
 	jmp done
 rate_invalid:

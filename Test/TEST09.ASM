@@ -2,16 +2,16 @@
 ;--- play ADPCM 4bit autoinit ( DSP cmd 0x7D )
 
 	.286
-	.MODEL tiny
+	.model tiny
 	.dosseg
-	.STACK 400h
+	.stack 400h
 	option casemap:none
 
 ;--- default values
 
-BASEADDR           EQU 0220h       ;SoundBlaster base address
-SBIRQ              EQU 5           ;SoundBlaster IRQ
-DMACHANNEL         EQU 1           ;SoundBlaster DMA channel
+BASEADDR   EQU 0220h       ;SoundBlaster base address
+SBIRQ      EQU 5           ;SoundBlaster IRQ
+DMACHANNEL EQU 1           ;SoundBlaster DMA channel
 
 	include DMA.INC
 	include SB.INC
@@ -22,7 +22,7 @@ WRITEMODE          EQU LDMABASE + DMAMODEREG
 CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
 ;--- DMA mode
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 CStr macro text:vararg
 local sym
@@ -152,7 +152,8 @@ oldpic              db 0
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
+
 	.386
 	include PRINTF.INC
 	.286
@@ -273,12 +274,12 @@ options_done:
 	neg al
 	mov timeconst,al
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- ENABLE SB SPEAKERS (for all SBs < SB16)
 	mov dx,baseaddr
 	add dx,00Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -367,22 +368,22 @@ nooverride:
 
 	mov dx,baseaddr
 	add dx,00Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETTIMECONST
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,timeconst
 	out dx,al
 
 ;--- set SB buffer length
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETSIZE
 	out dx,al
 	mov cx,sblength
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
 
@@ -418,7 +419,7 @@ nooverride:
 
 	mov dx,baseaddr
 	add dx,00Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ADPCM4BITAUTO
 	out dx,al
 
@@ -472,7 +473,7 @@ exit:
 done:
 	ret
 
-RESET_ERROR:
+reset_error:
 	invoke printf, addr sberror, baseaddr
 	jmp done
 rate_invalid:

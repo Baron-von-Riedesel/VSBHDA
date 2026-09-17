@@ -14,7 +14,7 @@ ifndef DEBUG
 DEBUG=0
 endif
 
-NAME=vsbhda
+NAME=VSBHDA
 
 ifeq ($(DEBUG),1)
 OUTD=djgppd
@@ -44,7 +44,7 @@ OBJFILES=\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/sc_sbxfi.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/djdpmi.o	$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
+	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
 	$(OUTD)/logfile.o
 
 INCLUDE_DIRS=src src/hw
@@ -74,16 +74,16 @@ $(OUTD)/%.o: src/%.asm
 $(OUTD)/%.o: src/hw/%.c
 	$(COMPILE.c.o)
 
-all:: $(OUTD) $(OUTD)/$(NAME)d.exe
+all:: $(OUTD) $(OUTD)/$(NAME)D.EXE
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-$(OUTD)/$(NAME)d.exe:: $(OUTD)/$(NAME).ar
+$(OUTD)/$(NAME)D.EXE:: $(OUTD)/$(NAME).ar
 	gcc -o $@ $(OUTD)/main.o $(OUTD)/$(NAME).ar $(LD_FLAGS) $(LIBS)
 	strip -s $@
 	exe2coff $@
-	copy /b res\stub.bin + $(OUTD)\$(NAME)d $(OUTD)\$(NAME)d.exe
+	copy /b res\stub.bin + $(OUTD)\$(NAME)D $(OUTD)\$(NAME)D.EXE
 
 $(OUTD)/$(NAME).ar:: $(OBJFILES)
 	ar --target=coff-go32 r $(OUTD)/$(NAME).ar $(OBJFILES)
@@ -106,7 +106,7 @@ $(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
 $(OUTD)/sc_sbl24.o:: sc_sbl24.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
 $(OUTD)/sc_sbliv.o:: sc_sbliv.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
-$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbxfi.h
+$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h emu20k1.h
 $(OUTD)/sc_via82.o:: sc_via82.c  au_cards.h dmabuff.h pcibios.h ac97.h
 $(OUTD)/timer.o::    timer.c     au_cards.h timer.h
 
@@ -124,7 +124,7 @@ $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h
 $(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
 $(OUTD)/vmpu.o::     vmpu.c      linear.h platform.h vmpu.h config.h
 
-$(OUTD)/djdpmi.o::   djdpmi.asm
+$(OUTD)/dpmi.o::     dpmi.asm
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/fileacc.o::  fileacc.asm
 $(OUTD)/hapi.o::     hapi.asm
@@ -138,7 +138,7 @@ $(OUTD)/uninst.o::   uninst.asm
 $(OUTD)/vioout.o::   vioout.asm
 
 clean::
-	del $(OUTD)\$(NAME)d.exe
+	del $(OUTD)\$(NAME)D.EXE
 	del $(OUTD)\$(NAME).ar
 	del $(OUTD)\*.o
 

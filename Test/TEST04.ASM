@@ -4,23 +4,18 @@
 ; this variant uses the EMS page frame as sound buffer.
 ; The sound buffer address isn't translated to a physical address -
 ; this is supposed to be done by the v86 monitor program.
-;
-; + DSP command 14h  ... play 8bit mono no autoinit
-; + DSP command 40h  ... set sample rate
-; + DSP command D1h  ... Enable Speaker
-;
 
 	.286
-	.MODEL SMALL
+	.model small
 	.dosseg
-	.STACK 400h
+	.stack 400h
 	option casemap:none
 
 ;--- default values
 
-BASEADDR           EQU 220h        ; base address
-SBIRQ              EQU 5           ; IRQ
-DMACHANNEL         EQU 1           ; DMA channel
+BASEADDR   EQU 220h        ; base address
+SBIRQ      EQU 5           ; IRQ
+DMACHANNEL EQU 1           ; DMA channel
 
 	include DMA.INC
 	include SB.INC
@@ -31,9 +26,9 @@ WRITEMODE          EQU LDMABASE + DMAMODEREG
 CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
 ;--- DMA mode
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_READ ; singlemode, nonautoinit, readmode
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_READ
 
-TIMECONST          EQU 165          ; = 10989 Hz (256-1000000/11000)
+TIMECONST EQU 256 - ( 1000000 / 10989 ) ;=165
 
 CStr macro text:vararg
 local sym
@@ -79,7 +74,8 @@ wAddr       dw 0
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
+
 	.386
 	include PRINTF.INC
 	.286
@@ -183,12 +179,12 @@ nextpage:
 	mov cx,SAMPLEBUFFERLENGTH
 	rep movsb
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- ENABLE SB SPEAKERS (for all SBs <SB16)
 	mov dx,baseaddr
 	add dx,00Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER	; AL = Enable speaker
 	out dx,al					; Output: DSP Write Data or Command
 
@@ -287,23 +283,23 @@ nextpage:
 ;
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,040h					;AL = Set timeconstant
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,TIMECONST
 	out dx,al
 ;컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴컴
 ; 2nd  use 8bit mono nonautoinit (DSPcommand 014h XXXXh)
 ;
-	WAITWRITE
+	WaitWrite
 	mov al,014h					;AL = DMA DAC 8bit
 	out dx,al
 	mov cx,SAMPLEBUFFERLENGTH-1
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
 
@@ -373,8 +369,7 @@ nextpage2:
 noems:
 	ret
 
-RESET_ERROR:
-;--- display information if Soundblaster is not on this baseaddress
+reset_error:
 	invoke printf, addr sberror, baseaddr
 	jmp done
 

@@ -111,6 +111,8 @@ void _settextmode(void);
     parm[] \
     modify exact [ax]
 
+#if 0
+
 unsigned int _my_ds();
 #pragma aux _my_ds = \
 	"mov eax, ds" \
@@ -123,6 +125,8 @@ unsigned int _my_esp();
 	"mov eax, esp" \
 	parm [] \
 	modify exact [ eax ]
+#endif
+
 #endif
 
 extern unsigned int _linear_psp;

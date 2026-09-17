@@ -16,9 +16,8 @@
 
 #include <stdint.h>
 #include <stdio.h>
-//#include <dpmi.h>
 
-#include "DJDPMI.H"
+#include "DPMI.H"
 #include "CONFIG.H" /* for dbgprintf() */
 #include "PHYSMEM.H"
 

@@ -146,11 +146,19 @@ static uint8_t VPIC_Read(uint16_t port)
     return rc;
 }
 
-uint8_t VPIC_Acc(uint16_t port, uint8_t val, uint16_t flags)
-////////////////////////////////////////////////////////////
+static uint8_t VPIC_Acc(uint16_t port, uint8_t val, uint16_t flags)
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (VPIC_Write(port, val), val) : VPIC_Read(port);
 }
+
+static const PORT_TRAP_HANDLER MPIC_ph[] = {
+    VPIC_Acc, VPIC_Acc
+};
+
+static const PORT_TRAP_HANDLER SPIC_ph[] = {
+    VPIC_Acc
+};
 
 void VPIC_Init( uint8_t hwirq )
 ///////////////////////////////
@@ -159,6 +167,10 @@ void VPIC_Init( uint8_t hwirq )
 
     vpic.Mask[0] = UntrappedIO_IN(0x21);
     vpic.Mask[1] = UntrappedIO_IN(0xA1);
+    PTRAP_AddRange( 0x20, 0x0003, MPIC_ph );
+    if ( hwirq >= 8 )
+        PTRAP_AddRange( 0xA1, 0x0001, SPIC_ph );
+    return;
 }
 
 void VIRQ_Invoke( void )

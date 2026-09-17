@@ -8,11 +8,12 @@
 	option casemap:none
 
 ;--- default values
-BASEADDR           EQU 220h
-SBIRQ              EQU 5
-DMACHANNEL         EQU 1
-RATE               EQU 11025
-DMABUFFERSIZE      EQU 8*1024	; DMA buffer size
+
+BASEADDR       EQU 220h
+SBIRQ          EQU 5
+DMACHANNEL     EQU 1
+RATE           EQU 11025
+DMABUFFERSIZE  EQU 8*1024	; DMA buffer size
 
 	include DMA.INC
 	include SB.INC
@@ -21,8 +22,9 @@ DMABUFFERSIZE      EQU 8*1024	; DMA buffer size
 WRITEMASK          EQU LDMABASE + DMAMASKREG
 WRITEMODE          EQU LDMABASE + DMAMODEREG
 CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
+
 ;--- DMA mode
-WANTEDMODE         EQU 01011000b    ; singlemode, autoinit, readmode
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 ReadMixer MACRO register
 	mov dx,baseaddr
@@ -178,6 +180,8 @@ nooverride:
 
 ;--- SB setup
 
+	RESET_DSP baseaddr,reset_error
+
 ;--- first setup DMA for 16bit sound with 8bit dma;
 ;--- means to clear 16-bit DMA channel in mixer register;
 
@@ -187,12 +191,10 @@ nooverride:
 	mov ah,al
 	WriteMixer 81h
 
-	RESET_DSP baseaddr
-
 ;--- enable SB SPEAKERS
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -257,28 +259,28 @@ nooverride:
 ;
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETOUTSAMPLERATE
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov cx,rate
 	mov al,ch
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
 
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_AUTOINITOUT16
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,000h 			;AL = mono unsigned data
 	out dx,al
 	mov cx,DMABUFFERSIZE/4-1
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
 
@@ -300,14 +302,14 @@ pause_:
 ;--- pause playing
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_PAUSE16BIT
 	out dx,al
 	xor ah,ah
 	int 16h
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_CONTINUE16BIT
 	out dx,al
 	jmp waitloop
@@ -337,7 +339,7 @@ exit:
 	sti
 done:
 	ret
-RESET_ERROR:
+reset_error:
 	mov dx,offset sberror
 	mov ah,9
 	int 21h

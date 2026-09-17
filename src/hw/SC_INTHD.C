@@ -21,11 +21,12 @@
 #include <string.h>
 
 #include "CONFIG.H"
+#include "DPMI.H"
+#include "LINEAR.H"
 #include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "SC_INTHD.H"
-#include "LINEAR.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 0 /* todo: explain the benefits! */

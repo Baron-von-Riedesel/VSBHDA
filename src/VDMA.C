@@ -5,11 +5,12 @@
 
 #include "CONFIG.H"
 #include "PLATFORM.H"
+#include "DPMI.H"
+#include "LINEAR.H"
 #include "DMA.H"
 #include "VDMA.H"
 #include "VSB.H"
 #include "PTRAP.H"
-#include "LINEAR.H"
 
 /* mode: bit 2-3: operation, 00=verify, 01=write, 10=read
  *       bit 4:   1=auto initialize
@@ -41,11 +42,15 @@ struct VDMA_Status {
 
 static struct VDMA_Status vdma;
 
+/* translate ports -> channels */
 static const int8_t VDMA_PortChannelMap[16] =
 {
     -1, 2, 3, 1, -1, -1, -1, 0, /* ports 80-87 */
     -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
 };
+
+/* translate channels -> ports */
+static const uint8_t ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
 
 /* write to ISA DMA controller ports;
  * even if a channel is virtualized the ports are written;
@@ -152,6 +157,8 @@ static void VDMA_Write(uint16_t port, uint8_t byte)
  * not really a problem, since the only control register that's useful to read is the status port.
  */
 
+#define IsVirtualized(chn) (vdma.Virtualized & ( 1 << chn ))
+
 static uint8_t VDMA_Read(uint16_t port)
 ///////////////////////////////////////
 {
@@ -168,7 +175,7 @@ static uint8_t VDMA_Read(uint16_t port)
     else if( port >= 0x80 && port <= 0x8F ) /* ports 80-8F */
         channel = VDMA_PortChannelMap[port - 0x80];
 
-    if( channel >= 0 && (vdma.Virtualized & (1 << channel))) {
+    if( channel >= 0 && IsVirtualized(channel) ) {
         /* select ports 00-07 or 0xC0-0xCE; it's either "addr" or "counter" */
         if( ( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) ||
            ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER ) ) {
@@ -235,11 +242,11 @@ static uint8_t VDMA_Read(uint16_t port)
 void VDMA_Virtualize(int channel, int enable)
 /////////////////////////////////////////////
 {
-    if( channel >= 0 && channel <= 7 )
-        if (enable)
-            vdma.Virtualized |= (1 << channel);
-        else
-            vdma.Virtualized &= ~(1 << channel);
+    channel &= 0x7;
+    if ( enable )
+        vdma.Virtualized |= (1 << channel);
+    else
+        vdma.Virtualized &= ~(1 << channel);
 
     vdma.Masked |= (1 << channel );
     vdma.e2channel = 0xff; /* reset SB DSP E2 callback mechanism */
@@ -339,7 +346,8 @@ int VDMA_GetWriteMode(int channel)
 }
 #endif
 
-/* v2.0: function now called by VSB_Running() */
+/* v2.0: function now called by VSB_Running();
+ */
 
 int VDMA_IsMasked(int channel)
 //////////////////////////////
@@ -383,8 +391,53 @@ void VDMA_WriteData(int channel, uint8_t data, uint8_t iscb)
     }
 }
 
-uint8_t VDMA_Acc(uint16_t port, uint8_t val, uint16_t flags)
-////////////////////////////////////////////////////////////
+static uint8_t VDMA_Acc(uint16_t port, uint8_t val, uint16_t flags)
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (VDMA_Write(port, val), val) : VDMA_Read(port);
 }
+
+static const PORT_TRAP_HANDLER LDMA_ph[] = {
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for low dma */
+	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0x08-0x0F */
+};
+
+#if 0//SB16
+static const PORT_TRAP_HANDLER HDMA_ph[] = {
+	VDMA_Acc, VDMA_Acc,    /* base+cnt for high dma */
+	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0xD0-0xDE */
+};
+#endif
+
+static const PORT_TRAP_HANDLER DMAPG_ph[] = {
+	VDMA_Acc, /* page port for low dma */
+#if SB16
+	VDMA_Acc, /* page port for high dma */
+#endif
+};
+
+void VDMA_PortTrap( int ldma, int hdma )
+////////////////////////////////////////
+{
+    unsigned int portmap;
+    unsigned int portmappg = 0;
+    /* low dma: adjust the entry for DMA channel addr/count */
+    portmap = 0xff00;
+    portmap >>= ldma << 1;
+    portmap |= 3;
+    PTRAP_AddRange( ldma << 1, portmap, LDMA_ph );
+    /* low dma: adjust the entry for DMA page reg */
+    portmappg |= (1 << (ChannelPageMap[ ldma ] - 0x81));
+#if SB16
+    if ( hdma > 4 ) {
+        portmap = 0x55550000;
+        portmap >>= ((hdma - 4) << 2);
+        portmap |= 5;
+        PTRAP_AddRange( ((hdma - 4) << 2) + 0xC0, portmap, LDMA_ph ); /* ptfuncs for LDMA can be used here */
+        portmappg |= (1 << (ChannelPageMap[ hdma ] - 0x81));
+    }
+#endif
+    PTRAP_AddRange( 0x81, portmappg, DMAPG_ph );
+    return;
+}
+

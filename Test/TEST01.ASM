@@ -3,16 +3,16 @@
 ;--- emits a zigzag wave; DMA buffer size is 512.
 
 	.286
-	.MODEL tiny
+	.model tiny
 	.dosseg
-	.STACK 400h
+	.stack 400h
 	option casemap:none
 
 ;--- default values
 
-BASEADDR   EQU 0220h       ;default SB base address
-SBIRQ      EQU 5           ;default SB IRQ
-DMACHANNEL EQU 1           ;default SB low DMA channel
+BASEADDR   EQU 220h        ; SB base address
+SBIRQ      EQU 5           ; SB IRQ
+DMACHANNEL EQU 1           ; SB low DMA channel
 
 	include DMA.INC
 	include SB.INC
@@ -83,7 +83,8 @@ oldpic              db 0
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
+
 	.386
 	include PRINTF.INC
 	.286
@@ -206,12 +207,12 @@ options_done:
 	neg al
 	mov timeconst,al
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- ENABLE SB SPEAKERS (for all SBs < SB16)
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -286,8 +287,8 @@ nooverride:
 ;------------------------------------------------
 ; WRITE TRANSFER MODE
 ;
-	mov al,WANTEDMODE
-	or al,byte ptr dmachn
+	mov al,byte ptr dmachn
+	or al,WANTEDMODE
 	out WRITEMODE,al
 ;------------------------------------------------
 ; WRITE PAGE NUMBER
@@ -324,24 +325,24 @@ nooverride:
 ;
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETTIMECONST
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,timeconst
 	out dx,al
 
 ;------------------------------------------------
 ; use 8bit mono single-cycle (DSP command 014h XXXXh)
 ;
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_DMADAC8BIT
 	out dx,al
 	mov cx,sblength
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
 
@@ -396,7 +397,7 @@ done:
 	ret
 
 ;--- error 'no sb found'
-RESET_ERROR:
+reset_error:
 	invoke printf, offset sberror, baseaddr
 	jmp done
 rate_invalid:

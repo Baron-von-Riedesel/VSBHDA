@@ -121,8 +121,8 @@ void VMPU_SBMidi_RawWrite( uint8_t value )
 
 /* access of MIDI ports 0x330/0x331 */
 
-uint8_t VMPU_Acc(uint16_t port, uint8_t val, uint16_t flags)
-////////////////////////////////////////////////////////////
+static uint8_t VMPU_Acc(uint16_t port, uint8_t val, uint16_t flags)
+///////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (VMPU_Write(port, val), val) : VMPU_Read(port);
 }
@@ -268,9 +268,16 @@ void VMPU_Process_Messages(void)
 }
 #endif
 
+static const PORT_TRAP_HANDLER MPU_ph[] = {
+	VMPU_Acc, VMPU_Acc,
+};
+
 void VMPU_Init( int freq )
 //////////////////////////
 {
+    if ( gvars.mpu )
+        PTRAP_AddRange( gvars.mpu, 0x0003, MPU_ph );
+
 #if SOUNDFONT
     if (!gvars.soundfont) ;
     else if ( tsfrenderer = tsf_load_filename(gvars.soundfont) ) {

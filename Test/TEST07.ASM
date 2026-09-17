@@ -3,16 +3,16 @@
 ;--- emits a zigzag wave; DMA buffer size is 512.
 
 	.286
-	.MODEL tiny
+	.model tiny
 	.dosseg
-	.STACK 400h
+	.stack 400h
 	option casemap:none
 
 ;--- default values
 
-BASEADDR           EQU 220h        ; base address
-SBIRQ              EQU 5           ; IRQ
-DMACHANNEL         EQU 1           ; low DMA channel
+BASEADDR   EQU 220h        ; base address
+SBIRQ      EQU 5           ; IRQ
+DMACHANNEL EQU 1           ; low DMA channel
 
 	include DMA.INC
 	include SB.INC
@@ -23,7 +23,7 @@ WRITEMODE          EQU LDMABASE + DMAMODEREG
 CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
 ;--- DMA mode
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 CStr macro text:vararg
 local sym
@@ -85,7 +85,8 @@ oldpic              db 0
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
+
 	.386
 	include PRINTF.INC
 	.286
@@ -192,7 +193,7 @@ main proc c argc:word, argv:ptr
 
 options_done:
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- start msg
 	invoke printf, addr information, rate, sblength
@@ -214,7 +215,7 @@ options_done:
 
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -330,29 +331,29 @@ nooverride:
 ;
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETTIMECONST
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,timeconst
 	out dx,al
 
 ;--- set length
 
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETSIZE
 	out dx,al
 	mov cx,sblength
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
 
 ;--- use 8bit single-cycle highspeed (DSP command 091h)
 
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_DMADAC8BITHS
 	out dx,al
 
@@ -406,8 +407,7 @@ exit:
 done:
 	ret
 
-RESET_ERROR:
-;--- error 'no sb found'
+reset_error:
 	invoke printf, addr sberror, baseaddr
 	jmp done
 rate_invalid:

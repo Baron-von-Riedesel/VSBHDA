@@ -21,11 +21,9 @@
 #ifdef DJGPP
 #include <go32.h>
 #endif
-//#include <dpmi.h>
-//#include <memory.h>
 
 #include "PLATFORM.H"
-#include "DJDPMI.H"
+#include "DPMI.H"
 #include "PCIBIOS.H"
 
 /* PCIBIOSACCESS 1 requires a 1 kB real-mode stack ( it's either the go32

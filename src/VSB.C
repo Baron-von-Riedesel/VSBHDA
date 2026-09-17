@@ -11,6 +11,7 @@
 #include "VIRQ.H"
 #include "VDMA.H"
 #include "PTRAP.H"
+#include "VOPL3.H"
 #if VMPU
 #include "VMPU.H"
 #endif
@@ -147,8 +148,8 @@ struct VSB_Status {
     uint8_t dsp_in_pos;
     uint8_t dsp_in_data[4];
     uint8_t Irq;      /* IRQ, set by Init (2/5/7) */
-    uint8_t Dma8;     /* 8-bit DMA channel */
-    uint8_t Dma16;    /* 16-bit DMA channel */
+    //uint8_t Dma8;     /* 8-bit DMA channel */
+    //uint8_t Dma16;    /* 16-bit DMA channel */
     uint8_t MixerMax;
     uint8_t MixerRegIndex;
     uint8_t DirIdxW; /* current write index to DirectBuffer */
@@ -536,6 +537,8 @@ static void DSP_Write0C( uint8_t value, uint32_t flags )
     }
 }
 
+#define GetLowDMA() BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP])
+
 static void DSP_DoCommand( uint32_t flags )
 ///////////////////////////////////////////
 {
@@ -763,7 +766,7 @@ static void DSP_DoCommand( uint32_t flags )
         vsb.DMAID_A += vsb.dsp_in_data[0] ^ vsb.DMAID_X;
         vsb.DMAID_X = (vsb.DMAID_X >> 2u) | (vsb.DMAID_X << 6u);
         dbgprintf(("DSP_DoCommand(%X): DMA ID, data=%X\n", vsb.dsp_cmd, vsb.DMAID_A ));
-        VDMA_WriteData( vsb.Dma8, vsb.DMAID_A, 0 ); /* write to low dma channel */
+        VDMA_WriteData( GetLowDMA(), vsb.DMAID_A, 0 ); /* write to low dma channel */
         break;
     case SB_DSP_COPYRIGHT: /* E3: supported by DSP v4.x; status v3 unclear */
         strcpy( vsb.DataBuffer, SB_Copyright );
@@ -885,38 +888,6 @@ static uint8_t DSP_Read0F( void )
     return 0xFF;
 }
 
-void VSB_Init(int irq, int dma, int hdma, int type, void *hAU )
-///////////////////////////////////////////////////////////////
-{
-    vsb.Irq = irq;
-    vsb.Dma8 = dma;
-    vsb.Dma16 = hdma;
-    vsb.DSPVer = VSB_DSPVersion[type];
-    vsb.hAU = hAU;
-    if ( vsb.DSPVer >= 0x400 ) {
-        vsb.MixerMax = SB_MIXERREG_MAX16; /* CT1745 */
-        switch ( vsb.DSPVer & 0xFF ) {
-        case 0x5: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x20; break;
-        case 0x12: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x80; break;
-        default: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x10;
-        }
-    } else if ( vsb.DSPVer >= 0x300 )
-        vsb.MixerMax = SB_MIXERREG_MAXPRO; /* CT1345 */
-    else
-        vsb.MixerMax = SB_MIXERREG_MAXV2; /* CT1335 ( SB 2 with CD ) */
-    /* mixer regs INT_SETUP/DMA_SETUP must be initialized no matter what SB type has been set */
-    vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
-    //vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xEB;
-#if SB16
-    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << vsb.Dma8) | ( vsb.Dma16 ? (1 << vsb.Dma16) : 0)) & 0xEB;
-#else
-    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << vsb.Dma8) & 0xB;
-#endif
-    VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
-    VSB_Mixer_Write( 1 );
-    dbgprintf(("VSB_Init: dsp ver=%X Irq=%u, lDma=%u, hDma=%u\n", vsb.DSPVer, vsb.Irq, vsb.Dma8, vsb.Dma16));
-}
-
 uint8_t VSB_GetIRQ()
 ////////////////////
 {
@@ -925,33 +896,22 @@ uint8_t VSB_GetIRQ()
     return VSB_IRQMap[BSF(vsb.MixerRegs[SB_MIXERREG_INT_SETUP])];
 }
 
-/* get current DMA channel */
+/* get current DMA channel
+ * v2.1: mixer register DMA setup ( 0x81 ) is now writeable;
+ */
 
 int VSB_GetDMA()
 ////////////////
 {
 #if SB16
-    if ( vsb.Bits > 8 ) {
-        if( vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 )
-            return( BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 ) );
-    }
+    if ( vsb.Bits > 8 )
+        if( vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xE0 )
+            return( BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xE0 ) );
 #endif
     if( vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] )
         return( BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] ) );
-    return -1;
+    return 1; /* v2.1: return channel 1 if none is set in mixer */
 }
-
-#if 0 //SB16
-int VSB_GetDma16()
-//////////////////
-{
-    int bit;
-    if( !(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] & 0xF0 ))
-        return -1;
-    bit = BSF(vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] >> 4) + 4;
-    return bit;
-}
-#endif
 
 /* check if a DSP sound cmd is active;
  * this is either a DSP DMA cmd with the DMA channel unmasked
@@ -1114,18 +1074,18 @@ uint8_t VSB_GetMixerReg(uint8_t index)
     return vsb.MixerRegs[index];
 }
 
-uint8_t VSB_MixerAddr( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc04( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (VSB_Mixer_SetIndex( val ), val) : 0xff;
 }
-uint8_t VSB_MixerData( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc05( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
-	return (flags & TRAPF_OUT) ? (VSB_Mixer_Write( val ), val) : VSB_Mixer_Read();
+    return (flags & TRAPF_OUT) ? (VSB_Mixer_Write( val ), val) : VSB_Mixer_Read();
 }
-uint8_t VSB_DSP_Reset( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc06( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (DSP_Reset( val ), val) : 0xff;
 }
@@ -1135,8 +1095,8 @@ uint8_t VSB_DSP_Reset( uint16_t port, uint8_t val, uint16_t flags )
  * data is available if "read status" bit 7=1
  */
 
-uint8_t VSB_DSP_Acc0A( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc0A( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? val : DSP_Read0A();
 }
@@ -1145,8 +1105,8 @@ uint8_t VSB_DSP_Acc0A( uint16_t port, uint8_t val, uint16_t flags )
  * port offset 0Ch
  */
 
-uint8_t VSB_DSP_Acc0C( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc0C( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? (DSP_Write0C( val, flags ), val) : DSP_Read0C();
 }
@@ -1156,13 +1116,69 @@ uint8_t VSB_DSP_Acc0C( uint16_t port, uint8_t val, uint16_t flags )
  * data is available if read status bit 7=1
  * a read also works as 8-bit "IRQ ack"
  */
-uint8_t VSB_DSP_Acc0E( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc0E( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? val : DSP_Read0E();
 }
-uint8_t VSB_DSP_Acc0F( uint16_t port, uint8_t val, uint16_t flags )
-///////////////////////////////////////////////////////////////////
+static uint8_t DSP_Acc0F( uint16_t port, uint8_t val, uint16_t flags )
+//////////////////////////////////////////////////////////////////////
 {
     return (flags & TRAPF_OUT) ? val : DSP_Read0F();
+}
+
+static const PORT_TRAP_HANDLER SB_ph[] = {
+	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B, /* 0x220-0x223 */
+	DSP_Acc04, DSP_Acc05,                       /* 0x224-0x225 */
+	DSP_Acc06,                                  /* 0x226 */
+	VOPL3_388, VOPL3_389,                       /* 0x228, 0x229 */
+	DSP_Acc0A, DSP_Acc0C,                       /* 0x22a, 0x22c */
+	DSP_Acc0E, DSP_Acc0F,                       /* 0x22e, 0x22f */
+};
+
+void VSB_Init(int addr, int irq, int ldma, int hdma, int type, void *hAU )
+//////////////////////////////////////////////////////////////////////////
+{
+    unsigned int portmap = 0xd77f; /* */
+    vsb.Irq = irq;
+    /* v2.1: dma channels are set in mixer register 0x81 only */
+    //vsb.Dma8 = ldma;
+    //vsb.Dma16 = hdma;
+    vsb.DSPVer = VSB_DSPVersion[type];
+    vsb.hAU = hAU;
+    if ( vsb.DSPVer >= 0x400 ) {
+        vsb.MixerMax = SB_MIXERREG_MAX16; /* CT1745 */
+        switch ( vsb.DSPVer & 0xFF ) {
+        case 0x5: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x20; break;
+        case 0x12: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x80; break;
+        default: vsb.MixerRegs[SB_MIXERREG_IRQ_STATUS] |= 0x10;
+        }
+    } else if ( vsb.DSPVer >= 0x300 )
+        vsb.MixerMax = SB_MIXERREG_MAXPRO; /* CT1345 */
+    else
+        vsb.MixerMax = SB_MIXERREG_MAXV2; /* CT1335 ( SB 2 with CD ) */
+    /* mixer regs INT_SETUP/DMA_SETUP must be initialized no matter what SB type has been set */
+    vsb.MixerRegs[SB_MIXERREG_INT_SETUP] = 0xF0 | (1 << FindItem(VSB_IRQMap, countof(VSB_IRQMap), vsb.Irq));
+#if SB16
+    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = ( (1 << ldma) | (( hdma >= 4 ) ? (1 << hdma) : 0)) & 0xEB;
+#else
+    vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << ldma) & 0xB;
+#endif
+
+    VDMA_Virtualize( ldma, true );
+#if SB16
+    if( hdma >= 4 )
+        VDMA_Virtualize( hdma, true );
+#endif
+    VDMA_PortTrap( ldma, hdma );
+
+    if ( !gvars.opl3 )
+        portmap &= ~0x030f; /* remove ports 0x220-0x223 and 0x228-0x229 */
+
+    PTRAP_AddRange( addr, portmap, SB_ph );
+
+    VSB_Mixer_SetIndex( SB_MIXERREG_RESET );
+    VSB_Mixer_Write( 1 );
+    dbgprintf(("VSB_Init: dsp ver=%X Irq=%u, lDma=%u, hDma=%d\n", vsb.DSPVer, vsb.Irq, ldma, hdma));
+    return;
 }

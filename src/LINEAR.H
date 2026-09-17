@@ -1,9 +1,6 @@
 #ifndef _LINEAR_H_
 #define _LINEAR_H_
 
-//#include <dpmi.h>
-#include "DJDPMI.H"
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -11,9 +8,8 @@ extern "C"
 
 //linear memory access
 
-extern uint32_t DSBase;
-
 #if defined(DJGPP) || defined(NOTFLAT)
+extern uint32_t DSBase;
 static inline uint32_t LinearAddr( void* ptr ) { return DSBase + (uint32_t)ptr; }
 static inline void    *NearPtr( uint32_t linaddr ) { return (void *)(linaddr - DSBase); }
 #else

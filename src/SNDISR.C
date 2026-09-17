@@ -9,6 +9,7 @@
 #include "CONFIG.H"
 #include "PLATFORM.H"
 #include "PIC.H"
+#include "DPMI.H"
 #include "LINEAR.H"
 #include "VDMA.H"
 #include "VIRQ.H"
@@ -319,7 +320,7 @@ static int SNDISR_Interrupt( void )
 #endif
         /* a loop that may run 2 (or multiple) times if a SB buffer overrun occured */
         int i,j;
-        int dmachannel = VSB_GetDMA();
+        int dmachannel;
         int bytes; /* no of bytes to be copied from SB DMA buffer */
         int bits = VSB_GetBits();
         int channels = VSB_GetChannels();
@@ -335,6 +336,7 @@ static int SNDISR_Interrupt( void )
         int IsSilent = VSB_IsSilent();
 
         if ( !IsSilent ) {
+            dmachannel = VSB_GetDMA();
             DMA_Base = VDMA_GetBase(dmachannel);
             DMA_Index = VDMA_GetIndex(dmachannel);
             DMA_Count = VDMA_GetCount(dmachannel);

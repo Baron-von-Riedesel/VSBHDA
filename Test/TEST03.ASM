@@ -2,29 +2,24 @@
 ; short dma buffer, 16-bit mono data, signed, SB16 only
 
 	.286
-	.MODEL small
-	.STACK 400h
+	.model small
+	.stack 400h
 	.dosseg
 	option casemap:none
 
 ;--- default values
 
-BASEADDR           EQU 220h        ; base address
-SBIRQ              EQU 5           ; IRQ
-DMACHANNEL         EQU 5           ; DMA channel
+BASEADDR   EQU 220h        ; base address
+SBIRQ      EQU 5           ; IRQ
+DMACHANNEL EQU 5           ; DMA channel
 
 	include DMA.INC
 	include SB.INC
 
-;--- DMA registers
-WRITEMASK          EQU HDMABASE + DMAMASKREG * 2
-WRITEMODE          EQU HDMABASE + DMAMODEREG * 2
-CLEARFLIPFLOP      EQU HDMABASE + DMAFLIPFLOP * 2
-
 ;--- DMA mode
-WANTEDMODE         EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
-	.DATA
+	.data
 
 oldInterrupt    dd ?
 rate            dw 22050
@@ -57,7 +52,7 @@ szBlaster   db 'BLASTER',0
 
 buffer db 128 dup (?)
 
-	.CODE
+	.code
 
 	.386
 	include PRINTF.INC
@@ -109,21 +104,24 @@ nooverride:
 ;------------------------------------------------
 ; MASK DMA CHANNEL
 ;
+	call getmaskport
 	mov al,byte ptr dmachn			   ; channels 0..3 for the 2nd DMAC
 	and al,11b
 	or al,DMA_MASK_DISABLE_CHN
-	out WRITEMASK,al
+	out dx,al
 ;------------------------------------------------
 ; CLEAR FLIPFLOP
 ;
-	out CLEARFLIPFLOP,al
+	call getffport
+	out dx,al
 ;------------------------------------------------
 ; WRITE TRANSFER MODE
 ;
+	call getmodeport
 	mov al,byte ptr dmachn
 	and al,3
 	or al,WANTEDMODE
-	out WRITEMODE,al
+	out dx,al
 ;------------------------------------------------
 ; WRITE PAGE NUMBER
 ;
@@ -151,10 +149,11 @@ nooverride:
 ;------------------------------------------------
 ; DEMASK CHANNEL
 ;
+	call getmaskport
 	mov al,byte ptr dmachn
 	and al,11b
 	or al,DMA_MASK_ENABLE_CHN
-	out WRITEMASK,al
+	out dx,al
 
 	ret
 setupdma endp
@@ -204,6 +203,33 @@ done:
 exit:
 	ret
 getdec endp
+
+getmaskport proc
+	mov dx, LDMABASE + DMAMASKREG
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAMASKREG * 2
+@@:
+	ret
+getmaskport endp
+
+getmodeport proc
+	mov dx, LDMABASE + DMAMODEREG
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAMODEREG * 2
+@@:
+	ret
+getmodeport endp
+
+getffport proc
+	mov dx, LDMABASE + DMAFLIPFLOP
+	cmp dmachn, 4
+	jb @F
+	mov dx, HDMABASE + DMAFLIPFLOP * 2
+@@:
+	ret
+getffport endp
 
 getpageport proc uses bx
 	mov bx, dmachn
@@ -267,12 +293,12 @@ main proc c argc:word, argv:ptr
 ;--- write logo
 	invoke printf, offset information, rate, sblength
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 ;--- enable SB speakers
 	mov dx,baseaddr
 	add dx,SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -310,31 +336,31 @@ main proc c argc:word, argv:ptr
 ;
 	mov dx, baseaddr
 	add dx, SB_DSPWRITE
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_SETOUTSAMPLERATE	;AL = 41, Set DAC Samplerate
 	out dx, al
 	mov cx, rate
-	WAITWRITE
+	WaitWrite
 	mov al, ch
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, cl
 	out dx, al
 
 ;------------------------------------------------
 ; set 16bit autoinit mode, mono, signed (DSP B6h 10h)
 
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_AUTOINITOUT16
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, DSP_MODE_MONO or DSP_MODE_SIGNED
 	out dx, al
 	mov cx, sblength   ;SB length = samples - 1
-	WAITWRITE
+	WaitWrite
 	mov al, cl
 	out dx, al
-	WAITWRITE
+	WaitWrite
 	mov al, ch
 	out dx, al
 
@@ -372,9 +398,7 @@ exit:
 	out 021h,al
 	ret
 
-;--- error if soundblaster wasn't found
-
-RESET_ERROR:
+reset_error:
 	invoke printf, addr sberror, baseaddr
 	ret
 rate_invalid:

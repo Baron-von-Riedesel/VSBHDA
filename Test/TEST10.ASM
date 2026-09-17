@@ -9,9 +9,9 @@
 
 ;--- default values
 
-BASEADDR           EQU 220h        ;SoundBlaster base address
-SBIRQ              EQU 5           ;SoundBlaster IRQ
-DMACHANNEL         EQU 1           ;SoundBlaster DMA channel
+BASEADDR   EQU 220h        ;SoundBlaster base address
+SBIRQ      EQU 5           ;SoundBlaster IRQ
+DMACHANNEL EQU 1           ;SoundBlaster DMA channel
 
 	include DMA.INC
 	include SB.INC
@@ -22,7 +22,7 @@ WRITEMODE          EQU LDMABASE + DMAMODEREG
 CLEARFLIPFLOP      EQU LDMABASE + DMAFLIPFLOP
 
 ;--- DMA mode
-WANTEDMODE         EQU 01011000b    ; singlemode, autoinit, readmode
+WANTEDMODE EQU DMA_MODE_SINGLE or DMA_MODE_AUTOINIT or DMA_MODE_READ
 
 SBLENGTH equ 04000h
 
@@ -246,11 +246,11 @@ options_done:
 	neg al
 	mov timeconst,al
 
-	RESET_DSP baseaddr
+	RESET_DSP baseaddr,reset_error
 
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 
@@ -312,23 +312,30 @@ nooverride:
 	and al,3
 	or al,DMA_MASK_DISABLE_CHN
 	out WRITEMASK,al
+
 	out CLEARFLIPFLOP,al
-	mov al,WANTEDMODE
-	add al,byte ptr dmachn
+
+	mov al,byte ptr dmachn
+	and al,3
+	or al,WANTEDMODE
 	out WRITEMODE,al
+
 	call getpageport
 	mov al,bl
 	out dx,al
+
 	call getbaseport
 	mov ax,si
 	out dx,al
 	mov al,ah
 	out dx,al
+
 	call getcntport
 	mov al,cl
 	out dx,al
 	mov al,ch
 	out dx,al
+
 	mov al,byte ptr dmachn
 	and al,3
 	out WRITEMASK,al
@@ -339,24 +346,24 @@ nooverride:
 ;
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETTIMECONST
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,timeconst
 	out dx,al
 
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_SETSIZE
 	out dx,al
 	mov cx,SBLENGTH-1
-	WAITWRITE
+	WaitWrite
 	mov al,cl
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,ch
 	out dx,al
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_DMADAC8BITHSAUTO
 	out dx,al
 
@@ -381,14 +388,14 @@ waitloop:
 do_pause:
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_PAUSE8BIT
 	out dx,al
 	xor ah,ah
 	int 16h
 	mov dx,baseaddr
 	add dx,0Ch
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_CONTINUE8BIT
 	out dx,al
 	jmp waitloop
@@ -416,7 +423,7 @@ exit:
 done:
 	ret
 
-RESET_ERROR:
+reset_error:
 	mov dx,offset sberror
 	mov ah,9
 	int 21h

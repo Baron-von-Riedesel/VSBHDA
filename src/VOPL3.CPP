@@ -61,9 +61,14 @@ bool bWritten;
 
 static struct VOpl3_s opl3;
 
+static const PORT_TRAP_HANDLER Adlib_ph[] = {
+	VOPL3_388, VOPL3_389, VOPL3_38A, VOPL3_38B
+};
+
 void VOPL3_Init(int samplerate)
 ///////////////////////////////
 {
+	PTRAP_AddRange( 0x388, 0x000f, Adlib_ph );
 	opl3.Chip = new DBOPL::Chip(true); /* true=OPL3 mode */
 	opl3.ADLG_Volume[0] = 0x08;
 	opl3.ADLG_Volume[1] = 0x08;

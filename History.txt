@@ -2,7 +2,7 @@
   v2.1,
   - SB16 mode now compatible with SB Pro stereo cmds. Option /CF16 added
     to allow reverting to previous behavior (SB16 plays SB Pro stereo in
-    mono).
+    mono); tool MIXMONO added to reset SB Pro mixer register to mono.
   - mixer register 0x81 no longer protected; this allows to clear the
     16-bit DMA channel and thus the 8-bit DMA channel may be used for
     16-bit sound.

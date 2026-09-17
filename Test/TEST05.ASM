@@ -121,7 +121,7 @@ main proc c
 	call reset
 if 1
 	mov dx,SBBASE+00Ch			;DX = DSP Write Data or Command
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_ENABLESPEAKER
 	out dx,al
 endif
@@ -139,7 +139,7 @@ endif
 
 if 1
 	mov dx,SBBASE+00Ch			;DX = DSP Write Data or Command
-	WAITWRITE
+	WaitWrite
 	mov al,DSP_DISABLESPEAKER
 	out dx,al
 endif

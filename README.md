@@ -9,6 +9,7 @@ Supported Sound cards:
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
  * SB Live, SB Audigy
  * SB based on ES1371/1373 (Ensoniq)
+ * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 

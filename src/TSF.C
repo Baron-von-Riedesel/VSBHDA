@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "CONFIG.H"
+#include "DPMI.H"
 #include "LINEAR.H"
 #include "VMPU.H"
 #include "PLATFORM.H"

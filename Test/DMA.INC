@@ -2,7 +2,7 @@
 LDMABASE    equ 0
 HDMABASE    equ 0C0h
 
-;--- 8 bit DMA regs
+;--- DMA regs
 DMAMASKREG  equ 0Ah
 DMAMODEREG  equ 0Bh
 DMAFLIPFLOP equ 0Ch
