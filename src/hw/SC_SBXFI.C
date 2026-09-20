@@ -125,6 +125,7 @@ static unsigned int snd_emu20kx_get_pitch(unsigned int input_rate, unsigned int 
 	unsigned int pitch = 0;
 	int b = 0;
 
+	dbgprintf(("emu20kx_get_pitch\n"));
 	// get pitch and convert to fixed-point 8.24 format
 	pitch = (input_rate / output_rate) << 24;
 	input_rate %= output_rate;
@@ -226,6 +227,7 @@ static void hw_daio_init(struct emu20kx_card_s *card)
 {
 	uint32_t i2sorg,spdorg;
 
+	dbgprintf(("hw_daio_init\n"));
 	/* Read I2S CTL.  Keep original value. */
 	/*i2sorg = hw_read_20kx(hw, I2SCTL);*/
 	i2sorg = 0x94040404; /* enable all audio out and I2S-D input */
@@ -316,6 +318,7 @@ static int hw_reset_dac(struct emu20kx_card_s *card)
 	uint16_t gpioorg = 0;
 	unsigned int ret = 0;
 
+	dbgprintf(("hw_reset_dac\n"));
 	if(i2c_unlock(card))
 		return -1;
 
@@ -350,6 +353,7 @@ static int hw_dac_init(struct emu20kx_card_s *card)
 	uint16_t gpioorg = 0;
 	unsigned int ret = 0;
 
+	dbgprintf(("hw_dac_init\n"));
 	if((card->subsys_id == 0x0022) || (card->subsys_id == 0x002F)) {
 		/* SB055x, unmute outputs */
 		gpioorg = (uint16_t)hw_read_20kx(card, GPIO);
@@ -366,7 +370,7 @@ static int hw_dac_init(struct emu20kx_card_s *card)
 
 	hw_reset_dac(card);
 
-	if(i2c_unlock(card)<0)
+	if(i2c_unlock(card) < 0)
 		return -1;
 
 	hw_write_pci(card, 0xEC, 0x05);  /* write to i2c status control */
@@ -498,7 +502,7 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct a
 		card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage) << 1;
 
 	aui->card_pDmaBuffer = card->pcmout_buffer;
-	dbgprintf(("emu20kx_buffer_init: pcmoutbuf:%8X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
+	dbgprintf(("emu20kx_buffer_init: pcmoutbuf=%8X size=%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
 
@@ -507,8 +511,9 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
 {
 	unsigned int i,gctl,trnctl,ctl_amoplo;
 
+    dbgprintf(("emu20kx_chip_init: enter, subsys_id=0x%X\n", card->subsys_id));
 	// PLL init
-	if(hw_pll_init(card)<0){
+	if(hw_pll_init(card) < 0){
 		dbgprintf(("emu20kx_chip_init: pll-init failed\n"));
 		return 0;
 	}
@@ -526,7 +531,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
 			break;
 	}
 	if(!get_field(gctl, GCTL_AID)){
-		dbgprintf(("emu20kx_chip_init: auto-init failed %8X\n",gctl));
+		dbgprintf(("emu20kx_chip_init: auto-init failed gctl=%X\n",gctl));
 		return 0;
 	}
 
@@ -564,7 +569,7 @@ static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
 
 	hw_daio_init(card);
 
-	if(hw_dac_init(card)<0){
+	if(hw_dac_init(card) < 0){
 		dbgprintf(("emu20kx_chip_init: dac-init failed\n"));
 		return 0;
 	}
@@ -627,16 +632,16 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct audi
 	pitch = snd_emu20kx_get_pitch(aui->freq_card,card->dac_output_freq);
 
 	pm_idx = src_param_pitch_mixer(card->src_idx);
-	hw_write_20kx(card, PRING_LO_HI+4*pm_idx, pitch);
-	hw_write_20kx(card, PMOPLO+8*pm_idx, 0x3);
-	hw_write_20kx(card, PMOPHI+8*pm_idx, 0x0);
+	hw_write_20kx(card, PRING_LO_HI + 4 * pm_idx, pitch);
+	hw_write_20kx(card, PMOPLO + 8 * pm_idx, 0x3);
+	hw_write_20kx(card, PMOPHI + 8 * pm_idx, 0x0);
 
-	hw_write_20kx(card, SRCSA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer); // !!! & SRCSA_SA
-	hw_write_20kx(card, SRCLA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + aui->card_dmasize); // !!! & SRCLA_LA
-	hw_write_20kx(card, SRCCA+card->src_idx*0x100, (unsigned long)card->pcmout_buffer + card->max_cisz); // !!! & SRCCA_CA
-	hw_write_20kx(card, SRCCF+card->src_idx*0x100, 0x0);
+	hw_write_20kx(card, SRCSA+card->src_idx * 0x100, (unsigned long)card->pcmout_buffer); // !!! & SRCSA_SA
+	hw_write_20kx(card, SRCLA+card->src_idx * 0x100, (unsigned long)card->pcmout_buffer + aui->card_dmasize); // !!! & SRCLA_LA
+	hw_write_20kx(card, SRCCA+card->src_idx * 0x100, (unsigned long)card->pcmout_buffer + card->max_cisz); // !!! & SRCCA_CA
+	hw_write_20kx(card, SRCCF+card->src_idx * 0x100, 0x0);
 
-	hw_write_20kx(card, SRCCCR+card->src_idx*0x100, card->max_cisz);
+	hw_write_20kx(card, SRCCCR+card->src_idx * 0x100, card->max_cisz);
 
 	set_field(&card->src_ctl,SRCCTL_ROM, snd_emu20kx_select_rom(pitch));
 	set_field(&card->src_ctl,SRCCTL_SF, card->sfnum);
@@ -660,7 +665,7 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	struct emu20kx_card_s *card = aui->card_private_data;
 
 	if(pcibios_search_devices( emu20kx_devices, &card->pci_dev) != PCI_SUCCESSFUL) {
-		dbgprintf(("EMU20KX_adetect: pcibios_search_devices failed\n"));
+		dbgprintf(("emu20kx_adetect: pcibios_search_devices failed\n"));
 		goto err_adetect;
 	}
 
@@ -674,7 +679,7 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	//card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	card->subsys_id = pcibios_ReadConfig_Word(&card->pci_dev,PCIR_SSID);
 
-	dbgprintf(("emu20kx_adetect: vend_id:%4X dev_id:%4X subid:%8X port:%8X\n",
+	dbgprintf(("emu20kx_adetect: vend_id=%X dev_id=%X subid=%X port=%X\n",
 			  card->pci_dev.vendor_id,card->pci_dev.device_id,card->subsys_id,card->iobase));
 
 	if(!snd_emu20kx_buffer_init(card,aui))
@@ -697,6 +702,7 @@ static void EMU20KX_close(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
+	dbgprintf(("emu20kx_close\n"));
 	if(card){
 		if(card->iobase){
 			snd_emu20kx_chip_close(card);
@@ -710,6 +716,7 @@ static void EMU20KX_setrate(struct audioout_info_s *aui)
 ////////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
+	dbgprintf(("emu20kx_setrate\n"));
 	snd_emu20kx_set_output_format( card, aui );
 	MDma_initbuf( aui, card->pcmout_bufsize );
 	snd_emu20kx_prepare_playback( card, aui );
@@ -719,17 +726,19 @@ static void EMU20KX_start(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
+    dbgprintf(("emu20kx_start: src_idx=%u\n", card->src_idx));
 	set_field(&card->src_ctl,SRCCTL_BM, 1);
 	set_field(&card->src_ctl,SRCCTL_STATE, SRC_STATE_INIT);
 	hw_write_20kx(card, SRCCTL + card->src_idx * 0x100, card->src_ctl);
 	set_timer_tick(card, (aui->gvars->period_size ? aui->gvars->period_size : 512 ) >> 2 );
-	hw_write_20kx(card, GIE, IT_INT);
+	hw_write_20kx(card, GIE, IT_INT); /* enable timer interrupt */
 }
 
 static void EMU20KX_stop(struct audioout_info_s *aui)
 /////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
+	dbgprintf(("emu20kx_stop\n"));
 	set_timer_tick(card, 0);
 	hw_write_20kx(card, GIE, 0);
 	set_field(&card->src_ctl,SRCCTL_BM, 0);
@@ -762,21 +771,24 @@ static void EMU20KX_writeMIXER(struct audioout_info_s *aui,unsigned long reg, un
 ////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	//struct emu20kx_card_s *card = aui->card_private_data;
+	dbgprintf(("emu20kx_writeMIXER\n"));
 }
 
 static unsigned long EMU20KX_readMIXER(struct audioout_info_s *aui, unsigned long reg)
 //////////////////////////////////////////////////////////////////////////////////////
 {
 	//struct emu20kx_card_s *card = aui->card_private_data;
+	dbgprintf(("emu20kx_readMIXER\n"));
 	return 0;
 }
 
 static int EMU20KX_IRQRoutine( struct audioout_info_s *aui )
 ////////////////////////////////////////////////////////////
 {
-	//dbgprintf(("EMU20KX_IRQRoutine\n"));
 	struct emu20kx_card_s *card = aui->card_private_data;
 	int interrupts = hw_read_20kx(card, GIP);
+
+	dbgprintf(("emu20kx_IRQRoutine interrupts=0x%X\n", interrupts));
 	if ( interrupts ) {
 		hw_write_20kx(card, GIP, interrupts ); /* ack interrupt */
 	}

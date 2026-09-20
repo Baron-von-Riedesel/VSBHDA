@@ -42,7 +42,7 @@ extern struct sndcard_info_s VIA82XX_sndcard_info;
 extern struct sndcard_info_s SBALL_sndcard_info;
 #endif
 #ifndef NOSBXFI
-extern struct sndcard_info_s SBXFI_sndcard_info;
+extern struct sndcard_info_s EMU20KX_sndcard_info;
 #endif
 
 static const struct sndcard_info_s *sndcard_info_table[] = {
@@ -59,7 +59,7 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 	&SBALL_sndcard_info,
 #endif
 #ifndef NOSBXFI
-	&SBXFI_sndcard_info,
+	&EMU20KX_sndcard_info,
 #endif
 #ifndef NOVIA82
 	&VIA82XX_sndcard_info,

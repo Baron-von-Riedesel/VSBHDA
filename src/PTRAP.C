@@ -211,18 +211,18 @@ uint16_t PTRAP_GetQEMMVersion(void)
         /* QPIEMU installation check;
          * getting the entry point of QPIEMU is non-trivial in protected-mode, since
          * the int 2Fh must be executed as interrupt ( not just "simulated" ). Here
-         * a small ( 3 bytes ) helper proc is constructed on the fly, at PSP:005Ch:
+         * a 3 byte helper proc is constructed on the fly, at PSP:005Ch:
          * a INT 2Fh, followed by an RETF.
          */
         uint32_t *dosmem = NearPtr(_my_psp() + 0x5C);
-        *dosmem = 0xCB2FCD;  /* INT 2Fh & IRET */
-        r.x.ax = 0x1684;
-        r.x.bx = 0x4354;
+        *dosmem = 0xCB2FCD;  /* INT 2Fh & RETF */
+        r.x.ax = 0x1684; /* Int 2Fh, ax=1684: get device entry point */
+        r.x.bx = 0x4354; /* device ID of QPIEMU */
         r.x.cs = _my_psp() >> 4;
-        r.x.ip = 0x5C;
+        r.x.ip = 0x5C; /* real-mode CS:IP = PSP:005Ch */
         if( __dpmi_simulate_real_mode_procedure_retf(&r) != 0 || r.h.al )
             return 0;
-        ptrap.QPI_regs.x.ip = r.x.di;
+        ptrap.QPI_regs.x.ip = r.x.di; /* entry point returned in ES:DI */
         ptrap.QPI_regs.x.cs = r.x.es;
     }
     ptrap.QPI_regs.h.ah = 0x03; /* get version */
@@ -242,10 +242,10 @@ bool PTRAP_DetectHDPMI()
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
 
 struct rmcode1 {   /* structure must match definitions in rmcode1.asm! */
-    uint32_t rmcb; /* realmode callback */
+    __dpmi_raddr rmcb; /* realmode callback */
     uint16_t data; /* port 0x388/0x389 access optimization (not active) */
     uint16_t wPort; /* used for PIC port trapping; contains either 0x0020 or 0xffff */
-    uint32_t qpi;  /* QPI entry */
+    __dpmi_raddr qpi;  /* QPI entry */
     uint8_t codev86[]; /* v86 code */
 };
 
@@ -317,12 +317,12 @@ bool PTRAP_Init_RM()
     dosheap = copyrmcode( (void *)dosmem, 0 );
 
     /* the code starts with a rmcode1 struct, now to be initialized...  */
-    dosmem->rmcb = ptrap.rmcb.segofs;
+    dosmem->rmcb.segofs = ptrap.rmcb.segofs;
 # if !RMPICTRAPDYN
-    dosmem->qpi = (ptrap.QPI_regs.x.cs << 16) | ptrap.QPI_regs.x.ip;
+    dosmem->qpi.v86.offset  = ptrap.QPI_regs.x.ip;
+    dosmem->qpi.v86.segment = ptrap.QPI_regs.x.cs;
 # endif
-    /* set new trap handler ES:DI */
-    //r.x.di = 4+2+2+4;
+    /* set new QPI v86-mode trap handler (in ES:DI) */
     ptrap.QPI_regs.x.di = offsetof(struct rmcode1, codev86);
     ptrap.QPI_regs.x.es = (_my_psp() + DOSMEMSTART) >> 4;
 #else
@@ -369,34 +369,30 @@ static int Install_RM_PortTrapRange( struct PortRange_s *pr, int idx )
     return idx;
 }
 
-static uint32_t Install_PM_PortTrapRange( struct PortRange_s *pr, void(*handlerIn)(void), void(*handlerOut)(void) )
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-{
-    struct _hdpmi_traphandler traphandler;
-#ifdef NOTFLAT
-    traphandler.ofsIn  = (uint16_t)handlerIn;
-    traphandler.ofsOut = (uint16_t)handlerOut;
-#else
-    traphandler.ofsIn  = (uint32_t)handlerIn;
-    traphandler.ofsOut = (uint32_t)handlerOut;
-#endif
-    return _hdpmi_install_trap( pr->start, pr->end - pr->start + 1, &traphandler );
-}
-
-
 /* install all port trap ranges */
 
 bool PTRAP_Install_PortTraps( int bRM, int bPM )
 ////////////////////////////////////////////////
 {
     int i;
+    struct _hdpmi_traphandler traphandler;
+
+#ifdef NOTFLAT
+    traphandler.ofsIn  = (uint16_t)&SwitchStackIOIn;
+    traphandler.ofsOut = (uint16_t)&SwitchStackIOOut;
+#else
+    traphandler.ofsIn  = (uint32_t)&SwitchStackIOIn;
+    traphandler.ofsOut = (uint32_t)&SwitchStackIOOut;
+#endif
 
     for ( i = 0, ptrap.cntports = 0; i < ptrap.cntranges; i++ ) {
         dbgprintf(("PTRAP_Install_PortTraps: range[%u]: ports %X-%X\n", i, portranges[i].start, portranges[i].end));
         if ( bRM )
             ptrap.cntports = Install_RM_PortTrapRange( &portranges[i], ptrap.cntports );
         if ( bPM )
-            if (!(portranges[i].traphdl = Install_PM_PortTrapRange( &portranges[i], &SwitchStackIOIn, &SwitchStackIOOut)))
+            if (!(portranges[i].traphdl = _hdpmi_install_trap( portranges[i].start,
+                                                              portranges[i].end - portranges[i].start + 1,
+                                                              &traphandler )))
                 return false;
     }
 

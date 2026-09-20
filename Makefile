@@ -88,7 +88,8 @@ OBJFILES = &
 	$(OUTD)/sc_sbxfi.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
+	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj &
+	$(OUTD)/dpmiisr.obj
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
@@ -157,6 +158,7 @@ $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 $(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/dpmi.obj:      src\dpmi.asm
+$(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm

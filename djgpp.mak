@@ -45,7 +45,7 @@ OBJFILES=\
 	$(OUTD)/sc_sbxfi.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
-	$(OUTD)/logfile.o
+	$(OUTD)/logfile.o	$(OUTD)/dpmiisr.o
 
 INCLUDE_DIRS=src src/hw
 SRC_DIRS=src src/hw
@@ -125,6 +125,7 @@ $(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
 $(OUTD)/vmpu.o::     vmpu.c      linear.h platform.h vmpu.h config.h
 
 $(OUTD)/dpmi.o::     dpmi.asm
+$(OUTD)/dpmiisr.o::  dpmiisr.asm
 $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/fileacc.o::  fileacc.asm
 $(OUTD)/hapi.o::     hapi.asm

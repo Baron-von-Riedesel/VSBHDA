@@ -61,7 +61,8 @@ OBJFILES = \
 	$(OUTD)/MIXER.obj		$(OUTD)/ADPCM.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj		$(FMOBJS) \
 	$(OUTD)/AUIMP16.obj		$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj \
-	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
+	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj \
+	$(OUTD)/DPMIISR.obj
 
 OBJFILES2 = \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
@@ -145,6 +146,7 @@ $(OUTD)/ADPCM.obj:     src/ADPCM.C
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
 $(OUTD)/DPMI.obj:      src/DPMI.ASM
+$(OUTD)/DPMIISR.obj:   src/DPMIISR.ASM
 $(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
 $(OUTD)/FILEACC.obj:   src/FILEACC.ASM
 $(OUTD)/HAPI.obj:      src/HAPI.ASM

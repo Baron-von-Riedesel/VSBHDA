@@ -362,6 +362,7 @@
     - FastTracker 2: requires Jemm's NOVCPI option AND option /CF4.
     - Hocus Pocus: this real-mode game disables interrupts on some occasions;
       to avoid distorsion, set option /B32.
+    - Iron Assault: needs option /CF4.
     - Jazz Jackrabbit: unpatched version requires /CF8.
     - Jungle Book: needs SETPVI.EXE to be run before launched.
     - Legend of Kyrandia 2: allocates a sound buffer in extended memory -

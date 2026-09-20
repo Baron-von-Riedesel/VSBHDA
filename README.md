@@ -3,19 +3,19 @@ Sound blaster emulation for HDA (and AC97/SBLive); a fork of crazii's SBEMU: htt
 
 Works with unmodified HDPMI binaries, making it compatible with HX.
 
-Supported Sound cards:
+**Supported Sound cards:**
  * HDA ( Intel High Definition Audio )
  * Intel ICH, Nvidia nForce, SiS 7012
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
- * SB Live, SB Audigy
+ * SB Live, SB Audigy ( based on EMU10Kx )
  * SB based on ES1371/1373 (Ensoniq)
  * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 
-Emulated cards: Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
+**Emulated cards**: Sound Blaster 1.0, 2.0, Pro, Pro 2, 16.
 
-Requirements:
+**Requirements:**
  * HDPMI32i - DPMI host with port trapping; 32-bit protected-mode
  * HDPMI16i - DPMI host with port trapping; 16-bit protected-mode
  * JEMM386/JEMMEX - V86 monitor with port trapping; v86-mode
@@ -25,10 +25,12 @@ VSBHDA uses source code from:
  * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation & ADPCM decoding
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
-A few makefiles are supplied to create the binaries:
+A few **makefiles** are supplied to create the binaries:
  * Makefile/OW16.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * Linux.mak/Linux16.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * djgpp.mak: for DOS using DJGPP v2.05 and JWasm; cannot create the 16-bit variant of VSBHDA
 
-JWasm (https://github.com/Baron-von-Riedesel/JWasm) must be at least v2.17,
-JWlink (https://github.com/Baron-von-Riedesel/jwlink) must be at least v2.0.
+Source of tools used by the makefiles:
+ * JWasm (https://github.com/Baron-von-Riedesel/JWasm); must be at least v2.17
+ * JWlink (https://github.com/Baron-von-Riedesel/jwlink); must be at least v2.0
+ * Open Watcom v2 (https://github.com/open-watcom/open-watcom-v2/releases/tag/2024-03-01-Build)

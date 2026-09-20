@@ -65,7 +65,7 @@ OBJFILES = &
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
-	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj &
+	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/dpmiisr.obj		$(OUTD)/uninst.obj &
 	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
 	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
 
@@ -155,6 +155,7 @@ $(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/dpmi.obj:      src\dpmi.asm
+$(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm

@@ -22,198 +22,93 @@
 //#define DMAWRITELOG
 
 struct VDMA_Status {
-	//registers
-	uint16_t Regs[32];  /* 0-15 values for ports 00-0F, 16-31 values for ports C0-DE */
-	uint8_t  PageRegs[8];
-	uint8_t  Modes[8]; /* bits[2-7] written to DMA_REG_MODE */
+	uint16_t IdxCntRegs[4];  /* 0-1 values for ldma idx/cnt regs, 2-3 values for hdma idx/cnt regs */
+	uint16_t Base[2];        /* base (A00-A15) ldma/hdma */
+	uint16_t MaxPos[2];      /* initial count (=max position) ldma/hdma */
+	uint16_t CurPos[2];      /* current position ldma/hdma */
+	uint8_t  PageRegs[2];    /* page registers ldma/hdma */
+	uint8_t  FlipFlop[2];    /* flipflop for ldma/hdma */
+	uint8_t  InIO[2];        /* 1=in the middle of reading count/addr; ldma/hdma */
+	uint8_t  DelayUpdate[2]; /* 1=delayed update because InIO=1; ldma/hdma */
+	uint8_t  Modes[8];       /* bits[2-7] written to DMA_REG_MODE */
 
-	uint16_t CurIdx[8];      // current offset
-	uint16_t CurCnt[8];      // current count
-	uint16_t Base[8];        // initial offset (base)
-	uint16_t MaxCnt[8];      // initial count
 	uint8_t  Virtualized;    // bool: 1=channel virtualized
 	uint8_t  Masked;         // bool: 1=channel masked
 	uint8_t  Complete;       // bool: set by VDMA_SetComplete() - will set DMA_REG_STATUS[0-3]
 	uint8_t  e2value;        // byte value written by SB DSP cmd E2 (stored if channel is masked)
 	uint8_t  e2channel;      // byte value written by SB DSP cmd E2 (stored if channel is masked)
-	uint8_t  InIO[8];        // bool: 1=in the middle of reading count/addr
-	uint8_t  DelayUpdate[8]; // bool
 };
 
 static struct VDMA_Status vdma;
 
-/* translate ports -> channels */
-static const int8_t VDMA_PortChannelMap[16] =
-{
-    -1, 2, 3, 1, -1, -1, -1, 0, /* ports 80-87 */
-    -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
-};
-
-/* translate channels -> ports */
-static const uint8_t ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, -1, 0x8b, 0x89, 0x8a };
-
-/* write to ISA DMA controller ports;
- * even if a channel is virtualized the ports are written;
- */
+/* write to ISA DMA controller ports 08-0F & D0-DE */
 
 static void VDMA_Write(uint16_t port, uint8_t byte)
 ///////////////////////////////////////////////////
 {
 
-    int index = port;
+    int index;
+    int channelbase;
+    int channel;
 #ifdef DMAWRITELOG
     dbgprintf(("VDMA_Write(0x%x, 0x%x)\n", port, byte));
 #endif
     /* ports 08-0F or D0-DE? */
-    if(( port >= DMA_REG_STATUS_CMD && port <= DMA_REG_MULTIMASK) ||
-       ( port >= DMA_REG_STATUS_CMD16 && port <= DMA_REG_MULTIMASK16 ) ) {
-        int base = 0;
-        int channelbase = 0;
-        int channel;
-        /* ports D0-DE? */
-        if( port >= DMA_REG_STATUS_CMD16 ) { /* > DMA16 control register? */
-            index = (port - DMA_REG_STATUS_CMD16) / 2 + 8; /* 0xD0-0xDE -> 0x08-0x0F */
-            base = 16; /* index base, so base+index are 24-31 */
-            channelbase = 4;
-        }
-
-        switch ( index ) {
-        case DMA_REG_SINGLEMASK: /* port 0x0A */
-            channel = byte & 0x3;
-            if ( byte & 4 )
-                vdma.Masked |= (1 << ( channelbase + channel ));
-            else {
-                vdma.Masked &= ~(1 << ( channelbase + channel ));
-            }
-            break;
-        case DMA_REG_MODE:     /* port 0x0B */
-            channel = byte & 0x3;
-            vdma.Modes[channelbase + channel] = byte & ~0x3;
-            break;
-        case DMA_REG_FLIPFLOP: /* port 0x0C */
-            vdma.Regs[base + DMA_REG_FLIPFLOP] = 0;
-            break;
-        case DMA_REG_IMM_RESET:/* port 0x0D: mask all 4 channels */
-            vdma.Regs[base + DMA_REG_FLIPFLOP] = 0;
-            vdma.Complete &= ~(channelbase ? 0xf0 : 0x0f);
-            vdma.Masked |= (channelbase ? 0xf0 : 0x0f);
-            break;
-        case DMA_REG_MASK_RESET: /* port 0x0E: unmask all 4 channels */
-            vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
-            break;
-        case DMA_REG_MULTIMASK: /* port 0x0F: */
-            vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
-            vdma.Masked |= (channelbase ? (byte << 4) : (byte & 0x0f) );
-            break;
-        default:
-            vdma.Regs[base + index] = byte; /* just store the value, it isn't used */
-        }
-        /* v1.7: if SB low DMA is unmasked, check if an DSP cmd E2 byte is waiting */
-        if ( vdma.e2channel != 0xff && !(vdma.Masked & (1 << vdma.e2channel )))
-            VDMA_WriteData(vdma.e2channel,0,1);
-
-    } else if(( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) || /* ports 00-07? */
-            ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER )) { /* or ports C0-CE? */
-        int channel = ( port >> 1 );
-        int base = 0;
-
-        if(  port >= DMA_REG_CH4_ADDR ) {
-            index = ( port - DMA_REG_CH4_ADDR ) / 2; /* 0xC0-0xCF -> 0x00-0x07 */
-            base = 16; /* index base, so base+index are 16-23 */
-            channel = ( index >> 1 ) + 4;
-        }
-        //dbgprintf(("VDMA_Write: base=%d idx=%x\n", base, index));
-
-        if( ( ( vdma.Regs[base + DMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
-            vdma.InIO[channel] = true;
-            vdma.Regs[base + index] = (vdma.Regs[base + index] & ~0xFF) | byte;
-        } else {
-            vdma.Regs[base + index] = (vdma.Regs[base + index] & ~0xFF00) | ( byte << 8 );
-            vdma.InIO[channel] = false;
-            vdma.DelayUpdate[channel] = false;
-            /* update base or count */
-            if(( index & 0x1 ) == 0 ) {
-                vdma.CurIdx[channel] = 0;
-                vdma.Base[channel] = vdma.Regs[base + index];
-            } else
-                vdma.CurCnt[channel] = vdma.MaxCnt[channel] = vdma.Regs[base + index];
-            dbgprintf(("VDMA_Write: channel %u, Base/MaxCnt=%X/%X CurIdx/CurCnt=%X/%X Reg[%u]=%X\n",
-                    channel, vdma.Base[channel], vdma.MaxCnt[channel], vdma.CurIdx[channel], vdma.CurCnt[channel], base+index, vdma.Regs[base+index]));
-        }
-
-    } else if(port >= 0x80 && port <= 0x8F)  {
-        int channel = VDMA_PortChannelMap[port - 0x80];
-        if( channel != -1 ) {
-            vdma.PageRegs[channel] = byte;
-            vdma.CurIdx[channel] = 0;
-        }
+    if ( !(port & 0x80 )) {
+        index = port;
+        channelbase = 0;
+    } else {
+        index = (port >> 1) & 0xf;
+        channelbase = 4;
     }
+
+    switch ( index ) {
+    case DMA_REG_SINGLEMASK: /* port 0x0A */
+        channel = (byte & 0x3) + channelbase;
+        if ( byte & 4 )
+            vdma.Masked |= 1 << channel;
+        else
+            vdma.Masked &= ~(1 << channel);
+        break;
+    case DMA_REG_MODE:     /* port 0x0B */
+        channel = (byte & 0x3) + channelbase;
+        vdma.Modes[channel] = byte & ~0x3;
+        break;
+    case DMA_REG_FLIPFLOP: /* port 0x0C */
+        vdma.FlipFlop[channelbase >> 2] = 0;
+        break;
+    case DMA_REG_IMM_RESET:/* port 0x0D: mask all 4 channels */
+        vdma.FlipFlop[channelbase >> 2] = 0;
+        vdma.Complete &= ~(channelbase ? 0xf0 : 0x0f);
+        vdma.Masked |= (channelbase ? 0xf0 : 0x0f);
+        break;
+    case DMA_REG_MASK_RESET: /* port 0x0E: unmask all 4 channels */
+        vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
+        break;
+    case DMA_REG_MULTIMASK: /* port 0x0F: */
+        vdma.Masked &= ~(channelbase ? 0xf0 : 0x0f);
+        vdma.Masked |= (channelbase ? (byte << 4) : (byte & 0x0f) );
+        break;
+    //default:
+    //    vdma.Regs[base + index] = byte; /* just store the value, it isn't used */
+    }
+    /* v1.7: if SB low DMA is unmasked, check if an DSP cmd E2 byte is waiting */
+    if ( vdma.e2channel != 0xff && !(vdma.Masked & (1 << vdma.e2channel )))
+        VDMA_WriteData(vdma.e2channel,0,1);
+
     UntrappedIO_OUT(port, byte);
 }
 
-/* read an ISA DMA controller port;
- * if channel is virtualized, the index/count registers are read from shadow registers;
- * the control registers are read even if channel is virtualized;
- * not really a problem, since the only control register that's useful to read is the status port.
- */
+/* read ISA DMA controller ports 08-0F & D0-DE */
 
 #define IsVirtualized(chn) (vdma.Virtualized & ( 1 << chn ))
 
 static uint8_t VDMA_Read(uint16_t port)
 ///////////////////////////////////////
 {
-    int channel = -1;
+    //int channel;
     uint8_t result;
-    int index = port;
-
-    //dbgprintf(("VDMA_Read: port=%x\n", port));
-
-    if( port <= DMA_REG_CH3_COUNTER ) /* ports 00-07? */
-        channel = (port >> 1);
-    else if( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER ) /* ports C0-CE */
-        channel = (( port - DMA_REG_CH4_ADDR ) >> 2 ) + 4;
-    else if( port >= 0x80 && port <= 0x8F ) /* ports 80-8F */
-        channel = VDMA_PortChannelMap[port - 0x80];
-
-    if( channel >= 0 && IsVirtualized(channel) ) {
-        /* select ports 00-07 or 0xC0-0xCE; it's either "addr" or "counter" */
-        if( ( (int16_t)port >= DMA_REG_CH0_ADDR && port <= DMA_REG_CH3_COUNTER ) ||
-           ( port >= DMA_REG_CH4_ADDR && port <= DMA_REG_CH7_COUNTER ) ) {
-            int base = 0;
-            int value;
-            uint8_t ret;
-            if( channel > 3 ) {
-                index = ( port - DMA_REG_CH4_ADDR ) / 2; /* [index] now 0-7 */
-                base = 16;
-            }
-
-            value = vdma.Regs[base + index];
-#ifdef DMAREADLOG
-            dbgprintf(("VDMA_Read chn=%u, %s: %X (%X)\n", channel, ( (index & 0x1) == 1) ? "counter" : "addr", value, vdma.InIO[channel]));
-#endif
-            if( ( ( vdma.Regs[base + DMA_REG_FLIPFLOP]++) & 0x1 ) == 0 ) {
-                vdma.InIO[channel] = true;
-                return value & 0xFF;
-            }
-            ret = ((value >> 8) & 0xFF);
-            /* update Index & Count regs ... but page regs?? */
-            /* v1.4: take care that the base won't go beyond addr+maxcnt (tyrian2k!) */
-            /* v1.4: no auto update of the page regs */
-            if( vdma.DelayUpdate[channel] ) {
-                base += (index & ~1);
-                //vdma.Regs[base] = vdma.Base[channel] + vdma.CurIdx[channel];
-                vdma.Regs[base]   = vdma.Base[channel] + min( vdma.CurIdx[channel], vdma.MaxCnt[channel] + 1 );
-                vdma.Regs[base+1] = vdma.CurCnt[channel];
-                //vdma.PageRegs[channel] = (vdma.Base[channel] + vdma.CurIdx[channel]) >> 16;
-                vdma.DelayUpdate[channel] = false;
-            }
-            vdma.InIO[channel] = false;
-            return ret;
-        }
-        /* must be a page register */
-        dbgprintf(("VDMA_Read(0x%X)=%02x (chn=%u)\n", port, vdma.PageRegs[channel], channel));
-        return vdma.PageRegs[channel];
-    }
+    //int index = port;
 
     result = UntrappedIO_IN(port);
 
@@ -256,25 +151,25 @@ uint32_t VDMA_GetBase(int channel)
 //////////////////////////////////
 {
     int size = channel < 4 ? 1 : 2;
-    return ( vdma.PageRegs[channel] << 16) | (vdma.Base[channel] * size ); //addr reg for 16 bit is real addr/2.
+    return ( vdma.PageRegs[channel>>2] << 16) | (vdma.Base[channel>>2] * size ); //addr reg for 16 bit is real addr/2.
 }
 
 int32_t VDMA_GetCount(int channel)
 //////////////////////////////////
 {
+    int idx = channel >> 2;
     /* v1.8: return 0 if count == 0xffff, for both 8- and 16-bit */
-    if ( vdma.CurCnt[channel] == 0xffff && ( vdma.Complete & (1 << channel )))
+    if ( vdma.CurPos[idx] > vdma.MaxPos[idx] && ( vdma.Complete & (1 << channel )))
         return 0;
-	/* v1.8: fixed */
-    //return vdma.CurCnt[channel] * ((channel < 4 ) ? 1 : 2) + 1;
-    return (vdma.CurCnt[channel] + 1 ) * ((channel < 4 ) ? 1 : 2);
+    /* v1.8: fixed */
+    return ((vdma.MaxPos[idx] - vdma.CurPos[idx] + 1 ) << idx);
 }
 
 uint32_t VDMA_GetIndex(int channel)
 ///////////////////////////////////
 {
-    int size = channel < 4 ? 1 : 2;
-    return vdma.CurIdx[channel] * size;
+    int idx = channel >> 2;
+    return (vdma.CurPos[idx] << idx);
 }
 
 static void VDMA_SetComplete(int channel)
@@ -283,53 +178,49 @@ static void VDMA_SetComplete(int channel)
     vdma.Complete |= 1 << channel;
 }
 
-/* set
- * - CurIdx[] & CurCnt[] of a channel.
+/* update CurPos[] of ldma/hdma.
  * if no update process is currently active ( InIO[] == false ),
  * Regs[] are also updated here; else DelayUpdate[] is set to true
  * and Regs[] are updated in VDMA_Read().
  */
 
-uint32_t VDMA_SetIndexCount(int channel, uint32_t index, int32_t count)
-///////////////////////////////////////////////////////////////////////
+uint32_t VDMA_UpdatePos(int channel, uint32_t addbytes)
+///////////////////////////////////////////////////////
 {
     int shift;
     int base;
 
     if ( channel <= 3 ) {
         shift = 0;
-        base = 0 + ( channel << 1 ); /* regs 0-7 */
+        base = 0;
     } else {
         shift = 1;
-        base = 8 + ( channel << 1 ); /* regs 16-23 */
+        base = 1;
     }
 
-    //dbgprintf(("VDMA_SetIndexCount (chn %u): Idx=%X, Cnt=%X CurIdx=%X, CurCnt=%X\n", channel, index, count, vdma.CurIdx[channel], vdma.CurCnt[channel] ));
-    vdma.CurIdx[channel] = index >> shift;
-    count--;
-    if( count < 0 ) {
-        vdma.CurCnt[channel] = 0xffff;
+    //dbgprintf(("VDMA_UpdatePos (chn %u, addbytes=%X): CurPos=%X\n", channel, addbytes, vdma.CurPos[base] ));
+    vdma.CurPos[base] += addbytes >> shift;
+
+    if( vdma.CurPos[base] > vdma.MaxPos[base] ) {
         VDMA_SetComplete( channel );
         if( VDMA_IsAuto( channel ) ) {
-            vdma.CurIdx[channel] = 0;
-            vdma.CurCnt[channel] = vdma.MaxCnt[channel];
+            vdma.CurPos[base] = 0;
         }
-    } else
-        vdma.CurCnt[channel] = count >> shift;
+    }
 
     /* the VDMA_Regs[] values are either set here or later when the regs are read (DelayUpdate=true) */
     /* v1.4: take care that Regs[base] isn't beyond addr+length */
     /* v1.4: auto update of the page regs removed */
-    if(!vdma.InIO[channel]) {
-        vdma.Regs[base] = vdma.Base[channel] + min( vdma.CurIdx[channel], vdma.MaxCnt[channel] + 1 );
-        vdma.Regs[base+1] = vdma.CurCnt[channel];
-        //vdma.PageRegs[channel] = (vdma.Base[channel] + vdma.CurIdx[channel]) >> 16;
-        //dbgprintf(("VDMA_SetIndexCount (chn %u): Idx/Cnt=%X/%X\n", channel, vdma.Regs[base], vdma.Regs[base+1] ));
+    if(!vdma.InIO[base]) {
+        vdma.IdxCntRegs[base*2] = vdma.Base[base] + min( vdma.CurPos[base], vdma.MaxPos[base] + 1 );
+        vdma.IdxCntRegs[base*2+1] = vdma.MaxPos[base] - vdma.CurPos[base];
+        //vdma.PageRegs[base] = (vdma.Base[base] + vdma.CurPos[base]) >> 16;
+        //dbgprintf(("VDMA_UpdatePos(chn %u): IdxCnt=%X %X\n", channel, vdma.IdxCntRegs[base*2], vdma.IdxCntRegs[base*2+1] ));
     } else
-        vdma.DelayUpdate[channel] = true;
+        vdma.DelayUpdate[base] = true;
 
-    //dbgprintf(("VDMA_SetIndexCount(%u,%X,%X): returns %X\n", channel, index, count, vdma.CurIdx[channel] * size ));
-    return vdma.CurIdx[channel] << shift;
+    //dbgprintf(("VDMA_UpdatePos(%u,%X): returns %X\n", channel, addbytes, vdma.CurPos[base] << shift ));
+    return vdma.CurPos[base] << shift;
 }
 
 int VDMA_IsAuto(int channel)
@@ -384,7 +275,7 @@ void VDMA_WriteData(int channel, uint8_t data, uint8_t iscb)
         } else
             *(uint8_t *)(NearPtr(addr)) = data;
 
-        VDMA_SetIndexCount(channel, index+1, VDMA_GetCount(channel) - 1);
+        VDMA_UpdatePos(channel, 1);
     } else {
         vdma.e2value = data;
         vdma.e2channel = channel;
@@ -397,28 +288,144 @@ static uint8_t VDMA_Acc(uint16_t port, uint8_t val, uint16_t flags)
     return (flags & TRAPF_OUT) ? (VDMA_Write(port, val), val) : VDMA_Read(port);
 }
 
-static const PORT_TRAP_HANDLER LDMA_ph[] = {
-	VDMA_Acc, VDMA_Acc,    /* base+cnt for low dma */
-	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0x08-0x0F */
-};
+/* handle DMA idx/cnt port access;
+ * called for virtualized channels only.
+ */
 
-#if 0//SB16
-static const PORT_TRAP_HANDLER HDMA_ph[] = {
-	VDMA_Acc, VDMA_Acc,    /* base+cnt for high dma */
-	VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0xD0-0xDE */
-};
+static void WriteIdxCnt(uint16_t port, uint8_t byte)
+////////////////////////////////////////////////////
+{
+
+    int index;
+    int base;
+
+    base = port >> 7;
+    index = ( port >> base ) & 1;
+    index += base*2;
+
+#ifdef DMAWRITELOG
+    dbgprintf(("VDMA.WriteIdxCnt(0x%x, 0x%x)\n", port, byte));
 #endif
 
-static const PORT_TRAP_HANDLER DMAPG_ph[] = {
-	VDMA_Acc, /* page port for low dma */
-#if SB16
-	VDMA_Acc, /* page port for high dma */
+    if( ( ( vdma.FlipFlop[base]++) & 0x1 ) == 0 ) {
+        vdma.InIO[base] = true;
+        vdma.IdxCntRegs[index] = (vdma.IdxCntRegs[index] & ~0xFF) | byte;
+        return;
+    }
+    vdma.IdxCntRegs[index] = (vdma.IdxCntRegs[index] & ~0xFF00) | ( byte << 8 );
+    vdma.InIO[base] = false;
+    vdma.DelayUpdate[base] = false;
+    /* update base or count */
+    if(( index & 0x1 ) == 0 ) {
+        vdma.CurPos[base] = 0;
+        vdma.Base[base] = vdma.IdxCntRegs[index];
+    } else
+        vdma.MaxPos[base] = vdma.IdxCntRegs[index];
+    dbgprintf(("VDMA.WriteIdxCnt: 16bit=%u, Base=%X CurPos/MaxPos=%X/%X Reg[%u]=%X\n",
+               base, vdma.Base[base], vdma.CurPos[base], vdma.MaxPos[base], index, vdma.IdxCntRegs[index]));
+    return;
+}
+
+/* handle DMA idx/cnt port access;
+ * called for virtualized channels only.
+ */
+
+static uint8_t ReadIdxCnt(uint16_t port)
+////////////////////////////////////////
+{
+    uint8_t ret;
+    int index;
+    int base;
+    int value;
+
+    base = port >> 7;
+    index = ( port >> base ) & 1;
+    index += base*2;
+
+#ifdef DMAREADLOG
+    dbgprintf(("VDMA.ReadIdxCnt 16bit=%u, %s: %X (%X)\n", base, (index & 0x1) ? "counter" : "addr", value, vdma.InIO[base]));
 #endif
-};
+
+    value = vdma.IdxCntRegs[index];
+    if( ( ( vdma.FlipFlop[base]++) & 0x1 ) == 0 ) {
+        vdma.InIO[base] = true;
+        return value & 0xFF;
+    }
+    ret = ((value >> 8) & 0xFF);
+    /* update Index & Count regs ... but page regs?? */
+    /* v1.4: take care that the base won't go beyond addr+maxcnt (tyrian2k!) */
+    /* v1.4: no auto update of the page regs */
+    if( vdma.DelayUpdate[base] ) {
+        index &= ~1;
+        //vdma.IdxCntRegs[index] = vdma.Base[base] + vdma.CurPos[base];
+        vdma.IdxCntRegs[index]   = vdma.Base[base] + min( vdma.CurPos[base], vdma.MaxPos[base] + 1 );
+        vdma.IdxCntRegs[index+1] = vdma.MaxPos[base] - vdma.CurPos[base];
+        //vdma.PageRegs[base] = (vdma.Base[base] + vdma.CurPos[base]) >> 16;
+        vdma.DelayUpdate[base] = false;
+    }
+    vdma.InIO[base] = false;
+    return ret;
+}
+
+static uint8_t AccIdxCnt(uint16_t port, uint8_t val, uint16_t flags)
+////////////////////////////////////////////////////////////////////
+{
+    return (flags & TRAPF_OUT) ? (WriteIdxCnt(port, val), val) : ReadIdxCnt(port);
+}
+
+/* handle trapping of DMA page registers */
+
+static uint8_t AccPage(uint16_t port, uint8_t val, uint16_t flags)
+//////////////////////////////////////////////////////////////////
+{
+    static const int8_t PortChannelMap[] = {
+        2, 3, 1, -1, -1, -1, 0, /* ports 81-87 */
+    -1, 6, 7, 5, -1, -1, -1, 4, /* ports 88-8F */
+    };
+    int channel = PortChannelMap[port - 0x81];
+    int idx = channel >> 2;
+
+    /* next if() should always be true since this function is called only
+     * for the virtualized channels */
+    if( channel >= 0 && IsVirtualized( channel ) ) {
+        if ( flags & TRAPF_OUT ) {
+            dbgprintf(("VDMA.WritePage(0x%X [chn=%u], %X)\n", port, channel, val ));
+            vdma.PageRegs[idx] = val;
+            vdma.CurPos[idx] = 0; /* ??? */
+            return val;
+        } else {
+            dbgprintf(("VDMA.ReadPage(0x%X [chn=%u])=%02x\n", port, channel, vdma.PageRegs[idx] ));
+            return vdma.PageRegs[idx];
+        }
+    }
+    /* should never reach here */
+    dbgprintf(("VDMA.AccPage(0x%X, 0x%X, 0x%X) - shouldn't happen!\n", port, val, flags ));
+    return (( flags & TRAPF_OUT ) ? (UntrappedIO_OUT( port, val ), val ) : UntrappedIO_IN(port) );
+}
+
+/* called by VSB_Init() */
 
 void VDMA_PortTrap( int ldma, int hdma )
 ////////////////////////////////////////
 {
+    static const PORT_TRAP_HANDLER LDMA_ph[] = {
+        AccIdxCnt, AccIdxCnt,    /* idx+cnt for low dma */
+        VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0x08-0x0F */
+    };
+#if 0//SB16 /* trap handler vector is the same as for ldma */
+    static const PORT_TRAP_HANDLER HDMA_ph[] = {
+        AccIdxCnt, AccIdxCnt,    /* base+cnt for high dma */
+        VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, VDMA_Acc, /* 0xD0-0xDE */
+    };
+#endif
+    static const PORT_TRAP_HANDLER DMAPG_ph[] = {
+        AccPage, /* page port for low dma */
+#if SB16
+        AccPage, /* page port for high dma */
+#endif
+    };
+    /* translate channels -> ports */
+    static const uint8_t ChannelPageMap[] = { 0x87, 0x83, 0x81, 0x82, 0x8f, 0x8b, 0x89, 0x8a };
     unsigned int portmap;
     unsigned int portmappg = 0;
     /* low dma: adjust the entry for DMA channel addr/count */
@@ -433,7 +440,7 @@ void VDMA_PortTrap( int ldma, int hdma )
         portmap = 0x55550000;
         portmap >>= ((hdma - 4) << 2);
         portmap |= 5;
-        PTRAP_AddRange( ((hdma - 4) << 2) + 0xC0, portmap, LDMA_ph ); /* ptfuncs for LDMA can be used here */
+        PTRAP_AddRange( ((hdma - 4) << 2) + 0xC0, portmap, LDMA_ph );
         portmappg |= (1 << (ChannelPageMap[ hdma ] - 0x81));
     }
 #endif

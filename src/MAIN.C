@@ -546,8 +546,6 @@ int main(int argc, char* argv[])
     VSB_Init( gvars.base, gvars.irq, gvars.dma, -1, gvars.type, gm.hAU );
 #endif
 
-    /* v1.7: installing RM/PM port traps done here before v1.7 */
-
 #ifndef NOFM
     if( gvars.opl3 ) {
         VOPL3_Init( AU_getfreq( gm.hAU ) );
@@ -590,23 +588,19 @@ int main(int argc, char* argv[])
     VMPU_Init( gvars.freq );
 #endif
 
-    if (( PTRAP_Install_PortTraps( gvars.rm, gvars.pm ) ) == 0 )
-        printf("Failed installing IO port traps\n");
-
-    if ( gm.bISR ) {
-        VIRQ_Init( gvars.irq );
-        _InstallInt31( &gvars );
+    if (( PTRAP_Install_PortTraps( gvars.rm, gvars.pm ) ) == 0 ) {
+        printf("Unable to install IO port traps\n");
+        goto errexit;
     }
-
-    PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
-
-    //AU_prestart( gm.hAU );
-    AU_start( gm.hAU );
-    if (bOMode & OM_DOS ) bOMode = OM_DIRECT; /* switch to low-level i/o */
 
     if( gm.bISR && ( gm.bQemm || (!gvars.rm) ) && ( gm.bHdpmi || (!gvars.pm) ) ) {
         uint32_t psp;
         __dpmi_regs r;
+        VIRQ_Init( gvars.irq );
+        _InstallInt31( &gvars );
+        PIC_UnmaskIRQ( AU_getirq( gm.hAU ) );
+        AU_start( gm.hAU );
+        if (bOMode & OM_DOS ) bOMode = OM_DIRECT; /* switch to low-level i/o */
         __dpmi_set_coprocessor_emulation( 0 );
         psp = _my_psp();
         __dpmi_free_dos_memory( ReadLinearW( psp+0x2C ) );

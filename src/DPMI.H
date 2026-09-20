@@ -77,6 +77,10 @@ int __dpmi_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_free_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_set_coprocessor_emulation(int _flags);
 
+/* variants that are called at interrupt time */
+//int __dpmi_set_page_attr_isr( unsigned long handle, unsigned long ofs, unsigned long pages, short attr);
+int __dpmi_map_physical_device_isr(unsigned long handle, unsigned long ofs, unsigned long pages, unsigned long physaddr);
+
 #ifdef cplusplus
 }
 #endif

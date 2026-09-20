@@ -347,30 +347,42 @@ static int SNDISR_Interrupt( void )
              * no knowledge of the current v86 mappings.
              */
             if ( DMA_Base < 0x100000 && DMA_Base >= 0xA0000 && isr.PageTab0v86 ) {
-#ifdef _DEBUG
+# ifdef _DEBUG
                 uint32_t tmp = DMA_Base;
-#endif
+# endif
                 DMA_Base = (*((uint32_t *)NearPtr(isr.PageTab0v86) + (DMA_Base >> 12 )) & ~0xfff) | (DMA_Base & 0xFFF);
-                dbgprintf(("isr(%u), conv address %X -> phys address %X [pgtab0=%X]\n", loop, tmp, DMA_Base, isr.PageTab0v86 ));
+                dbgprintf(("isr(%u), conv address %X -> phys address %X [pgtab0=%X DMA_linearbase=%X]\n", loop, tmp, DMA_Base, isr.PageTab0v86, isr.DMA_linearBase ));
+# ifdef _DEBUG
+                {
+                    uint32_t *tmp2;
+                    tmp2 = (uint32_t *)NearPtr(isr.PageTab0v86) + (tmp >> 12 );
+                    dbgprintf(("isr, *%X=%X %X %X %X >%X< %X %X %X\n", tmp2-4, *(tmp2-4), *(tmp2-3), *(tmp2-2), *(tmp2-1), *tmp2, *(tmp2+1), *(tmp2+2), *(tmp2+3) ));
+                }
+# endif
             }
 #endif
+            /* check if current mapped region (isr.DMA_Base + isr.DMA_Size ) covers current DMA region */
             if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
                 isr.DMA_linearBase = -1;
             }
-            /* if there's no mapped region, create one that covers current DMA op. */
+            /* if no, the mapped region has to be recreated - unless it's in conv. memory. */
             if( isr.DMA_linearBase == -1 ) {
+#if 0
+                /* v2.1: clear the old mapping? DPMI function 0x508 should clear TLB entries */
+                if ( isr.DMA_Base > 0x100000 ) __dpmi_set_page_attr_isr(isr.Block_Handle, 0, (isr.DMA_Size + 4095) >> 12, 0 );
+#endif
                 isr.DMA_Base = DMA_Base;
                 isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
                 if ( DMA_Base < 0x100000 ) {
                     isr.DMA_linearBase = DMA_Base;
                 } else {
                     /* size is in pages, phys. address must have bits 0-11 cleared */
-                    if( __dpmi_map_physical_device(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
+                    if( __dpmi_map_physical_device_isr(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
                         fatal_error( 2 );
                     isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
                 }
-                dbgprintf(("isr(%u), ISR_DMA address (re)mapped: isr.DMA_Base(%d)=%x, isr.DMA_Size=%x, isr.DMA_linearBase=%x\n",
-                           loop, dmachannel, isr.DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
+                dbgprintf(("isr(%u), DMA address (re)mapped: DMA_Base(%d)=%x, isr.DMA_Size=%x, DMA_linearBase=%x\n",
+                           loop, dmachannel, DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
             }
         }
         /* don't resample if sample rates are close? */
@@ -440,7 +452,7 @@ static int SNDISR_Interrupt( void )
                 for ( tmpbytes = 0; tmpbytes < bytes; tmpbytes += chunk ) {
                     chunk = min( DMA_Count, bytes - tmpbytes );
                     memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), chunk );
-                    DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + chunk, DMA_Count - chunk );
+                    DMA_Index = VDMA_UpdatePos(dmachannel, chunk );
                     DMA_Count = VDMA_GetCount(dmachannel);
 #ifdef SNDISRLOG
                     dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Index, DMA_Count ));
@@ -448,7 +460,7 @@ static int SNDISR_Interrupt( void )
                 }
             } else {
                 memcpy( pDest, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
-                DMA_Index = VDMA_SetIndexCount(dmachannel, DMA_Index + bytes, DMA_Count - bytes);
+                DMA_Index = VDMA_UpdatePos(dmachannel, bytes);
 #ifdef SNDISRLOG /* v1.8: needed for debug logs only */
                 DMA_Count = VDMA_GetCount( dmachannel );
 #endif
@@ -783,7 +795,7 @@ bool SNDISR_Init( void *hAU, uint16_t vol )
 #if SETABSVOL
     isr.SB_VOL = vol;
 #endif
-    return _SND_InstallISR( PIC_IRQ2VEC( AU_getirq( hAU ) ), &SNDISR_Interrupt );
+    return _SND_InstallISR( PIC_IRQ2VEC( isr.SndIrq ), &SNDISR_Interrupt );
 }
 
 bool SNDISR_Exit( void )

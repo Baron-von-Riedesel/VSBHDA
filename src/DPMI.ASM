@@ -185,7 +185,7 @@ __dpmi_allocate_linear_memory proc c public uses ebx edi esi pInfo:ptr, commit:d
 	align 4
 __dpmi_allocate_linear_memory endp
 
-;--- ax=508h
+;--- ax=508h; map physical device/memory
 
 __dpmi_map_physical_device proc c public uses ebx esi handle:ptr, ofs:dword, pages:dword, physaddr:dword
 	mov esi, handle

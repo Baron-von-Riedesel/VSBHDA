@@ -125,7 +125,7 @@ rSS     dw ?
 ends
 RMCS ends
 
-externdef oldint31:PFAR
+externdef c oldint31:PFAR
 
 GLOBALVARS struct
 	dd 3 dup (?)
