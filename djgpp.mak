@@ -41,7 +41,7 @@ OBJFILES=\
 	$(OUTD)/adpcm.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmabuff.o	$(OUTD)/pcibios.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
-	$(OUTD)/sc_e1371.o	$(OUTD)/sc_e1370.o	$(OUTD)/ak4531mix.o\
+	$(OUTD)/sc_e1371.o	$(OUTD)/sc_e1370.o	$(OUTD)/ak4531mix.o	$(OUTD)/sc_cs4281.o\
 	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
 	$(OUTD)/sc_sbxfi.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
@@ -104,6 +104,7 @@ $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
 $(OUTD)/sc_e1371.o:: sc_e1371.c  au_cards.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_e1370.o:: sc_e1370.c  au_cards.h dmabuff.h pcibios.h ak4531mix.h
+$(OUTD)/sc_cs4281.o:: sc_cs4281.c au_cards.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
 $(OUTD)/ak4531mix.o::ak4531mix.c au_cards.h ak4531mix.h
 $(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
