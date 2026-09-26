@@ -67,7 +67,8 @@ OBJFILES = \
 OBJFILES2 = \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj \
-	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
+	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_E1370.obj	$(OUTD)/AK4531MIX.obj \
+	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
 	$(OUTD)/DPMI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj \
 	$(OUTD)/LIBMAIN.obj
 
@@ -135,6 +136,8 @@ $(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
 $(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
 $(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
 $(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
+$(OUTD)/SC_E1370.obj:  src/hw/SC_E1370.C
+$(OUTD)/AK4531MIX.obj: src/hw/AK4531MIX.C
 $(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
 $(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
 $(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C

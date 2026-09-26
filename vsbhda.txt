@@ -41,6 +41,7 @@
    - VIA VT82C686, VT8233/35/37, but not VT8233A
    - Creative Labs SB Live and SB Audigy (EMU10K1, EMU10K2)
    - SB PCI cards based on ES1371/ES1373
+   - SB PCI cards based on ES1370 (SB PCI64/128, "5507" chip) [untested]
    - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS) [untested]
 
 

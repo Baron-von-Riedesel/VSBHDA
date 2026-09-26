@@ -29,6 +29,9 @@ extern uint8_t bOMode;
 #ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
 #endif
+#ifndef NOES1370
+extern struct sndcard_info_s ES1370_sndcard_info;
+#endif
 #ifndef NOICH
 extern struct sndcard_info_s ICH_sndcard_info;
 #endif
@@ -48,6 +51,9 @@ extern struct sndcard_info_s EMU20KX_sndcard_info;
 static const struct sndcard_info_s *sndcard_info_table[] = {
 #ifndef NOES1371
 	&ES1371_sndcard_info,
+#endif
+#ifndef NOES1370
+	&ES1370_sndcard_info,
 #endif
 #ifndef NOICH
 	&ICH_sndcard_info,

@@ -84,7 +84,8 @@ OBJFILES = &
 !endif
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
-	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
+	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj &
+	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/sc_sbxfi.obj &
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
@@ -149,6 +150,8 @@ $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
 $(OUTD)/physmem.obj:   src\hw\physmem.c
 $(OUTD)/pcibios.obj:   src\hw\pcibios.c
 $(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
+$(OUTD)/sc_e1370.obj:  src\hw\sc_e1370.c
+$(OUTD)/ak4531mix.obj: src\hw\ak4531mix.c
 $(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
 $(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
 $(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
