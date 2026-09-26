@@ -8,8 +8,9 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * Intel ICH, Nvidia nForce, SiS 7012
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
  * SB Live, SB Audigy ( based on EMU10Kx )
- * SB based on ES1370/1371/1373 (Ensoniq) [ES1370 support: unverified on real hardware yet]
+ * SB based on ES1370/1371/1373 (Ensoniq)
  * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
+ * Crystal CS4281
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 
