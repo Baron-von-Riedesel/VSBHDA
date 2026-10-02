@@ -8,10 +8,10 @@ extern "C"
 {
 #endif
 
-void     VDMA_Virtualize(int channel, int enable);
+//void     VDMA_Virtualize(int channel, int enable);
 void     VDMA_PortTrap( int ldma, int hdma );
 uint32_t VDMA_GetBase(int channel);
-uint32_t VDMA_GetIndex(int channel);
+uint32_t VDMA_GetPos(int channel);
 int32_t  VDMA_GetCount(int channel);
 uint32_t VDMA_UpdatePos(int channel, uint32_t addbytes);
 int      VDMA_IsAuto(int channel);

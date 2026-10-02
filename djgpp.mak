@@ -42,7 +42,7 @@ OBJFILES=\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmabuff.o	$(OUTD)/pcibios.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
 	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
-	$(OUTD)/sc_sbxfi.o\
+	$(OUTD)/sc_sbxfi.o	$(OUTD)/cthw20k1.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
 	$(OUTD)/logfile.o	$(OUTD)/dpmiisr.o
@@ -51,7 +51,7 @@ INCLUDE_DIRS=src src/hw
 SRC_DIRS=src src/hw
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
-C_EXTRA_FLAGS=-march=i586 -DNOSBXFI
+C_EXTRA_FLAGS=-march=i586
 LD_FLAGS=$(addprefix -Xlinker ,$(LD_EXTRA_FLAGS))
 LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 
@@ -106,8 +106,9 @@ $(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
 $(OUTD)/sc_sbl24.o:: sc_sbl24.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
 $(OUTD)/sc_sbliv.o:: sc_sbliv.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
-$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h emu20k1.h
+$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
 $(OUTD)/sc_via82.o:: sc_via82.c  au_cards.h dmabuff.h pcibios.h ac97.h
+$(OUTD)/cthw20k1.o:: cthw20k1.c
 $(OUTD)/timer.o::    timer.c     au_cards.h timer.h
 
 $(OUTD)/adpcm.o::    adpcm.c     adpcm.h

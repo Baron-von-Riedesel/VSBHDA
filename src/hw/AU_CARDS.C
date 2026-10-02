@@ -24,8 +24,6 @@
 
 //#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
 
-extern uint8_t bOMode;
-
 #ifndef NOES1371
 extern struct sndcard_info_s ES1371_sndcard_info;
 #endif
@@ -67,6 +65,10 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 };
 
 #define NUMCARDS sizeof(sndcard_info_table)/sizeof(sndcard_info_table[0])
+
+#ifdef NOTFLAT
+extern uint8_t bOMode;
+#endif
 
 /* gap between buffer read/write pointer;
  * since v2.0, AU_writedata() won't skip samples that exceed free buffer space;
@@ -538,6 +540,12 @@ void FAREXP AU_setmixer_all( struct audioout_info_s *aui )
  * - AU_writedata writes into free space and updates the write pointer (= aui->card_dmalastput)
  */
 
+extern unsigned int myesp( void );
+#pragma aux myesp = \
+	"mov eax,esp" \
+	parm[] \
+	modify exact [eax]
+
 unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////
 {
@@ -574,9 +582,9 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	//if( aui->card_dmaspace > aui->card_dmasize ) // checking
 	//	aui->card_dmaspace = aui->card_dmasize;
 #ifdef DMABUFFLOG
-	dbgprintf(("AU_cardbuf_space: free space=%X [bufpos=%X, card_dmaspace new/old=%X/%X]\n",
+	dbgprintf(("AU_cardbuf_space: free space=%X [bufpos=%X, card_dmaspace new/old=%X/%X esp=%X]\n",
 		(aui->card_dmaspace > aui->buffer_protection) ? aui->card_dmaspace - aui->buffer_protection: 0,
-		bufpos, aui->card_dmaspace, old_card_dmaspace ));
+		bufpos, aui->card_dmaspace, old_card_dmaspace, myesp() ));
 #endif
 
 	return (aui->card_dmaspace > aui->buffer_protection) ? aui->card_dmaspace - aui->buffer_protection: 0;

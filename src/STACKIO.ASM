@@ -246,17 +246,17 @@ endif
 
 SwitchStackIOrmcb endp
 
-;--- alloc the realmode callback for realmode port trapping
+;--- alloc realmode callback for realmode port trapping
 
-_hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
+_init_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
 
-	@dprintf CStr("hdpmi_rmcbIO enter",10)
+	@dprintf CStr("_init_rmcbIO enter",10)
 	push ds
 	mov esi, offset SwitchStackIOrmcb
 	push cs
 	pop ds
 	mov edi, regs
-	mov ax,0303h
+	mov ax,303h
 	int 31h
 	pop ds
 	jc error
@@ -270,7 +270,18 @@ _hdpmi_rmcbIO proc public uses esi edi cb:dword, regs:ptr, prmcb:ptr
 error:
 	xor eax, eax
 	ret
-_hdpmi_rmcbIO endp
+_init_rmcbIO endp
+
+;--- free realmode callback for realmode port trapping
+
+_exit_rmcbIO proc public prmcb:ptr
+	mov eax, prmcb
+	mov dx, [eax+0]
+	mov cx, [eax+2]
+	mov ax,304h
+	int 31h
+	ret
+_exit_rmcbIO endp
 
 ifndef NOTFLAT ; currently not active for 16-bit
 

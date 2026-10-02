@@ -1165,11 +1165,6 @@ void VSB_Init(int addr, int irq, int ldma, int hdma, int type, void *hAU )
     vsb.MixerRegs[SB_MIXERREG_DMA_SETUP] = (1 << ldma) & 0xB;
 #endif
 
-    VDMA_Virtualize( ldma, true );
-#if SB16
-    if( hdma >= 4 )
-        VDMA_Virtualize( hdma, true );
-#endif
     VDMA_PortTrap( ldma, hdma );
 
     if ( !gvars.opl3 )

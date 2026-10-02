@@ -82,7 +82,7 @@ endif
 	call [dwISR]
 	lss esp, [esp]
 	add [__djgpp_stack_top], STACKCORR
-if COMPAT4
+if COMPAT4 and SETIF
 	test al,2       ; PIT masked?
 	jz @F
 	mov al,ah
@@ -194,7 +194,7 @@ _Snd_Notify31 endp
 
 _SND_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
-	@dprintf CStr("SND_InstallISR enter",10)
+	@dprintf CStr("SND_InstallISR(int=0x%X) enter",10), interrupt
 
 	mov bl, interrupt
 	mov ax, 204h

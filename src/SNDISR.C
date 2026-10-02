@@ -280,7 +280,7 @@ static int SNDISR_Interrupt( void )
     if( !AU_isirq( isr.hAU ) )
         return(0);
 
-#if COMPAT4
+#if COMPAT4 && SETIF
     /* v1.8: /CF4 */
     if ( gvars.compatflags & CF_MASKPIT ) {
         mask = PIC_GetIRQMask();
@@ -329,7 +329,7 @@ static int SNDISR_Interrupt( void )
         int sbcnt;
         bool resample;
         uint32_t DMA_Base;
-        uint32_t DMA_Index;
+        uint32_t DMA_Pos;
         int32_t DMA_Count;
         uint32_t SB_BuffSpace = VSB_GetBuffSpace(); /* remaining buffer size in bytes */
         uint32_t SB_Rate = VSB_GetSampleRate();
@@ -338,7 +338,7 @@ static int SNDISR_Interrupt( void )
         if ( !IsSilent ) {
             dmachannel = VSB_GetDMA();
             DMA_Base = VDMA_GetBase(dmachannel);
-            DMA_Index = VDMA_GetIndex(dmachannel);
+            DMA_Pos = VDMA_GetPos(dmachannel);
             DMA_Count = VDMA_GetCount(dmachannel);
             /* check if the current DMA buffer is within the mapped region. */
 #if PT0V86
@@ -351,38 +351,39 @@ static int SNDISR_Interrupt( void )
                 uint32_t tmp = DMA_Base;
 # endif
                 DMA_Base = (*((uint32_t *)NearPtr(isr.PageTab0v86) + (DMA_Base >> 12 )) & ~0xfff) | (DMA_Base & 0xFFF);
-                dbgprintf(("isr(%u), conv address %X -> phys address %X [pgtab0=%X DMA_linearbase=%X]\n", loop, tmp, DMA_Base, isr.PageTab0v86, isr.DMA_linearBase ));
-# ifdef _DEBUG
-                {
-                    uint32_t *tmp2;
-                    tmp2 = (uint32_t *)NearPtr(isr.PageTab0v86) + (tmp >> 12 );
-                    dbgprintf(("isr, *%X=%X %X %X %X >%X< %X %X %X\n", tmp2-4, *(tmp2-4), *(tmp2-3), *(tmp2-2), *(tmp2-1), *tmp2, *(tmp2+1), *(tmp2+2), *(tmp2+3) ));
-                }
+# ifdef SNDISRLOG
+#  ifdef _DEBUG
+                if (!(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Pos + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) ))
+                    dbgprintf(("isr(%u), address %X conv -> %X phys [pgtab0=%X DMA_linearbase=%X]\n", loop, tmp, DMA_Base, isr.PageTab0v86, isr.DMA_linearBase ));
+                //else
+                //    dbgprintf(("isr(%u), address %X -> %X (linear %X)\n", loop, tmp, DMA_Base, isr.DMA_linearBase + DMA_Base - isr.DMA_Base ));
+#  endif
 # endif
             }
 #endif
             /* check if current mapped region (isr.DMA_Base + isr.DMA_Size ) covers current DMA region */
-            if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Index + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
+            if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Pos + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
                 isr.DMA_linearBase = -1;
             }
             /* if no, the mapped region has to be recreated - unless it's in conv. memory. */
             if( isr.DMA_linearBase == -1 ) {
-#if 0
-                /* v2.1: clear the old mapping? DPMI function 0x508 should clear TLB entries */
-                if ( isr.DMA_Base > 0x100000 ) __dpmi_set_page_attr_isr(isr.Block_Handle, 0, (isr.DMA_Size + 4095) >> 12, 0 );
-#endif
                 isr.DMA_Base = DMA_Base;
-                isr.DMA_Size = min( max(DMA_Index + DMA_Count, 0x4000 ), 0x20000 );
+                isr.DMA_Size = min( max(DMA_Pos + DMA_Count, 0x4000 ), 0x20000 );
                 if ( DMA_Base < 0x100000 ) {
                     isr.DMA_linearBase = DMA_Base;
                 } else {
+# if 0//def _DEBUG /* display PTEs */
+                    uint32_t *tmp2;
+                    tmp2 = (uint32_t *)NearPtr(isr.PageTab0v86) + (tmp >> 12 );
+                    dbgprintf(("isr, PTEs *%X=%X %X %X %X >%X< %X %X %X\n", tmp2-4, *(tmp2-4), *(tmp2-3), *(tmp2-2), *(tmp2-1), *tmp2, *(tmp2+1), *(tmp2+2), *(tmp2+3) ));
+# endif
                     /* size is in pages, phys. address must have bits 0-11 cleared */
                     if( __dpmi_map_physical_device_isr(isr.Block_Handle, 0, (isr.DMA_Size + (isr.DMA_Base & 0xfff) + 4095 ) >> 12 , isr.DMA_Base & ~0xfff ) == -1 )
                         fatal_error( 2 );
                     isr.DMA_linearBase = isr.Block_Addr | (isr.DMA_Base & 0xFFF);
                 }
-                dbgprintf(("isr(%u), DMA address (re)mapped: DMA_Base(%d)=%x, isr.DMA_Size=%x, DMA_linearBase=%x\n",
-                           loop, dmachannel, DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
+                dbgprintf(("isr(%u), DMA address (re)mapped: DMA_Base=%x, isr.DMA_Size=%x, DMA_linearBase=%x\n",
+                           loop, DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
             }
         }
         /* don't resample if sample rates are close? */
@@ -443,7 +444,7 @@ static int SNDISR_Interrupt( void )
                 int chunk;
                 int tmpbytes;
 #ifdef SNDISRLOG
-                dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=0x%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, nSamples, DMA_Index, DMA_Count ));
+                dbgprintf(("isr(%u): DMA space < bytes (0x%X) samples=0x%X DMA Idx/Cnt=0x%X/0x%X\n", loop, bytes, nSamples, DMA_Pos, DMA_Count ));
 #endif
                 if ( !VDMA_IsAuto(dmachannel) ) {
                     count = DMA_Count / (samplesize * channels );
@@ -451,16 +452,16 @@ static int SNDISR_Interrupt( void )
                 }
                 for ( tmpbytes = 0; tmpbytes < bytes; tmpbytes += chunk ) {
                     chunk = min( DMA_Count, bytes - tmpbytes );
-                    memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), chunk );
-                    DMA_Index = VDMA_UpdatePos(dmachannel, chunk );
+                    memcpy( pDest + tmpbytes, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Pos ), chunk );
+                    DMA_Pos = VDMA_UpdatePos(dmachannel, chunk );
                     DMA_Count = VDMA_GetCount(dmachannel);
 #ifdef SNDISRLOG
-                    dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Index, DMA_Count ));
+                    dbgprintf(("isr(%u): chunk=%X tmpbytes=%X DMA Idx/Cnt=0x%X/0x%X\n", loop, chunk, tmpbytes, DMA_Pos, DMA_Count ));
 #endif
                 }
             } else {
-                memcpy( pDest, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ), bytes );
-                DMA_Index = VDMA_UpdatePos(dmachannel, bytes);
+                memcpy( pDest, NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Pos ), bytes );
+                DMA_Pos = VDMA_UpdatePos(dmachannel, bytes);
 #ifdef SNDISRLOG /* v1.8: needed for debug logs only */
                 DMA_Count = VDMA_GetCount( dmachannel );
 #endif
@@ -476,7 +477,7 @@ static int SNDISR_Interrupt( void )
                 memcpy( pDest + bytes,
                        ( bytes == SB_BuffSpace ) ?
                        pDest + bytes - samplesize * channels :
-                       NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Index ),
+                       NearPtr(isr.DMA_linearBase + ( DMA_Base - isr.DMA_Base) + DMA_Pos ),
                        samplesize * channels );
             }
         }
@@ -525,7 +526,7 @@ static int SNDISR_Interrupt( void )
 
         if( VSB_GetIRQStatus() ) {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X SB BufSpace=%u DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, bytes, SB_BuffSpace, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c/b=0x%02X/0x%02X/0x%03X SB BufSpace=%u DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, bytes, SB_BuffSpace, DMA_Pos, DMA_Count ));
 #endif
             if ( VSB_IsAuto() ) {
                 VSB_ResetBuffSpace();
@@ -534,7 +535,7 @@ static int SNDISR_Interrupt( void )
             VIRQ_Invoke();
         } else {
 #ifdef SNDISRLOG
-            dbgprintf(("isr(%u): s/c(o)/b=0x%02X/0x%02X(0x%02X)/0x%03X SB Space=0x%X DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, ocnt, bytes, SB_BuffSpace, DMA_Index, DMA_Count ));
+            dbgprintf(("isr(%u): s/c(o)/b=0x%02X/0x%02X(0x%02X)/0x%03X SB Space=0x%X DMA Idx/Cnt=%X/%X\n", loop, nSamples, count, ocnt, bytes, SB_BuffSpace, DMA_Pos, DMA_Count ));
 #endif
             /* v1.9: to exit the loop here (unconditionally) was incorrect -
              *       might be that DMA buffer < SB buffer!
@@ -720,7 +721,7 @@ static int SNDISR_Interrupt( void )
 
 isrexit:
     PIC_SendEOI( isr.SndIrq );
-#if COMPAT4
+#if COMPAT4 && SETIF
     if ( gvars.compatflags & CF_MASKPIT )
         return( 2 | (mask << 8 ));
 #endif

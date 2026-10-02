@@ -30,9 +30,11 @@ extern void SNDISR_IrqOnPortAcc( void );
 // next 2 defines must match EQUs in rmcode1.asm!
 #define HANDLE_IN_388H_DIRECTLY 0
 #define RMPICTRAPDYN 0 /* 1=trap PIC for v86-mode dynamically when needed */
+#define MAXRANGES 8
 
 extern struct globalvars gvars;
-extern uint32_t _hdpmi_rmcbIO( void(*Fn)( __dpmi_regs *), __dpmi_regs *reg, __dpmi_raddr * );
+extern  int _init_rmcbIO( void(*Fn)( __dpmi_regs *), __dpmi_regs *reg, __dpmi_raddr * );
+extern  int _exit_rmcbIO( __dpmi_raddr * );
 extern void _hdpmi_CliHandler( void );
 extern void SwitchStackIOIn(  void );
 extern void SwitchStackIOOut( void );
@@ -47,13 +49,13 @@ enum {
 
 struct ptrap_s {
     __dpmi_regs QPI_regs;   /* used for QPI access (either Qemm's or QPIEMU's) */
-    __dpmi_raddr rmcb;
+    __dpmi_raddr rmcb;      /* real-mode callback for IO port trapping in v86 */
     __dpmi_raddr QPI_OldCallback;
 #if RMPICTRAPDYN
     static int PICIndex;
 #endif
-    int cntports;
-    int cntranges;
+    int cntranges;  /* no of defined IO port ranges */
+    int cntports;   /* no of trapped ports; set only if real-mode port trapping is active */
 };
 
 static struct ptrap_s ptrap;
@@ -66,9 +68,9 @@ struct PortRange_s {
     uint32_t traphdl; /* hdpmi32i port range trap handle */
 };
 
-static struct PortRange_s portranges[8];
-/* state of trapped ports */
-static uint16_t PortState[48]; /* todo: adjust to a correct max index */
+static struct PortRange_s portranges[MAXRANGES];
+/* state of ports trapped in real-mode */
+static uint16_t PortState[48]; /* todo: should be allocated dynamically */
 
 /* public globals */
 
@@ -307,8 +309,8 @@ bool PTRAP_Init_RM()
     ptrap.QPI_OldCallback.v86.segment = ptrap.QPI_regs.x.es;
     dbgprintf(("PTRAP_Init_RM: QPI old callback=%x:%x\n", ptrap.QPI_OldCallback.v86.segment, ptrap.QPI_OldCallback.v86.segment));
 
-    /* get a realmode callback */
-    if ( _hdpmi_rmcbIO( &RM_TrapHandler, &TrapHandlerREG, &ptrap.rmcb ) == 0 )
+    /* install realmode callback for realmode port trapping */
+    if ( _init_rmcbIO( &RM_TrapHandler, &TrapHandlerREG, &ptrap.rmcb ) == 0 )
         return false;
 
 #if HANDLE_IN_388H_DIRECTLY || !RMPICTRAPDYN
@@ -449,7 +451,8 @@ bool PTRAP_Uninstall_PortTraps( int bRM, int bPM )
     if( __dpmi_simulate_real_mode_procedure_retf(&ptrap.QPI_regs) != 0) //restore old handler
         return false;
 
-    __dpmi_free_real_mode_callback( &ptrap.rmcb );
+    /* uninstall realmode callback for realmode port trapping */
+    _exit_rmcbIO( &ptrap.rmcb );
 
     return true;
 }

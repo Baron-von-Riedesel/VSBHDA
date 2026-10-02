@@ -131,6 +131,7 @@ local mzhdr:IMAGE_DOS_HEADER
 	jc nomem
 	mov word ptr dwBaseCode+0, cx
 	mov word ptr dwBaseCode+2, bx
+
 ;--- alloc data
 	mov eax, dwSizeAllData
 if HEAPSIZE
@@ -145,6 +146,7 @@ endif
 	mov word ptr dwBaseData+0, cx
 	mov word ptr dwBaseData+2, bx
 
+;--- alloc descriptors for code & data
 	mov cx,2
 	xor ax, ax
 	int 31h
@@ -161,7 +163,7 @@ endif
 	pop dx
 	pop cx
 	mov ax, 8
-	int 31h
+	int 31h		;set limit of code
 	jc nodesc
 
 	add bx,8
@@ -180,7 +182,7 @@ else
 	or cx, -1
 endif
 	mov ax, 8
-	int 31h
+	int 31h		;set limit of data (=-1)
 
 ;--- read code
 
