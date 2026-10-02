@@ -936,22 +936,25 @@ static unsigned int snd_emu10kx_buffer_init( struct emu10k1_card *card, struct a
 
 	pcmbufp = (uint32_t)card->pcmout_buffer;
 	pages = (card->pcmout_bufsize + EMUPAGESIZE - 1 ) / EMUPAGESIZE;
-	//pcmbufp <<= 1;
+
+#define PAGESHIFT 1 /* todo: explain why this shift is necessary */
+
+	//pcmbufp <<= PAGESHIFT;
 	for (pagecount = 0; pagecount < pages; pagecount++) {
 		//card->virtualpagetable[pagecount] = pcmbufp | pagecount;
 		//card->virtualpagetable[pagecount] = pds_cardmem_physicalptr(card->dm,pcmbufp) | pagecount;
-		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,pcmbufp) << 1) | pagecount;
-		//dbgprintf(("snd_emu10kx_buffer_init: %u: %X\n", pagecount, card->virtualpagetable[pagecount] ));
-		//pcmbufp += EMUPAGESIZE*2;
+		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,pcmbufp) << PAGESHIFT) | pagecount;
+		dbgprintf(("snd_emu10kx_buffer_init: %u: %X\n", pagecount, card->virtualpagetable[pagecount] ));
+		//pcmbufp += EMUPAGESIZE << PAGESHIFT;
 		pcmbufp += EMUPAGESIZE;
 	}
-	dbgprintf(("snd_emu10kx_buffer_init: silentpage=%X, page tab=%X (%u entries used), pcm buffer=%X\n",
+	dbgprintf(("snd_emu10kx_buffer_init: silentpage=%X, page table=%X (%u entries used), pcm buffer=%X\n",
 			card->silentpage, card->virtualpagetable, pages, card->pcmout_buffer ));
 	//dbgprintf(("snd_emu10kx_buffer_init: dm phys/lin=%X/%X\n", card->dm.physicalptr, card->dm.linearptr ));
 
 	for ( ; pagecount < MAXPAGES; pagecount++)
-		//card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage) << 1;
-		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,card->silentpage)) << 1;
+		//card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage) << PAGESHIFT;
+		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,card->silentpage)) << PAGESHIFT;
 
 	dbgprintf(("snd_emu10kx_buffer_init exit\n"));
 	return 1;

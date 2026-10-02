@@ -1,24 +1,5 @@
 
-#define EMU20KX_MAX_CHANNELS     8
-#define EMU20KX_MAX_BYTES        4
-
-#define EMU20KX_PAGESIZE     4096 // ???
-#define EMU20KX_MAXPAGES     1024 // ???
-
-//#define PCI_SUBDEVICE_ID_CREATIVE_SB0760     0x0024
-//#define PCI_SUBDEVICE_ID_CREATIVE_SB08801    0x0041
-//#define PCI_SUBDEVICE_ID_CREATIVE_SB08802    0x0042
-//#define PCI_SUBDEVICE_ID_CREATIVE_SB08803    0x0043
-//#define PCI_SUBDEVICE_ID_CREATIVE_HENDRIX    0x6000
-
-// sample formats
-#define SRC_SF_U8     0x0
-#define SRC_SF_S16    0x1
-#define SRC_SF_S24    0x2
-#define SRC_SF_S32    0x3
-#define SRC_SF_F32    0x4
-
-// EMU20K1 registers (ct20k1reg.h)
+/* EMU20K1 registers (ct20k1reg.h) */
 #define    PTPAHX       0x13B000 /* page table high */
 #define    PTPALX       0x13B004 /* page table low */
 #define    TRNCTL       0x13B404 /* used */
@@ -37,9 +18,42 @@
 #define    SRCCF        0x1B0014
 #define    SRCSA        0x1B0018
 #define    SRCLA        0x1B001C
+#define    SRCDN0Z      0x1B0030
+#define    SRCDN0Z0     0x1B0030
+#define    SRCDN0Z1     0x1B0034
+#define    SRCDN0Z2     0x1B0038
+#define    SRCDN0Z3     0x1B003C
+#define    SRCDN1Z      0x1B0040
+#define    SRCDN1Z0     0x1B0040
+#define    SRCDN1Z1     0x1B0044
+#define    SRCDN1Z2     0x1B0048
+#define    SRCDN1Z3     0x1B004C
+#define    SRCDN1Z4     0x1B0050
+#define    SRCDN1Z5     0x1B0054
+#define    SRCDN1Z6     0x1B0058
+#define    SRCDN1Z7     0x1B005C
+#define    SRCUPZ       0x1B0060
+#define    SRCUPZ0      0x1B0060
+#define    SRCUPZ1      0x1B0064
+#define    SRCUPZ2      0x1B0068
+#define    SRCUPZ3      0x1B006C
+#define    SRCUPZ4      0x1B0070
+#define    SRCUPZ5      0x1B0074
+#define    SRCUPZ6      0x1B0078
+#define    SRCUPZ7      0x1B007C
 #define    SRCMCTL      0x1B012C /* */
 #define    SRCIP        0x1B102C /* SRC interrupt pending */
+#define    SRCENBSTAT   0x1B202C
+#define    SRCENBLO     0x1B212C
+#define    SRCENBHI     0x1B222C
+#define    SRCENBS      0x1B232C
+#define    SRCENB       0x1B282C
+#define    SRCENB07     0x1B282C
+#define    SRCENBS07    0x1B302C
 
+#define    DAOIMAP_START 0x1C5000
+#define    DAOIMAP      0x1C5000
+#define    DAOIMAP_END  0x1C5124
 #define    AC97D        0x1C5400
 #define    AC97A        0x1C5404
 #define    AC97CTL      0x1C5408
@@ -78,10 +92,10 @@
 #define    DIC          0x1C601C
 #define    GPIO         0x1C6020
 #define    GPIOCTL      0x1C6024 /* used */
-#define    PLLCTL       0x1C6060
+#define    PLLCTL       0x1C6060 /* written in hw_pll_init() */
 #define    GCTL         0x1C6070
 
-// GIE bits
+/* GIE bits - cthardware.h */
 #define PLL_INT     (1 << 10) /* PLL input-clock out-of-range */
 #define FI_INT      (1 << 9)  /* forced interrupt */
 #define IT_INT      (1 << 8)  /* timer interrupt */
@@ -94,7 +108,7 @@
 #define DSP_INT     (1 << 1)  /* DSP */
 #define SRC_INT     (1 << 0)  /* SRC channels */
 
-// EMU20K1 card initialization bits
+/* EMU20K1 card initialization bits - cthw20k1.c */
 #define GCTL_EAC    0x00000001 /* used */
 #define GCTL_EAI    0x00000002 /* used; autoinit */
 #define GCTL_BEP    0x00000004
@@ -117,82 +131,3 @@
 #define GCTL_SE     0x00080000
 #define GCTL_AID    0x00100000 /* used; autoinit */
 
-// SRC resource control block
-#define SRCCTL_STATE 0x00000007
-#define SRCCTL_BM    0x00000008
-#define SRCCTL_RSR   0x00000030
-#define SRCCTL_SF    0x000001C0
-#define SRCCTL_WR    0x00000200
-#define SRCCTL_PM    0x00000400
-#define SRCCTL_ROM   0x00001800
-#define SRCCTL_VO    0x00002000
-#define SRCCTL_ST    0x00004000
-#define SRCCTL_IE    0x00008000
-#define SRCCTL_ILSZ  0x000F0000
-#define SRCCTL_BP    0x00100000
-
-// SRCCTL_STATE
-#define SRC_STATE_OFF     0x0
-#define SRC_STATE_INIT    0x4
-
-#define SRCCA_CA    0x03FFFFFF
-
-// mixer defs
-
-#define BLANK_SLOT        4094
-
-#define INIT_VOL    0x1c00
-
-#define AMIXER_Y_IMMEDIATE    1
-
-#define AMOPLO_M    0x00000003 // amoplo mode
-#define AMOPLO_X    0x0003FFF0
-#define AMOPLO_Y    0xFFFC0000
-
-#define AMOPHI_SADR  0x000000FF
-#define AMOPHI_SE    0x80000000
-
-enum CT_AMIXER_CTL{
- // volume control mixers
- AMIXER_MASTER_F,
- AMIXER_MASTER_R,
- AMIXER_MASTER_C,
- AMIXER_MASTER_S,
- AMIXER_PCM_F,
- AMIXER_PCM_R,
- AMIXER_PCM_C,
- AMIXER_PCM_S,
- AMIXER_SPDIFI,
- AMIXER_LINEIN,
- AMIXER_MIC,
- AMIXER_SPDIFO,
- AMIXER_WAVE_F,
- AMIXER_WAVE_R,
- AMIXER_WAVE_C,
- AMIXER_WAVE_S,
- AMIXER_MASTER_F_C,
- AMIXER_PCM_F_C,
- AMIXER_SPDIFI_C,
- AMIXER_LINEIN_C,
- AMIXER_MIC_C,
- // this should always be the last one
- NUM_CT_AMIXERS
-};
-
-enum MIXER_PORT_T {
- MIX_WAVE_FRONT,
- MIX_WAVE_REAR,
- MIX_WAVE_CENTLFE,
- MIX_WAVE_SURROUND,
- MIX_SPDIF_OUT,
- MIX_PCMO_FRONT,
- MIX_MIC_IN,
- MIX_LINE_IN,
- MIX_SPDIF_IN,
- MIX_PCMI_FRONT,
- MIX_PCMI_REAR,
- MIX_PCMI_CENTLFE,
- MIX_PCMI_SURROUND,
-
- NUM_MIX_PORTS
-};

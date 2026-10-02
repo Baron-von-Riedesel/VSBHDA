@@ -110,13 +110,13 @@ _dynend    dd 0
 _curbrk    dd 0
 _STACKLOW  dd 0
 _STACKTOP  dd 0
-_LpCmdLine dd 0
-_LpPgmName dd 0
-_psp       dw 0
-_osmajor   db 0
-_osminor   db 0
-_Extender  db 0
-_ExtenderSubtype db 0
+;_LpCmdLine dd 0
+;_LpPgmName dd 0
+;_psp       dw 0
+;_osmajor   db 0
+;_osminor   db 0
+;_Extender  db 0
+;_ExtenderSubtype db 0
 endif
 _DATA    ends
 
@@ -195,8 +195,8 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	align 4
 	dd ___begtext	; make sure dead code elimination
 @@:
-	mov eax, psp
-	mov _psp, ax
+;	mov eax, psp
+;	mov _psp, ax
 	lea eax, [ebp+3*4+3*4+4]	; calc top of stack (frame, arguments, saved ss:sp)
 	mov _STACKTOP, eax
 	mov _STACKLOW, offset _end
@@ -212,15 +212,15 @@ __DLLstart_ proc far c uses ebx esi edi psp:dword, heapsize:dword, rmstack;dword
 	mov word ptr _DSBase+2, cx
 
 ;--- get DOS & Extender version number
-	mov ah,30h
-	int 21h 				; modifies eax,ebx,ecx,edx
-	mov _osmajor,al
-	mov _osminor,ah
+;	mov ah,30h
+;	int 21h 				; modifies eax,ebx,ecx,edx
+;	mov _osmajor,al
+;	mov _osminor,ah
 
-	mov al, X_RATIONAL
-	mov ah, XS_RATIONAL_NONZEROBASE
-	mov _Extender,al			; record extender type
-	mov _ExtenderSubtype,ah 	; record extender subtype
+;	mov al, X_RATIONAL
+;	mov ah, XS_RATIONAL_NONZEROBASE
+;	mov _Extender,al			; record extender type
+;	mov _ExtenderSubtype,ah 	; record extender subtype
 
 ;	mov bx,FLG_LFN*256			; assume 'lfn=n' env. var. not present / assume 'no87=' env. var. not present
 if NO87

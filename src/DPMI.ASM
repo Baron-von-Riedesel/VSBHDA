@@ -125,17 +125,6 @@ __dpmi_simulate_real_mode_procedure_iret proc c public uses ebx edi pRegs:ptr
 __dpmi_simulate_real_mode_procedure_iret endp
 endif
 
-__dpmi_free_real_mode_callback proc c public pRMCB:ptr
-	mov eax, pRMCB
-	mov dx, [eax+0]
-	mov cx, [eax+2]
-	mov ax, 304h
-	int 31h
-	sbb eax, eax
-	ret
-	align 4
-__dpmi_free_real_mode_callback endp
-
 ;--- extended memory functions ( ah=05 )
 
 if 1  ; needed for soundfonts

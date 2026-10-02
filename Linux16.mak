@@ -69,6 +69,8 @@ OBJFILES2 = \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj \
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_E1370.obj	$(OUTD)/AK4531MIX.obj	$(OUTD)/SC_CS4281.obj \
 	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
+	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj \
+	$(OUTD)/SC_SBL24.obj	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj \
 	$(OUTD)/DPMI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj \
 	$(OUTD)/LIBMAIN.obj
 
@@ -143,7 +145,9 @@ $(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
 $(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
 $(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
 $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
+$(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
+$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C

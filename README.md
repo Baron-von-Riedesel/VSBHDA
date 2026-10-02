@@ -11,6 +11,7 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * SB based on ES1370/1371/1373 (Ensoniq)
  * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
  * Crystal CS4281
+ * SB based on CA20K1 chip ( Audigy X-Fi SB046x, SB055x, SB073x ), experimental
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 

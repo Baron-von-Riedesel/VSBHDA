@@ -70,6 +70,8 @@ OBJFILES = \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj$		$(OUTD)/DPMIISR.obj	\
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_E1370.obj	$(OUTD)/AK4531MIX.obj	$(OUTD)/SC_CS4281.obj \
 	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
+	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
+	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj		$(OUTD)/GETENV.obj \
 	$(OUTD)/MALLOC.obj		$(OUTD)/SBRK.obj		$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
@@ -77,7 +79,7 @@ OBJFILES = \
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -oxa -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS= -DNOSBXFI
+C_EXTRA_FLAGS=
 ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
@@ -136,7 +138,9 @@ $(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
 $(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
 $(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
 $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
+$(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
+$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C

@@ -75,13 +75,15 @@ OBJFILES2 = &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj	$(OUTD)/sc_cs4281.obj &
 	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/sc_sbxfi.obj &
+	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
+	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj  &
 	$(OUTD)/dpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
 CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=-DNOTFLAT -DNOSBXFI
+C_EXTRA_FLAGS=-DNOTFLAT
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
@@ -153,6 +155,7 @@ $(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
+$(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
