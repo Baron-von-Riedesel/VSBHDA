@@ -324,25 +324,33 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 	unsigned int subchannelnum, sch;
 	long newpercentval, maxpercentval;
 
-	dbgprintf(("AU_setmixer_one( channel=%u, setmode=%u, newvalue=%u )\n", channel, setmode, newvalue ));
+	dbgprintf(("AU_setmixer_one( channel=%u, function=%u, setmode=%u, newvalue=%u )\n", channel, function, setmode, newvalue ));
 	//mixer structure/values verifying
 
 	//function = AU_MIXCHANFUNCS_GETFUNC(mixchannum);
+	/* function is 0 (set volume) or 1 (mute) */
 	if( function >= AU_MIXCHANFUNCS_NUM )
 		return;
 	//channel = AU_MIXCHANFUNCS_GETCHAN(mixchannum);
+	/* 0 = master, 1 = pcm, ... */
 	if( channel >= AU_MIXCHANS_NUM )
 		return;
 	cardi = aui->card_handler;
-	if(!cardi)
+	if(!cardi) {
+		dbgprintf(("AU_setmixer_one: no card handler, exit\n" ));
 		return;
-	if(!cardi->card_writemixer || !cardi->card_readmixer || !cardi->card_mixerchans)
+	}
+	if(!cardi->card_writemixer || !cardi->card_readmixer || !cardi->card_mixerchans) {
+		dbgprintf(("AU_setmixer_one: card info invalid: writemixer=%X, readmixer=%X, mixerchans=%X\n", cardi->card_writemixer, cardi->card_readmixer, cardi->card_mixerchans ));
 		return;
+	}
 	onechi = AU_search_mixerchan( cardi->card_mixerchans, channel );
-	if(!onechi)
+	if(!onechi) {
+		dbgprintf(("AU_setmixer_one: search_mixerchan failed\n" ));
 		return;
+	}
 	subchannelnum = onechi->subchannelnum;
-	dbgprintf(("AU_setmixer_one: function=%u, channel=%u, subchannelnum=%u\n", function, channel, subchannelnum ));
+	dbgprintf(("AU_setmixer_one: channel=%u, subchannelnum=%u\n", channel, subchannelnum ));
 	if( !subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS) )
 		return;
 

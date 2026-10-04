@@ -14,6 +14,8 @@
 
 #define    SRCCTL       0x1B0000 /* */
 #define    SRCCCR       0x1B0004
+#define    SRCIMAP      0x1B0008
+#define    SRCODDC      0x1B000C
 #define    SRCCA        0x1B0010
 #define    SRCCF        0x1B0014
 #define    SRCSA        0x1B0018
@@ -83,7 +85,7 @@
 #define    SPICTL       0x1C5484
 
 #define    WC           0x1C6000
-#define    TIMR         0x1C6004
+#define    TIMR         0x1C6004 /* timer ticks ( bits 0-13 ) */
 # define   TIMR_IE      (1<<15)
 # define   TIMR_IP      (1<<14)
 #define    GIP          0x1C6010 /* global interrupt pending */
@@ -94,6 +96,10 @@
 #define    GPIOCTL      0x1C6024 /* used */
 #define    PLLCTL       0x1C6060 /* written in hw_pll_init() */
 #define    GCTL         0x1C6070
+#define    ID0          0x1C6080 /* used */
+#define    ID1          0x1C6084
+#define    ID2          0x1C6088
+#define    ID3          0x1C608C
 
 /* GIE bits - cthardware.h */
 #define PLL_INT     (1 << 10) /* PLL input-clock out-of-range */

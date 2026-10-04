@@ -498,6 +498,55 @@ static int srcimp_mgr_get_ctrl_blk(void **rblk)
 	return 0;
 }
 
+#if ADC_SUPP
+static int srcimp_mgr_set_imaparc(void *blk, unsigned int slot)
+{
+	struct srcimp_mgr_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srcimap.srcaim, SRCAIM_ARC, slot);
+	ctl->dirty.bf.srcimap = 1;
+	return 0;
+}
+
+static int srcimp_mgr_set_imapuser(void *blk, unsigned int user)
+{
+	struct srcimp_mgr_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srcimap.srcaim, SRCAIM_SRC, user);
+	ctl->dirty.bf.srcimap = 1;
+	return 0;
+}
+
+static int srcimp_mgr_set_imapnxt(void *blk, unsigned int next)
+{
+	struct srcimp_mgr_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srcimap.srcaim, SRCAIM_NXT, next);
+	ctl->dirty.bf.srcimap = 1;
+	return 0;
+}
+
+static int srcimp_mgr_set_imapaddr(void *blk, unsigned int addr)
+{
+	struct srcimp_mgr_ctrl_blk *ctl = blk;
+
+	ctl->srcimap.idx = addr;
+	ctl->dirty.bf.srcimap = 1;
+	return 0;
+}
+
+static int srcimp_mgr_commit_write(struct hw *hw, void *blk)
+{
+	struct srcimp_mgr_ctrl_blk *ctl = blk;
+
+	if (ctl->dirty.bf.srcimap) {
+		hw_write_20kx(hw, SRCIMAP + ctl->srcimap.idx * 0x100, ctl->srcimap.srcaim);
+		ctl->dirty.bf.srcimap = 0;
+	}
+
+	return 0;
+}
+#endif
 /*------------------------------------------------------*/
 
 /* AMIXER */
@@ -901,7 +950,7 @@ static int set_timer_tick(struct hw *hw, unsigned int ticks)
 ////////////////////////////////////////////////////////////
 {
 	if (ticks)
-		ticks |= TIMR_IE | TIMR_IP;
+		ticks |= TIMR_IE | TIMR_IP; /* these bits aren't documented */
 	hw_write_20kx(hw, TIMR, ticks);
 	return 0;
 }
@@ -1205,6 +1254,294 @@ static int hw_dac_init(struct hw *hw, const struct dac_conf *info)
 	return 0;
 }
 
+#if ADC_SUPP
+
+/* ADC operations */
+
+static int is_adc_input_selected_SB055x(struct hw *hw, enum ADCSRC type)
+{
+	return 0;
+}
+
+static int is_adc_input_selected_SBx(struct hw *hw, enum ADCSRC type)
+{
+	unsigned int data;
+
+	data = hw_read_20kx(hw, GPIO);
+	switch (type) {
+	case ADC_MICIN:
+		data = ((data & (0x1<<7)) && (data & (0x1<<8)));
+		break;
+	case ADC_LINEIN:
+		data = (!(data & (0x1<<7)) && (data & (0x1<<8)));
+		break;
+	case ADC_NONE: /* Digital I/O */
+		data = (!(data & (0x1<<8)));
+		break;
+	default:
+		data = 0;
+	}
+	return data;
+}
+
+static int is_adc_input_selected_hendrix(struct hw *hw, enum ADCSRC type)
+{
+	unsigned int data;
+
+	data = hw_read_20kx(hw, GPIO);
+	switch (type) {
+	case ADC_MICIN:
+		data = (data & (0x1 << 7)) ? 1 : 0;
+		break;
+	case ADC_LINEIN:
+		data = (data & (0x1 << 7)) ? 0 : 1;
+		break;
+	default:
+		data = 0;
+	}
+	return data;
+}
+
+static int hw_is_adc_input_selected(struct hw *hw, enum ADCSRC type)
+{
+	switch (hw->model) {
+	case CTSB055X:
+		return is_adc_input_selected_SB055x(hw, type);
+	case CTSB073X:
+		return is_adc_input_selected_hendrix(hw, type);
+	case CTUAA:
+		return is_adc_input_selected_hendrix(hw, type);
+	default:
+		return is_adc_input_selected_SBx(hw, type);
+	}
+}
+
+static int adc_input_select_SB055x(struct hw *hw, enum ADCSRC type, unsigned char boost)
+{
+	unsigned int data;
+
+	/*
+	 * check and set the following GPIO bits accordingly
+	 * ADC_Gain = GPIO2
+	 * DRM_off = GPIO3
+	 * Mic_Pwr_on = GPIO7
+	 * Digital_IO_Sel = GPIO8
+	 * Mic_Sw = GPIO9
+	 * Aux/MicLine_Sw = GPIO12
+	 */
+	data = hw_read_20kx(hw, GPIO);
+	data &= 0xec73;
+	switch (type) {
+	case ADC_MICIN:
+		data |= (0x1<<7) | (0x1<<8) | (0x1<<9) ;
+		data |= boost ? (0x1<<2) : 0;
+		break;
+	case ADC_LINEIN:
+		data |= (0x1<<8);
+		break;
+	case ADC_AUX:
+		data |= (0x1<<8) | (0x1<<12);
+		break;
+	case ADC_NONE:
+		data |= (0x1<<12);  /* set to digital */
+		break;
+	default:
+		return -1;
+	}
+
+	hw_write_20kx(hw, GPIO, data);
+
+	return 0;
+}
+
+static int adc_input_select_SBx(struct hw *hw, enum ADCSRC type, unsigned char boost)
+{
+	unsigned int data;
+	unsigned int i2c_data;
+	unsigned int ret;
+
+	if (i2c_unlock(hw))
+		return -1;
+
+	do {
+		ret = hw_read_pci(hw, 0xEC);
+	} while (!(ret & 0x800000)); /* i2c ready poll */
+	/* set i2c access mode as Direct Control */
+	hw_write_pci(hw, 0xEC, 0x05);
+
+	data = hw_read_20kx(hw, GPIO);
+	switch (type) {
+	case ADC_MICIN:
+		data |= ((0x1 << 7) | (0x1 << 8));
+		i2c_data = 0x1;  /* Mic-in */
+		break;
+	case ADC_LINEIN:
+		data &= ~(0x1 << 7);
+		data |= (0x1 << 8);
+		i2c_data = 0x2; /* Line-in */
+		break;
+	case ADC_NONE:
+		data &= ~(0x1 << 8);
+		i2c_data = 0x0; /* set to Digital */
+		break;
+	default:
+		i2c_lock(hw);
+		return -1;
+	}
+	hw_write_20kx(hw, GPIO, data);
+	i2c_write(hw, 0x001a0080, 0x2a, i2c_data);
+	if (boost) {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xe7); /* +12dB boost */
+		i2c_write(hw, 0x001a0080, 0x1e, 0xe7); /* +12dB boost */
+	} else {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xcf); /* No boost */
+		i2c_write(hw, 0x001a0080, 0x1e, 0xcf); /* No boost */
+	}
+
+	i2c_lock(hw);
+
+	return 0;
+}
+
+static int adc_input_select_hendrix(struct hw *hw, enum ADCSRC type, unsigned char boost)
+{
+	unsigned int data;
+	unsigned int i2c_data;
+	unsigned int ret;
+
+	if (i2c_unlock(hw))
+		return -1;
+
+	do {
+		ret = hw_read_pci(hw, 0xEC);
+	} while (!(ret & 0x800000)); /* i2c ready poll */
+	/* set i2c access mode as Direct Control */
+	hw_write_pci(hw, 0xEC, 0x05);
+
+	data = hw_read_20kx(hw, GPIO);
+	switch (type) {
+	case ADC_MICIN:
+		data |= (0x1 << 7);
+		i2c_data = 0x1;  /* Mic-in */
+		break;
+	case ADC_LINEIN:
+		data &= ~(0x1 << 7);
+		i2c_data = 0x2; /* Line-in */
+		break;
+	default:
+		i2c_lock(hw);
+		return -1;
+	}
+	hw_write_20kx(hw, GPIO, data);
+	i2c_write(hw, 0x001a0080, 0x2a, i2c_data);
+	if (boost) {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xe7); /* +12dB boost */
+		i2c_write(hw, 0x001a0080, 0x1e, 0xe7); /* +12dB boost */
+	} else {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xcf); /* No boost */
+		i2c_write(hw, 0x001a0080, 0x1e, 0xcf); /* No boost */
+	}
+
+	i2c_lock(hw);
+
+	return 0;
+}
+
+static int hw_adc_input_select(struct hw *hw, enum ADCSRC type)
+{
+	int state = type == ADC_MICIN;
+
+	switch (hw->model) {
+	case CTSB055X:
+		return adc_input_select_SB055x(hw, type, state);
+	case CTSB073X:
+		return adc_input_select_hendrix(hw, type, state);
+	case CTUAA:
+		return adc_input_select_hendrix(hw, type, state);
+	default:
+		return adc_input_select_SBx(hw, type, state);
+	}
+}
+
+static int adc_init_SB055x(struct hw *hw, int input, int mic20db)
+{
+	return adc_input_select_SB055x(hw, input, mic20db);
+}
+
+static int adc_init_SBx(struct hw *hw, int input, int mic20db)
+{
+	unsigned short gpioorg;
+	unsigned short input_source;
+	unsigned int adcdata;
+	unsigned int ret;
+
+	input_source = 0x100;  /* default to analog */
+	switch (input) {
+	case ADC_MICIN:
+		adcdata = 0x1;
+		input_source = 0x180;  /* set GPIO7 to select Mic */
+		break;
+	case ADC_LINEIN:
+		adcdata = 0x2;
+		break;
+	case ADC_VIDEO:
+		adcdata = 0x4;
+		break;
+	case ADC_AUX:
+		adcdata = 0x8;
+		break;
+	case ADC_NONE:
+		adcdata = 0x0;
+		input_source = 0x0;  /* set to Digital */
+		break;
+	default:
+		adcdata = 0x0;
+		break;
+	}
+
+	if (i2c_unlock(hw))
+		return -1;
+
+	do {
+		ret = hw_read_pci(hw, 0xEC);
+	} while (!(ret & 0x800000)); /* i2c ready poll */
+	hw_write_pci(hw, 0xEC, 0x05);  /* write to i2c status control */
+
+	i2c_write(hw, 0x001a0080, 0x0e, 0x08);
+	i2c_write(hw, 0x001a0080, 0x18, 0x0a);
+	i2c_write(hw, 0x001a0080, 0x28, 0x86);
+	i2c_write(hw, 0x001a0080, 0x2a, adcdata);
+
+	if (mic20db) {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xf7);
+		i2c_write(hw, 0x001a0080, 0x1e, 0xf7);
+	} else {
+		i2c_write(hw, 0x001a0080, 0x1c, 0xcf);
+		i2c_write(hw, 0x001a0080, 0x1e, 0xcf);
+	}
+
+	if (!(hw_read_20kx(hw, ID0) & 0x100))
+		i2c_write(hw, 0x001a0080, 0x16, 0x26);
+
+	i2c_lock(hw);
+
+	gpioorg = (unsigned short)hw_read_20kx(hw,  GPIO);
+	gpioorg &= 0xfe7f;
+	gpioorg |= input_source;
+	hw_write_20kx(hw, GPIO, gpioorg);
+
+	return 0;
+}
+
+static int hw_adc_init(struct hw *hw, const struct adc_conf *info)
+{
+	if (hw->model == CTSB055X)
+		return adc_init_SB055x(hw, info->input, info->mic20db);
+	else
+		return adc_init_SBx(hw, info->input, info->mic20db);
+}
+#endif
+
 static int hw_card_init(struct hw *hw, struct card_conf *info)
 //////////////////////////////////////////////////////////////
 {
@@ -1294,9 +1631,10 @@ static int hw_card_init(struct hw *hw, struct card_conf *info)
 		dbgprintf(("hw_card_init: hw_dac_init() failed, err=%d\n", err));
 		return err;
 	}
-#if 0
+#if ADC_SUPP
 	adc_info.msr = info->msr;
-	adc_info.input = ADC_LINEIN;
+	//adc_info.input = ADC_LINEIN;
+	adc_info.input = ADC_AUX;
 	adc_info.mic20db = 0;
 	err = hw_adc_init(hw, &adc_info);
 	if (err < 0) {
@@ -1315,8 +1653,10 @@ static int hw_card_init(struct hw *hw, struct card_conf *info)
 static const struct hw ct20k1_preset = {
 	hw_card_init,
 	hw_pll_init,
-	//hw_is_adc_input_selected,
-	//hw_adc_input_select,
+#if ADC_SUPP
+	hw_is_adc_input_selected,
+	hw_adc_input_select,
+#endif
 	//hw_capabilities,
 #if 0 //def CONFIG_PM_SLEEP
 	hw_suspend,
@@ -1357,12 +1697,13 @@ static const struct hw ct20k1_preset = {
 
 	srcimp_mgr_get_ctrl_blk,
 	//srcimp_mgr_put_ctrl_blk,
-	//srcimp_mgr_set_imaparc,
-	//srcimp_mgr_set_imapuser,
-	//srcimp_mgr_set_imapnxt,
-	//srcimp_mgr_set_imapaddr,
-	//srcimp_mgr_commit_write,
-
+#if ADC_SUPP
+	srcimp_mgr_set_imaparc,
+	srcimp_mgr_set_imapuser,
+	srcimp_mgr_set_imapnxt,
+	srcimp_mgr_set_imapaddr,
+	srcimp_mgr_commit_write,
+#endif
 	amixer_rsc_get_ctrl_blk,
 	//amixer_rsc_put_ctrl_blk,
 	amixer_mgr_get_ctrl_blk,
