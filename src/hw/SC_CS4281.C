@@ -458,6 +458,18 @@ isv_ok:
 	cs4281_ac97_write(card, AC97_PCMOUT_VOL,        0x0C0C);
 	cs4281_ac97_write(card, AC97_HEADPHONE_VOL,     0x0C0C);
 
+	/* CD-IN: unmute too. This carries the ANALOG audio signal coming in
+	 * on the card's 4-pin CD-audio header (from a CD-ROM drive's own
+	 * analog output), entirely independent of any digital playback -
+	 * it's a pure hardware passthrough through the codec's own mixer.
+	 * Same root cause as Master/PCM/Headphone above: every AC97 volume
+	 * register powers up muted, and nothing else was unmuting this one.
+	 * Unlike the ES1370's AK4531, a standard AC97 codec's CD-In feeds
+	 * the output mix automatically once unmuted - no separate routing/
+	 * switch register is needed here.
+	 */
+	cs4281_ac97_write(card, AC97_CD_VOL, 0x0C0C);
+
 #ifdef _DEBUG
 	/* diagnostic-only: identify the codec and its output-routing type
 	 * (HP/4CH/LNLVL - see the block comment above AC97_MUTE in AC97.H).
