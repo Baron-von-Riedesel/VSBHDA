@@ -1,21 +1,11 @@
 //**************************************************************************
-//*                     This file is part of the                           *
-//*                      Mpxplay - audio player.                           *
-//*                  The source code of Mpxplay is                         *
-//*        (C) copyright 1998-2009 by PDSoft (Attila Padar)                *
-//*                http://mpxplay.sourceforge.net                          *
-//*                  email: mpxplay@freemail.hu                            *
+//* This source is based on
+//* a) the Linux ALSA driver for SB X-Fi (09.2026)
+//* b) the fragmentary MpxPlay driver code for SB X-Fi ( also derived from
+//     ALSA driver code ).
 //**************************************************************************
-//*  This program is distributed in the hope that it will be useful,       *
-//*  but WITHOUT ANY WARRANTY; without even the implied warranty of        *
-//*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.                  *
-//*  Please contact with the author (with me) if you want to use           *
-//*  or modify this source.                                                *
-//**************************************************************************
-//function: Creative X-Fi EMU20KX (Music,Gamer) handling
-//based on ALSA (http://www.alsa-project.org)
 
-// not working yet, currently restricted to EMU20K1 (non-titanium cards)!
+// currently restricted to EMU20K1 (non-titanium cards)!
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -35,10 +25,15 @@
 #define EMU20KX_PAGESIZE     4096
 #define EMU20KX_MAXPAGES     1024
 
-#define EMU20KX_MAX_CHANNELS     8
-#define EMU20KX_MAX_BYTES        4
+//#define EMU20KX_MAX_CHANNELS     8
+//#define EMU20KX_MAX_BYTES        4
 
 #define snd_card emu20kx_card_s
+
+/*-----------------------------------------------------------*/
+/* cthw20k1.h */
+
+extern struct hw *create_20k1_hw_obj( void );
 
 /*-----------------------------------------------------------*/
 /* ctresource.h */
@@ -144,6 +139,26 @@ struct amixer_mgr {
 };
 
 /*-----------------------------------------------------------*/
+
+/* defined in linux/list.h */
+
+struct list_head {
+	void *prev;
+	void *next;
+};
+
+/*-----------------------------------------------------------*/
+/* ctimap.h */
+
+struct imapper {
+	unsigned short slot; /* the id of the slot containing input data */
+	unsigned short user; /* the id of the user resource consuming data */
+	unsigned short addr; /* the input mapper ram id */
+	unsigned short next; /* the next input mapper ram id */
+	struct list_head list;
+};
+
+/*-----------------------------------------------------------*/
 /* ctsrc.h */
 
 /* SRCCTL_STATE */
@@ -221,25 +236,50 @@ struct src_mgr {
 	int (*commit_write)(struct src_mgr *mgr);
 };
 
-/*-----------------------------------------------------------*/
+#if ADC_SUPP
 
-/* defined in linux/list.h */
+/* Define the descriptor of a SRC Input Mapper resource */
 
-struct list_head {
-	void *prev;
-	void *next;
+struct srcimp_mgr;
+struct srcimp_rsc_ops;
+
+struct srcimp {
+	struct rsc rsc;
+	unsigned char idx[8];
+	unsigned int mapped; /* A bit-map indicating which conj rsc is mapped */
+	struct srcimp_mgr *mgr;
+	const struct srcimp_rsc_ops *ops;
+	struct imapper imappers[];
 };
 
-/*-----------------------------------------------------------*/
-/* ctimap.h */
-
-struct imapper {
-	unsigned short slot; /* the id of the slot containing input data */
-	unsigned short user; /* the id of the user resource consuming data */
-	unsigned short addr; /* the input mapper ram id */
-	unsigned short next; /* the next input mapper ram id */
-	struct list_head list;
+struct srcimp_rsc_ops {
+	int (*map)(struct srcimp *srcimp, struct src *user, struct rsc *input);
+	int (*unmap)(struct srcimp *srcimp);
 };
+
+/* Define SRCIMP resource request description info */
+struct srcimp_desc {
+	unsigned int msr;
+};
+
+struct srcimp_mgr {
+	struct rsc_mgr mgr;	/* Basic resource manager info */
+	struct snd_card *card;	/* pointer to this card */
+	//spinlock_t mgr_lock;
+	//spinlock_t imap_lock;
+	struct list_head imappers;
+	struct imapper *init_imap;
+	unsigned int init_imap_added;
+
+	 /* request srcimp resource */
+	int (*get_srcimp)(struct srcimp_mgr *mgr, const struct srcimp_desc *desc, struct srcimp **rsrcimp);
+	/* return srcimp resource */
+	//int (*put_srcimp)(struct srcimp_mgr *mgr, struct srcimp *srcimp);
+	int (*imap_add)(struct srcimp_mgr *mgr, struct imapper *entry);
+	int (*imap_delete)(struct srcimp_mgr *mgr, struct imapper *entry);
+};
+
+#endif
 
 /*-----------------------------------------------------------*/
 /* ctdaio.h */
@@ -333,8 +373,10 @@ enum MIXER_PORT_T {
  //MIX_WAVE_SURROUND,
  //MIX_SPDIF_OUT,
  MIX_PCMO_FRONT,
- //MIX_MIC_IN,
- //MIX_LINE_IN,
+#if ADC_SUPP
+ MIX_MIC_IN,
+ MIX_LINE_IN,
+#endif
  //MIX_SPDIF_IN,
  MIX_PCMI_FRONT,
  //MIX_PCMI_REAR,
@@ -371,25 +413,6 @@ enum CTALSADEVS {		/* Types of alsa devices */
 	NUM_CTALSADEVS		/* This should always be the last */
 };
 
-/* alsa pcm stream descriptor */
-struct ct_atc_pcm {
-	//struct snd_pcm_substream *substream;  /* snd_pcm_substream is an ALSA object */
-	//void (*interrupt)(struct ct_atc_pcm *apcm);
-	//struct ct_timer_instance *timer;
-	unsigned int started:1;
-
-	/* Only mono and interleaved modes are supported now. */
-	//struct ct_vm_block *vm_block;
-	void *src;		/* SRC for interacting with host memory */
-	void **srccs;		/* SRCs for sample rate conversion */
-	void **srcimps;		/* SRC Input Mappers */
-	void **amixers;		/* AMIXERs for routing converted data */
-	//void *mono;		/* A SUM resource for mixing chs to one */
-	unsigned char n_srcc;	/* Number of converting SRCs */
-	unsigned char n_srcimp;	/* Number of SRC Input Mappers */
-	unsigned char n_amixer;	/* Number of AMIXERs */
-};
-
 /* ----------------------------------------------------- */
 
 /* no of SRC in atc_get_resources */
@@ -400,8 +423,8 @@ struct ct_atc_pcm {
  */
 #define NUM_ATC_SRCS 2
 /* no of SUM in atc_get_resources */
-//#define NUM_ATC_PCM (2 * 4)
-#define NUM_ATC_PCM (2 * 1) /* todo: explain why just 2 */
+//#define NUM_ATC_PCM (2 * 4) /* 4: MASTER_x, X=F/R/C/S */
+#define NUM_ATC_PCM (2 * 1) /* currently just F(ront) is supported */
 
 /* ----------------------------------------------------- */
 
@@ -417,11 +440,7 @@ struct emu20kx_card_s
  uint32_t *virtualpagetable;
  void   *silentpage;
  struct hw *hw;
-
- struct daio_mgr   *daio_mgr;
- struct src_mgr    *src_mgr;
- struct amixer_mgr *amixer_mgr;
- struct sum_mgr    *sum_mgr;
+ struct rsc_mgr    *rsc_mgrs[NUM_RSCTYP];
  struct daio       *daios[NUM_DAIOTYP];
 #if NUM_ATC_SRCS
  struct src        *srcs[NUM_ATC_SRCS];
@@ -430,13 +449,8 @@ struct emu20kx_card_s
  struct ct_mixer   *mixer;
  struct src        *apcm_src;
  struct amixer     *apcm_amixer[2];
-
  unsigned int rsr; /* reference sampling rate (44100 or 48000) - argument for card_init() */
  unsigned int msr; /* multiply of rsr (1,2,4) - argument for card_init() */
- //unsigned int wc;
- //unsigned int lastwc;
- //unsigned int lastpos;
-
 };
 
 /*-----------------------------------------------------------*/
@@ -489,8 +503,8 @@ static int get_resource(unsigned char *rscs, unsigned int amount, unsigned int m
 	return 0;
 }
 
-int mgr_get_resource(struct rsc_mgr *mgr, unsigned int n, unsigned int *ridx)
-/////////////////////////////////////////////////////////////////////////////
+static int mgr_get_resource(struct rsc_mgr *mgr, unsigned int n, unsigned int *ridx)
+////////////////////////////////////////////////////////////////////////////////////
 {
 	int err;
 
@@ -603,8 +617,8 @@ static int rsc_init(struct rsc *rsc, unsigned idx, enum RSCTYP type, unsigned ms
 	return 0;
 }
 
-int rsc_mgr_init(struct rsc_mgr *mgr, enum RSCTYP type, unsigned int amount, struct hw *hw)
-///////////////////////////////////////////////////////////////////////////////////////////
+static int rsc_mgr_init(struct rsc_mgr *mgr, enum RSCTYP type, unsigned int amount, struct hw *hw)
+//////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	int err = 0;
 
@@ -728,7 +742,8 @@ static inline int list_is_head(const struct list_head *list, const struct list_h
 /*-----------------------------------------------------------*/
 /* ctimap.c */
 
-int input_mapper_add(struct list_head *mappers, struct imapper *entry, int (*map_op)(void *, struct imapper *), void *data)
+static int input_mapper_add(struct list_head *mappers, struct imapper *entry, int (*map_op)(void *, struct imapper *), void *data)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct list_head *pos, *pre, *head;
 	struct imapper *pre_ent, *pos_ent;
@@ -774,7 +789,8 @@ int input_mapper_add(struct list_head *mappers, struct imapper *entry, int (*map
 	return 0;
 }
 
-int input_mapper_delete(struct list_head *mappers, struct imapper *entry, int (*map_op)(void *, struct imapper *), void *data)
+static int input_mapper_delete(struct list_head *mappers, struct imapper *entry, int (*map_op)(void *, struct imapper *), void *data)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct list_head *next, *pre, *head;
 	struct imapper *pre_ent, *next_ent;
@@ -995,6 +1011,7 @@ static int daio_mgr_get_rsc(struct rsc_mgr *mgr, enum DAIOTYP type)
 }
 
 static int daio_rsc_init(struct daio *daio, const struct daio_desc *desc, struct hw *hw)
+////////////////////////////////////////////////////////////////////////////////////////
 {
 	int err;
 	unsigned int idx_l, idx_r;
@@ -1050,6 +1067,7 @@ error1:
 }
 
 static int dao_rsc_init(struct dao *dao, const struct daio_desc *desc, struct daio_mgr *mgr)
+////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct hw *hw = mgr->mgr.hw;
 	unsigned int conf;
@@ -1098,6 +1116,7 @@ error1:
 }
 
 static int get_daio_rsc(struct daio_mgr *mgr, const struct daio_desc *desc, struct daio **rdaio)
+////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	int err;
 
@@ -1196,7 +1215,8 @@ static int daio_mgr_commit_write(struct daio_mgr *mgr)
 	return 0;
 }
 
-int daio_mgr_create(struct hw *hw, void **rdaio_mgr)
+static int daio_mgr_create(struct hw *hw, void **rdaio_mgr)
+///////////////////////////////////////////////////////////
 {
 	int err, i;
 	struct daio_mgr *daio_mgr;
@@ -1256,7 +1276,8 @@ error1:
 
 /* ctsrc.c */
 
-#define SRC_RESOURCE_NUM	256
+#define SRC_RESOURCE_NUM 256
+#define SRCIMP_RESOURCE_NUM 256
 
 static int src_default_config_memrd(struct src *src);
 static int src_default_config_memwr(struct src *src);
@@ -1653,8 +1674,8 @@ static int srcmgr_commit_write(struct src_mgr *mgr)
 	return 0;
 }
 
-int src_mgr_create(struct hw *hw, void **rsrc_mgr)
-//////////////////////////////////////////////////
+static int src_mgr_create(struct hw *hw, void **rsrc_mgr)
+/////////////////////////////////////////////////////////
 {
 	int err, i;
 	struct src_mgr *src_mgr;
@@ -1697,6 +1718,235 @@ error:
 	return err;
 }
 
+#if ADC_SUPP
+
+/* SRCIMP resource manager operations */
+
+static void srcimp_master(struct rsc *rsc)
+{
+	rsc->conj = 0;
+	//rsc->idx = container_of(rsc, struct srcimp, rsc)->idx[0];
+	rsc->idx = ((struct srcimp *)rsc)->idx[0];
+}
+
+static void srcimp_next_conj(struct rsc *rsc)
+{
+	rsc->conj++;
+}
+
+static int srcimp_index(const struct rsc *rsc)
+{
+	//return container_of(rsc, struct srcimp, rsc)->idx[rsc->conj];
+	return ((struct srcimp *)rsc)->idx[rsc->conj];
+}
+
+static const struct rsc_ops srcimp_basic_rsc_ops = {
+	.master = srcimp_master,
+	.next_conj = srcimp_next_conj,
+	.index = srcimp_index,
+	.output_slot = NULL,
+};
+
+static int srcimp_map(struct srcimp *srcimp, struct src *src, struct rsc *input)
+{
+	struct imapper *entry;
+	int i;
+
+	srcimp->rsc.ops->master(&srcimp->rsc);
+	src->rsc.ops->master(&src->rsc);
+	input->ops->master(input);
+
+	/* Program master and conjugate resources */
+	for (i = 0; i < srcimp->rsc.msr; i++) {
+		entry = &srcimp->imappers[i];
+		entry->slot = input->ops->output_slot(input);
+		entry->user = src->rsc.ops->index(&src->rsc);
+		entry->addr = srcimp->rsc.ops->index(&srcimp->rsc);
+		srcimp->mgr->imap_add(srcimp->mgr, entry);
+		srcimp->mapped |= (0x1 << i);
+
+		srcimp->rsc.ops->next_conj(&srcimp->rsc);
+		input->ops->next_conj(input);
+	}
+
+	srcimp->rsc.ops->master(&srcimp->rsc);
+	input->ops->master(input);
+
+	return 0;
+}
+
+static int srcimp_unmap(struct srcimp *srcimp)
+{
+	int i;
+
+	/* Program master and conjugate resources */
+	for (i = 0; i < srcimp->rsc.msr; i++) {
+		if (srcimp->mapped & (0x1 << i)) {
+			srcimp->mgr->imap_delete(srcimp->mgr, &srcimp->imappers[i]);
+			srcimp->mapped &= ~(0x1 << i);
+		}
+	}
+
+	return 0;
+}
+
+static const struct srcimp_rsc_ops srcimp_ops = {
+	.map = srcimp_map,
+	.unmap = srcimp_unmap
+};
+
+static int srcimp_rsc_init(struct srcimp *srcimp, const struct srcimp_desc *desc, struct srcimp_mgr *mgr)
+{
+	int err;
+
+	err = rsc_init(&srcimp->rsc, srcimp->idx[0], SRCIMP, desc->msr, mgr->mgr.hw);
+	if (err)
+		return err;
+
+	/* Set srcimp specific operations */
+	srcimp->rsc.ops = &srcimp_basic_rsc_ops;
+	srcimp->ops = &srcimp_ops;
+	srcimp->mgr = mgr;
+
+	srcimp->rsc.ops->master(&srcimp->rsc);
+
+	return 0;
+}
+
+static int get_srcimp_rsc(struct srcimp_mgr *mgr, const struct srcimp_desc *desc, struct srcimp **rsrcimp)
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	int err, i;
+	unsigned int idx;
+	struct srcimp *srcimp;
+
+	*rsrcimp = NULL;
+
+	/* Allocate mem for SRCIMP resource */
+	//srcimp = kzalloc_flex(*srcimp, imappers, desc->msr);
+	srcimp = calloc(1, sizeof(struct srcimp) * desc->msr);
+	if (!srcimp)
+		return -ENOMEM;
+
+	/* Check whether there are sufficient SRCIMP resources. */
+	err = 0;
+	//scoped_guard(spinlock_irqsave, &mgr->mgr_lock) {
+	for (i = 0; i < desc->msr; i++) {
+		err = mgr_get_resource(&mgr->mgr, 1, &idx);
+		if (err)
+			break;
+
+		srcimp->idx[i] = idx;
+	}
+	//}
+	if (err) {
+		dbgprintf(("get_srcimp_rsc: can't meet SRCIMP resource request!\n"));
+		goto error1;
+	}
+
+	if (err = srcimp_rsc_init(srcimp, desc, mgr))
+		goto error1;
+
+	*rsrcimp = srcimp;
+
+	dbgprintf(("get_srcimp_rsc(mgr=%X, desc.msr=%u, dst=%X)=%X - SRCIMP(%u)\n", mgr, desc->msr, rsrcimp, srcimp, idx));
+	return 0;
+
+error1:
+	dbgprintf(("get_srcimp_rsc(mgr=%X, desc.msr=%u, dst=%X): ERROR %d\n", mgr, desc->msr, rsrcimp, err));
+	//scoped_guard(spinlock_irqsave, &mgr->mgr_lock) {
+	//for (i--; i >= 0; i--)
+	//	mgr_put_resource(&mgr->mgr, 1, srcimp->idx[i]);
+	//}
+	//kfree(srcimp);
+	return err;
+}
+
+static int srcimp_map_op(void *data, struct imapper *entry)
+{
+	struct rsc_mgr *mgr = &((struct srcimp_mgr *)data)->mgr;
+	struct hw *hw = mgr->hw;
+
+	hw->srcimp_mgr_set_imaparc(mgr->ctrl_blk, entry->slot);
+	hw->srcimp_mgr_set_imapuser(mgr->ctrl_blk, entry->user);
+	hw->srcimp_mgr_set_imapnxt(mgr->ctrl_blk, entry->next);
+	hw->srcimp_mgr_set_imapaddr(mgr->ctrl_blk, entry->addr);
+	hw->srcimp_mgr_commit_write(mgr->hw, mgr->ctrl_blk);
+
+	return 0;
+}
+
+static int srcimp_imap_add(struct srcimp_mgr *mgr, struct imapper *entry)
+{
+	//guard(spinlock_irqsave)(&mgr->imap_lock);
+	if ((0 == entry->addr) && (mgr->init_imap_added)) {
+		input_mapper_delete(&mgr->imappers, mgr->init_imap, srcimp_map_op, mgr);
+		mgr->init_imap_added = 0;
+	}
+	return input_mapper_add(&mgr->imappers, entry, srcimp_map_op, mgr);
+}
+
+static int srcimp_imap_delete(struct srcimp_mgr *mgr, struct imapper *entry)
+{
+	int err;
+
+	//guard(spinlock_irqsave)(&mgr->imap_lock);
+	err = input_mapper_delete(&mgr->imappers, entry, srcimp_map_op, mgr);
+	if (list_empty(&mgr->imappers)) {
+		input_mapper_add(&mgr->imappers, mgr->init_imap, srcimp_map_op, mgr);
+		mgr->init_imap_added = 1;
+	}
+
+	return err;
+}
+
+int srcimp_mgr_create(struct hw *hw, void **rsrcimp_mgr)
+{
+	int err;
+	struct srcimp_mgr *srcimp_mgr;
+	struct imapper *entry;
+
+	*rsrcimp_mgr = NULL;
+	srcimp_mgr = calloc(1, sizeof(struct srcimp_mgr));
+	if (!srcimp_mgr)
+		return -ENOMEM;
+
+	err = rsc_mgr_init(&srcimp_mgr->mgr, SRCIMP, SRCIMP_RESOURCE_NUM, hw);
+	if (err)
+		goto error1;
+
+	//spin_lock_init(&srcimp_mgr->mgr_lock);
+	//spin_lock_init(&srcimp_mgr->imap_lock);
+	INIT_LIST_HEAD(&srcimp_mgr->imappers);
+	entry = calloc(1, sizeof( struct imapper));
+	if (!entry) {
+		err = -ENOMEM;
+		goto error2;
+	}
+	entry->slot = entry->addr = entry->next = entry->user = 0;
+	list_add(&entry->list, &srcimp_mgr->imappers);
+	srcimp_mgr->init_imap = entry;
+	srcimp_mgr->init_imap_added = 1;
+
+	srcimp_mgr->get_srcimp = get_srcimp_rsc;
+	//srcimp_mgr->put_srcimp = put_srcimp_rsc;
+	srcimp_mgr->imap_add = srcimp_imap_add;
+	srcimp_mgr->imap_delete = srcimp_imap_delete;
+	srcimp_mgr->card = hw->card;
+
+	*rsrcimp_mgr = srcimp_mgr;
+	dbgprintf(("srcimp_mgr_create(hw=%X, dst=%X)=%X\n", hw, rsrcimp_mgr, srcimp_mgr));
+
+	return 0;
+
+error2:
+	//rsc_mgr_uninit(&srcimp_mgr->mgr);
+error1:
+	//kfree(srcimp_mgr);
+	dbgprintf(("srcimp_mgr_create(hw=%X, dst=%X): ERROR %d\n", hw, rsrcimp_mgr, err));
+	return err;
+}
+#endif
 
 /*-----------------------------------------------------------*/
 
@@ -1784,6 +2034,7 @@ static int amixer_set_sum(struct amixer *amixer, struct sum *sum)
 }
 
 static int amixer_commit_write(struct amixer *amixer)
+/////////////////////////////////////////////////////
 {
 	struct hw *hw = amixer->rsc.hw;
 	unsigned int index;
@@ -1918,8 +2169,8 @@ error:
 	return err;
 }
 
-int amixer_mgr_create(struct hw *hw, void **ramixer_mgr)
-////////////////////////////////////////////////////////
+static int amixer_mgr_create(struct hw *hw, void **ramixer_mgr)
+///////////////////////////////////////////////////////////////
 {
 	int err;
 	struct amixer_mgr *amixer_mgr;
@@ -2037,8 +2288,8 @@ error:
 	return err;
 }
 
-int sum_mgr_create(struct hw *hw, void **rsum_mgr)
-//////////////////////////////////////////////////
+static int sum_mgr_create(struct hw *hw, void **rsum_mgr)
+/////////////////////////////////////////////////////////
 {
 	int err;
 	struct sum_mgr *sum_mgr;
@@ -2074,10 +2325,8 @@ error:
 
 /* cthardware.c */
 
-struct hw *create_20k1_hw_obj( void );
-
-//struct hw *create_hw_obj( struct pci_config_s *pci, enum CHIPTYP chip_type, enum CTCARDS model )
-struct hw *create_hw_obj( enum CHIPTYP chip_type, enum CTCARDS model )
+static struct hw *create_hw_obj( enum CHIPTYP chip_type, enum CTCARDS model )
+/////////////////////////////////////////////////////////////////////////////
 {
 	struct hw *hw;
 
@@ -2167,15 +2416,19 @@ static int select_rom(unsigned int pitch)
 
 /* ctmixer.c */
 
+#define VOL_SCALE 0x1c
+#define VOL_MAX 0x100
+
 #define CHN_NUM 2
 
+/* SUM_IN_x, AMIXER_MASTER_x, AMIXER_PCM_x and AMIXER_WAVE_x must match! */
+
 enum CT_SUM_CTL {
-	SUM_IN_F,
+    SUM_IN_F,
 //	SUM_IN_R,
 //	SUM_IN_C,
 //	SUM_IN_S,
 //	SUM_IN_F_C,
-
 	NUM_CT_SUMS
 };
 
@@ -2270,6 +2523,7 @@ static unsigned int float14_to_uint16(unsigned int x)
 #endif
 
 static int ct_mixer_topology_build(struct ct_mixer *mixer)
+//////////////////////////////////////////////////////////
 {
 	struct sum *sum;
 	struct amixer *amix_d, *amix_s;
@@ -2290,7 +2544,7 @@ static int ct_mixer_topology_build(struct ct_mixer *mixer)
 		amix_d->ops->setup(amix_d, &sum->rsc, INIT_VOL, NULL);
 	}
 
-	/* Set up Wave-out mixer */
+	/* Set up Wave-out mixer; amix_d=dest, amix_s=source */
 	for (i = AMIXER_WAVE_F, j = AMIXER_MASTER_F; i <= AMIXER_WAVE_END; i++, j++) {
 		amix_d = mixer->amixers[i*CHN_NUM];
 		amix_s = mixer->amixers[j*CHN_NUM];
@@ -2461,6 +2715,7 @@ static int mixer_set_input_right(struct ct_mixer *mixer, enum MIXER_PORT_T type,
 }
 
 static int ct_mixer_get_resources(struct ct_mixer *mixer)
+/////////////////////////////////////////////////////////
 {
 	struct sum_mgr *sum_mgr;
 	struct sum *sum;
@@ -2472,8 +2727,7 @@ static int ct_mixer_get_resources(struct ct_mixer *mixer)
 	int i;
 
 	/* Allocate sum resources for mixer obj */
-	//sum_mgr = (struct sum_mgr *)mixer->atc->rsc_mgrs[SUM];
-	sum_mgr = mixer->card->sum_mgr;
+	sum_mgr = (struct sum_mgr *)mixer->card->rsc_mgrs[SUM];
 	sum_desc.msr = mixer->card->msr;
 	for (i = 0; i < (NUM_CT_SUMS * CHN_NUM); i++) {
 		err = sum_mgr->get_sum(sum_mgr, &sum_desc, &sum);
@@ -2487,8 +2741,7 @@ static int ct_mixer_get_resources(struct ct_mixer *mixer)
 		goto error1;
 
 	/* Allocate amixer resources for mixer obj */
-	//amixer_mgr = (struct amixer_mgr *)mixer->atc->rsc_mgrs[AMIXER];
-	amixer_mgr = mixer->card->amixer_mgr;
+	amixer_mgr = (struct amixer_mgr *)mixer->card->rsc_mgrs[AMIXER];
 	am_desc.msr = mixer->card->msr;
 	for (i = 0; i < (NUM_CT_AMIXERS * CHN_NUM); i++) {
 		err = amixer_mgr->get_amixer(amixer_mgr, &am_desc, &amixer);
@@ -2528,10 +2781,15 @@ static int ct_mixer_get_mem(struct ct_mixer **rmixer)
 	size_t alloc_size;
 
 	*rmixer = NULL;
-	/* Allocate mem for mixer obj */
+    /* Allocate mem for mixer obj:
+     * 1. sizeof(struct ct_mixer)
+     * 2. sizeof(struct amixer *[NUM_CT_AMIXERS*2])
+     * 3. sizeof(struct sum *[NUM_CT_SUMS*2])
+     */
 	//alloc_size = struct_size(mixer, amixers, NUM_CT_AMIXERS * CHN_NUM);
-	alloc_size = sizeof( struct amixer ) * NUM_CT_AMIXERS * CHN_NUM;
-	alloc_size += sizeof(*mixer->sums) * NUM_CT_SUMS * CHN_NUM;
+	alloc_size = sizeof( struct ct_mixer) +
+		sizeof(struct amixer *) * NUM_CT_AMIXERS * CHN_NUM +
+		sizeof(struct sum *)    * NUM_CT_SUMS    * CHN_NUM;
 	mixer = calloc(1, alloc_size);
 	if (!mixer)
 		return -ENOMEM;
@@ -2542,7 +2800,8 @@ static int ct_mixer_get_mem(struct ct_mixer **rmixer)
 	return 0;
 }
 
-int ct_mixer_create(struct emu20kx_card_s *card, struct ct_mixer **rmixer)
+static int ct_mixer_create(struct emu20kx_card_s *card, struct ct_mixer **rmixer)
+/////////////////////////////////////////////////////////////////////////////////
 {
 	struct ct_mixer *mixer;
 	int err;
@@ -2550,8 +2809,7 @@ int ct_mixer_create(struct emu20kx_card_s *card, struct ct_mixer **rmixer)
 	dbgprintf(("ct_mixer_create() enter\n"));
 	*rmixer = NULL;
 	/* Allocate mem for mixer obj */
-	err = ct_mixer_get_mem(&mixer);
-	if (err)
+	if (err = ct_mixer_get_mem(&mixer))
 		return err;
 
 	mixer->switch_state = 0;
@@ -2742,6 +3000,8 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct audi
 	struct src_desc desc = {0};
 	struct amixer_desc mix_dsc;
 	struct src *src;
+	struct src_mgr *srcmgr = (struct src_mgr *)card->rsc_mgrs[SRC];
+	struct amixer_mgr *amixermgr = (struct amixer_mgr *)card->rsc_mgrs[AMIXER];
 	int n_amixer, i;
 	int sformat;
 	int device = 0; //apcm->substream->pcm->device;
@@ -2752,7 +3012,7 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct audi
 	desc.multi = 2;
 	desc.msr = card->msr;
 	desc.mode = MEMRD;
-	err = card->src_mgr->get_src(card->src_mgr, &desc, (struct src **)&src);
+	err = srcmgr->get_src(srcmgr, &desc, &src);
 	if (err) {
 		dbgprintf(("emu20kx_prepare_playback: error, no src\n" ));
 		return;
@@ -2779,7 +3039,7 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct audi
 	n_amixer = 2;
 	mix_dsc.msr = card->msr;
 	for (i = 0; i < n_amixer; i++) {
-		if ( err = card->amixer_mgr->get_amixer(card->amixer_mgr, &mix_dsc, (struct amixer **)&card->apcm_amixer[i]) ) {
+		if ( err = amixermgr->get_amixer(amixermgr, &mix_dsc, &card->apcm_amixer[i]) ) {
 			dbgprintf(("emu20kx_prepare_playback: error - no more AMIXERs\n" ));
 			return;
 		}
@@ -2796,6 +3056,7 @@ static void snd_emu20kx_prepare_playback(struct emu20kx_card_s *card,struct audi
 }
 
 static int atc_get_resources(struct emu20kx_card_s *card)
+/////////////////////////////////////////////////////////
 {
 	struct daio_desc da_desc = {0};
 	struct src_desc src_dsc = {0};
@@ -2808,13 +3069,13 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 	dbgprintf(("atc_get_resources: enter\n" ));
 
 	//daio_mgr = (struct daio_mgr *)atc->rsc_mgrs[DAIO];
-	daio_mgr = card->daio_mgr;
+	daio_mgr = (struct daio_mgr *)card->rsc_mgrs[DAIO];
 	da_desc.msr = card->msr;
 	for (i = 0; i < NUM_DAIOTYP; i++) {
 		//if (((i == SPDIFIO) && (atc->model == CTSB073X)) ||
 		//	((i == SPDIFI_BAY) && (atc->model != CTSB073X)) ||
 		//	((i == MIC) && !cap.dedicated_mic) ||
-		//	((i == RCA) && !cap.dedicated_rca))
+		//	((i == RCA) && !cap.dedicated]rca))
 		//	continue;
 		da_desc.type = i;
 		//da_desc.output = (i < LINEIM) || (i == RCA);
@@ -2827,7 +3088,7 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 	}
 
 #if NUM_ATC_SRCS
-	src_mgr = card->src_mgr;
+	src_mgr = (struct src_mgr *)card->rsc_mgrs[SRC];
 	src_dsc.multi = 1;
 	src_dsc.msr = card->msr;
 	src_dsc.mode = ARCRW;
@@ -2840,7 +3101,7 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 	}
 #endif
 
-	sum_mgr = card->sum_mgr;
+	sum_mgr = (struct sum_mgr *)card->rsc_mgrs[SUM];
 	sum_dsc.msr = card->msr;
 	for (i = 0; i < NUM_ATC_PCM; i++) {
 		err = sum_mgr->get_sum(sum_mgr, &sum_dsc, (struct sum **)&card->pcm[i]);
@@ -2855,6 +3116,7 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 }
 
 static void atc_connect_resources(struct emu20kx_card_s *card)
+//////////////////////////////////////////////////////////////
 {
 	//struct dai *dai;
 	struct dao *dao;
@@ -2926,78 +3188,6 @@ static void atc_connect_resources(struct emu20kx_card_s *card)
 	dbgprintf(("atc_connect_resources: exit\n"));
 }
 
-#if 0
-
-/*-----------------------------------------------------------*/
-
-/* ctpcm.c */
-
-/* Create ALSA pcm device;
- * this is for reference only.
- */
-
-int ct_alsa_pcm_create(struct emu20kx_card_s *atc, enum CTALSADEVS device, const char *device_name)
-{
-	struct snd_pcm *pcm;
-	const struct snd_pcm_chmap_elem *map;
-	int chs;
-	int err;
-	int playback_count, capture_count;
-
-	//playback_count = (IEC958 == device) ? 1 : 256;
-	playback_count = 256;
-	//capture_count = (FRONT == device) ? 1 : 0;
-	capture_count = 0;
-	err = snd_pcm_new(atc->card, "ctxfi", device, playback_count, capture_count, &pcm);
-	if (err < 0) {
-		dbgprintf(("ct_alsa_pcm_create: snd_pcm_new failed!! Err=%d\n", err));
-		return err;
-	}
-
-	pcm->private_data = atc;
-	pcm->info_flags = 0;
-	pcm->dev_subclass = SNDRV_PCM_SUBCLASS_GENERIC_MIX;
-	//strscpy(pcm->name, device_name, sizeof(pcm->name));
-	strcpy(pcm->name, device_name);
-
-	//snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &ct_pcm_playback_ops);
-
-	//if (FRONT == device)
-	//	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &ct_pcm_capture_ops);
-
-	//snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_DEV_SG, &atc->pci->dev, 128*1024, 128*1024);
-
-	chs = 2;
-	switch (device) {
-	case FRONT:
-		chs = 8;
-		map = snd_pcm_std_chmaps;
-		break;
-	case SURROUND:
-		map = surround_map;
-		break;
-	case CLFE:
-		map = clfe_map;
-		break;
-	case SIDE:
-		map = side_map;
-		break;
-	default:
-		map = snd_pcm_std_chmaps;
-		break;
-	}
-	err = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK, map, chs, 0, NULL);
-	if (err < 0)
-		return err;
-
-	return 0;
-}
-
-/*-----------------------------------------------------------*/
-
-#endif
-
-
 //-------------------------------------------------------------------------
 static const struct pci_device_s emu20kx_devices[]={
  {"EMU20K1",0x1102,0x0005, 0},
@@ -3007,10 +3197,25 @@ static const struct pci_device_s emu20kx_devices[]={
 
 static void EMU20KX_close(struct audioout_info_s *aui);
 
+static struct {
+	int (*create)(struct hw *hw, void **rmgr);
+} rsc_mgr_funcs[NUM_RSCTYP] = {
+	[SRC]    = { src_mgr_create },
+#if ADC_SUPP
+	[SRCIMP] = { srcimp_mgr_create },
+#else
+	[SRCIMP] = { NULL },
+#endif
+	[AMIXER] = { amixer_mgr_create },
+	[SUM]    = { sum_mgr_create },
+	[DAIO]   = { daio_mgr_create },
+};
+
 static int EMU20KX_adetect(struct audioout_info_s *aui)
 ///////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
+	int i;
 
 	if(pcibios_search_devices( emu20kx_devices, &card->pci_dev) != PCI_SUCCESSFUL) {
 		dbgprintf(("emu20kx_adetect: pcibios_search_devices failed\n"));
@@ -3043,21 +3248,14 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 
 	/* ctatc.c, ct_atc_create() - atc_create_hw_devs() - rsc_mgr_funcs[].create */
 
-	if (daio_mgr_create(card->hw, (void **)&card->daio_mgr)) {
-		dbgprintf(("emu20kx_adetect: daio_mgr_create() failed\n"));
-		goto err_adetect;
-	}
-	if (src_mgr_create(card->hw, (void **)&card->src_mgr)) {
-		dbgprintf(("emu20kx_adetect: src_mgr_create() failed\n"));
-		goto err_adetect;
-	}
-	if (amixer_mgr_create(card->hw, (void **)&card->amixer_mgr)) {
-		dbgprintf(("emu20kx_adetect: amixer_mgr_create() failed\n"));
-		goto err_adetect;
-	}
-	if (sum_mgr_create(card->hw, (void **)&card->sum_mgr)) {
-		dbgprintf(("emu20kx_adetect: sum_mgr_create() failed\n"));
-		goto err_adetect;
+	for (i = 0; i < NUM_RSCTYP; i++) {
+		int err;
+		if (rsc_mgr_funcs[i].create) {
+			if (err = rsc_mgr_funcs[i].create(card->hw, (void **)&card->rsc_mgrs[i])) {
+				dbgprintf(("emu20kx_adetect: create rsc_mgr[%u] failed\n", i));
+				goto err_adetect;
+			}
+		}
 	}
 
 	/* ctatc.c, ct_atc_create() */
@@ -3100,7 +3298,7 @@ static void EMU20KX_close(struct audioout_info_s *aui)
 }
 
 static void EMU20KX_setrate(struct audioout_info_s *aui)
-//////////////////////////////////////////////////-/////
+//////////////////-///////////////////////////////-/////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
 	dbgprintf(("emu20kx_setrate: freq_card=%u\n", aui->freq_card));
@@ -3180,30 +3378,50 @@ static unsigned int EMU20KX_getbufpos(struct audioout_info_s *aui)
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
 	unsigned int bufpos;
+	//unsigned int max_cisz;
 
 	/* reprogram timer */
 	card->hw->set_timer_tick(card->hw, (aui->gvars->period_size ? aui->gvars->period_size : 512 ) >> TIMER_SHIFT );
 
 	bufpos = src_get_ca(card->apcm_src);
 
-	//dbgprintf(("emu20kx_getbufpos: bufpos=%X max_cisz=%X pcmout_buffer=%X, wc=%X, diff=%X/%X\n",
-	//		   bufpos, card->max_cisz, card->pcmout_buffer, card->wc, card->wc - card->lastwc, ( card->wc - card->lastwc ) / CT_TIMER_FREQ ));
+	/* todo: explain max_cisz purpose */
+	//max_cisz = card->apcm_src->multi * card->apcm_src->rsc.msr * 0x80;
+	//bufpos = (bufpos + aui->card_dmasize - max_cisz) % aui->card_dmasize;
+	//dbgprintf(("emu20kx_getbufpos: bufpos=%X max_cisz=%X\n", bufpos, max_cisz ));
 
-	//bufpos = (bufpos + aui->card_dmasize - card->max_cisz - (unsigned long)card->pcmout_buffer) % aui->card_dmasize;
-	//bufpos -= (unsigned int)card->pcmout_buffer;
-
-	//dbgprintf(("emu20kx_getbufpos:%X dmasize:%5d\n",bufpos,aui->card_dmasize));
+	//dbgprintf(("emu20kx_getbufpos: pos=0x%X dmasize=%d\n", bufpos, aui->card_dmasize));
 
 	return bufpos;
 }
 
 /*-----------------------------------------------------------*/
 
-static void EMU20KX_writeMIXER(struct audioout_info_s *aui,unsigned long reg, unsigned long val)
-////////////////////////////////////////////////////////////////////////////////////////////////
+/* AU_CARDS.C volume range is 0-100 ( decimal )
+ * SB X-Fi amixer volume range is 0-1C00h (INIT_VOL), decimal 7168
+ * translation: volXFI = volAU * 7168 / 100
+ */
+
+static void EMU20KX_writeMIXER(struct audioout_info_s *aui, unsigned long reg, unsigned long val)
+/////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	//struct emu20kx_card_s *card = aui->card_private_data;
-	dbgprintf(("emu20kx_writeMIXER\n"));
+	struct emu20kx_card_s *card = aui->card_private_data;
+	unsigned int lval = (val & 15) << 4;
+	int i;
+	struct amixer *master;
+	//struct amixer *pcm;
+
+	dbgprintf(("emu20kx_writeMIXER(%X, reg=%X, value=%u)\n", aui, reg, val));
+
+	/* set left & right channel */
+	for (i = 0; i < 2; i++ ) {
+		master = card->mixer->amixers[AMIXER_MASTER_F * CHN_NUM + i];
+		master->ops->set_scale(master, val * INIT_VOL / 100); // set Master
+		master->ops->commit_write(master);
+		//pcm = card->mixer->amixers[AMIXER_WAVE_F * CHN_NUM + i];
+		//pcm->ops->set_scale(pcm, val * INIT_VOL / 100); // set PCM
+		//pcm->ops->commit_write(pcm);
+	}
 }
 
 static unsigned long EMU20KX_readMIXER(struct audioout_info_s *aui, unsigned long reg)
@@ -3227,6 +3445,18 @@ static int EMU20KX_IRQRoutine( struct audioout_info_s *aui )
 	return status;
 }
 
+static struct aucards_mixerchan_s sbxfi_master_vol = {
+	AU_MIXCHAN_MASTER, AU_MIXCHANFUNC_VOLUME, 2, {
+		{0, 0, 0, SUBMIXCH_INFOBIT_CARD_SETVOL},
+		{0, 0, 0, SUBMIXCH_INFOBIT_CARD_SETVOL},
+	}
+};
+
+static const struct aucards_mixerchan_s *sbxfi_mixerset[] = {
+	&sbxfi_master_vol,
+	NULL
+};
+
 struct sndcard_info_s EMU20KX_sndcard_info = {
  "CTXFI",
  0,
@@ -3241,7 +3471,7 @@ struct sndcard_info_s EMU20KX_sndcard_info = {
  &EMU20KX_IRQRoutine,
  &EMU20KX_writeMIXER,
  &EMU20KX_readMIXER,
- NULL,
+ sbxfi_mixerset,
  sizeof(struct emu20kx_card_s)
 };
 

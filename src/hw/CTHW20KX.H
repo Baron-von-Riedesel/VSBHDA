@@ -1,4 +1,6 @@
 
+#define ADC_SUPP 0 /* ADC support activates SRCIMP resource type */
+
 /* cthardware.h */
 
 enum CHIPTYP {
@@ -28,6 +30,17 @@ enum CTCARDS {
 	NUM_CTCARDS		/* This should always be the last */
 };
 
+#if ADC_SUPP
+/* Type of input source for ADC */
+enum ADCSRC{
+	ADC_MICIN,
+	ADC_LINEIN,
+	ADC_VIDEO,
+	ADC_AUX,
+	ADC_NONE	/* Switch to digital input */
+};
+#endif
+
 struct card_conf {
     unsigned int iobase;
 	/* device virtual mem page table page physical addr
@@ -45,9 +58,11 @@ struct hw {
 	int (*suspend)(struct hw *hw);
 	int (*resume)(struct hw *hw, struct card_conf *info);
 #endif
-#if 0
+#if ADC_SUPP
 	int (*is_adc_source_selected)(struct hw *hw, enum ADCSRC source);
 	int (*select_adc_source)(struct hw *hw, enum ADCSRC source);
+#endif
+#if 0
 	struct capabilities (*capabilities)(struct hw *hw);
 	int (*output_switch_get)(struct hw *hw);
 	int (*output_switch_put)(struct hw *hw, int position);
@@ -94,12 +109,13 @@ struct hw {
 	/* SRC Input Mapper operations */
 	int (*srcimp_mgr_get_ctrl_blk)(void **rblk);
 	//int (*srcimp_mgr_put_ctrl_blk)(void *blk);
-	//int (*srcimp_mgr_set_imaparc)(void *blk, unsigned int slot);
-	//int (*srcimp_mgr_set_imapuser)(void *blk, unsigned int user);
-	//int (*srcimp_mgr_set_imapnxt)(void *blk, unsigned int next);
-	//int (*srcimp_mgr_set_imapaddr)(void *blk, unsigned int addr);
-	//int (*srcimp_mgr_commit_write)(struct hw *hw, void *blk);
-
+#if ADC_SUPP
+	int (*srcimp_mgr_set_imaparc)(void *blk, unsigned int slot);
+	int (*srcimp_mgr_set_imapuser)(void *blk, unsigned int user);
+	int (*srcimp_mgr_set_imapnxt)(void *blk, unsigned int next);
+	int (*srcimp_mgr_set_imapaddr)(void *blk, unsigned int addr);
+	int (*srcimp_mgr_commit_write)(struct hw *hw, void *blk);
+#endif
 	/* AMIXER operations */
 	int (*amixer_rsc_get_ctrl_blk)(void **rblk);
 	//int (*amixer_rsc_put_ctrl_blk)(void *blk);

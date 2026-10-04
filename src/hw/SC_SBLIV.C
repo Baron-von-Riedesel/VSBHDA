@@ -1528,7 +1528,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 	if (card->driver_funcs->hw_init)
 		card->driver_funcs->hw_init( card, aui );
 
-	dbgprintf(("card ok, name=%s, index=%u, base=%X, irq=%X\n", emucv->longname, i, card->iobase, aui->card_irq ));
+	dbgprintf(("card ok, name=%s, index=%u, base=%X, irq=%u\n", emucv->longname, i, card->iobase, aui->card_irq ));
 
 	SBALL_select_mixer(card);
 
