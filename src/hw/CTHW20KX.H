@@ -1,5 +1,6 @@
 
 #define ADC_SUPP 0 /* ADC support activates SRCIMP resource type */
+#define CT20K2 0
 
 /* cthardware.h */
 
@@ -17,7 +18,7 @@ enum CTCARDS {
 	CTSB073X,
 	CTUAA, /* probably won't work since hw_card_start() isn't defined ( uaa_to_xfi() never called ) */
 	CT20K1_UNKNOWN,
-#if 0
+#if CT20K2
 	/* 20k2 models */
 	CTSB0760,
 	CT20K2_MODEL_FIRST = CTSB0760,
@@ -99,7 +100,7 @@ struct hw {
 	int (*src_mgr_get_ctrl_blk)(void **rblk);
 	//int (*src_mgr_put_ctrl_blk)(void *blk);
 	/* syncly enable src @idx */
-	//int (*src_mgr_enbs_src)(void *blk, unsigned int idx);
+	int (*src_mgr_enbs_src)(void *blk, unsigned int idx);
 	/* enable src @idx */
 	int (*src_mgr_enb_src)(void *blk, unsigned int idx);
 	/* disable src @idx */
@@ -133,9 +134,9 @@ struct hw {
 	int (*amixer_get_y)(void *blk);
 	unsigned int (*amixer_get_dirty)(void *blk);
 	/* DAIO operations */
-#if 0
+#if ADC_SUPP
 	int (*dai_get_ctrl_blk)(void **rblk);
-	int (*dai_put_ctrl_blk)(void *blk);
+	//int (*dai_put_ctrl_blk)(void *blk);
 	int (*dai_srt_set_srco)(void *blk, unsigned int src);
 	int (*dai_srt_set_srcm)(void *blk, unsigned int src);
 	int (*dai_srt_set_rsr)(void *blk, unsigned int rsr);
@@ -152,8 +153,10 @@ struct hw {
 
 	int (*daio_mgr_get_ctrl_blk)(struct hw *hw, void **rblk);
 	//int (*daio_mgr_put_ctrl_blk)(void *blk);
-	//int (*daio_mgr_enb_dai)(void *blk, unsigned int idx);
+#if ADC_SUPP
+	int (*daio_mgr_enb_dai)(void *blk, unsigned int idx);
 	//int (*daio_mgr_dsb_dai)(void *blk, unsigned int idx);
+#endif
 	int (*daio_mgr_enb_dao)(void *blk, unsigned int idx);
 	int (*daio_mgr_dsb_dao)(void *blk, unsigned int idx);
 	int (*daio_mgr_dao_init)(struct hw *hw, void *blk, unsigned int idx, unsigned int conf);
