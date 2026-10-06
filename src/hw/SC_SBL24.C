@@ -244,15 +244,15 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 
 	switch(aui->freq_card){
 	case 44100:
-		reg40_set = 0x10000 << (channel << 1);
+		reg40_set = 1;
 		reg71_set = 0x01010000;
 		break;
 	case 96000:
-		reg40_set = 0x20000 << (channel << 1);
+		reg40_set = 2;
 		reg71_set = 0x02020000;
 		break;
 	case 192000:
-		reg40_set = 0x30000 << (channel << 1);
+		reg40_set = 3;
 		reg71_set = 0x03030000;
 		break;
 	default: // 48000
@@ -261,15 +261,17 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 		break;
 	}
 
-	i = snd_ca0106_ptr_read(card, 0x40, 0); // control host to fifo
-	i = (i & (~(0x30000 << (channel << 1)))) | reg40_set;
-	snd_ca0106_ptr_write(card, 0x40, 0, i);
+	/* reg40: bits 16-23: frequency, 2 bits per channel 0=48k, 1=44.1k, 2=96k, 3=192k */
+	i = snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0); // control host to fifo
+	i &= ~(3 << (16 + channel * 2));
+	i |= reg40_set << ( 16 + channel * 2);
+	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, i);
 
-	i = snd_ca0106_ptr_read(card, 0x71, 0); // control DAC rate (SPDIF)
+	i = snd_ca0106_ptr_read(card, CAPTURE_CONTROL, 0); // control DAC rate (SPDIF)
 	i = (i & (~0x03030000)) | reg71_set;
-	snd_ca0106_ptr_write(card, 0x71, 0, i);
+    snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 0, i);
 
-	i=inpd(card->iobase + HCFG);             // control bit width
+	i = inpd(card->iobase + HCFG); // control bit width
 	if(aui->bits_card == 32)
 		i |= HCFG_PLAYBACK_S32_LE;
 	else
@@ -291,11 +293,9 @@ static void snd_ca0106_pcm_prepare_playback( struct emu10k1_card *card, struct a
 	snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, 0);
 	//snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, period_size_bytes<<16);
 	snd_ca0106_ptr_write(card, PLAYBACK_POINTER, channel, 0);
-	snd_ca0106_ptr_write(card, 0x07, channel, 0x0);
-	snd_ca0106_ptr_write(card, 0x08, channel, 0);
+	snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_END_ADDR, channel, 0);
+	snd_ca0106_ptr_write(card, PLAYBACK_FIFO_OFFSET_ADDRESS, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0x0, 0x0); // unmute output
-	/* v1.7: added */
-	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, channel, snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, channel ) | 0x00000010); /* full period interrupt */
 
 	dbgprintf(("snd_ca0106_pcm_prepare playback: exit\n"));
 	return;
@@ -313,25 +313,20 @@ static void snd_live24_setrate( struct emu10k1_card *card, struct audioout_info_
 	else
 		aui->bits_card = 16;
 
-	if(aui->freq_card == 44100)     // forced 44.1k dac output
-		;//aui->freq_card = 44100;
-	else
-		if( aui->freq_card != 48000 ){
-			if(aui->freq_card <= 22050)
-				aui->freq_card = 48000;
-			else
-				if((aui->freq_card <= 96000) || (card->serial == 0x10121102)) // (44.1->96) because 44.1k dac out sounds bad (?)
-					aui->freq_card = 96000;
-				else
-					aui->freq_card = 192000;
-		}
+	//if(aui->freq_card == 44100)     // forced 44.1k dac output
+	if(0 == aui->freq_card % 11025)   // 11025, 22050 and 44100 -> 44100
+		aui->freq_card = 44100;
+	else {
+		int multiple = max(1,aui->freq_card / 48000);
+		aui->freq_card = 48000 * multiple;
+	}
 
 	/* v1.7: use /PS value if set */
 	//dmabufsize = MDma_initbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
 	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	//card->period_size = (dmabufsize / CA0106_DMABUF_PERIODS);
 	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / CA0106_DMABUF_PERIODS);
-	dbgprintf(("buffer config: bufsize:%d period_size:%d\n",dmabufsize,card->period_size));
+	dbgprintf(("snd_live_setrate: dmabufsize:%d period_size:%d\n",dmabufsize,card->period_size));
 
 	snd_ca0106_pcm_prepare_playback(card,aui);
 	return;
@@ -341,7 +336,8 @@ static void snd_live24_pcm_start_playback( struct emu10k1_card *card)
 /////////////////////////////////////////////////////////////////////
 {
 	const uint32_t channel = 0;
-	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) | (0x1 << channel));
+	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0 ) | 0x00000010); /* full period interrupt */
+	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) | (1 << channel));
 	dbgprintf(("snd_live24_pcm_start_playback\n"));
 	return;
 }
@@ -350,7 +346,8 @@ static void snd_live24_pcm_stop_playback( struct emu10k1_card *card)
 ////////////////////////////////////////////////////////////////////
 {
 	const uint32_t channel = 0;
-	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) & (~(0x1 << channel)));
+	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0) & ~(1 << channel));
+	snd_ca0106_ptr_write(card, EXTENDED_INT_MASK, 0, snd_ca0106_ptr_read(card, EXTENDED_INT_MASK, 0 ) & ~0x00000010);
 	dbgprintf(("snd_live24_pcm_stop_playback\n"));
 	return;
 }
@@ -373,6 +370,7 @@ static unsigned int snd_live24_pcm_pointer_playback( struct emu10k1_card *card, 
 
 	dbgprintf(("snd_live24_pcm_pointer_playback: list_ptr:%3d period_ptr:%4d bufpos:%d",ptr4,ptr1,ptr));
 
+	/* todo: AU_cardbuf_space() expects position in byte units! */
 	ptr /= aui->chan_card;
 	ptr /= aui->bits_card >> 3;
 
@@ -409,7 +407,7 @@ static int snd_live24_isr( struct emu10k1_card *card)
 	if (!status)
 		return 0;
 
-	/* v1.7: todo: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK.
+	/* v1.7: check if to use EXTENDED_INT instead of EXTENDED_INT_MASK.
 	 * v2.1: EXTENDED_INT is used.
 	 */
 	stat76 = snd_ca0106_ptr_read(card, EXTENDED_INT, 0);

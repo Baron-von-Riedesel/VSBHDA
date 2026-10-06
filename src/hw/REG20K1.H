@@ -84,6 +84,9 @@
 #define    SPOCTL       0x1C5480
 #define    SPICTL       0x1C5484
 
+#define    SRTSCTL      0x1C54D0 /* used */
+#define    SRTICTL      0x1C54F0 /* used */
+
 #define    WC           0x1C6000
 #define    TIMR         0x1C6004 /* timer ticks ( bits 0-13 ) */
 # define   TIMR_IE      (1<<15)

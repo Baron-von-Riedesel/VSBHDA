@@ -1,5 +1,7 @@
 
-/* SB-XFI: code specific for EMU20K1 */
+/* SB-XFI: code specific for EMU20K1;
+ * this source is based on ALSA's ctxfi/cthw20k1.c 09.2026
+ */
 
 #include <stdint.h>
 #include <stddef.h>
@@ -422,7 +424,7 @@ static unsigned int src_dirty_conj_mask(void)
 {
 	return 0x20;
 }
-#if 0
+
 static int src_mgr_enbs_src(void *blk, unsigned int idx)
 {
 	((struct src_mgr_ctrl_blk *)blk)->enbsa = ~(0x0);
@@ -430,7 +432,7 @@ static int src_mgr_enbs_src(void *blk, unsigned int idx)
 	((struct src_mgr_ctrl_blk *)blk)->enb[idx/32] |= (0x1 << (idx%32));
 	return 0;
 }
-#endif
+
 static int src_mgr_enb_src(void *blk, unsigned int idx)
 {
 	((struct src_mgr_ctrl_blk *)blk)->enb[idx/32] |= (0x1 << (idx%32));
@@ -703,6 +705,15 @@ static int amixer_mgr_get_ctrl_blk(void **rblk)
 #define SPOCTL_LIV	0x00000020
 #define SPOCTL_SR	0x000000C0
 
+#if ADC_SUPP
+/* S/PDIF Receiver Control register */
+#define SPICTL_EN	0x00000001
+#define SPICTL_I24	0x00000002
+#define SPICTL_IB	0x00000004
+#define SPICTL_SM	0x00000008
+#define SPICTL_VM	0x00000010
+#endif
+
 /* S/PDIF Transmitter register dirty flags */
 union dao_dirty {
 	struct {
@@ -717,6 +728,119 @@ struct dao_ctrl_blk {
 	unsigned int spos; /* S/PDIF Output Channel Status Register */
 	union dao_dirty dirty;
 };
+
+#if ADC_SUPP
+
+/* Receiver Sample Rate Tracker Control register */
+#define SRTCTL_SRCR	0x000000FF
+#define SRTCTL_SRCL	0x0000FF00
+#define SRTCTL_RSR	0x00030000
+#define SRTCTL_DRAT	0x000C0000
+#define SRTCTL_RLE	0x10000000
+#define SRTCTL_RLP	0x20000000
+#define SRTCTL_EC	0x40000000
+#define SRTCTL_ET	0x80000000
+
+/* DAIO Receiver register dirty flags */
+union dai_dirty {
+	struct {
+		unsigned short srtctl:1;
+		unsigned short rsv:15;
+	} bf;
+	unsigned short data;
+};
+
+struct dai_ctrl_blk {
+	unsigned int	srtctl;
+	union dai_dirty dirty;
+};
+
+static int dai_srt_set_srcr(void *blk, unsigned int src)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_SRCR, src);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_srt_set_srcl(void *blk, unsigned int src)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_SRCL, src);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_srt_set_rsr(void *blk, unsigned int rsr)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_RSR, rsr);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_srt_set_drat(void *blk, unsigned int drat)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_DRAT, drat);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_srt_set_ec(void *blk, unsigned int ec)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_EC, ec ? 1 : 0);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_srt_set_et(void *blk, unsigned int et)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	set_field(&ctl->srtctl, SRTCTL_ET, et ? 1 : 0);
+	ctl->dirty.bf.srtctl = 1;
+	return 0;
+}
+
+static int dai_commit_write(struct hw *hw, unsigned int idx, void *blk)
+{
+	struct dai_ctrl_blk *ctl = blk;
+
+	if (ctl->dirty.bf.srtctl) {
+		if (idx < 4) {
+			/* S/PDIF SRTs */
+			hw_write_20kx(hw, SRTSCTL+0x4*idx, ctl->srtctl);
+		} else {
+			/* I2S SRT */
+			hw_write_20kx(hw, SRTICTL, ctl->srtctl);
+		}
+		ctl->dirty.bf.srtctl = 0;
+	}
+
+	return 0;
+}
+
+static int dai_get_ctrl_blk(void **rblk)
+{
+	struct dai_ctrl_blk *blk;
+
+	*rblk = NULL;
+	blk = calloc(1, sizeof( struct dai_ctrl_blk) );
+	if (!blk)
+		return -ENOMEM;
+
+	*rblk = blk;
+
+	return 0;
+}
+#endif
 
 static int dao_commit_write(struct hw *hw, unsigned int idx, void *blk)
 {
@@ -777,6 +901,25 @@ struct daio_mgr_ctrl_blk {
 	struct daoimap daoimap;
 	union daio_mgr_dirty dirty;
 };
+
+#if ADC_SUPP
+static int daio_mgr_enb_dai(void *blk, unsigned int idx)
+{
+	struct daio_mgr_ctrl_blk *ctl = blk;
+
+	if (idx < 4) {
+		/* S/PDIF input */
+		set_field(&ctl->spictl, SPICTL_EN << (idx*8), 1);
+		ctl->dirty.bf.spictl |= (0x1 << idx);
+	} else {
+		/* I2S input */
+		idx %= 4;
+		set_field(&ctl->i2sctl, I2SCTL_EI << (idx*8), 1);
+		ctl->dirty.bf.i2sictl |= (0x1 << idx);
+	}
+	return 0;
+}
+#endif
 
 static int daio_mgr_enb_dao(void *blk, unsigned int idx)
 {
@@ -1633,8 +1776,7 @@ static int hw_card_init(struct hw *hw, struct card_conf *info)
 	}
 #if ADC_SUPP
 	adc_info.msr = info->msr;
-	//adc_info.input = ADC_LINEIN;
-	adc_info.input = ADC_AUX;
+	adc_info.input = ADC_LINEIN;
 	adc_info.mic20db = 0;
 	err = hw_adc_init(hw, &adc_info);
 	if (err < 0) {
@@ -1690,7 +1832,7 @@ static const struct hw ct20k1_preset = {
 	src_dirty_conj_mask,
 	src_mgr_get_ctrl_blk,
 	//src_mgr_put_ctrl_blk,
-	//src_mgr_enbs_src,
+	src_mgr_enbs_src,
 	src_mgr_enb_src,
 	src_mgr_dsb_src,
 	src_mgr_commit_write,
@@ -1719,9 +1861,9 @@ static const struct hw ct20k1_preset = {
 	amixer_commit_write,
 	amixer_get_y,
 	amixer_get_dirty,
-#if 0
+#if ADC_SUPP
 	dai_get_ctrl_blk,
-	dai_put_ctrl_blk,
+	//dai_put_ctrl_blk,
 	dai_srt_set_srcr,
 	dai_srt_set_srcl,
 	dai_srt_set_rsr,
@@ -1738,8 +1880,10 @@ static const struct hw ct20k1_preset = {
 
 	daio_mgr_get_ctrl_blk,
 	//daio_mgr_put_ctrl_blk,
-	//daio_mgr_enb_dai,
+#if ADC_SUPP
+	daio_mgr_enb_dai,
 	//daio_mgr_dsb_dai,
+#endif
 	daio_mgr_enb_dao,
 	daio_mgr_dsb_dao,
 	daio_mgr_dao_init,

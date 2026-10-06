@@ -1,9 +1,11 @@
-//**************************************************************************
-//* This source is based on
-//* a) the Linux ALSA driver for SB X-Fi (09.2026)
-//* b) the fragmentary MpxPlay driver code for SB X-Fi ( also derived from
-//     ALSA driver code ).
-//**************************************************************************
+/**************************************************************************
+ * This source is based on
+ * a) the Linux ALSA driver for SB X-Fi (09.2026), files
+ *    ctatc.c, ctmixer.c, ctamixer.c, ctsrc.c, ctamixer.c,
+ *    ctdaio.c, ctimap.c, ctresource.c, cthardware.c [+ header files]
+ * b) the fragmentary MpxPlay driver code for SB X-Fi; this itself
+ *    was based on ALSA driver code, probably from ~2005.
+ **************************************************************************/
 
 // currently restricted to EMU20K1 (non-titanium cards)!
 
@@ -230,9 +232,9 @@ struct src_mgr {
 	int (*get_src)(struct src_mgr *mgr, const struct src_desc *desc, struct src **rsrc);
 	/* return src resource */
 	//int (*put_src)(struct src_mgr *mgr, struct src *src);
-	//int (*src_enable_s)(struct src_mgr *mgr, struct src *src);
+	int (*src_enable_s)(struct src_mgr *mgr, struct src *src);
 	int (*src_enable)(struct src_mgr *mgr, struct src *src);
-	//int (*src_disable)(struct src_mgr *mgr, struct src *src);
+	int (*src_disable)(struct src_mgr *mgr, struct src *src);
 	int (*commit_write)(struct src_mgr *mgr);
 };
 
@@ -291,7 +293,9 @@ enum DAIOTYP {
 	//LINEO3,
 	//LINEO4,
 	//SPDIFOO,	/* S/PDIF Out (Flexijack/Optical) */
-	//LINEIM,
+#if ADC_SUPP
+	LINEIM,
+#endif
 	//SPDIFIO,	/* S/PDIF In (Flexijack/Optical) on the card */
 	//MIC,		/* Dedicated mic on Titanium HD */
 	//RCA,		/* Dedicated RCA on SE-300PCIE */
@@ -318,6 +322,15 @@ struct dao {
 	void *ctrl_blk;
 };
 
+#if ADC_SUPP
+struct dai {
+	struct daio daio;
+	const struct dai_rsc_ops *ops;	/* DAI specific operations */
+	struct hw *hw;
+	void *ctrl_blk;
+};
+#endif
+
 struct dao_desc {
 	unsigned int msr:4;
 	unsigned int passthru:1;
@@ -332,6 +345,15 @@ struct dao_rsc_ops {
 	int (*set_right_input)(struct dao *dao, struct rsc *input);
 	//int (*clear_left_input)(struct dao *dao);
 	//int (*clear_right_input)(struct dao *dao);
+};
+
+struct dai_rsc_ops {
+	int (*set_srt_srcl)(struct dai *dai, struct rsc *src);
+	int (*set_srt_srcr)(struct dai *dai, struct rsc *src);
+	int (*set_srt_msr)(struct dai *dai, unsigned int msr);
+	int (*set_enb_src)(struct dai *dai, unsigned int enb);
+	int (*set_enb_srt)(struct dai *dai, unsigned int enb);
+	int (*commit_write)(struct dai *dai);
 };
 
 /* Define daio resource request description info */
@@ -417,14 +439,18 @@ enum CTALSADEVS {		/* Types of alsa devices */
 
 /* no of SRC in atc_get_resources */
 //#define NUM_ATC_SRCS 6
-/* index 0-1: SPDIF_IN
+/* index 0+1: SPDIF_IN
  * index 2+3: LINEIN
  * index 4+5: MIC
  */
-#define NUM_ATC_SRCS 2
+#if ADC_SUPP
+#define NUM_ATC_SRCS 6 /* support LINE_IN and MIC */
+#else
+#define NUM_ATC_SRCS 2 /* todo: check if those 2 are needed */
+#endif
 /* no of SUM in atc_get_resources */
-//#define NUM_ATC_PCM (2 * 4) /* 4: MASTER_x, X=F/R/C/S */
-#define NUM_ATC_PCM (2 * 1) /* currently just F(ront) is supported */
+//#define NUM_ATC_PCM (2 * 4) /* the 4 were for F/R/S/C */
+#define NUM_ATC_PCM (2 * 1) /* just F(ront) is used currently */
 
 /* ----------------------------------------------------- */
 
@@ -444,6 +470,9 @@ struct emu20kx_card_s
  struct daio       *daios[NUM_DAIOTYP];
 #if NUM_ATC_SRCS
  struct src        *srcs[NUM_ATC_SRCS];
+#endif
+#if ADC_SUPP
+ struct srcimp     *srcimps[NUM_ATC_SRCS];
 #endif
  struct sum        *pcm[NUM_ATC_PCM];
  struct ct_mixer   *mixer;
@@ -670,10 +699,10 @@ error:
 
 #if 0 /* OW has problems with gcc container_of() macro */
 #define container_of(ptr, type, member) ({ \
-    typeof( ((type*)0)->member ) \
-    * __mptr = ((void*)(ptr)); \
-    (type*)( (char*)__mptr - \
-    offsetof(type, member) ); \
+	typeof( ((type*)0)->member ) \
+	* __mptr = ((void*)(ptr)); \
+	(type*)( (char*)__mptr - \
+	offsetof(type, member) ); \
 	})
 #else
 static inline void *get_container( void *pv, int ofs ) { return (void *)((char *)pv - ofs); }
@@ -870,6 +899,21 @@ static const struct rsc_ops daio_out_rsc_ops = {
 	.output_slot = NULL,
 };
 
+#if ADC_SUPP
+
+static void daio_in_next_conj_20k1(struct rsc *rsc)
+{
+	rsc->conj += 0x200;
+}
+
+static const struct rsc_ops daio_in_rsc_ops_20k1 = {
+	.master = daio_master,
+	.next_conj = daio_in_next_conj_20k1,
+	.index = NULL,
+	.output_slot = daio_index,
+};
+#endif
+
 /* translate DAIO type to index;
  * the index is used as an argument for hw!
  * seems that index 0-3 are SPDIF, while 4-7 are I2S...
@@ -880,32 +924,36 @@ static int daio_device_index(enum DAIOTYP type, struct hw *hw)
 	switch (hw->chip_type) {
 	case ATC20K1:
 		switch (type) {
-		//case SPDIFOO:	return 0;
-		//case SPDIFIO:	return 0;
-		//case SPDIFI_BAY:	return 1;
-		case LINEO1:	return 4;
-		//case LINEO2:	return 7;
-		//case LINEO3:	return 5;
-		//case LINEO4:	return 6;
-		//case LINEIM:	return 7;
+		//case SPDIFOO: return 0;
+		//case SPDIFIO: return 0;
+		//case SPDIFI_BAY: return 1;
+		case LINEO1: return 4;
+		//case LINEO2: return 7;
+		//case LINEO3: return 5;
+		//case LINEO4: return 6;
+#if ADC_SUPP
+		case LINEIM: return 7;
+#endif
 		default:
-			dbgprintf(("daio_device_index: Invalid type %d for hw20k1\n", type));
+			dbgprintf(("daio_device_index: Invalid type %d for CA20K1\n", type));
 			return -EINVAL;
 		}
-#if 0
+#if CT20K2
 	case ATC20K2:
 		switch (type) {
-		case SPDIFOO:	return 0;
-		case SPDIFIO:	return 0;
-		case LINEO1:	return 4;
-		case LINEO2:	return 7;
-		case LINEO3:	return 5;
-		case LINEO4:	return 6;
-		case LINEIM:	return 4;
-		case MIC:	return 5;
-		case RCA:	return 3;
+		//case SPDIFOO: return 0;
+		//case SPDIFIO: return 0;
+		case LINEO1: return 4;
+		//case LINEO2: return 7;
+		//case LINEO3: return 5;
+		//case LINEO4: return 6;
+#if ADC_SUPP
+		case LINEIM: return 4;
+		case MIC: return 5;
+#endif
+		//case RCA: return 3;
 		default:
-			pr_err("daio_device_index: Invalid type %d for hw20k2\n", type);
+			dbgprintf(("daio_device_index: Invalid type %d for CA20K2\n", type));
 			return -EINVAL;
 		}
 #endif
@@ -1010,6 +1058,64 @@ static int daio_mgr_get_rsc(struct rsc_mgr *mgr, enum DAIOTYP type)
 	return 0;
 }
 
+#if ADC_SUPP
+static int dai_set_srt_srcl(struct dai *dai, struct rsc *src)
+{
+	src->ops->master(src);
+	dai->hw->dai_srt_set_srcm(dai->ctrl_blk, src->ops->index(src));
+	return 0;
+}
+
+static int dai_set_srt_srcr(struct dai *dai, struct rsc *src)
+{
+	src->ops->master(src);
+	dai->hw->dai_srt_set_srco(dai->ctrl_blk, src->ops->index(src));
+	return 0;
+}
+
+static int dai_set_srt_msr(struct dai *dai, unsigned int msr)
+{
+	unsigned int rsr;
+
+	for (rsr = 0; msr > 1; msr >>= 1)
+		rsr++;
+
+	dai->hw->dai_srt_set_rsr(dai->ctrl_blk, rsr);
+	return 0;
+}
+
+static int dai_set_enb_src(struct dai *dai, unsigned int enb)
+{
+	dai->hw->dai_srt_set_ec(dai->ctrl_blk, enb);
+	return 0;
+}
+
+static int dai_set_enb_srt(struct dai *dai, unsigned int enb)
+{
+	dai->hw->dai_srt_set_et(dai->ctrl_blk, enb);
+	return 0;
+}
+
+static int dai_commit_write(struct dai *dai)
+{
+	int idx = daio_device_index(dai->daio.type, dai->hw);
+
+	if (idx < 0)
+		return idx;
+	dai->hw->dai_commit_write(dai->hw, idx, dai->ctrl_blk);
+	return 0;
+}
+
+static const struct dai_rsc_ops dai_ops = {
+	.set_srt_srcl = dai_set_srt_srcl,
+	.set_srt_srcr = dai_set_srt_srcr,
+	.set_srt_msr = dai_set_srt_msr,
+	.set_enb_src = dai_set_enb_src,
+	.set_enb_srt = dai_set_enb_srt,
+	.commit_write = dai_commit_write,
+};
+#endif
+
 static int daio_rsc_init(struct daio *daio, const struct daio_desc *desc, struct hw *hw)
 ////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -1021,7 +1127,7 @@ static int daio_rsc_init(struct daio *daio, const struct daio_desc *desc, struct
 		idx_l = idx_20k1[desc->type].left;
 		idx_r = idx_20k1[desc->type].right;
 		break;
-#if 0
+#if CT20K2
 	case ATC20K2:
 		idx_l = idx_20k2[desc->type].left;
 		idx_r = idx_20k2[desc->type].right;
@@ -1043,14 +1149,16 @@ static int daio_rsc_init(struct daio *daio, const struct daio_desc *desc, struct
 		daio->rscl.ops = daio->rscr.ops = &daio_out_rsc_ops;
 	} else {
 		dbgprintf(("daio_rsc_init: ERROR, unexpected desc->output=0\n"));
-#if 0
+#if ADC_SUPP
 		switch (hw->chip_type) {
 		case ATC20K1:
-			//daio->rscl.ops = daio->rscr.ops = &daio_in_rsc_ops_20k1;
+			daio->rscl.ops = daio->rscr.ops = &daio_in_rsc_ops_20k1;
 			break;
+# if CT20K2
 		case ATC20K2:
 			daio->rscl.ops = daio->rscr.ops = &daio_in_rsc_ops_20k2;
 			break;
+# endif
 		default:
 			break;
 		}
@@ -1115,6 +1223,47 @@ error1:
 	return err;
 }
 
+#if ADC_SUPP
+static int dai_rsc_init(struct dai *dai, const struct daio_desc *desc, struct daio_mgr *mgr)
+{
+	int idx, err;
+	struct hw *hw = mgr->mgr.hw;
+	unsigned int rsr, msr;
+
+	err = daio_rsc_init(&dai->daio, desc, mgr->mgr.hw);
+	if (err)
+		return err;
+
+	dai->ops = &dai_ops;
+	dai->hw = mgr->mgr.hw;
+	err = hw->dai_get_ctrl_blk(&dai->ctrl_blk);
+	if (err)
+		goto error1;
+
+	idx = daio_device_index(dai->daio.type, dai->hw);
+	if (idx < 0) {
+		err = idx;
+		goto error1;
+	}
+
+	for (rsr = 0, msr = desc->msr; msr > 1; msr >>= 1)
+		rsr++;
+
+	hw->dai_srt_set_rsr(dai->ctrl_blk, rsr);
+	hw->dai_srt_set_drat(dai->ctrl_blk, 0);
+	/* default to disabling control of a SRC */
+	hw->dai_srt_set_ec(dai->ctrl_blk, 0);
+	hw->dai_srt_set_et(dai->ctrl_blk, 0); /* default to disabling SRT */
+	hw->dai_commit_write(hw, idx, dai->ctrl_blk);
+
+	return 0;
+
+error1:
+	//daio_rsc_uninit(&dai->daio);
+	return err;
+}
+#endif
+
 static int get_daio_rsc(struct daio_mgr *mgr, const struct daio_desc *desc, struct daio **rdaio)
 ////////////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -1138,20 +1287,20 @@ static int get_daio_rsc(struct daio_mgr *mgr, const struct daio_desc *desc, stru
 
 		*rdaio = &dao->daio;
 	} else {
-#if 0
+#if ADC_SUPP
 		struct dai *dai = calloc(1, sizeof(struct dai));
 		if (!dai)
 			goto error;
 
 		if (err = dai_rsc_init(dai, desc, mgr))
 			goto error;
-		}
 
 		*rdaio = &dai->daio;
-#endif
+#else
 		dbgprintf(("daiomgr.get_daio: ERROR - DAI not implemented!\n"));
 		err = -1;
 		goto error;
+#endif
 	}
 
 	mgr->daio_enable(mgr, *rdaio);
@@ -1176,9 +1325,10 @@ static int daio_mgr_enb_daio(struct daio_mgr *mgr, struct daio *daio)
 	if (daio->output)
 		hw->daio_mgr_enb_dao(mgr->mgr.ctrl_blk, idx);
 	else {
-		dbgprintf(("daio_mgr_enb_daio: ERROR - DAI not implemented!\n"));
-#if 0
+#if ADC_SUPP
 		hw->daio_mgr_enb_dai(mgr->mgr.ctrl_blk, idx);
+#else
+		dbgprintf(("daio_mgr_enb_daio: ERROR - DAI not implemented!\n"));
 #endif
 	}
 	return 0;
@@ -1651,6 +1801,21 @@ error:
 	return err;
 }
 
+static int src_enable_s(struct src_mgr *mgr, struct src *src)
+{
+	struct hw *hw = mgr->mgr.hw;
+	int i;
+
+	src->rsc.ops->master(&src->rsc);
+	for (i = 0; i < src->rsc.msr; i++) {
+		hw->src_mgr_enbs_src(mgr->mgr.ctrl_blk, src->rsc.ops->index(&src->rsc));
+		src->rsc.ops->next_conj(&src->rsc);
+	}
+	src->rsc.ops->master(&src->rsc);
+
+	return 0;
+}
+
 static int src_enable(struct src_mgr *mgr, struct src *src)
 {
 	struct hw *hw = mgr->mgr.hw;
@@ -1659,6 +1824,21 @@ static int src_enable(struct src_mgr *mgr, struct src *src)
 	src->rsc.ops->master(&src->rsc);
 	for (i = 0; i < src->rsc.msr; i++) {
 		hw->src_mgr_enb_src(mgr->mgr.ctrl_blk, src->rsc.ops->index(&src->rsc));
+		src->rsc.ops->next_conj(&src->rsc);
+	}
+	src->rsc.ops->master(&src->rsc);
+
+	return 0;
+}
+
+static int src_disable(struct src_mgr *mgr, struct src *src)
+{
+	struct hw *hw = mgr->mgr.hw;
+	int i;
+
+	src->rsc.ops->master(&src->rsc);
+	for (i = 0; i < src->rsc.msr; i++) {
+		hw->src_mgr_dsb_src(mgr->mgr.ctrl_blk, src->rsc.ops->index(&src->rsc));
 		src->rsc.ops->next_conj(&src->rsc);
 	}
 	src->rsc.ops->master(&src->rsc);
@@ -1695,7 +1875,7 @@ static int src_mgr_create(struct hw *hw, void **rsrc_mgr)
 
 	src_mgr->get_src = get_src_rsc;
 	//src_mgr->put_src = put_src_rsc;
-	//src_mgr->src_enable_s = src_enable_s;
+	src_mgr->src_enable_s = src_enable_s;
 	src_mgr->src_enable = src_enable;
 	//src_mgr->src_disable = src_disable;
 	src_mgr->commit_write = srcmgr_commit_write;
@@ -1752,6 +1932,7 @@ static int srcimp_map(struct srcimp *srcimp, struct src *src, struct rsc *input)
 	struct imapper *entry;
 	int i;
 
+	dbgprintf(("srcimp_map(%s, ", getrsctypeX(&srcimp->rsc))); dbgprintf(("%s, ", getrsctypeX(&src->rsc))); dbgprintf(("%s)\n", getrsctypeX(input)));
 	srcimp->rsc.ops->master(&srcimp->rsc);
 	src->rsc.ops->master(&src->rsc);
 	input->ops->master(input);
@@ -1849,7 +2030,7 @@ static int get_srcimp_rsc(struct srcimp_mgr *mgr, const struct srcimp_desc *desc
 
 	*rsrcimp = srcimp;
 
-	dbgprintf(("get_srcimp_rsc(mgr=%X, desc.msr=%u, dst=%X)=%X - SRCIMP(%u)\n", mgr, desc->msr, rsrcimp, srcimp, idx));
+	dbgprintf(("get_srcimp_rsc(mgr=%X, desc.msr=%u, dst=%X)=%X - SRC(%u)\n", mgr, desc->msr, rsrcimp, srcimp, idx));
 	return 0;
 
 error1:
@@ -2334,7 +2515,7 @@ static struct hw *create_hw_obj( enum CHIPTYP chip_type, enum CTCARDS model )
 	case ATC20K1:
 		hw = create_20k1_hw_obj();
 		break;
-#if 0
+#if CT20K2
 	case ATC20K2:
 		hw = create_20k2_hw_obj();
 		break;
@@ -2421,43 +2602,46 @@ static int select_rom(unsigned int pitch)
 
 #define CHN_NUM 2
 
-/* SUM_IN_x, AMIXER_MASTER_x, AMIXER_PCM_x and AMIXER_WAVE_x must match! */
-
 enum CT_SUM_CTL {
-    SUM_IN_F,
+	SUM_IN_F,
 //	SUM_IN_R,
 //	SUM_IN_C,
 //	SUM_IN_S,
 //	SUM_IN_F_C,
+
 	NUM_CT_SUMS
 };
 
 enum CT_AMIXER_CTL{
  // volume control mixers
  AMIXER_MASTER_F,
+ AMIXER_MASTER_END = AMIXER_MASTER_F,
  //AMIXER_MASTER_R,
  //AMIXER_MASTER_C,
  //AMIXER_MASTER_S,
- AMIXER_MASTER_END = AMIXER_MASTER_F,
  AMIXER_PCM_F,
+ AMIXER_PCM_END = AMIXER_PCM_F,
  //AMIXER_PCM_R,
  //AMIXER_PCM_C,
  //AMIXER_PCM_S,
- AMIXER_PCM_END = AMIXER_PCM_F,
  //AMIXER_SPDIFI,
- //AMIXER_LINEIN,
- //AMIXER_MIC,
+#if ADC_SUPP
+ AMIXER_LINEIN,
+ AMIXER_MIC,
+#endif
  //AMIXER_SPDIFO,
  AMIXER_WAVE_F,
+ AMIXER_WAVE_END = AMIXER_WAVE_F,
  //AMIXER_WAVE_R,
  //AMIXER_WAVE_C,
  //AMIXER_WAVE_S,
- AMIXER_WAVE_END = AMIXER_WAVE_F,
  AMIXER_MASTER_F_C,
  AMIXER_PCM_F_C,
  //AMIXER_SPDIFI_C,
- //AMIXER_LINEIN_C,
- //AMIXER_MIC_C,
+#if ADC_SUPP
+ AMIXER_LINEIN_C,
+ AMIXER_MIC_C,
+#endif
  // this should always be the last one
  NUM_CT_AMIXERS
 };
@@ -2465,12 +2649,14 @@ enum CT_AMIXER_CTL{
 static enum CT_AMIXER_CTL get_recording_amixer(enum CT_AMIXER_CTL index)
 {
 	switch (index) {
-	case AMIXER_MASTER_F:	return AMIXER_MASTER_F_C;
-	case AMIXER_PCM_F:	return AMIXER_PCM_F_C;
-	//case AMIXER_SPDIFI:	return AMIXER_SPDIFI_C;
-	//case AMIXER_LINEIN:	return AMIXER_LINEIN_C;
-	//case AMIXER_MIC:	return AMIXER_MIC_C;
-	default:		return NUM_CT_AMIXERS;
+	case AMIXER_MASTER_F: return AMIXER_MASTER_F_C;
+	case AMIXER_PCM_F:    return AMIXER_PCM_F_C;
+	//case AMIXER_SPDIFI:   return AMIXER_SPDIFI_C;
+#if ADC_SUPP
+	case AMIXER_LINEIN:   return AMIXER_LINEIN_C;
+	case AMIXER_MIC:      return AMIXER_MIC_C;
+#endif
+	default: return NUM_CT_AMIXERS;
 	}
 }
 
@@ -2544,7 +2730,7 @@ static int ct_mixer_topology_build(struct ct_mixer *mixer)
 		amix_d->ops->setup(amix_d, &sum->rsc, INIT_VOL, NULL);
 	}
 
-	/* Set up Wave-out mixer; amix_d=dest, amix_s=source */
+	/* Set up Wave-out mixer */
 	for (i = AMIXER_WAVE_F, j = AMIXER_MASTER_F; i <= AMIXER_WAVE_END; i++, j++) {
 		amix_d = mixer->amixers[i*CHN_NUM];
 		amix_s = mixer->amixers[j*CHN_NUM];
@@ -2573,7 +2759,7 @@ static int ct_mixer_topology_build(struct ct_mixer *mixer)
 		amix_d->ops->setup(amix_d, NULL, INIT_VOL, sum);
 	}
 #endif
-#if 0
+#if ADC_SUPP
 	/* Set up Line-in mixer */
 	amix_d = mixer->amixers[AMIXER_LINEIN*CHN_NUM];
 	sum = mixer->sums[SUM_IN_F*CHN_NUM];
@@ -2582,7 +2768,7 @@ static int ct_mixer_topology_build(struct ct_mixer *mixer)
 	sum = mixer->sums[SUM_IN_F*CHN_NUM+1];
 	amix_d->ops->setup(amix_d, NULL, INIT_VOL, sum);
 #endif
-#if 0
+#if ADC_SUPP
 	/* Set up Mic-in mixer */
 	amix_d = mixer->amixers[AMIXER_MIC*CHN_NUM];
 	sum = mixer->sums[SUM_IN_F*CHN_NUM];
@@ -2666,8 +2852,10 @@ static enum CT_AMIXER_CTL port_to_amixer(enum MIXER_PORT_T type)
 	//case MIX_WAVE_REAR: return AMIXER_WAVE_R;
 	case MIX_PCMO_FRONT: return AMIXER_MASTER_F_C;
 	//case MIX_SPDIF_OUT: return AMIXER_SPDIFO;
-	//case MIX_LINE_IN: return AMIXER_LINEIN;
-	//case MIX_MIC_IN: return AMIXER_MIC;
+#if ADC_SUPP
+	case MIX_LINE_IN: return AMIXER_LINEIN;
+	case MIX_MIC_IN: return AMIXER_MIC;
+#endif
 	//case MIX_SPDIF_IN: return AMIXER_SPDIFI;
 	case MIX_PCMI_FRONT: return AMIXER_PCM_F;
 	//case MIX_PCMI_SURROUND: return AMIXER_PCM_S;
@@ -2781,15 +2969,11 @@ static int ct_mixer_get_mem(struct ct_mixer **rmixer)
 	size_t alloc_size;
 
 	*rmixer = NULL;
-    /* Allocate mem for mixer obj:
-     * 1. sizeof(struct ct_mixer)
-     * 2. sizeof(struct amixer *[NUM_CT_AMIXERS*2])
-     * 3. sizeof(struct sum *[NUM_CT_SUMS*2])
-     */
+	/* Allocate mem for mixer obj */
 	//alloc_size = struct_size(mixer, amixers, NUM_CT_AMIXERS * CHN_NUM);
-	alloc_size = sizeof( struct ct_mixer) +
-		sizeof(struct amixer *) * NUM_CT_AMIXERS * CHN_NUM +
-		sizeof(struct sum *)    * NUM_CT_SUMS    * CHN_NUM;
+	alloc_size = sizeof( struct ct_mixer ) +
+		sizeof( struct amixer *) * NUM_CT_AMIXERS * CHN_NUM +
+		sizeof( struct sums   *) * NUM_CT_SUMS    * CHN_NUM;
 	mixer = calloc(1, alloc_size);
 	if (!mixer)
 		return -ENOMEM;
@@ -2809,7 +2993,8 @@ static int ct_mixer_create(struct emu20kx_card_s *card, struct ct_mixer **rmixer
 	dbgprintf(("ct_mixer_create() enter\n"));
 	*rmixer = NULL;
 	/* Allocate mem for mixer obj */
-	if (err = ct_mixer_get_mem(&mixer))
+	err = ct_mixer_get_mem(&mixer);
+	if (err)
 		return err;
 
 	mixer->switch_state = 0;
@@ -2887,7 +3072,6 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct a
 {
 	uint32_t pagecount,pcmbufp,pages;
 
-	/* todo: use period size, not page size! */
 	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, EMU20KX_PAGESIZE);
 	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : 512);
 	/* alloc memory for 1) page table, 2) silentpage, 3) pcmout-buffer */
@@ -3059,10 +3243,14 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 /////////////////////////////////////////////////////////
 {
 	struct daio_desc da_desc = {0};
-	struct src_desc src_dsc = {0};
-	struct sum_desc sum_dsc = {0};
 	struct daio_mgr *daio_mgr;
+	struct src_desc src_dsc = {0};
 	struct src_mgr *src_mgr;
+#if ADC_SUPP
+	struct srcimp_desc srcimp_dsc = {0};
+	struct srcimp_mgr *srcimp_mgr;
+#endif
+	struct sum_desc sum_dsc = {0};
 	struct sum_mgr *sum_mgr;
 	int err, i;
 
@@ -3079,7 +3267,11 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 		//	continue;
 		da_desc.type = i;
 		//da_desc.output = (i < LINEIM) || (i == RCA);
-		da_desc.output = 1; /* currently only outputs are defined (just LINE01) */
+#if ADC_SUPP
+		da_desc.output = (i < LINEIM);
+#else
+		da_desc.output = 1; /* only outputs are defined (just LINE01) */
+#endif
 		err = daio_mgr->get_daio(daio_mgr, &da_desc, (struct daio **)&card->daios[i]);
 		if (err) {
 			dbgprintf(("atc_get_resources: Failed to get DAIO resource %u!\n", i));
@@ -3101,6 +3293,19 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 	}
 #endif
 
+#if ADC_SUPP
+	srcimp_mgr = (struct srcimp_mgr *)card->rsc_mgrs[SRCIMP];
+	srcimp_dsc.msr = 8;
+	//for (i = 0; i < atc_srcs_limit; i++) {
+	for (i = 0; i < 4; i++) {
+		err = srcimp_mgr->get_srcimp(srcimp_mgr, &srcimp_dsc, (struct srcimp **)&card->srcimps[i]);
+		if (err) {
+			dbgprintf(("atc_get_resources: Failed to get SRCIMP resource %u!\n", i));
+			return err;
+		}
+	}
+#endif
+
 	sum_mgr = (struct sum_mgr *)card->rsc_mgrs[SUM];
 	sum_dsc.msr = card->msr;
 	for (i = 0; i < NUM_ATC_PCM; i++) {
@@ -3115,13 +3320,55 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 	return 0;
 }
 
+#if ADC_SUPP
+static void atc_connect_dai(struct src_mgr *src_mgr, struct dai *dai, struct src **srcs, struct srcimp **srcimps)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	struct rsc *rscs[2] = {NULL};
+	struct src *src;
+	struct srcimp *srcimp;
+	int i = 0;
+
+	dbgprintf(("atc_connect_dai(src_mgr=%X, dai=%X, &srcs=%X, &srcimps=%X\n", src_mgr, dai, srcs, srcimps));
+	rscs[0] = &dai->daio.rscl;
+	rscs[1] = &dai->daio.rscr;
+	for (i = 0; i < 2; i++) {
+		src = srcs[i];
+		srcimp = srcimps[i];
+		srcimp->ops->map(srcimp, src, rscs[i]);
+		src_mgr->src_disable(src_mgr, src);
+	}
+
+	src_mgr->commit_write(src_mgr); /* Actually disable SRCs */
+
+	src = srcs[0];
+	src->ops->set_pm(src, 1);
+	for (i = 0; i < 2; i++) {
+		src = srcs[i];
+		src->ops->set_state(src, SRC_STATE_RUN);
+		src->ops->commit_write(src);
+		src_mgr->src_enable_s(src_mgr, src);
+	}
+
+	dai->ops->set_srt_srcl(dai, &(srcs[0]->rsc));
+	dai->ops->set_srt_srcr(dai, &(srcs[1]->rsc));
+
+	dai->ops->set_enb_src(dai, 1);
+	dai->ops->set_enb_srt(dai, 1);
+	dai->ops->commit_write(dai);
+
+	src_mgr->commit_write(src_mgr); /* Synchronously enable SRCs */
+}
+#endif
+
 static void atc_connect_resources(struct emu20kx_card_s *card)
 //////////////////////////////////////////////////////////////
 {
-	//struct dai *dai;
+	struct dai *dai;
 	struct dao *dao;
 	//struct src *src;
 	struct sum *sum;
+	struct src *src;
 	struct ct_mixer *mixer;
 	struct rsc *rscs[2] = {NULL};
 	//struct capabilities cap;
@@ -3146,13 +3393,15 @@ static void atc_connect_resources(struct emu20kx_card_s *card)
 		atc_dedicated_rca_select(atc);
 	}
 #endif
-#if 0
+#if ADC_SUPP
 	dai = container_of(card->daios[LINEIM], struct dai, daio);
-	atc_connect_dai(atc->rsc_mgrs[SRC], dai, (struct src **)&card->srcs[2], (struct srcimp **)&card->srcimps[2]);
+	atc_connect_dai((struct src_mgr *)card->rsc_mgrs[SRC], dai, (struct src **)&card->srcs[2], (struct srcimp **)&card->srcimps[2]);
 	src = card->srcs[2];
-	mixer->set_input_left(mixer, MIX_LINE_IN, &src->rsc);
+	//mixer->set_input_left(mixer, MIX_LINE_IN, &src->rsc);
+	mixer->set_input_left(mixer, MIX_MIC_IN, &src->rsc);
 	src = card->srcs[3];
-	mixer->set_input_right(mixer, MIX_LINE_IN, &src->rsc);
+	//mixer->set_input_right(mixer, MIX_LINE_IN, &src->rsc);
+	mixer->set_input_right(mixer, MIX_MIC_IN, &src->rsc);
 #endif
 #if 0
 	if (cap.dedicated_mic) {
@@ -3273,9 +3522,6 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	/* Build topology */
 	atc_connect_resources(card);
 
-#if 0
-    ct_alsa_pcm_create(card);
-#endif
 	return 1;
 
 err_adetect:
@@ -3415,10 +3661,10 @@ static void EMU20KX_writeMIXER(struct audioout_info_s *aui, unsigned long reg, u
 
 	/* set left & right channel */
 	for (i = 0; i < 2; i++ ) {
-		master = card->mixer->amixers[AMIXER_MASTER_F * CHN_NUM + i];
+		master = card->mixer->amixers[AMIXER_MASTER_F * 2 + i];
 		master->ops->set_scale(master, val * INIT_VOL / 100); // set Master
 		master->ops->commit_write(master);
-		//pcm = card->mixer->amixers[AMIXER_WAVE_F * CHN_NUM + i];
+		//pcm = card->mixer->amixers[AMIXER_WAVE_F * 2 + i];
 		//pcm->ops->set_scale(pcm, val * INIT_VOL / 100); // set PCM
 		//pcm->ops->commit_write(pcm);
 	}
