@@ -1,5 +1,7 @@
 
-/* EMU20K1 registers (ct20k1reg.h) */
+/* CA20K1 registers;
+ * source: ALSA, ctxfi/ct20k1reg.h
+ */
 #define    PTPAHX       0x13B000 /* page table high */
 #define    PTPALX       0x13B004 /* page table low */
 #define    TRNCTL       0x13B404 /* used */
@@ -104,20 +106,7 @@
 #define    ID2          0x1C6088
 #define    ID3          0x1C608C
 
-/* GIE bits - cthardware.h */
-#define PLL_INT     (1 << 10) /* PLL input-clock out-of-range */
-#define FI_INT      (1 << 9)  /* forced interrupt */
-#define IT_INT      (1 << 8)  /* timer interrupt */
-#define PCI_INT     (1 << 7)  /* PCI bus error pending */
-#define URT_INT     (1 << 6)  /* UART Tx/Rx */
-#define GPI_INT     (1 << 5)  /* GPI pin */
-#define MIX_INT     (1 << 4)  /* mixer parameter segment FIFO channels */
-#define DAI_INT     (1 << 3)  /* DAI (SR-tracker or SPDIF-receiver) */
-#define TP_INT      (1 << 2)  /* transport priority queue */
-#define DSP_INT     (1 << 1)  /* DSP */
-#define SRC_INT     (1 << 0)  /* SRC channels */
-
-/* EMU20K1 card initialization bits - cthw20k1.c */
+/* EMU20K1 card initialization bits */
 #define GCTL_EAC    0x00000001 /* used */
 #define GCTL_EAI    0x00000002 /* used; autoinit */
 #define GCTL_BEP    0x00000004

@@ -37,6 +37,12 @@
 
 extern struct hw *create_20k1_hw_obj( void );
 
+#if CT20K2
+/* cthw20k2.h */
+
+extern struct hw *create_20k2_hw_obj( void );
+#endif
+
 /*-----------------------------------------------------------*/
 /* ctresource.h */
 
@@ -347,6 +353,7 @@ struct dao_rsc_ops {
 	//int (*clear_right_input)(struct dao *dao);
 };
 
+#if ADC_SUPP
 struct dai_rsc_ops {
 	int (*set_srt_srcl)(struct dai *dai, struct rsc *src);
 	int (*set_srt_srcr)(struct dai *dai, struct rsc *src);
@@ -355,6 +362,7 @@ struct dai_rsc_ops {
 	int (*set_enb_srt)(struct dai *dai, unsigned int enb);
 	int (*commit_write)(struct dai *dai);
 };
+#endif
 
 /* Define daio resource request description info */
 struct daio_desc {
@@ -456,7 +464,7 @@ enum CTALSADEVS {		/* Types of alsa devices */
 
 struct emu20kx_card_s
 {
- unsigned int    iobase;
+ //unsigned int    iobase;
  unsigned int    subsys_id;
  struct pci_config_s  pci_dev;
 
@@ -868,11 +876,30 @@ static const struct daio_rsc_idx idx_20k1[NUM_DAIOTYP] = {
 	//[LINEO2] = {.left = 0x18, .right = 0x19},
 	//[LINEO3] = {.left = 0x08, .right = 0x09},
 	//[LINEO4] = {.left = 0x10, .right = 0x11},
-	//[LINEIM] = {.left = 0x1b5, .right = 0x1bd},
+#if ADC_SUPP
+	[LINEIM]   = {.left = 0x1b5, .right = 0x1bd},
+#endif
 	//[SPDIFOO] = {.left = 0x20, .right = 0x21},
 	//[SPDIFIO] = {.left = 0x15, .right = 0x1d},
 	//[SPDIFI_BAY] = {.left = 0x95, .right = 0x9d},
 };
+
+#if CT20K2
+static const struct daio_rsc_idx idx_20k2[NUM_DAIOTYP] = {
+	[LINEO1] = {.left = 0x40, .right = 0x41},
+	//[LINEO2] = {.left = 0x60, .right = 0x61},
+	//[LINEO3] = {.left = 0x50, .right = 0x51},
+	//[LINEO4] = {.left = 0x70, .right = 0x71},
+# if ADC_SUPP
+	[LINEIM] = {.left = 0x45, .right = 0xc5},
+	[MIC]    = {.left = 0x55, .right = 0xd5},
+# endif
+	//[RCA]    = {.left = 0x30, .right = 0x31},
+	//[SPDIFOO] = {.left = 0x00, .right = 0x01},
+	//[SPDIFIO] = {.left = 0x05, .right = 0x85},
+};
+
+#endif
 
 static void daio_master(struct rsc *rsc)
 {
@@ -2504,19 +2531,54 @@ error:
 
 /*-----------------------------------------------------------*/
 
+static const unsigned short models_20k1[] = {
+	0x0021, CTSB046X,
+	0x0022, CTSB055X,
+	0x002f, CTSB055X,
+	0x0029, CTSB073X,
+	0x0031, CTSB073X,
+};
+#if CT20K2
+static const unsigned short models_20k2[] = {
+	0x0024, CTSB0760,
+	0x0041, CTSB0880,
+	0x0042, CTSB0880,
+	0x0043, CTSB0880,
+	0x0062, CTSB1270,
+};
+#endif
+
+static enum CTCARDS get_model( const unsigned short *typearray, int cnt, short subsys, enum CTCARDS maskmodel )
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+	int i;
+
+	if ( subsys & 0xf000 == 0x6000 ) {
+		return maskmodel;
+
+	}
+	for ( i = 0; i < cnt; i++ )
+		if (typearray[i*2] == subsys )
+			return typearray[i*2+1];
+	return -1;
+}
+
 /* cthardware.c */
 
-static struct hw *create_hw_obj( enum CHIPTYP chip_type, enum CTCARDS model )
-/////////////////////////////////////////////////////////////////////////////
+static struct hw *create_hw_obj( struct pci_config_s *pci, unsigned short pci_subsys )
+//////////////////////////////////////////////////////////////////////////////////////
 {
+    enum CTCARDS model;
 	struct hw *hw;
 
-	switch (chip_type) {
+	switch (pci->device_type) {
 	case ATC20K1:
+		model = get_model( models_20k1, 5, pci_subsys, CTUAA);
 		hw = create_20k1_hw_obj();
 		break;
 #if CT20K2
 	case ATC20K2:
+		model = get_model( models_20k2, 5, pci_subsys, CTHENDRIX);
 		hw = create_20k2_hw_obj();
 		break;
 #endif
@@ -2524,8 +2586,7 @@ static struct hw *create_hw_obj( enum CHIPTYP chip_type, enum CTCARDS model )
 		return NULL;
 	}
 	if ( hw ) {
-		//hw->pci = pci;
-		hw->chip_type = chip_type;
+		hw->chip_type = pci->device_type;
 		hw->model = model;
 	}
 
@@ -3105,51 +3166,31 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct a
 	return 1;
 }
 
-static enum CTCARDS get_model( short subsys )
-/////////////////////////////////////////////
-{
-	static const short models_20k1[] = {
-		0x0021, CTSB046X,
-		0x0022, CTSB055X,
-		0x002f, CTSB055X,
-		0x0029, CTSB073X,
-		0x0031, CTSB073X,
-	};
-
-	int i;
-	if ( subsys & 0xf000 == 0x6000 )
-		return CTUAA;
-	for (i = 0; i < 5*2; i += 2 )
-		if (models_20k1[i] == subsys )
-			return models_20k1[i+1];
-	return -1;
-}
-
 static unsigned int snd_emu20kx_chip_init(struct emu20kx_card_s *card)
 //////////////////////////////////////////////////////////////////////
 {
 	unsigned int i,gctl,trnctl,ctl_amoplo;
 	struct card_conf info;
 
-	dbgprintf(("emu20kx_chip_init: enter, subsys_id=0x%X\n", card->subsys_id));
+	dbgprintf(("emu20kx_chip_init: enter, device=%u, subsys_id=0x%X\n", card->pci_dev.device_type, card->subsys_id));
 
 	/* create_hw_obj() - ctatc.c, atc_create_hw_devs() */
-	//card->hw = create_hw_obj( &card->pci_dev, ATC20K1, get_model( card->subsys_id ));
-	card->hw = create_hw_obj( ATC20K1, get_model( card->subsys_id ));
+	card->hw = create_hw_obj( &card->pci_dev, card->subsys_id );
 	if (!card->hw) {
 		dbgprintf(("emu20kx_chip_init: create_hw_obj failed\n"));
 		return 0;
 	}
 
 	/* card_init() - ctatc.c, atc_create_hw_devs() */
-	info.iobase = card->iobase;
 	info.rsr = card->rsr;
 	info.msr = card->msr;
 
 	/* trn_init() needs the physical address of the page table */
 	info.vm_pgt_phys = (unsigned long)pds_cardmem_physicalptr(card->dm, card->virtualpagetable);
+	info.pci = &card->pci_dev;
 
 	/* card_init() does:
+	 * - calls card_start()
 	 * - calls pll_init()
 	 * - calls auto_init()
 	 * - enable audio ring
@@ -3256,7 +3297,6 @@ static int atc_get_resources(struct emu20kx_card_s *card)
 
 	dbgprintf(("atc_get_resources: enter\n" ));
 
-	//daio_mgr = (struct daio_mgr *)atc->rsc_mgrs[DAIO];
 	daio_mgr = (struct daio_mgr *)card->rsc_mgrs[DAIO];
 	da_desc.msr = card->msr;
 	for (i = 0; i < NUM_DAIOTYP; i++) {
@@ -3364,7 +3404,9 @@ static void atc_connect_dai(struct src_mgr *src_mgr, struct dai *dai, struct src
 static void atc_connect_resources(struct emu20kx_card_s *card)
 //////////////////////////////////////////////////////////////
 {
+#if ADC_SUPP
 	struct dai *dai;
+#endif
 	struct dao *dao;
 	//struct src *src;
 	struct sum *sum;
@@ -3439,8 +3481,10 @@ static void atc_connect_resources(struct emu20kx_card_s *card)
 
 //-------------------------------------------------------------------------
 static const struct pci_device_s emu20kx_devices[]={
- {"EMU20K1",0x1102,0x0005, 0},
- {"EMU20K2",0x1102,0x000b, 0},
+ {"EMU20K1",0x1102,0x0005, ATC20K1}, /* device name, vendor id, device id, device type */
+#if CT20K2
+ {"EMU20K2",0x1102,0x000b, ATC20K2},
+#endif
  {NULL,0,0,0}
 };
 
@@ -3472,18 +3516,21 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	}
 
 	//pcibios_set_master(&card->pci_dev);
-
+#if 0
+	/* EMU20K1 and EMU20K2 use different PCI address slots
+	 * so the io base will be detected in cthw20k1/cthw20k2 later.
+	 */
 	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	card->iobase &= 0xfffffff8;
 	if(!card->iobase)
 		goto err_adetect;
-
+#endif
 	//card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	aui->card_irq = card->pci_dev.bIrq;
 	card->subsys_id = pcibios_ReadConfig_Word(&card->pci_dev,PCIR_SSID);
 
-	dbgprintf(("emu20kx_adetect: vend_id=%X dev_id=%X subid=%X port=%X irq=%u\n",
-			  card->pci_dev.vendor_id,card->pci_dev.device_id,card->subsys_id,card->iobase, card->pci_dev.bIrq));
+	dbgprintf(("emu20kx_adetect: vend_id=%X dev_id=%X subid=%X irq=%u\n",
+			card->pci_dev.vendor_id, card->pci_dev.device_id, card->subsys_id, card->pci_dev.bIrq));
 
 	if(!snd_emu20kx_buffer_init(card,aui))
 		goto err_adetect;
@@ -3535,7 +3582,7 @@ static void EMU20KX_close(struct audioout_info_s *aui)
 	struct emu20kx_card_s *card = aui->card_private_data;
 	dbgprintf(("emu20kx_close\n"));
 	if(card){
-		if(card->iobase){
+		if(card->hw) {
 			snd_emu20kx_chip_close(card);
 			//dpmi_unmap_physical_memory(capd->iobase);
 		}

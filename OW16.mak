@@ -73,7 +73,7 @@ OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj  &
+	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj  &
 	$(OUTD)/dpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj
 
@@ -150,6 +150,7 @@ $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
+$(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c

@@ -14,6 +14,7 @@
 #include "CONFIG.H"
 #include "AU_CARDS.H"
 #include "TIMER.H"
+#include "PCIBIOS.H"
 #include "REG20K1.H"
 #include "CTHW20KX.H"
 
@@ -344,6 +345,12 @@ static int src_set_clear_zbufs(void *blk, unsigned int clear)
 static int src_set_dirty(void *blk, unsigned int flags)
 {
 	((struct src_rsc_ctrl_blk *)blk)->dirty.data = (flags & 0xffff);
+	return 0;
+}
+
+static int src_set_dirty_all(void *blk)
+{
+	((struct src_rsc_ctrl_blk *)blk)->dirty.data = ~(0x0);
 	return 0;
 }
 
@@ -1685,6 +1692,86 @@ static int hw_adc_init(struct hw *hw, const struct adc_conf *info)
 }
 #endif
 
+static struct capabilities hw_capabilities(struct hw *hw)
+{
+	struct capabilities cap;
+
+	/* SB073x and Vista compatible cards have no digit IO switch */
+	cap.digit_io_switch = !(hw->model == CTSB073X || hw->model == CTUAA);
+	cap.dedicated_mic = 0;
+	cap.dedicated_rca = 0;
+	cap.output_switch = 0;
+	cap.mic_source_switch = 0;
+
+	return cap;
+}
+
+static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
+/////////////////////////////////////////////////////////////////
+{
+	//int err;
+	//struct pci_dev *pci = hw->pci;
+	//const unsigned int dma_bits = BITS_PER_LONG;
+#if 0
+	err = pci_enable_device(pci);
+	if (err < 0)
+		return err;
+
+	/* Set DMA transfer mask */
+	if (dma_set_mask_and_coherent(&pci->dev, DMA_BIT_MASK(dma_bits)))
+		dma_set_mask_and_coherent(&pci->dev, DMA_BIT_MASK(32));
+
+	if (!hw->io_base) {
+		err = pci_request_regions(pci, "XFi");
+		if (err < 0)
+			goto error1;
+#endif
+
+	if (hw->model == CTUAA)
+		hw->io_base = pcibios_ReadConfig_Dword(pci, 0x10 + 5*4);
+	else
+		hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR);
+	hw->io_base &= 0xfffffff8;
+
+	if(!hw->io_base) {
+		dbgprintf(("hw_card_start: no io base\n"));
+		return -1;
+	}
+
+#if 0
+	/* Switch to X-Fi mode from UAA mode if needed */
+	if (hw->model == CTUAA) {
+		err = uaa_to_xfi(pci);
+		if (err)
+			goto error2;
+	}
+#endif
+
+#if 0
+	if (hw->irq < 0) {
+		err = request_irq(pci->irq, ct_20k1_interrupt, IRQF_SHARED,
+				  KBUILD_MODNAME, hw);
+		if (err < 0) {
+			dev_err(hw->card->dev,
+				"XFi: Cannot get irq %d\n", pci->irq);
+			goto error2;
+		}
+		hw->irq = pci->irq;
+		hw->card->sync_irq = hw->irq;
+	}
+
+	pci_set_master(pci);
+#endif
+	return 0;
+
+//error2:
+	//pci_release_regions(pci);
+	//hw->io_base = 0;
+//error1:
+	//pci_disable_device(pci);
+//	return err;
+}
+
 static int hw_card_init(struct hw *hw, struct card_conf *info)
 //////////////////////////////////////////////////////////////
 {
@@ -1696,17 +1783,12 @@ static int hw_card_init(struct hw *hw, struct card_conf *info)
 	struct daio_conf daio_info = {0};
 	struct trn_conf trn_info = {0};
 
-	hw->io_base = info->iobase; /* vsbhda */
-#if 0
-	/* Get PCI io port base address and do Hendrix switch if needed.
-	 * vsbhda: io port is known already.
-	 */
-	err = hw_card_start(hw);
+	err = hw_card_start(hw, info->pci);
 	if (err) {
 		dbgprintf(("hw_card_init: hw_card_start() failed, err=%d\n", err));
 		return err;
 	}
-#endif
+
 	/* PLL init */
 	err = hw_pll_init(hw, info->rsr);
 	if (err < 0) {
@@ -1794,15 +1876,18 @@ static int hw_card_init(struct hw *hw, struct card_conf *info)
 
 static const struct hw ct20k1_preset = {
 	hw_card_init,
+	//hw_card_stop,
 	hw_pll_init,
 #if ADC_SUPP
 	hw_is_adc_input_selected,
 	hw_adc_input_select,
 #endif
-	//hw_capabilities,
-#if 0 //def CONFIG_PM_SLEEP
-	hw_suspend,
-	hw_resume,
+	hw_capabilities,
+#if 0
+	hw_output_switch_get,
+	hw_output_switch_put,
+	hw_mic_source_switch_get,
+	hw_mic_source_switch_put,
 #endif
 	src_rsc_get_ctrl_blk,
 	//src_put_rsc_ctrl_blk,
@@ -1825,7 +1910,7 @@ static const struct hw ct20k1_preset = {
 	src_set_pitch,
 	src_set_dirty,
 	src_set_clear_zbufs,
-	//src_set_dirty_all,
+	src_set_dirty_all,
 	src_commit_write,
 	src_get_ca,
 	src_get_dirty,
@@ -1899,13 +1984,9 @@ static const struct hw ct20k1_preset = {
 	get_timer_interrupt_pending,
 	ack_interrupt,
 #endif
-	//io_base,
-	//mem_base,
-	//chip_type,
-	//model,
 };
 
-/* vsbhda: this function is a bit different than the origin*/
+/* vsbhda: this function is a bit different than the origin */
 
 struct hw *create_20k1_hw_obj( void )
 /////////////////////////////////////
@@ -1914,7 +1995,7 @@ struct hw *create_20k1_hw_obj( void )
 
 	hw = calloc(1, sizeof(struct hw));
 	if (!hw)
-		return 0;
+		return NULL;
 
 	*hw = ct20k1_preset;
 
