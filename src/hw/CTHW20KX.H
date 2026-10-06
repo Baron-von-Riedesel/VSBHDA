@@ -1,6 +1,6 @@
 
 #define ADC_SUPP 0 /* ADC support activates SRCIMP resource type */
-#define CT20K2 0
+#define CT20K2 1
 
 /* cthardware.h */
 
@@ -42,13 +42,34 @@ enum ADCSRC{
 };
 #endif
 
+/* GIE bits - cthardware.h */
+#define PLL_INT     (1 << 10) /* PLL input-clock out-of-range */
+#define FI_INT      (1 << 9)  /* forced interrupt */
+#define IT_INT      (1 << 8)  /* timer interrupt */
+#define PCI_INT     (1 << 7)  /* PCI bus error pending */
+#define URT_INT     (1 << 6)  /* UART Tx/Rx */
+#define GPI_INT     (1 << 5)  /* GPI pin */
+#define MIX_INT     (1 << 4)  /* mixer parameter segment FIFO channels */
+#define DAI_INT     (1 << 3)  /* DAI (SR-tracker or SPDIF-receiver) */
+#define TP_INT      (1 << 2)  /* transport priority queue */
+#define DSP_INT     (1 << 1)  /* DSP */
+#define SRC_INT     (1 << 0)  /* SRC channels */
+
 struct card_conf {
-    unsigned int iobase;
 	/* device virtual mem page table page physical addr
 	 * (supporting one page table page now) */
 	unsigned long vm_pgt_phys;
 	unsigned int rsr;	/* reference sample rate in Hzs*/
 	unsigned int msr;	/* master sample rate in rsrs */
+	struct pci_config_s *pci;
+};
+
+struct capabilities {
+	unsigned int digit_io_switch:1;
+	unsigned int dedicated_mic:1;
+	unsigned int dedicated_rca:1;
+	unsigned int output_switch:1;
+	unsigned int mic_source_switch:1;
 };
 
 struct hw {
@@ -63,8 +84,8 @@ struct hw {
 	int (*is_adc_source_selected)(struct hw *hw, enum ADCSRC source);
 	int (*select_adc_source)(struct hw *hw, enum ADCSRC source);
 #endif
-#if 0
 	struct capabilities (*capabilities)(struct hw *hw);
+#if 0
 	int (*output_switch_get)(struct hw *hw);
 	int (*output_switch_put)(struct hw *hw, int position);
 	int (*mic_source_switch_get)(struct hw *hw);
@@ -92,7 +113,7 @@ struct hw {
 	int (*src_set_pitch)(void *blk, unsigned int pitch);
 	int (*src_set_clear_zbufs)(void *blk, unsigned int clear);
 	int (*src_set_dirty)(void *blk, unsigned int flags);
-	//int (*src_set_dirty_all)(void *blk);
+	int (*src_set_dirty_all)(void *blk);
 	int (*src_commit_write)(struct hw *hw, unsigned int idx, void *blk);
 	int (*src_get_ca)(struct hw *hw, unsigned int idx, void *blk);
 	unsigned int (*src_get_dirty)(void *blk);

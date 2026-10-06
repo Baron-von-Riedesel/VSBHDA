@@ -583,7 +583,7 @@ unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s *aui )
 	bufpos -= (bufpos % aui->card_bytespersign);
 
 	/* cardbuf_getpos() may either return a position or a space */
-	if( aui->card_handler->infobits & SNDCARD_CARDBUF_SPACE ) {
+	if( aui->card_handler->infobits & SCINFO_CARDBUF_SPACE ) {
 		aui->card_dmaspace = bufpos;
 	} else {
 #if 0 /* currently DMA underrun bit is nowhere set */

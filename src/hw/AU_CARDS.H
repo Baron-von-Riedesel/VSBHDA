@@ -22,20 +22,29 @@ extern "C" {
 #include "PHYSMEM.H"
 #include "TIMER.H"
 
-//aui->card_ctrlbits
-#define AUI_CARDCTRLBIT_DMACLEAR         8 // run AU_clearbuffs
+/* r/w access for cards */
+enum card_ctrlbits {
+    AUI_CARDCTRLBIT_DMACLEAR = 1, /* run AU_clearbuffs */
+};
 
-//aui->card_infobits
-#define AUI_CARDINFOBIT_PLAYING          1
-//#define AUI_CARDINFOBIT_DMAUNDERRUN      8 /* dma buffer dried out */
-//#define AUI_CARDINFOBIT_DMAFULL         16 /* dma buffer is full */
+/* r/o access for cards? */
+enum card_infobits {
+    AUI_CARDINFOBIT_PLAYING = 1,
+    //AUI_CARDINFOBIT_DMAUNDERRUN = 8, /* dma buffer dried out */
+    //AUI_CARDINFOBIT_DMAFULL = 16,    /* dma buffer is full */
+};
 
-//struct sndcard_info_s->infobits
-#define SNDCARD_CARDBUF_SPACE     4 /* if set: cardbuf_getpos() gives back the cardbuf space, not the bufpos */
+/* struct sndcard_info_s->infobits */
+enum scinfobits {
+    SCINFO_CARDBUF_SPACE = 1, /* cardbuf_getpos() returns "free" buffer space, not the buffer position */
+};
 
-//#define WAVEID_UNKNOWN   0x0000
-#define WAVEID_PCM_SLE   0x0001 // signed little endian
-#define WAVEID_PCM_FLOAT 0x0003 // 32/64-bit float le
+/* sound card PCM format */
+enum pcmformat {
+    //WAVEID_UNKNOWN = 0,
+    WAVEID_PCM_SLE = 1, /* signed little endian */
+    WAVEID_PCM_FLOAT = 3, /* 32/64-bit float */
+};
 
 //au_cards mixer channels - see AC97.C, aucards_ac97_chan_mixerset[]
 enum MIXCHAN {
@@ -87,15 +96,16 @@ enum MIXMODE {
 struct sndcard_info_s;
 
 struct audioout_info_s {
+ void *card_private_data;         /* card's private data - size defined by sndcard_info_s.private_data_size */
  unsigned int  freq_card;
  unsigned char chan_card;
  unsigned char bits_card;
  unsigned char sampleshift_card;  /* samples << sampleshift_card = size of samples in bytes */
  unsigned char card_irq;
- unsigned short card_wave_id;     // 0x0001,0x0003; see WAVEID_xxx
- unsigned short card_bytespersign; /* bytespersample_card * chan_card */
- unsigned int  card_ctrlbits;     // card control flags
- unsigned int  card_infobits;     // card info flags
+ unsigned char card_bytespersign; /* bytespersample_card * chan_card */
+ enum pcmformat card_wave_id;     /* PCM format - usually 16-bit signed */
+ enum card_ctrlbits card_ctrlbits;
+ enum card_infobits card_infobits;
  unsigned int  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
  unsigned int  card_dmalastput;   /* current dma buffer write offset; updated in AU_writedata() */
  unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in AU_get_bufpos_space() */
@@ -105,7 +115,6 @@ struct audioout_info_s {
 
  const struct sndcard_info_s *card_handler; // function structure of the card
  const struct globalvars *gvars;
- void *card_private_data;        // extra private datas can be pointed here (with malloc)
  short card_master_volume;
  short card_mixer_values[AU_MIXCHANS_NUM]; // -1, 0-100
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
@@ -138,7 +147,7 @@ struct aucards_mixerchan_s {
 
 struct sndcard_info_s {
  char *shortname;
- unsigned long infobits;
+ enum scinfobits infobits;
  int   (*card_detect)(struct audioout_info_s *); // try to autodetect the card
  void   (*card_start)(struct audioout_info_s *); // start playing
  void    (*card_stop)(struct audioout_info_s *); // stop playing (immediately)
