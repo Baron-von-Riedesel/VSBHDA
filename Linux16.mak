@@ -68,7 +68,7 @@ OBJFILES2 = \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj \
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj \
-	$(OUTD)/SC_SBL24.obj	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj \
+	$(OUTD)/SC_SBL24.obj	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj	$(OUTD)/CTHW20K2.obj \
 	$(OUTD)/DPMI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj \
 	$(OUTD)/LIBMAIN.obj
 
@@ -143,6 +143,7 @@ $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
 $(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
 $(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
+$(OUTD)/CTHW20K2.obj:  src/hw/CTHW20K2.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C

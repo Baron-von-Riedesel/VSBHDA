@@ -197,12 +197,11 @@ struct hw {
 	void (*ack_interrupt)(struct hw *hw, unsigned int status);
 #endif
 
-	//struct pci_dev *pci;	/* the pci kernel structure of this card */
-	//struct snd_card *card;	/* pointer to this card */
 	struct emu20kx_card_s *card;
-	//int irq;
-	unsigned int io_base;
-	//void *mem_base;
+	union {
+		unsigned int io_base;
+		volatile char *mem_base;
+	};
 	enum CHIPTYP chip_type;
 	enum CTCARDS model;
 };

@@ -164,9 +164,9 @@ struct src_mgr_ctrl_blk {
 };
 
 /* SRCIMP manager control block */
-#define SRCAIM_ARC	0x00000FFF
-#define SRCAIM_NXT	0x00FF0000
-#define SRCAIM_SRC	0xFF000000
+#define SRCAIM_ARC 0x00000FFF
+#define SRCAIM_NXT 0x00FF0000
+#define SRCAIM_SRC 0xFF000000
 
 struct srcimap {
 	unsigned int srcaim;
@@ -560,6 +560,13 @@ static int srcimp_mgr_commit_write(struct hw *hw, void *blk)
 
 /* AMIXER */
 
+#define AMOPLO_M    0x00000003 // mode mask
+#define AMOPLO_X    0x0003FFF0
+#define AMOPLO_Y    0xFFFC0000
+
+#define AMOPHI_SADR  0x000000FF
+#define AMOPHI_SE    0x80000000
+
 /* AMIXER resource register dirty flags */
 union amixer_dirty {
 	struct {
@@ -576,13 +583,6 @@ struct amixer_rsc_ctrl_blk {
 	unsigned int amophi;
 	union amixer_dirty dirty;
 };
-
-#define AMOPLO_M    0x00000003 // mode mask
-#define AMOPLO_X    0x0003FFF0
-#define AMOPLO_Y    0xFFFC0000
-
-#define AMOPHI_SADR  0x000000FF
-#define AMOPHI_SE    0x80000000
 
 static int amixer_set_mode(void *blk, unsigned int mode)
 {
@@ -702,23 +702,23 @@ static int amixer_mgr_get_ctrl_blk(void **rblk)
 /* DAIO */
 
 /* I2S Transmitter/Receiver Control register */
-#define I2SCTL_EA	0x00000004
-#define I2SCTL_EI	0x00000010
+#define I2SCTL_EA   0x00000004
+#define I2SCTL_EI   0x00000010
 
 /* S/PDIF Transmitter Control register */
-#define SPOCTL_OE	0x00000001
-#define SPOCTL_OS	0x0000000E
-#define SPOCTL_RIV	0x00000010
-#define SPOCTL_LIV	0x00000020
-#define SPOCTL_SR	0x000000C0
+#define SPOCTL_OE   0x00000001
+#define SPOCTL_OS   0x0000000E
+#define SPOCTL_RIV  0x00000010
+#define SPOCTL_LIV  0x00000020
+#define SPOCTL_SR   0x000000C0
 
 #if ADC_SUPP
 /* S/PDIF Receiver Control register */
-#define SPICTL_EN	0x00000001
-#define SPICTL_I24	0x00000002
-#define SPICTL_IB	0x00000004
-#define SPICTL_SM	0x00000008
-#define SPICTL_VM	0x00000010
+#define SPICTL_EN   0x00000001
+#define SPICTL_I24  0x00000002
+#define SPICTL_IB   0x00000004
+#define SPICTL_SM   0x00000008
+#define SPICTL_VM   0x00000010
 #endif
 
 /* S/PDIF Transmitter register dirty flags */
@@ -739,14 +739,14 @@ struct dao_ctrl_blk {
 #if ADC_SUPP
 
 /* Receiver Sample Rate Tracker Control register */
-#define SRTCTL_SRCR	0x000000FF
-#define SRTCTL_SRCL	0x0000FF00
-#define SRTCTL_RSR	0x00030000
-#define SRTCTL_DRAT	0x000C0000
-#define SRTCTL_RLE	0x10000000
-#define SRTCTL_RLP	0x20000000
-#define SRTCTL_EC	0x40000000
-#define SRTCTL_ET	0x80000000
+#define SRTCTL_SRCR 0x000000FF
+#define SRTCTL_SRCL 0x0000FF00
+#define SRTCTL_RSR  0x00030000
+#define SRTCTL_DRAT 0x000C0000
+#define SRTCTL_RLE  0x10000000
+#define SRTCTL_RLP  0x20000000
+#define SRTCTL_EC   0x40000000
+#define SRTCTL_ET   0x80000000
 
 /* DAIO Receiver register dirty flags */
 union dai_dirty {

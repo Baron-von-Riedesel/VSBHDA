@@ -7,10 +7,10 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * HDA ( Intel High Definition Audio )
  * Intel ICH, Nvidia nForce, SiS 7012
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
- * SB Live, SB Audigy ( based on EMU10Kx )
- * SB based on ES1371/1373 (Ensoniq)
+ * Ensoniq ES1371/1373 (AudioPCI 97, SB Vibra 128)
+ * SB Live, SB Audigy ( based on EMU10K1/EMU10K2 chips )
  * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
- * SB based on CA20K1 chip ( Audigy X-Fi SB046x, SB055x, SB073x ), experimental
+ * SB based on CA20K1/CA20K2 chips ( SB X-Fi, SB X-Fi Titanium ), experimental
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 

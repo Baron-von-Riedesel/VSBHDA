@@ -15,9 +15,9 @@
 
 struct emu_card_version_s {
  char *longname;
+ uint32_t subsystem;     // serial
  uint16_t device;
  uint8_t  revision;
- uint32_t subsystem;     // serial
  uint8_t  chips;         // chips on the card
  uint8_t  max_channels;
 };
@@ -55,7 +55,7 @@ struct emu10k1_card {
  struct cardmem_s dm;     /* size should be 4+4+32+4 */
  uint32_t *virtualpagetable;
  void *silentpage;
- unsigned long period_size;
+ unsigned int period_size;
  char *pcmout_buffer;
  long pcmout_bufsize;
  //unsigned long pcmout_dmasize;
