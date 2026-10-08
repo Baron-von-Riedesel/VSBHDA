@@ -13,6 +13,7 @@
 #endif
 
 #include "CONFIG.H"
+#include "LINEAR.H"
 #include "AU_CARDS.H"
 #include "TIMER.H"
 #include "PCIBIOS.H"
@@ -1345,38 +1346,38 @@ static int hw_trn_init(struct hw *hw, const struct trn_conf *info)
 }
 
 /* Card initialization */
-#define GCTL_AIE	0x00000001
-#define GCTL_UAA	0x00000002
-#define GCTL_DPC	0x00000004
-#define GCTL_DBP	0x00000008
-#define GCTL_ABP	0x00000010
-#define GCTL_TBP	0x00000020
-#define GCTL_SBP	0x00000040
-#define GCTL_FBP	0x00000080
-#define GCTL_ME		0x00000100
-#define GCTL_AID	0x00001000
+#define GCTL_AIE    0x00000001
+#define GCTL_UAA    0x00000002
+#define GCTL_DPC    0x00000004
+#define GCTL_DBP    0x00000008
+#define GCTL_ABP    0x00000010
+#define GCTL_TBP    0x00000020
+#define GCTL_SBP    0x00000040
+#define GCTL_FBP    0x00000080
+#define GCTL_ME     0x00000100
+#define GCTL_AID    0x00001000
 
-#define PLLCTL_SRC	0x00000007
-#define PLLCTL_SPE	0x00000008
-#define PLLCTL_RD	0x000000F0
-#define PLLCTL_FD	0x0001FF00
-#define PLLCTL_OD	0x00060000
-#define PLLCTL_B	0x00080000
-#define PLLCTL_AS	0x00100000
-#define PLLCTL_LF	0x03E00000
-#define PLLCTL_SPS	0x1C000000
-#define PLLCTL_AD	0x60000000
+#define PLLCTL_SRC  0x00000007
+#define PLLCTL_SPE  0x00000008
+#define PLLCTL_RD   0x000000F0
+#define PLLCTL_FD   0x0001FF00
+#define PLLCTL_OD   0x00060000
+#define PLLCTL_B    0x00080000
+#define PLLCTL_AS   0x00100000
+#define PLLCTL_LF   0x03E00000
+#define PLLCTL_SPS  0x1C000000
+#define PLLCTL_AD   0x60000000
 
-#define PLLSTAT_CCS	0x00000007
-#define PLLSTAT_SPL	0x00000008
-#define PLLSTAT_CRD	0x000000F0
-#define PLLSTAT_CFD	0x0001FF00
-#define PLLSTAT_SL	0x00020000
-#define PLLSTAT_FAS	0x00040000
-#define PLLSTAT_B	0x00080000
-#define PLLSTAT_PD	0x00100000
-#define PLLSTAT_OCA	0x00200000
-#define PLLSTAT_NCA	0x00400000
+#define PLLSTAT_CCS 0x00000007
+#define PLLSTAT_SPL 0x00000008
+#define PLLSTAT_CRD 0x000000F0
+#define PLLSTAT_CFD 0x0001FF00
+#define PLLSTAT_SL  0x00020000
+#define PLLSTAT_FAS 0x00040000
+#define PLLSTAT_B   0x00080000
+#define PLLSTAT_PD  0x00100000
+#define PLLSTAT_OCA 0x00200000
+#define PLLSTAT_NCA 0x00400000
 
 static int hw_pll_init(struct hw *hw, unsigned int rsr)
 {
@@ -1458,64 +1459,20 @@ static int hw_auto_init(struct hw *hw)
 
 /* DAC operations */
 
-#define CS4382_MC1 		0x1
-#define CS4382_MC2 		0x2
-#define CS4382_MC3		0x3
-#define CS4382_FC		0x4
-#define CS4382_IC		0x5
-#define CS4382_XC1		0x6
-#define CS4382_VCA1 		0x7
-#define CS4382_VCB1 		0x8
-#define CS4382_XC2		0x9
-#define CS4382_VCA2 		0xA
-#define CS4382_VCB2 		0xB
-#define CS4382_XC3		0xC
-#define CS4382_VCA3		0xD
-#define CS4382_VCB3		0xE
-#define CS4382_XC4 		0xF
-#define CS4382_VCA4 		0x10
-#define CS4382_VCB4 		0x11
-#define CS4382_CREV 		0x12
-
 /* I2C status */
-#define STATE_LOCKED		0x00
-#define STATE_UNLOCKED		0xAA
-#define DATA_READY		0x800000    /* Used with I2C_IF_STATUS */
-#define DATA_ABORT		0x10000     /* Used with I2C_IF_STATUS */
+#define STATE_LOCKED    0x00
+#define STATE_UNLOCKED  0xAA
+#define DATA_READY      0x800000    /* Used with I2C_IF_STATUS */
+#define DATA_ABORT      0x10000     /* Used with I2C_IF_STATUS */
 
-#define I2C_STATUS_DCM	0x00000001
-#define I2C_STATUS_BC	0x00000006
-#define I2C_STATUS_APD	0x00000008
-#define I2C_STATUS_AB	0x00010000
-#define I2C_STATUS_DR	0x00800000
+#define I2C_STATUS_DCM  0x00000001
+#define I2C_STATUS_BC   0x00000006
+#define I2C_STATUS_APD  0x00000008
+#define I2C_STATUS_AB   0x00010000
+#define I2C_STATUS_DR   0x00800000
 
-#define I2C_ADDRESS_PTAD	0x0000FFFF
-#define I2C_ADDRESS_SLAD	0x007F0000
-
-struct regs_cs4382 {
-	unsigned int mode_control_1;
-	unsigned int mode_control_2;
-	unsigned int mode_control_3;
-
-	unsigned int filter_control;
-	unsigned int invert_control;
-
-	unsigned int mix_control_P1;
-	unsigned int vol_control_A1;
-	unsigned int vol_control_B1;
-
-	unsigned int mix_control_P2;
-	unsigned int vol_control_A2;
-	unsigned int vol_control_B2;
-
-	unsigned int mix_control_P3;
-	unsigned int vol_control_A3;
-	unsigned int vol_control_B3;
-
-	unsigned int mix_control_P4;
-	unsigned int vol_control_A4;
-	unsigned int vol_control_B4;
-};
+#define I2C_ADDRESS_PTAD    0x0000FFFF
+#define I2C_ADDRESS_SLAD    0x007F0000
 
 static int hw20k2_i2c_unlock_full_access(struct hw *hw)
 {
@@ -1610,8 +1567,7 @@ static int hw20k2_i2c_read(struct hw *hw, unsigned short addr, unsigned int *dat
 	unsigned int i2c_status;
 
 	i2c_status = hw_read_20kx(hw, I2C_IF_STATUS);
-	set_field(&i2c_status, I2C_STATUS_BC,
-		  (4 == hw20k2->addr_size) ? 0 : hw20k2->addr_size);
+	set_field(&i2c_status, I2C_STATUS_BC, (4 == hw20k2->addr_size) ? 0 : hw20k2->addr_size);
 	hw_write_20kx(hw, I2C_IF_STATUS, i2c_status);
 	if (!hw20k2_i2c_wait_data_ready(hw))
 		return -1;
@@ -1638,9 +1594,7 @@ static int hw20k2_i2c_write(struct hw *hw, unsigned short addr, unsigned int dat
 
 	i2c_status = hw_read_20kx(hw, I2C_IF_STATUS);
 
-	set_field(&i2c_status, I2C_STATUS_BC,
-		  (4 == (hw20k2->addr_size + hw20k2->data_size)) ?
-		  0 : (hw20k2->addr_size + hw20k2->data_size));
+	set_field(&i2c_status, I2C_STATUS_BC, (4 == (hw20k2->addr_size + hw20k2->data_size)) ? 0 : (hw20k2->addr_size + hw20k2->data_size));
 
 	hw_write_20kx(hw, I2C_IF_STATUS, i2c_status);
 	hw20k2_i2c_wait_data_ready(hw);
@@ -1681,13 +1635,57 @@ static void hw_dac_reset(struct hw *hw)
 	hw_dac_start(hw);
 }
 
+#define CS4382_MC1      0x1
+#define CS4382_MC2      0x2
+#define CS4382_MC3      0x3
+#define CS4382_FC       0x4
+#define CS4382_IC       0x5
+#define CS4382_XC1      0x6
+#define CS4382_VCA1     0x7
+#define CS4382_VCB1     0x8
+#define CS4382_XC2      0x9
+#define CS4382_VCA2     0xA
+#define CS4382_VCB2     0xB
+#define CS4382_XC3      0xC
+#define CS4382_VCA3     0xD
+#define CS4382_VCB3     0xE
+#define CS4382_XC4      0xF
+#define CS4382_VCA4     0x10
+#define CS4382_VCB4     0x11
+#define CS4382_CREV     0x12
+
+struct regs_cs4382 {
+	unsigned int mode_control_1;
+	unsigned int mode_control_2;
+	unsigned int mode_control_3;
+
+	unsigned int filter_control;
+	unsigned int invert_control;
+
+	unsigned int mix_control_P1;
+	unsigned int vol_control_A1;
+	unsigned int vol_control_B1;
+
+	unsigned int mix_control_P2;
+	unsigned int vol_control_A2;
+	unsigned int vol_control_B2;
+
+	unsigned int mix_control_P3;
+	unsigned int vol_control_A3;
+	unsigned int vol_control_B3;
+
+	unsigned int mix_control_P4;
+	unsigned int vol_control_A4;
+	unsigned int vol_control_B4;
+};
+
 static int hw_dac_init(struct hw *hw, const struct dac_conf *info)
 {
 	int err;
 	unsigned int data;
 	int i;
 	struct regs_cs4382 cs_read = {0};
-	struct regs_cs4382 cs_def = {
+	const struct regs_cs4382 cs_def = {
 		.mode_control_1 = 0x00000001, /* Mode Control 1 */
 		.mode_control_2 = 0x00000000, /* Mode Control 2 */
 		.mode_control_3 = 0x00000084, /* Mode Control 3 */
@@ -1808,26 +1806,20 @@ static int hw_dac_init(struct hw *hw, const struct dac_conf *info)
 	 * This is not a requirement but the delay works here... */
 	hw20k2_i2c_write(hw, CS4382_MC1, 0x80);
 	hw20k2_i2c_write(hw, CS4382_MC2, 0x10);
-	if (1 == info->msr) {
-		hw20k2_i2c_write(hw, CS4382_XC1, 0x24);
-		hw20k2_i2c_write(hw, CS4382_XC2, 0x24);
-		hw20k2_i2c_write(hw, CS4382_XC3, 0x24);
-		hw20k2_i2c_write(hw, CS4382_XC4, 0x24);
-	} else if (2 == info->msr) {
-		hw20k2_i2c_write(hw, CS4382_XC1, 0x25);
-		hw20k2_i2c_write(hw, CS4382_XC2, 0x25);
-		hw20k2_i2c_write(hw, CS4382_XC3, 0x25);
-		hw20k2_i2c_write(hw, CS4382_XC4, 0x25);
-	} else {
-		hw20k2_i2c_write(hw, CS4382_XC1, 0x26);
-		hw20k2_i2c_write(hw, CS4382_XC2, 0x26);
-		hw20k2_i2c_write(hw, CS4382_XC3, 0x26);
-		hw20k2_i2c_write(hw, CS4382_XC4, 0x26);
-	}
+
+	if (1 == info->msr)
+		data = 0x24;
+	else if (2 == info->msr)
+		data = 0x25;
+	else
+		data = 0x26;
+	hw20k2_i2c_write(hw, CS4382_XC1, data);
+	hw20k2_i2c_write(hw, CS4382_XC2, data);
+	hw20k2_i2c_write(hw, CS4382_XC3, data);
+	hw20k2_i2c_write(hw, CS4382_XC4, data);
 
 	return 0;
 End:
-
 	hw20k2_i2c_uninit(hw);
 	return -1;
 }
@@ -2172,7 +2164,7 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 			dbgprintf(("hw_card_start: ERROR, phys. address mapping [%X] failed\n", info.address));
 			return -1;
 		}
-		hw->mem_base = (char volatile *)info.address;
+		hw->mem_base = (char volatile *)NearPtr(info.address);
 	} else {
 		dbgprintf(("hw_card_start: ERROR, PCI address 0 is an I/O address (%X)\n", hw->io_base));
 		return -1;

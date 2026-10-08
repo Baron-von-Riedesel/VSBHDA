@@ -7,7 +7,8 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * HDA ( Intel High Definition Audio )
  * Intel ICH, Nvidia nForce, SiS 7012
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
- * Ensoniq ES1371/1373 (AudioPCI 97, SB Vibra 128)
+ * Crystal CS4281
+ * Ensoniq ES1370/ES1371/1373 (AudioPCI, SB Vibra 128)
  * SB Live, SB Audigy ( based on EMU10K1/EMU10K2 chips )
  * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
  * SB based on CA20K1/CA20K2 chips ( SB X-Fi, SB X-Fi Titanium ), experimental

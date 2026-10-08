@@ -41,8 +41,11 @@ OBJFILES=\
 	$(OUTD)/adpcm.o\
 	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
 	$(OUTD)/dmabuff.o	$(OUTD)/pcibios.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
-	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
-	$(OUTD)/sc_sbxfi.o	$(OUTD)/cthw20k1.o\
+	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
+	$(OUTD)/sc_sbxfi.o\
+	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o	$(OUTD)/sc_sbliv.o	$(OUTD)/sc_sbl24.o\
+	$(OUTD)/sc_sbxfi.o	$(OUTD)/cthw20k1.o	$(OUTD)/cthw20k2.o\
+	$(OUTD)/sc_e1371.o	$(OUTD)/sc_e1370.o	$(OUTD)/ak4531mix.o	$(OUTD)/sc_cs4281.o\
 	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
 	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
 	$(OUTD)/logfile.o	$(OUTD)/dpmiisr.o
@@ -97,18 +100,22 @@ $(OUTD)/rmwrap.o:: rmwrap.asm rmcode1.asm rmcode2.asm
 	jwasm.exe -q -djgpp -D?MODEL=small -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
 $(OUTD)/ac97mix.o::  ac97mix.c   au_cards.h ac97mix.h
+$(OUTD)/ak4531mix.o::ak4531mix.c au_cards.h ak4531mix.h
 $(OUTD)/au_cards.o:: au_cards.c  au_cards.h dmabuff.h config.h
+$(OUTD)/cthw20k1.o:: cthw20k1.c
+$(OUTD)/cthw20k2.o:: cthw20k2.c
 $(OUTD)/dmabuff.o::  dmabuff.c   au_cards.h dmabuff.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
+$(OUTD)/sc_cs4281.o:: sc_cs4281.c au_cards.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
 $(OUTD)/sc_e1371.o:: sc_e1371.c  au_cards.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_e1370.o:: sc_e1370.c  au_cards.h dmabuff.h pcibios.h ak4531mix.h
 $(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
 $(OUTD)/sc_sbl24.o:: sc_sbl24.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbl24.h emu10k1.h
 $(OUTD)/sc_sbliv.o:: sc_sbliv.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbliv.h emu10k1.h
 $(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
 $(OUTD)/sc_via82.o:: sc_via82.c  au_cards.h dmabuff.h pcibios.h ac97.h
-$(OUTD)/cthw20k1.o:: cthw20k1.c
 $(OUTD)/timer.o::    timer.c     au_cards.h timer.h
 
 $(OUTD)/adpcm.o::    adpcm.c     adpcm.h
