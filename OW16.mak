@@ -72,11 +72,11 @@ OBJFILES = &
 OBJFILES2 = &
 	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
-	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj	$(OUTD)/sc_cs4281.obj &
 	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/sc_sbxfi.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
 	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj  &
+	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj	$(OUTD)/sc_cs4281.obj &
 	$(OUTD)/dpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
 	$(OUTD)/libmain.obj
 
@@ -141,22 +141,22 @@ $(OUTD)\$(NAME2).lib: $(OBJFILES2)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME2).lib $(OBJFILES2)
 
 $(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
+$(OUTD)/ak4531mix.obj: src\hw\ak4531mix.c
 $(OUTD)/au_cards.obj:  src\hw\au_cards.c
+$(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
+$(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
 $(OUTD)/physmem.obj:   src\hw\physmem.c
 $(OUTD)/pcibios.obj:   src\hw\pcibios.c
-$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
 $(OUTD)/sc_e1370.obj:  src\hw\sc_e1370.c
+$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
 $(OUTD)/sc_cs4281.obj: src\hw\sc_cs4281.c
-$(OUTD)/ak4531mix.obj: src\hw\ak4531mix.c
 $(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
 $(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
 $(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
 $(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
-$(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
-$(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
