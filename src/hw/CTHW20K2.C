@@ -18,6 +18,7 @@
 #include "PCIBIOS.H"
 #include "REG20K2.H"
 #include "CTHW20KX.H"
+#include "DPMI.H"
 
 struct hw20k2 {
 	struct hw hw;
@@ -29,8 +30,25 @@ struct hw20k2 {
 	int mic_source;
 };
 
-static unsigned int hw_read_20kx(struct hw *hw, unsigned int reg);
-static void hw_write_20kx(struct hw *hw, unsigned int reg, unsigned int data);
+/* the PCIe X-Fi requires memory-mapped I/O */
+
+#define readl(addr) *(volatile unsigned int *)(addr)
+#define writel(data, addr) *(volatile unsigned int *)(addr) = data
+
+static unsigned int hw_read_20kx(struct hw *hw, unsigned int reg)
+{
+	//outpd(hw->io_base + 0x0,reg);
+	//return ((uint32_t)inpd(hw->io_base + 0x4));
+	return readl(hw->mem_base + reg);
+}
+
+static void hw_write_20kx(struct hw *hw, unsigned int reg, unsigned int data)
+{
+	//outpd(hw->io_base + 0x0,reg);
+	//outpd(hw->io_base + 0x4,data);
+	writel(data, hw->mem_base + reg);
+}
+
 
 /* get a bit field in 32-bit data */
 
@@ -64,36 +82,36 @@ static void set_field(unsigned int *data, unsigned int field, unsigned int value
  */
 
 /* SRC resource control block */
-#define SRCCTL_STATE	0x00000007
-#define SRCCTL_BM	0x00000008
-#define SRCCTL_RSR	0x00000030
-#define SRCCTL_SF	0x000001C0
-#define SRCCTL_WR	0x00000200
-#define SRCCTL_PM	0x00000400
-#define SRCCTL_ROM	0x00001800
-#define SRCCTL_VO	0x00002000
-#define SRCCTL_ST	0x00004000
-#define SRCCTL_IE	0x00008000
-#define SRCCTL_ILSZ	0x000F0000
-#define SRCCTL_BP	0x00100000
+#define SRCCTL_STATE 0x00000007
+#define SRCCTL_BM   0x00000008
+#define SRCCTL_RSR  0x00000030
+#define SRCCTL_SF   0x000001C0
+#define SRCCTL_WR   0x00000200
+#define SRCCTL_PM   0x00000400
+#define SRCCTL_ROM  0x00001800
+#define SRCCTL_VO   0x00002000
+#define SRCCTL_ST   0x00004000
+#define SRCCTL_IE   0x00008000
+#define SRCCTL_ILSZ 0x000F0000
+#define SRCCTL_BP   0x00100000
 
-#define SRCCCR_CISZ	0x000007FF
-#define SRCCCR_CWA	0x001FF800
-#define SRCCCR_D	0x00200000
-#define SRCCCR_RS	0x01C00000
-#define SRCCCR_NAL	0x3E000000
-#define SRCCCR_RA	0xC0000000
+#define SRCCCR_CISZ 0x000007FF
+#define SRCCCR_CWA  0x001FF800
+#define SRCCCR_D    0x00200000
+#define SRCCCR_RS   0x01C00000
+#define SRCCCR_NAL  0x3E000000
+#define SRCCCR_RA   0xC0000000
 
-#define SRCCA_CA	0x0FFFFFFF
-#define SRCCA_RS	0xE0000000
+#define SRCCA_CA    0x0FFFFFFF
+#define SRCCA_RS    0xE0000000
 
-#define SRCSA_SA	0x0FFFFFFF
+#define SRCSA_SA    0x0FFFFFFF
 
-#define SRCLA_LA	0x0FFFFFFF
+#define SRCLA_LA    0x0FFFFFFF
 
 /* Mixer Parameter Ring ram Low and Hight register.
  * Fixed-point value in 8.24 format for parameter channel */
-#define MPRLH_PITCH	0xFFFFFFFF
+#define MPRLH_PITCH 0xFFFFFFFF
 
 /* SRC resource register dirty flags */
 union src_dirty {
@@ -111,13 +129,13 @@ union src_dirty {
 };
 
 struct src_rsc_ctrl_blk {
-	unsigned int	ctl;
-	unsigned int 	ccr;
-	unsigned int	ca;
-	unsigned int	sa;
-	unsigned int	la;
-	unsigned int	mpr;
-	union src_dirty	dirty;
+	unsigned int ctl;
+	unsigned int ccr;
+	unsigned int ca;
+	unsigned int sa;
+	unsigned int la;
+	unsigned int mpr;
+	union src_dirty dirty;
 };
 
 /* SRC manager control block */
@@ -138,15 +156,15 @@ union src_mgr_dirty {
 };
 
 struct src_mgr_ctrl_blk {
-	unsigned int		enbsa;
-	unsigned int		enb[8];
-	union src_mgr_dirty	dirty;
+	unsigned int enbsa;
+	unsigned int enb[8];
+	union src_mgr_dirty dirty;
 };
 
 /* SRCIMP manager control block */
-#define SRCAIM_ARC	0x00000FFF
-#define SRCAIM_NXT	0x00FF0000
-#define SRCAIM_SRC	0xFF000000
+#define SRCAIM_ARC 0x00000FFF
+#define SRCAIM_NXT 0x00FF0000
+#define SRCAIM_SRC 0xFF000000
 
 struct srcimap {
 	unsigned int srcaim;
@@ -163,8 +181,8 @@ union srcimp_mgr_dirty {
 };
 
 struct srcimp_mgr_ctrl_blk {
-	struct srcimap		srcimap;
-	union srcimp_mgr_dirty	dirty;
+	struct srcimap srcimap;
+	union srcimp_mgr_dirty dirty;
 };
 
 /*
@@ -365,15 +383,14 @@ static int src_set_dirty_all(void *blk)
 	return 0;
 }
 
-#define AR_SLOT_SIZE		4096
-#define AR_SLOT_BLOCK_SIZE	16
-#define AR_PTS_PITCH		6
-#define AR_PARAM_SRC_OFFSET	0x60
+#define AR_SLOT_SIZE        4096
+#define AR_SLOT_BLOCK_SIZE  16
+#define AR_PTS_PITCH        6
+#define AR_PARAM_SRC_OFFSET 0x60
 
 static unsigned int src_param_pitch_mixer(unsigned int src_idx)
 {
-	return ((src_idx << 4) + AR_PTS_PITCH + AR_SLOT_SIZE
-			- AR_PARAM_SRC_OFFSET) % AR_SLOT_SIZE;
+	return ((src_idx << 4) + AR_PTS_PITCH + AR_SLOT_SIZE - AR_PARAM_SRC_OFFSET) % AR_SLOT_SIZE;
 
 }
 
@@ -545,6 +562,7 @@ static int srcimp_mgr_put_ctrl_blk(void *blk)
 }
 #endif
 
+#if ADC_SUPP
 static int srcimp_mgr_set_imaparc(void *blk, unsigned int slot)
 {
 	struct srcimp_mgr_ctrl_blk *ctl = blk;
@@ -591,18 +609,19 @@ static int srcimp_mgr_commit_write(struct hw *hw, void *blk)
 
 	return 0;
 }
+#endif
 
 /*
  * AMIXER control block definitions.
  */
 
-#define AMOPLO_M	0x00000003
-#define AMOPLO_IV	0x00000004
-#define AMOPLO_X	0x0003FFF0
-#define AMOPLO_Y	0xFFFC0000
+#define AMOPLO_M    0x00000003
+#define AMOPLO_IV   0x00000004
+#define AMOPLO_X    0x0003FFF0
+#define AMOPLO_Y    0xFFFC0000
 
-#define AMOPHI_SADR	0x000000FF
-#define AMOPHI_SE	0x80000000
+#define AMOPHI_SADR 0x000000FF
+#define AMOPHI_SE   0x80000000
 
 /* AMIXER resource register dirty flags */
 union amixer_dirty {
@@ -752,13 +771,15 @@ static int amixer_mgr_put_ctrl_blk(void *blk)
  * DAIO control block definitions.
  */
 
+#if ADC_SUPP
+
 /* Receiver Sample Rate Tracker Control register */
-#define SRTCTL_SRCO	0x000000FF
-#define SRTCTL_SRCM	0x0000FF00
-#define SRTCTL_RSR	0x00030000
-#define SRTCTL_DRAT	0x00300000
-#define SRTCTL_EC	0x01000000
-#define SRTCTL_ET	0x10000000
+#define SRTCTL_SRCO 0x000000FF
+#define SRTCTL_SRCM 0x0000FF00
+#define SRTCTL_RSR  0x00030000
+#define SRTCTL_DRAT 0x00300000
+#define SRTCTL_EC   0x01000000
+#define SRTCTL_ET   0x10000000
 
 /* DAIO Receiver register dirty flags */
 union dai_dirty {
@@ -774,10 +795,11 @@ struct dai_ctrl_blk {
 	unsigned int	srt;
 	union dai_dirty	dirty;
 };
+#endif
 
 /* Audio Input Mapper RAM */
-#define AIM_ARC		0x00000FFF
-#define AIM_NXT		0x007F0000
+#define AIM_ARC     0x00000FFF
+#define AIM_NXT     0x007F0000
 
 struct daoimap {
 	unsigned int aim;
@@ -785,20 +807,20 @@ struct daoimap {
 };
 
 /* Audio Transmitter Control and Status register */
-#define ATXCTL_EN	0x00000001
-#define ATXCTL_MODE	0x00000010
-#define ATXCTL_CD	0x00000020
-#define ATXCTL_RAW	0x00000100
-#define ATXCTL_MT	0x00000200
-#define ATXCTL_NUC	0x00003000
-#define ATXCTL_BEN	0x00010000
-#define ATXCTL_BMUX	0x00700000
-#define ATXCTL_B24	0x01000000
-#define ATXCTL_CPF	0x02000000
-#define ATXCTL_RIV	0x10000000
-#define ATXCTL_LIV	0x20000000
-#define ATXCTL_RSAT	0x40000000
-#define ATXCTL_LSAT	0x80000000
+#define ATXCTL_EN   0x00000001
+#define ATXCTL_MODE 0x00000010
+#define ATXCTL_CD   0x00000020
+#define ATXCTL_RAW  0x00000100
+#define ATXCTL_MT   0x00000200
+#define ATXCTL_NUC  0x00003000
+#define ATXCTL_BEN  0x00010000
+#define ATXCTL_BMUX 0x00700000
+#define ATXCTL_B24  0x01000000
+#define ATXCTL_CPF  0x02000000
+#define ATXCTL_RIV  0x10000000
+#define ATXCTL_LIV  0x20000000
+#define ATXCTL_RSAT 0x40000000
+#define ATXCTL_LSAT 0x80000000
 
 /* XDIF Transmitter register dirty flags */
 union dao_dirty {
@@ -837,6 +859,8 @@ struct daio_mgr_ctrl_blk {
 	unsigned int		rxctl[8];
 	union daio_mgr_dirty	dirty;
 };
+
+#if ADC_SUPP
 
 static int dai_srt_set_srco(void *blk, unsigned int src)
 {
@@ -925,6 +949,7 @@ static int dai_put_ctrl_blk(void *blk)
 
 	return 0;
 }
+#endif
 #endif
 
 static int dao_set_spos(void *blk, unsigned int spos)
@@ -2116,8 +2141,7 @@ static irqreturn_t ct_20k2_interrupt(int irq, void *dev_id)
 static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 /////////////////////////////////////////////////////////////////
 {
-	int err = 0;
-	//struct pci_dev *pci = hw->pci;
+	int err;
 	unsigned int gctl;
 	//const unsigned int dma_bits = BITS_PER_LONG;
 
@@ -2132,18 +2156,34 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 #endif
 
 	hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR);
-	hw->io_base &= 0xfffffff8;
-
-	if(!hw->io_base) {
-		dbgprintf(("hw_card_start: no io base\n"));
+	/* check if it's an I/O base. If not, the address range has to be mapped */
+	if ( 0 == (hw->io_base & 1)) {
+		__dpmi_meminfo info;
+		if( hw->io_base & 4 ) {/* 64-bit address? then check if it's beyond 4G */
+			unsigned int tmp;
+			if ( tmp = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR+4)) {
+				dbgprintf(("hw_card_start: ERROR, PCI base addr > 4G [%X%08X]\n", tmp, hw->io_base ));
+				return -1;
+			}
+		}
+		info.address = hw->io_base & 0xfffffff8;
+		info.size = 0x200000; /* 2 MB */
+		if (__dpmi_physical_address_mapping(&info)) {
+			dbgprintf(("hw_card_start: ERROR, phys. address mapping [%X] failed\n", info.address));
+			return -1;
+		}
+		hw->mem_base = (char volatile *)info.address;
+	} else {
+		dbgprintf(("hw_card_start: ERROR, PCI address 0 is an I/O address (%X)\n", hw->io_base));
 		return -1;
+		//hw->io_base &= 0xfffffff8;
 	}
-	//hw->mem_base = ioremap(hw->io_base, pci_resource_len(hw->pci, 2));
 
 	/* Switch to 20k2 mode from UAA mode. */
 	gctl = hw_read_20kx(hw, GLOBAL_CNTL_GCTL);
 	set_field(&gctl, GCTL_UAA, 0);
 	hw_write_20kx(hw, GLOBAL_CNTL_GCTL, gctl);
+
 #if 0
 	if (hw->irq < 0) {
 		err = request_irq(pci->irq, ct_20k2_interrupt, IRQF_SHARED,
@@ -2317,20 +2357,6 @@ static int hw_resume(struct hw *hw, struct card_conf *info)
 	return hw_card_init(hw, info);
 }
 #endif
-
-static unsigned int hw_read_20kx(struct hw *hw, unsigned int reg)
-{
-	//return readl(hw->mem_base + reg);
-	outpd(hw->io_base + 0x0,reg);
-	return ((uint32_t)inpd(hw->io_base + 0x4));
-}
-
-static void hw_write_20kx(struct hw *hw, unsigned int reg, unsigned int data)
-{
-	//writel(data, hw->mem_base + reg);
-	outpd(hw->io_base + 0x0,reg);
-	outpd(hw->io_base + 0x4,data);
-}
 
 static const struct hw ct20k2_preset = {
 	hw_card_init,

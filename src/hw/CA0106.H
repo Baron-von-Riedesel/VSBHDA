@@ -26,15 +26,15 @@
 /* PCI function 0 registers, address = <val> + PCIBASE0                                         */
 /************************************************************************************************/
 
-#define PTR            0x00        /* Indexed register set pointer register */
-                                   /* NOTE: The CHANNELNUM and ADDRESS words can */
-                                   /* be modified independently of each other. */
-                                   /* CNL[1:0], ADDR[27:16] */
+#define CA0106_PTR           0x00        /* Indexed register set pointer register */
+                                         /* NOTE: The CHANNELNUM and ADDRESS words can */
+                                         /* be modified independently of each other. */
+                                         /* CNL[1:0], ADDR[27:16] */
 
-#define DATA            0x04        /* Indexed register set data register */
-                                    /* DATA[31:0] */
+#define CA0106_DATA          0x04        /* Indexed register set data register */
+                                         /* DATA[31:0] */
 
-#define IPR                  0x08          /* Global interrupt pending register */
+#define CA0106_IPR           0x08          /* Global interrupt pending register */
                                            /* Clear pending interrupts by writing a 1 to */
                                            /* the relevant bits and zero to the other bits */
 #define IPR_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty */
@@ -55,28 +55,28 @@
 #define IPR_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty */
 #define IPR_PCI              0x00000001    /* PCI Bus error */
 
-#define INTE                  0x0c          /* Interrupt enable register */
-#define INTE_MIDI_RX_B        0x00020000    /* MIDI UART-B Receive buffer non-empty */
-#define INTE_MIDI_TX_B        0x00010000    /* MIDI UART-B Transmit buffer empty */
-#define INTE_SPDIF_IN_USER    0x00004000    /* SPDIF input user data has 16 more bits */
-#define INTE_SPDIF_OUT_USER   0x00002000    /* SPDIF output user data needs 16 more bits */
-#define INTE_SPDIF_OUT_FRAME  0x00001000    /* SPDIF frame about to start */
-#define INTE_SPI              0x00000800    /* SPI transaction completed */
-#define INTE_I2C_EEPROM       0x00000400    /* I2C EEPROM transaction completed */
-#define INTE_I2C_DAC          0x00000200    /* I2C DAC transaction completed */
-#define INTE_AI               0x00000100    /* Audio pending register changed. See PTR reg 0x75 */
-#define INTE_GPI              0x00000080    /* General Purpose input changed */
-#define INTE_SRC_LOCKED       0x00000040    /* SRC lock status changed */
-#define INTE_SPDIF_STATUS     0x00000020    /* SPDIF status changed */
-#define INTE_TIMER2           0x00000010    /* 192000Hz Timer */
-#define INTE_TIMER1           0x00000008    /* 44100Hz Timer */
-#define INTE_MIDI_RX_A        0x00000004    /* MIDI UART-A Receive buffer non-empty */
-#define INTE_MIDI_TX_A        0x00000002    /* MIDI UART-A Transmit buffer empty */
-#define INTE_PCI              0x00000001    /* PCI Bus error */
+#define CA0106_INTE          0x0c          /* Interrupt enable register */
+#define INTE_MIDI_RX_B       0x00020000    /* MIDI UART-B Receive buffer non-empty */
+#define INTE_MIDI_TX_B       0x00010000    /* MIDI UART-B Transmit buffer empty */
+#define INTE_SPDIF_IN_USER   0x00004000    /* SPDIF input user data has 16 more bits */
+#define INTE_SPDIF_OUT_USER  0x00002000    /* SPDIF output user data needs 16 more bits */
+#define INTE_SPDIF_OUT_FRAME 0x00001000    /* SPDIF frame about to start */
+#define INTE_SPI             0x00000800    /* SPI transaction completed */
+#define INTE_I2C_EEPROM      0x00000400    /* I2C EEPROM transaction completed */
+#define INTE_I2C_DAC         0x00000200    /* I2C DAC transaction completed */
+#define INTE_AI              0x00000100    /* Audio pending register changed. See PTR reg 0x75 */
+#define INTE_GPI             0x00000080    /* General Purpose input changed */
+#define INTE_SRC_LOCKED      0x00000040    /* SRC lock status changed */
+#define INTE_SPDIF_STATUS    0x00000020    /* SPDIF status changed */
+#define INTE_TIMER2          0x00000010    /* 192000Hz Timer */
+#define INTE_TIMER1          0x00000008    /* 44100Hz Timer */
+#define INTE_MIDI_RX_A       0x00000004    /* MIDI UART-A Receive buffer non-empty */
+#define INTE_MIDI_TX_A       0x00000002    /* MIDI UART-A Transmit buffer empty */
+#define INTE_PCI             0x00000001    /* PCI Bus error */
 
-#define UNKNOWN10        0x10        /* Unknown ??. Defaults to 0 */
+#define CA0106_UNKNOWN10     0x10          /* Unknown ??. Defaults to 0 */
 
-#define HCFG                       0x14          /* Hardware config register */
+#define CA0106_HCFG          0x14          /* Hardware config register */
                                                  /* 0x1000 causes AC3 to fails. It adds a dither bit. */
 #define HCFG_STAC                  0x10000000    /* Special mode for STAC9460 Codec. */
 #define HCFG_CAPTURE_I2S_BYPASS    0x08000000    /* 1 = bypass I2S input async SRC. */
@@ -100,34 +100,35 @@
                                                  /* Should be set to 1 when the EMU10K1 is */
                                                  /* completely initialized. */
 
-#define GPIO            0x18        /* Defaults: 005f03a3-Analog, 005f02a2-SPDIF.   */
-                        /* Here pins 0,1,2,3,4,,6 are output. 5,7 are input */
-                        /* For the Audigy LS, pin 0 (or bit 8) controls the SPDIF/Analog jack. */
-                        /* SB Live 24bit:
-                         * bit 8 0 = SPDIF in and out / 1 = Analog (Mic or Line)-in.
-                         * bit 9 0 = Mute / 1 = Analog out.
-                         * bit 10 0 = Line-in / 1 = Mic-in.
-                         * bit 11 0 = ? / 1 = ?
-                         * bit 12 0 = ? / 1 = ?
-                         * bit 13 0 = ? / 1 = ?
-                         * bit 14 0 = Mute / 1 = Analog out
-                         * bit 15 0 = ? / 1 = ?
-                         * Both bit 9 and bit 14 have to be set for analog sound to work on the SB Live 24bit.
-                         */
-                        /* 8 general purpose programmable In/Out pins.
-                         * GPI [8:0] Read only. Default 0.
-                         * GPO [15:8] Default 0x9. (Default to SPDIF jack enabled for SPDIF)
-                         * GPO Enable [23:16] Default 0x0f. Setting a bit to 1, causes the pin to be an output pin.
-                         */
-#define AC97DATA        0x1c        /* AC97 register set data register (16 bit)    */
+#define CA0106_GPIO          0x18  /* Defaults: 005f03a3-Analog, 005f02a2-SPDIF.   */
+                                   /* Here pins 0,1,2,3,4,,6 are output. 5,7 are input */
+                                   /* For the Audigy LS, pin 0 (or bit 8) controls the SPDIF/Analog jack. */
+                                   /* SB Live 24bit:
+                                    * bit 8 0 = SPDIF in and out / 1 = Analog (Mic or Line)-in.
+                                    * bit 9 0 = Mute / 1 = Analog out.
+                                    * bit 10 0 = Line-in / 1 = Mic-in.
+                                    * bit 11 0 = ? / 1 = ?
+                                    * bit 12 0 = ? / 1 = ?
+                                    * bit 13 0 = ? / 1 = ?
+                                    * bit 14 0 = Mute / 1 = Analog out
+                                    * bit 15 0 = ? / 1 = ?
+                                    * Both bit 9 and bit 14 have to be set for analog sound to work on the SB Live 24bit.
+                                    */
+                                   /* 8 general purpose programmable In/Out pins.
+                                    * GPI [8:0] Read only. Default 0.
+                                    * GPO [15:8] Default 0x9. (Default to SPDIF jack enabled for SPDIF)
+                                    * GPO Enable [23:16] Default 0x0f. Setting a bit to 1, causes the pin to be an output pin.
+                                    */
+#define CA0106_AC97DATA      0x1c  /* AC97 register set data register (16 bit)    */
 
-#define AC97ADDRESS        0x1e        /* AC97 register set address register (8 bit)    */
+#define CA0106_AC97ADDRESS   0x1e  /* AC97 register set address register (8 bit)    */
 
 /********************************************************************************************************/
 /* CA0106 pointer-offset register set, accessed through the PTR and DATA registers                     */
 /********************************************************************************************************/
                                                                                                                            
 /* Initally all registers from 0x00 to 0x3f have zero contents. */
+
 #define PLAYBACK_LIST_ADDR    0x00        /* Base DMA address of a list of pointers to each period/size */
                         /* One list entry: 4 bytes for DMA address, 
                          * 4 bytes for period_size << 16.
@@ -160,18 +161,20 @@
 #define CAPTURE_FIFO_OFFSET_ADDRESS    0x13    /* Current fifo offset address [21:16] */
                         /* Cache size valid [5:0] */
 #define PLAYBACK_LAST_SAMPLE    0x20        /* The sample currently being played */
+
 /* 0x21 - 0x3f unused */
-#define BASIC_INTERRUPT         0x40        /* Used by both playback and capture interrupt handler */
-                        /* Playback (0x1<<channel_id) */
-                        /* Capture  (0x100<<channel_id) */
-                        /* Playback sample rate 96000 = 0x20000 */
-                        /* Start Playback [3:0] (one bit per channel)
-                         * Start Capture [11:8] (one bit per channel)
-                         * Playback rate [23:16] (2 bits per channel) (0=48kHz, 1=44.1kHz, 2=96kHz, 3=192Khz)
-                         * Playback mixer in enable [27:24] (one bit per channel)
-                         * Playback mixer out enable [31:28] (one bit per channel)
-                         */
-/* The Digital out jack is shared with the Center/LFE Analogue output. 
+
+#define BASIC_INTERRUPT 0x40  /* Used by both playback and capture interrupt handler
+                               * Playback (0x1 << channel_id)
+                               * Capture  (0x100 << channel_id)
+                               * Playback sample rate 96000 = 0x20000
+                               * Start Playback [3:0] (one bit per channel)
+                               * Start Capture [11:8] (one bit per channel)
+                               * Playback rate [23:16] (2 bits per channel) (0=48kHz, 1=44.1kHz, 2=96kHz, 3=192Khz)
+                               * Playback mixer in enable [27:24] (one bit per channel)
+                               * Playback mixer out enable [31:28] (one bit per channel)
+                               */
+/* The Digital out jack is shared with the Center/LFE Analogue output.
  * The jack has 4 poles. I will call 1 - Tip, 2 - Next to 1, 3 - Next to 2, 4 - Next to 3
  * For Analogue: 1 -> Center Speaker, 2 -> Sub Woofer, 3 -> Ground, 4 -> Ground
  * For Digital: 1 -> Front SPDIF, 2 -> Rear SPDIF, 3 -> Center/Subwoofer SPDIF, 4 -> Ground.
@@ -419,8 +422,8 @@
                          * 0x00100000 = Full buffer. Capture.
                          * Capture can only do 2 periods.
                          * 0x01000000 = End audio. Playback.
-                         * 0x40000000 = Half buffer Playback,Caputre xrun.
-                         * 0x80000000 = Full buffer Playback,Caputre xrun.
+                         * 0x40000000 = Half buffer Playback,Capture xrun.
+                         * 0x80000000 = Full buffer Playback,Capture xrun.
                          */
 #define EXTENDED_INT            0x76        /* Used by both playback and capture interrupt handler */
                         /* Shows which interrupts are active at the moment. */

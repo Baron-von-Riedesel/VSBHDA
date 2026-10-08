@@ -2,7 +2,7 @@
 ;--- Play 16-bit mono unsigned (DSP command B6h) using 8bit DMA channel.
 
 	.286
-	.model small
+	.model tiny
 	.dosseg
 	.stack 2048
 	option casemap:none
@@ -14,6 +14,7 @@ SBIRQ          EQU 5
 DMACHANNEL     EQU 1
 RATE           EQU 11025
 DMABUFFERSIZE  EQU 8*1024	; DMA buffer size
+STATUS         EQU 1
 
 	include DMA.INC
 	include SB.INC
@@ -66,7 +67,7 @@ sbirq           dw SBIRQ
 dmachn          dw DMACHANNEL
 
 DosBufferSeg    dw ?	;segment of 16-bit destination buffer
-position        dw offset SampleBuffer	; current position in 8-bit sample buffer 
+position        dw offset SampleBuffer	; current source position (SampleBuffer)
 ;--- 20-bit DMA address of destination buffer
 DMABufferOfs    dw ?	;address A0-A15
 DMABufferPage   db ?	;address A16-A19
@@ -79,6 +80,12 @@ oldpic          db 0
 buffer db 128 dup (?)
 
 	.code
+
+if STATUS
+	.386
+	include PRINTF.INC
+	.286
+endif
 
 	include GETENV.INC
 	include SCANVAR.INC
@@ -125,7 +132,7 @@ main proc c
 
 ;--- alloc sound buffer ( size * 2 )
 
-	mov bx,SAMPLEBUFFERLENGTH shr 3
+	mov bx,DMABUFFERSIZE shr 3
 	mov ah,48h
 	int 21h
 	jnc @F
@@ -145,7 +152,7 @@ main proc c
 	and al,0f0h ; clear higher 4bits in AL
 	adc bl,0	; BL = page
 
-	mov cx,SAMPLEBUFFERLENGTH
+	mov cx,DMABUFFERSIZE
 	neg ax
 	cmp ax,cx
 	ja nooverride
@@ -172,6 +179,15 @@ nooverride:
 	mov cx,DMABUFFERSIZE/2
 	xor di,di
 	rep stosw
+
+if STATUS
+	.const
+fstr1 db "DMA buffer %X%04X-%X%04X, DosSeg=%X",10,0
+	.code
+	mov bx, DMABufferOfs
+	add bx, DMABUFFERSIZE-1
+	invoke printf, addr fstr1, DMABufferPage, DMABufferOfs, DMABufferPage, bx, DosBufferSeg
+endif
 
 ;--- fill the whole buffer by calling ConvertHalf 2 times.
 
@@ -352,7 +368,7 @@ SB_IRQ proc
 	pusha
 	push ds
 	push es
-	mov ax,@data
+	mov ax,cs
 	mov ds,ax
 	mov dx,baseaddr
 	add dx,SB16_DSPINTACK
@@ -396,7 +412,7 @@ nextsample:
 ConvertHalf endp
 
 start:
-	mov ax,@data
+	mov ax,cs
 	mov ds,ax
 	mov bx,ss
 	sub bx,ax

@@ -1,4 +1,3 @@
-
 # Create vsbhda.exe with Open Watcom and JWasm/JWlink.
 # Enter
 #   make -f Linux.mak
@@ -68,10 +67,9 @@ OBJFILES = \
 	$(OUTD)/VSB.obj			$(OUTD)/VDMA.obj		$(OUTD)/VIRQ.obj		$(OUTD)/VMPU.obj		$(OUTD)/TSF.obj \
 	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj	$(OUTD)/ADPCM.obj		$(FMOBJS) \
 	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj$		$(OUTD)/DPMIISR.obj	\
-	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_E1370.obj	$(OUTD)/AK4531MIX.obj	$(OUTD)/SC_CS4281.obj \
-	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
 	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj	$(OUTD)/SC_SBLIV.obj	$(OUTD)/SC_SBL24.obj \
-	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj \
+	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj	$(OUTD)/CTHW20K2.obj \
+	$(OUTD)/SC_E1370.obj	$(OUTD)/AK4531MIX.obj	$(OUTD)/SC_CS4281.obj \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj		$(OUTD)/MIXER.obj \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj		$(OUTD)/GETENV.obj \
 	$(OUTD)/MALLOC.obj		$(OUTD)/SBRK.obj		$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj
@@ -126,21 +124,22 @@ $(OUTD)/$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME).lib $(OBJFILES)
 
 $(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
+$(OUTD)/AK4531MIX.obj: src/hw/AK4531MIX.C
 $(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
+$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
+$(OUTD)/CTHW20K2.obj:  src/hw/CTHW20K2.C
 $(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
 $(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
 $(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
-$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
-$(OUTD)/SC_E1370.obj:  src/hw/SC_E1370.C
 $(OUTD)/SC_CS4281.obj: src/hw/SC_CS4281.C
-$(OUTD)/AK4531MIX.obj: src/hw/AK4531MIX.C
+$(OUTD)/SC_E1370.obj:  src/hw/SC_E1370.C
+$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
 $(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
 $(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
 $(OUTD)/SC_SBL24.obj:  src/hw/SC_SBL24.C
 $(OUTD)/SC_SBLIV.obj:  src/hw/SC_SBLIV.C
 $(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
-$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C

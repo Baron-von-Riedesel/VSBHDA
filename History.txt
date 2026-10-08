@@ -6,7 +6,7 @@
   - mixer register 0x81 no longer protected; this allows to clear the
     16-bit DMA channel and thus the 8-bit DMA channel may be used for
     16-bit sound.
-  - support for SB X-FI cards with EMU20K1 chip added.
+  - support for SB X-FI cards (EMU20K1 & EMU20K2 chips) added.
 
   v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state
