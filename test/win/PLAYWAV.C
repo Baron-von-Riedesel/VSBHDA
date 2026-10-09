@@ -1,4 +1,4 @@
-/* PLAYWAV.C: test program for VSBWAVE.DRV (Windows 3.1): lists the wave
+/* PLAYWAV.C: test program for VSBHDA.DRV (Windows 3.1): lists the wave
  * output devices, plays the WAV files given on the command line with
  * sndPlaySound (synchronously), writes the results to C:\VSB\OUT.TXT and
  * ends Windows. */

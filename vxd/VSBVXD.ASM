@@ -103,7 +103,7 @@ split:
 	ret
 io_handler endp
 
-;--- protected mode API (VSBWAVE.DRV): EBX = VM, EBP = client registers
+;--- protected mode API (VSBHDA.DRV): EBX = VM, EBP = client registers
 pm_api_proc proc
 	pushad
 	cld

@@ -1,5 +1,5 @@
 ;--- VXDCALL.ASM: call the protected mode API of VSBVXD.386 from the
-;--- 16-bit Windows driver VSBWAVE.DRV (large model, Open Watcom).
+;--- 16-bit Windows driver VSBHDA.DRV (large model, Open Watcom).
 ;--- int vxd_init(void): get the API entry (Int 2Fh, AX=1684h); 0 = ok
 ;--- int vxd_call(struct vxdregs far *): registers in/out
 ;---     (eax, ebx, ecx, edx, esi, edi as dwords); 0 = ok, -1 = carry

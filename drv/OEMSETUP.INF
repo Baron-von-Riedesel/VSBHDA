@@ -1,0 +1,8 @@
+; OEMSETUP.INF: installs VSBHDA.DRV and VSBVXD.386 with Control Panel,
+; Drivers, Add, "Unlisted or Updated Driver" (Windows 3.1 enhanced mode)
+
+[disks]
+1 = . ,"VSBHDA for Windows 3.1",disk1
+
+[Installable.Drivers]
+vsbhda = 1:vsbhda.drv, "Wave,MIDI,Aux", "VSBHDA wave, MIDI (OPL3 FM) and aux driver (VSBVXD)", 1:vsbvxd.386, ,

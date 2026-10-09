@@ -1,4 +1,4 @@
-/* VXDWAVE.C: wave output of VSBVXD for the Windows wave driver VSBWAVE.DRV.
+/* VXDWAVE.C: wave output of VSBVXD for the Windows wave driver VSBHDA.DRV.
  * The driver queues the (page locked) WAVEHDR buffers of the applications
  * by their linear addresses; the sound hardware interrupt mixes them into
  * the output of the SB emulation (vxdwave_mix(), called by SNDISR.C) with
@@ -17,6 +17,7 @@
  *   7 RESTART
  *   8 GETPOS      out: EAX = bytes played since open/reset
  *   9 SETVOLUME   EBX = volume (low word left, high word right, 0-FFFFh)
+ *  10 SETMASTER   EBX = master volume of the sound card (like SETVOLUME)
  * Errors: CF set. */
 
 #include <stdint.h>
@@ -51,6 +52,7 @@ static struct {
 
 extern struct globalvars gvars;
 extern int vsb_hwfreq( void );
+extern void vsb_setmaster( int percent );
 
 static uint32_t irqsave( void );
 #pragma aux irqsave = "pushfd" "pop eax" "cli" value [eax]
@@ -138,6 +140,9 @@ void vsb_pm_api( unsigned vm, struct client *c )
 	case 9:
 		wv.vol_l = ( c->ebx & 0xFFFF ) + 1;
 		wv.vol_r = ( c->ebx >> 16 ) + 1;
+		break;
+	case 10:
+		vsb_setmaster( ( ( c->ebx & 0xFFFF ) + ( c->ebx >> 16 ) ) * 50 / 0xFFFF );   /* percent */
 		break;
 	default:
 		c->eflags |= CF;
