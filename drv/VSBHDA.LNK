@@ -1,8 +1,8 @@
-# wlink directives for VSBWAVE.DRV (16-bit Windows DLL)
+# wlink directives for VSBHDA.DRV (16-bit Windows DLL)
 format windows dll
 option nocaseexact
-option modname=VSBWAVE
-option description 'DRV: VSBHDA wave output (VSBVXD.386)'
+option modname=VSBHDA
+option description 'DRV: VSBHDA wave, MIDI (OPL3 FM) and aux driver (VSBVXD.386)'
 option version=3.10
 option heapsize=1024
 libpath %WATCOM%/lib286/win
@@ -11,6 +11,7 @@ libfile libentry.obj
 library windows
 library mmsystem
 # the timer callback runs at interrupt time: everything fixed
-# (DriverProc, wodMessage and WEP are exported with __export)
+# (DriverProc, wodMessage, modMessage, auxMessage and WEP are exported
+# with __export)
 segment type code preload fixed
 segment type data preload fixed

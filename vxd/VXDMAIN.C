@@ -157,6 +157,13 @@ int vsb_hwfreq( void )
 	return vsb.hAU ? gvars.freq : 0;
 }
 
+/* master volume of the sound card in percent (VXDWAVE.C) */
+void vsb_setmaster( int percent )
+{
+	if ( vsb.hAU )
+		AU_setmixer_outs( vsb.hAU, MIXER_SETMODE_ABSOLUTE, percent );
+}
+
 /* called by VSB.C on DSP reset (REINITOPL) */
 void MAIN_ReinitOPL( void )
 {

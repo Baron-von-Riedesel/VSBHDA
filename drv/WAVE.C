@@ -1,67 +1,11 @@
-/* VSBWAVE.C: Windows 3.1 wave output driver (MMSYSTEM) for VSBVXD.386.
- * The sound card is driven by the VxD (any card supported by VSBHDA); this
- * driver passes the wave buffers of the applications to the VxD, which
- * mixes them into its output.  A multimedia timer collects the finished
- * buffers and returns them to the application (WOM_DONE).
- *
- * Install: SYSTEM.INI [drivers] wave=vsbwave.drv, and VSBVXD.386 in
- * [386Enh] (Windows enhanced mode only). */
+/* WAVE.C: wave output of VSBHDA.DRV.  The wave buffers of the applications
+ * are passed to VSBVXD.386, which mixes them into its output; a multimedia
+ * timer collects the finished buffers and returns them to the application
+ * (WOM_DONE). */
 
-#include <windows.h>
-#include <mmsystem.h>
-
-/* --- from the DDK (mmddk.h) ------------------------------------------ */
-#define WODM_GETNUMDEVS     3
-#define WODM_GETDEVCAPS     4
-#define WODM_OPEN           5
-#define WODM_CLOSE          6
-#define WODM_PREPARE        7
-#define WODM_UNPREPARE      8
-#define WODM_WRITE          9
-#define WODM_PAUSE          10
-#define WODM_RESTART        11
-#define WODM_RESET          12
-#define WODM_GETPOS         13
-#define WODM_GETPITCH       14
-#define WODM_SETPITCH       15
-#define WODM_GETVOLUME      16
-#define WODM_SETVOLUME      17
-#define WODM_GETPLAYBACKRATE 18
-#define WODM_SETPLAYBACKRATE 19
-#define WODM_BREAKLOOP      20
-
-#define DCB_TYPEMASK        0x0007
-
-typedef struct {
-	HWAVE hWave;
-	const WAVEFORMAT FAR *lpFormat;
-	DWORD dwCallback;
-	DWORD dwInstance;
-} WAVEOPENDESC, FAR *LPWAVEOPENDESC;
-
-BOOL WINAPI DriverCallback( DWORD dwCallback, UINT uFlags, HANDLE hDevice, UINT uMessage,
-							DWORD dwUser, DWORD dwParam1, DWORD dwParam2 );
-DWORD WINAPI GetSelectorBase( UINT uSelector );
-
-/* --- VSBVXD API (VXDCALL.ASM, vxd/VXDWAVE.C) -------------------------- */
-struct vxdregs { DWORD eax, ebx, ecx, edx, esi, edi; };
-extern int __cdecl vxd_init( void );
-extern int __cdecl vxd_call( struct vxdregs far * );
-
-#define VW_GETVERSION 0
-#define VW_OPEN       1
-#define VW_CLOSE      2
-#define VW_WRITE      3
-#define VW_GETDONE    4
-#define VW_RESET      5
-#define VW_PAUSE      6
-#define VW_RESTART    7
-#define VW_GETPOS     8
-#define VW_SETVOLUME  9
+#include "VSBDRV.H"
 
 /* --- driver state ------------------------------------------------------ */
-static BOOL vxdok;            /* VSBVXD.386 is installed */
-static DWORD hwrate;          /* output sample rate of the VxD */
 static struct {
 	BOOL open;
 	WAVEOPENDESC desc;
@@ -71,18 +15,6 @@ static struct {
 	int queued;               /* buffers given to the VxD */
 } wo;
 static DWORD volume = 0xFFFFFFFF;
-
-static DWORD vcall( DWORD fn, DWORD ebx, DWORD ecx, DWORD edx, DWORD esi, DWORD FAR *out )
-{
-	struct vxdregs r;
-	r.eax = fn; r.ebx = ebx; r.ecx = ecx; r.edx = edx; r.esi = esi; r.edi = 0;
-	if ( vxd_call( &r ) )
-		return (DWORD)-1;
-	if ( out ) {
-		out[0] = r.eax; out[1] = r.ebx; out[2] = r.edx;
-	}
-	return 0;
-}
 
 static void callback( UINT msg, DWORD p1 )
 {
@@ -193,13 +125,11 @@ static DWORD wod_getpos( LPMMTIME t, UINT size )
 static DWORD wod_getdevcaps( LPWAVEOUTCAPS c, UINT size )
 {
 	WAVEOUTCAPS caps;
-	static const char name[] = "VSBHDA Wave Out (VSBVXD)";
 	UINT i;
 	caps.wMid = 0;
 	caps.wPid = 0;
 	caps.vDriverVersion = 0x0100;
-	for ( i = 0; i < sizeof(name); i++ )
-		caps.szPname[i] = name[i];
+	copyname( caps.szPname, "VSBHDA Wave" );
 	caps.dwFormats = WAVE_FORMAT_1M08 | WAVE_FORMAT_1S08 | WAVE_FORMAT_1M16 | WAVE_FORMAT_1S16 |
 		WAVE_FORMAT_2M08 | WAVE_FORMAT_2S08 | WAVE_FORMAT_2M16 | WAVE_FORMAT_2S16 |
 		WAVE_FORMAT_4M08 | WAVE_FORMAT_4S08 | WAVE_FORMAT_4M16 | WAVE_FORMAT_4S16;
@@ -254,42 +184,4 @@ DWORD FAR PASCAL __export __loadds wodMessage( UINT id, UINT msg, DWORD user, DW
 	default:
 		return MMSYSERR_NOTSUPPORTED;
 	}
-}
-
-/* installable driver entry */
-LRESULT FAR PASCAL __export __loadds DriverProc( DWORD id, HDRVR hdrv, UINT msg, LPARAM p1, LPARAM p2 )
-{
-	switch ( msg ) {
-	case DRV_LOAD:
-		vxdok = vxd_init() == 0;
-		if ( vxdok ) {
-			DWORD out[3];
-			vcall( VW_GETVERSION, 0, 0, 0, 0, out );
-			hwrate = out[1];
-		}
-		return 1;
-	case DRV_FREE:
-	case DRV_ENABLE:
-	case DRV_DISABLE:
-	case DRV_OPEN:
-	case DRV_CLOSE:
-		return 1;
-	case DRV_INSTALL:
-	case DRV_REMOVE:
-		return DRVCNF_RESTART;
-	case DRV_QUERYCONFIGURE:
-		return 0;
-	default:
-		return DefDriverProc( id, hdrv, msg, p1, p2 );
-	}
-}
-
-int FAR PASCAL LibMain( HINSTANCE hinst, WORD dataseg, WORD heapsize, LPSTR cmdline )
-{
-	return 1;
-}
-
-int FAR PASCAL __export WEP( int param )
-{
-	return 1;
 }

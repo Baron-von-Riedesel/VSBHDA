@@ -10,7 +10,9 @@
 #              HIMEM.SYS in C:\ (required)
 #   VXD        VxD to test (default build/vxd/VSBVXD.386)
 #   FILES      more files to copy to C:\VSB (space separated)
-#   DRV        wave driver to install (C:\WINDOWS\SYSTEM, [drivers] wave=)
+#   DRV        multimedia driver to install (C:\WINDOWS\SYSTEM, [drivers]
+#              wave=, midi=, aux=)
+#   MIDIMAP    MIDIMAP.CFG to install
 #   INI        [VSBVXD] lines for SYSTEM.INI (| separated)
 #   PRE        AUTOEXEC.BAT commands before Windows (| separated, > AUX)
 #   CARD       QEMU sound device: hda (default), ac97, es1370, sb16, none
@@ -53,13 +55,16 @@ P="$OUT/test.img@@32256"
 mcopy -o -s -i "$P" "$OUT"/c/* ::/ || exit 1
 mcopy -o -i "$P" ::/WINDOWS/SYSTEM.INI "$OUT/system.ini"
 [ -n "${DRV:-}" ] && mcopy -o -i "$P" "$DRV" ::/WINDOWS/SYSTEM/
+[ -n "${MIDIMAP:-}" ] && mcopy -o -i "$P" "$MIDIMAP" ::/WINDOWS/SYSTEM/MIDIMAP.CFG
 python3 - "$OUT/system.ini" "${INI:-}" "${DRV:+$(basename "${DRV:-}")}" <<'EOF'
 import sys
 f, ini, drv = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(f, 'rb').read().decode('latin-1').replace('\r\n', '\n')
 s = s.replace('[386Enh]\n', '[386Enh]\ndevice=C:\\VSB\\VSBVXD.386\n', 1)
 if drv:
-    s = s.replace('[drivers]\n', '[drivers]\nwave=' + drv.lower() + '\n', 1)
+    d = drv.lower()
+    s = s.replace('[drivers]\n', '[drivers]\nwave=%s\nmidi=%s\naux=%s\n' % (d, d, d), 1)
+    s += '\n[mciseq.drv]\ndisablewarning=true\n'
 s += '\n[VSBVXD]\nLogPort=E9\n' + ''.join(l + '\n' for l in ini.split('|') if l)
 open(f, 'wb').write(s.replace('\n', '\r\n').encode('latin-1'))
 EOF
