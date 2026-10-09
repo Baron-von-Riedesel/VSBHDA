@@ -83,7 +83,7 @@
 
     Tools: Open Watcom 2.0 (WATCOM=/opt/watcom by default), JWasm and a
    JWlink whose "format windows vxd" output is fixed for the Windows 3.x
-   loader: no fixup records for self-relative fixups within an object, no
+   loader (https://github.com/Baron-von-Riedesel/jwlink/pull/17): no fixup records for self-relative fixups within an object, no
    16-bit fixups in 32-bit objects, and pages for the uninitialized data
    (WIN386 allocates only the pages that are in the file). vxd/lefix.py marks
    the C data object executable - WIN386 3.1 silently skips a VxD with a

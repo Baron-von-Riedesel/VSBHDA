@@ -11,6 +11,7 @@
 WATCOM ?= /opt/watcom
 ASM    ?= jwasm
 LINK   ?= jwlink
+# the linker runs in $(OUT): ASM and LINK need absolute paths or the PATH
 export WATCOM
 
 CC  := $(WATCOM)/binl/wcc386
@@ -60,8 +61,8 @@ $(OUT)/%.obj: $(SRC)/%.CPP | $(OUT)
 	$(CPP) $(CPPOPT) $(INC) -fo=$@ $<
 
 $(OUT)/VSBVXD.386: $(OBJS)
-	$(LINK) format windows vxd name $@ option quiet option map=$(OUT)/VSBVXD.map \
-	  file { $(OBJS) } \
+	cd $(OUT) && $(LINK) format windows vxd name VSBVXD.386 option quiet option map=VSBVXD.map \
+	  $(foreach o,$(OBJS),file $(notdir $(o))) \
 	  libpath $(WATCOM)/lib386 libpath $(WATCOM)/lib386/dos library plib3s.lib library clib3s.lib \
 	  segment _TEXT PRELOAD NONDISCARDABLE \
 	  segment _DATA PRELOAD NONDISCARDABLE \
