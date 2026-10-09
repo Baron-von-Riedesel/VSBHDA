@@ -78,6 +78,9 @@ bool _SND_UninstallISR( uint8_t );
 extern void SNDISR_Mixer( uint16_t *, uint16_t *, uint32_t, uint32_t, uint32_t );
 #endif
 extern void fatal_error( int );
+#ifdef VSBVXD
+extern void vxdwave_mix( int16_t *, int );
+#endif
 
 extern struct globalvars gvars;
 
@@ -253,7 +256,11 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples
 extern void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples );
 #endif
 
+#ifdef VSBVXD
+int SNDISR_Interrupt( void ) /* called by VSBVXD's VPICD hardware interrupt handler */
+#else
 static int SNDISR_Interrupt( void )
+#endif
 ///////////////////////////////////
 {
     uint32_t mastervol;
@@ -360,6 +367,10 @@ static int SNDISR_Interrupt( void )
 # endif
             }
 #endif
+#ifdef VSBVXD
+            /* VSBVXD: VDMA_GetBase() is the linear address of the VM's buffer */
+            isr.DMA_Base = isr.DMA_linearBase = DMA_Base;
+#else
             /* check if current mapped region (isr.DMA_Base + isr.DMA_Size ) covers current DMA region */
             if( !(DMA_Base >= isr.DMA_Base && (DMA_Base + DMA_Pos + DMA_Count) <= (isr.DMA_Base + isr.DMA_Size) )) {
                 isr.DMA_linearBase = -1;
@@ -384,6 +395,7 @@ static int SNDISR_Interrupt( void )
                 dbgprintf(("isr(%u), DMA address (re)mapped: DMA_Base=%x, isr.DMA_Size=%x, DMA_linearBase=%x\n",
                            loop, DMA_Base, isr.DMA_Size, isr.DMA_linearBase ));
             }
+#endif
         }
         /* don't resample if sample rates are close? */
         if( SB_Rate != freq ) {
@@ -711,6 +723,9 @@ static int SNDISR_Interrupt( void )
         fpu_restore( fpu_buffer );
     }
 #endif
+#ifdef VSBVXD
+    vxdwave_mix( isr.pPCM, nSamples ); /* VSBVXD: wave output of the Windows driver */
+#endif
     AU_writedata( isr.hAU, isr.pPCM, nSamples * 2 );
 
 #if SLOWDOWN
@@ -719,7 +734,9 @@ static int SNDISR_Interrupt( void )
 #endif
 
 isrexit:
+#ifndef VSBVXD
     PIC_SendEOI( isr.SndIrq );
+#endif
 #if COMPAT4 && SETIF
     if ( gvars.compatflags & CF_MASKPIT )
         return( 2 | (mask << 8 ));
@@ -745,6 +762,22 @@ void SNDISR_IrqOnPortAcc( void )
 
 /* init sound hw - called by main() */
 
+#ifdef VSBVXD
+bool SNDISR_Init( void *hAU, uint16_t vol )
+{
+    /* PCM buffer for format conversions; the hardware IRQ is handled by VSBVXD */
+    if ( !( isr.pPCM = malloc( gvars.buffsize * 4096 ) ) )
+        return false;
+    isr.hAU = hAU;
+    isr.SndIrq = AU_getirq( hAU );
+    return true;
+}
+
+bool SNDISR_Exit( void )
+{
+    return true;
+}
+#else
 bool SNDISR_Init( void *hAU, uint16_t vol )
 ///////////////////////////////////////////
 {
@@ -807,6 +840,4 @@ bool SNDISR_Exit( void )
     dbgprintf(("SNDISR_Exit: cnt total/voice=%u/%u max/avg samples=%u/%u\n", isr.cntTotal, isr.cntDigital, isr.max_samples, isr.cntTotal ? isr.total_samples / isr.cntTotal : 0 ));
     return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }
-
-
-
+#endif /* VSBVXD */
