@@ -31,14 +31,21 @@ DEBUG=0
 !ifndef WATCOM
 WATCOM=\ow20
 !endif
+
 # use OW v2 (0) or OW v1.9 (1)
 !ifndef USE19
 USE19=0
 !endif
+
 # use jwlink (1) or wlink (0)
 !ifndef USEJWL
 USEJWL=1
 !endif
+
+!ifndef DYNAMIC
+DYNAMIC=1
+!endif
+
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
@@ -46,6 +53,8 @@ CC=$(WATCOM)\binnt\wcc386.exe
 CPP=$(WATCOM)\binnt\wpp386.exe
 LIB=$(WATCOM)\binnt\wlib.exe
 ASM=jwasm.exe
+
+NAME=VSBHDA
 
 !if $(USEJWL)
 LINK=jwlink.exe
@@ -56,8 +65,6 @@ CONST2ATTR=segment CONST2 readonly
 LINK=$(WATCOM)\binnt\wlink.exe
 FMTHX=
 !endif
-
-NAME=VSBHDA
 
 !if $(DEBUG)
 OUTD=owd
@@ -75,6 +82,10 @@ A_DEBUG_FLAGS=
 OW19=-DOW19
 !endif
 
+!if $(DYNAMIC)
+LOADDRVOBJ=$(OUTD)/loaddrv.obj
+!endif
+
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
 	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
@@ -82,13 +93,17 @@ OBJFILES = &
 !ifndef NOFM
 	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
 !endif
-	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
+$(OUTD)/au_cards.obj &
+!if $(DYNAMIC)
+	$(LOADDRVOBJ) &
+!else
+	$(OUTD)/ac97mix.obj		
 	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
-	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/sc_sbxfi.obj &
-	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
+	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj &
+	$(OUTD)/sc_sbgen.obj	$(OUTD)/sblive.obj		$(OUTD)/sblive24.obj &
 	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj &
-	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj	$(OUTD)/sc_cs4281.obj &
+	$(OUTD)/sc_e1370.obj	$(OUTD)/sc_cs4281.obj &
+!endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
 	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj &
@@ -101,6 +116,7 @@ C_EXTRA_FLAGS=
 !ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
+C_EXTRA_FLAGS_MOD= $(C_EXTRA_FLAGS) -DNOTFLAT
 LD_FLAGS=
 LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
 
@@ -130,7 +146,7 @@ $(OUTD):
 $(OUTD)\$(NAME).EXE: $(OUTD)\$(NAME).lib $(OUTD)\cstrtdhx.obj
 	@$(LINK) @<<
 format win pe $(FMTHX) runtime console
-file $(OUTD)\cstrtdhx, $(OUTD)\main, $(OUTD)\linear name $*.EXE
+file { $(OUTD)\cstrtdhx $(OUTD)\main $(OUTD)\linear $(LOADDRVOBJ) } name $*.EXE
 libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
 lib $(OUTD)\$(NAME).lib
 op q,m=$(OUTD)\$(NAME).map,stub=res\loadpero.bin,stack=0x10000,heap=0x1000
@@ -141,26 +157,30 @@ $(CONSTATTR) $(CONST2ATTR)
 !endif
 
 $(OUTD16)\$(NAME)16.EXE: .always
+!if $(DYNAMIC)
 	@wmake -h -f OW16.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
+!else
+	@wmake -h -f OW16l.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
+!endif
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
-$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)/ak4531mix.obj: src\hw\ak4531mix.c
 $(OUTD)/au_cards.obj:  src\hw\au_cards.c
+$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
 $(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
 $(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
 $(OUTD)/physmem.obj:   src\hw\physmem.c
 $(OUTD)/pcibios.obj:   src\hw\pcibios.c
+$(OUTD)/sblive24.obj:  src\hw\sblive24.c
+$(OUTD)/sblive.obj:    src\hw\sblive.c
 $(OUTD)/sc_cs4281.obj: src\hw\sc_cs4281.c
 $(OUTD)/sc_e1370.obj:  src\hw\sc_e1370.c
 $(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
 $(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
 $(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
-$(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
-$(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
+$(OUTD)/sc_sbgen.obj:  src\hw\sc_sbgen.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
@@ -172,6 +192,9 @@ $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
 $(OUTD)/int31.obj:     src\int31.asm
 $(OUTD)/linear.obj:    src\linear.c
+!if $(DYNAMIC)
+$(OUTD)/loaddrv.obj:   src\loaddrv.asm
+!endif
 $(OUTD)/logfile.obj:   src\logfile.asm
 $(OUTD)/main.obj:      src\main.c
 $(OUTD)/mixer.obj:     src\mixer.asm
@@ -199,7 +222,6 @@ $(OUTD)/malloc.obj:    src\startup\malloc.asm
 $(OUTD)/sbrk.obj:      src\startup\sbrk.asm
 $(OUTD)/strtol.obj:    src\startup\strtol.asm
 $(OUTD)/_matherr.obj:  src\startup\_matherr.asm
-
 
 # to avoid any issues with 16-bit relocations in PE binaries,
 # the 16-bit code is included in binary format into rmwrap.asm.

@@ -221,20 +221,19 @@ static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
 	/* for ICH, periods should be max 32 */
-	card->periods = min(ICH_DMABUF_PERIODS,(aui->gvars->buffers > 1) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT);
+	card->periods = min(ICH_DMABUF_PERIODS,(aui->card_buffers > 1) ? aui->card_buffers : HW_BUFFERS_DEFAULT);
 
 	/* v2.0: valid periods are 2,4,8,16,32 only;
-	 * that's why MDma_get_bufsize() can't be used (gvars->buffers must be ignored)
+	 * that's why MDma_get_bufsize() can't be used (card_buffers must be ignored)
 	 */
 	while ( ICH_DMABUF_PERIODS % card->periods ) card->periods++;
-	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE );
-	card->pcmout_bufsize =  card->periods * (aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE);
+	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : ICH_DMABUF_PERIODSIZE );
+	card->pcmout_bufsize =  card->periods * (aui->card_period_size ? aui->card_period_size : ICH_DMABUF_PERIODSIZE);
 
 	if (!MDma_alloc_cardmem(&card->dm, ICH_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize ) ) return 0;
 	/* pagetable requires 8 byte align; MDma_alloc_cardmem() returns 1kB aligned ptr */
 	card->virtualpagetable = (struct bd_s *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + ICH_DMABUF_PERIODS * sizeof(struct bd_s);
-	aui->card_pDmaBuffer = card->pcmout_buffer;
 #if 0//v1.8: memory cleared by MDma_alloc_cardmem()
 	memset(card->pcmout_buffer, 0, card->pcmout_bufsize);
 #endif
@@ -542,6 +541,7 @@ static int ICH_adetect( struct audioout_info_s *aui )
 		goto err_adetect;
 	ich_chip_init( card );
 	ich_ac97_init( card, aui->freq_card );
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 	return 1;
 
 err_adetect:
@@ -583,7 +583,7 @@ static void ICH_setrate( struct audioout_info_s *aui )
 				aui->freq_card = 48000;
 	}
 
-	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : ICH_DMABUF_PERIODSIZE, aui->freq_card);
+	//dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize, aui->card_period_size ? aui->card_period_size : ICH_DMABUF_PERIODSIZE, aui->freq_card);
 	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	/* v2.0: variable # of periods */
 	card->period_size = dmabufsize / card->periods;
@@ -701,10 +701,9 @@ static unsigned long ICH_readMIXER( struct audioout_info_s *aui, unsigned long r
 #endif
 }
 
-static int ICH_IRQRoutine( struct audioout_info_s *aui )
-////////////////////////////////////////////////////////
+static int ICH_IRQRoutine( struct intel_card_s *card )
+//////////////////////////////////////////////////////
 {
-	struct intel_card_s *card = aui->card_private_data;
 	int status = ich_read_8(card,card->sr_reg);
 	//dbgprintf(("ICH_IRQRoutine: SR=%X\n", status ));
 	status &= ICH_PO_SR_LVBCI | ICH_PO_SR_BCIS | ICH_PO_SR_FIFO;
@@ -723,7 +722,7 @@ struct sndcard_info_s ICH_sndcard_info = {
  &ICH_close,
  &ICH_setrate,
 
- &MDma_writedata, /* =cardbuf_writedata() */
+ NULL,
  &ICH_getbufpos,
  &ICH_IRQRoutine,
  &ICH_writeMIXER,

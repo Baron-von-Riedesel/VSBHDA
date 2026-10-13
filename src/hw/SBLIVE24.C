@@ -12,7 +12,7 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: SB Live24/Audigy LS (CA0106) low level routines (with sc_sbliv.c)
+//function: SB Live24/Audigy LS (CA0106) low level routines
 //based on the ALSA (http://www.alsa-project.org)
 
 #include <stdint.h>
@@ -25,7 +25,7 @@
 #include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
-#include "SC_SBLIV.H"
+#include "SC_SBGEN.H"
 #include "AC97MIX.H"
 #include "CA0106.H"
 
@@ -36,6 +36,21 @@
 #define CA0106_DMABUF_ALIGN (CA0106_DMABUF_PERIODS*CA0106_PERIOD_ALIGN) // 512
 
 #define AUDIGYLS_USE_AC97 1 // for Audigy LS cards (set it to 0, if it doesn't work with AC97)
+
+#define CARD(name, rev, subsys, chips, maxchn) {name, subsys, rev, chips, maxchn}
+
+const struct emu_card_version_s emucards_07[] = {
+ CARD("Audigy LS [SB0310]"         ,0,0x10021102,EMU_CHIPS_0106,8),
+ CARD("Audigy LS [SB0310b]"        ,0,0x10051102,EMU_CHIPS_0106,8),
+ CARD("Live! 7.1 24bit [SB0410]"   ,0,0x10061102,EMU_CHIPS_0106,8),
+ CARD("Live! 7.1 24bit [SB0413]"   ,0,0x10071102,EMU_CHIPS_0106,8),
+ CARD("Live24 (MSI K8N Diamond)"   ,0,0x10091462,EMU_CHIPS_0106,8), // SB0438
+ CARD("Live24 (Shuttle XPC SD31P)" ,0,0x30381297,EMU_CHIPS_0106,8),
+ CARD("X-Fi Xtreme Audio [SB0790]" ,0,0x10121102,EMU_CHIPS_0106,8),
+ CARD("Live! 7.1 24bit [unknown]"  ,0,0         ,EMU_CHIPS_0106,8), /* catch all */
+ //{NULL}
+};
+
 
 static void snd_emu_ac97_write( struct emu10k1_card *card, unsigned int reg, unsigned int value)
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -213,7 +228,7 @@ static void snd_hw_close( struct emu10k1_card *card)
 static unsigned int snd_buffer_init( struct emu10k1_card *card, struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : CA0106_DMABUF_ALIGN );
 	if (! MDma_alloc_cardmem(&card->dm, CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize) ) return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t);
@@ -309,10 +324,10 @@ static void snd_setrate( struct emu10k1_card *card, struct audioout_info_s *aui 
 	}
 
 	/* v1.7: use /PS value if set */
-	//dmabufsize = MDma_initbuf(aui, card->pcmout_bufsize, aui->gvars->period_size ? aui->gvars->period_size : CA0106_DMABUF_ALIGN, 0);
+	//dmabufsize = MDma_initbuf(aui, card->pcmout_bufsize, aui->card_period_size ? aui->card_period_size : CA0106_DMABUF_ALIGN, 0);
 	dmabufsize = MDma_initbuf( aui, card->pcmout_bufsize );
 	//card->period_size = (dmabufsize / CA0106_DMABUF_PERIODS);
-	card->period_size = aui->gvars->period_size ? aui->gvars->period_size : (dmabufsize / CA0106_DMABUF_PERIODS);
+	card->period_size = aui->card_period_size ? aui->card_period_size : (dmabufsize / CA0106_DMABUF_PERIODS);
 	dbgprintf(("snd_setrate: dmabufsize:%d period_size:%d\n",dmabufsize,card->period_size));
 
 	snd_pcm_prepare_playback(card,aui);
@@ -343,9 +358,12 @@ static void snd_pcm_stop_playback( struct emu10k1_card *card)
 	return;
 }
 
-static unsigned int snd_pcm_pointer_playback( struct emu10k1_card *card, struct audioout_info_s *aui )
-//////////////////////////////////////////////////////////////////////////////////////////////////////
+/* v2.1: now called directly by AU_cardbuf_space(), expecting pos in byte units! */
+
+static unsigned int snd_pcm_pointer_playback( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////////////////////
 {
+	struct emu10k1_card *card = aui->card_private_data;
 	unsigned int ptr,ptr1,ptr3,ptr4;
 	const uint32_t channel = 0;
 
@@ -361,9 +379,9 @@ static unsigned int snd_pcm_pointer_playback( struct emu10k1_card *card, struct 
 
 	dbgprintf(("snd_pcm_pointer_playback: list_ptr:%3d period_ptr:%4d bufpos:%d",ptr4,ptr1,ptr));
 
-	/* todo: AU_cardbuf_space() expects position in byte units! */
-	ptr /= aui->chan_card;
-	ptr /= aui->bits_card >> 3;
+	/* AU_cardbuf_space() expects position in byte units! */
+	//ptr /= aui->chan_card;
+	//ptr /= aui->bits_card >> 3;
 
 	return ptr;
 }
@@ -435,6 +453,24 @@ static const struct aucards_mixerchan_s *emu_mixerset[] = {
  NULL
 };
 
+/* function address vectors for SC_SBGEN.C */
+
+const struct emu_driver_func_s emu_driver_live24_funcs = {
+ &snd_live24_selector,
+ &snd_live24_hw_init,
+ &snd_hw_close,
+ &snd_buffer_init,
+ &snd_setrate,
+ &snd_pcm_start_playback,
+ &snd_pcm_stop_playback,
+ &snd_pcm_pointer_playback,
+ NULL,
+ &snd_isr,
+ &snd_mixer_read,
+ &snd_mixer_write,
+ emu_mixerset
+};
+
 const struct emu_driver_func_s emu_driver_audigyls_funcs = {
  &snd_audigyls_selector,
  &snd_audigyls_hw_init,
@@ -457,18 +493,3 @@ const struct emu_driver_func_s emu_driver_audigyls_funcs = {
 #endif
 };
 
-const struct emu_driver_func_s emu_driver_live24_funcs = {
- &snd_live24_selector,
- &snd_live24_hw_init,
- &snd_hw_close,
- &snd_buffer_init,
- &snd_setrate,
- &snd_pcm_start_playback,
- &snd_pcm_stop_playback,
- &snd_pcm_pointer_playback,
- NULL,
- &snd_isr,
- &snd_mixer_read,
- &snd_mixer_write,
- emu_mixerset
-};

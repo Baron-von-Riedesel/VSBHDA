@@ -26,8 +26,11 @@
 //mixer codec (see AK4531.H/AK4531MIX.C) and a programmable clock divider
 //(derived from a fixed 1.4112 MHz reference) for arbitrary playback rates.
 //
-//This file has NOT been tested against real hardware yet - please verify
-//against a real ES1370/CT4700 card and report back any needed fixes.
+//This file has NOT been tested against real hardware yet.
+//In Qemu, DMA underruns occur with default period size of 512. They
+//disappear it period size is increased to 1024 or 2048.
+//
+//This file was generated with the help of AI ( Claude ).
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -40,7 +43,7 @@
 #include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
-#include "AK4531MIX.H"
+#include "AK4531.H"
 
 #define ES1370_DMABUF_ALIGN 512
 
@@ -304,7 +307,6 @@ static void es1370_dac2_rate(struct es1370_card_s *card, unsigned int rate)
 		rate = 48000;
 	card->ctrl &= ~ES_1370_PCLKDIVM;
 	card->ctrl |= ES_1370_PCLKDIVO(ES_1370_SRTODIV(rate));
-	outpd((card->port + ES_REG_CONTROL), card->ctrl);
 }
 
 //-------------------------------------------------------------------------
@@ -312,10 +314,9 @@ static void es1370_dac2_rate(struct es1370_card_s *card, unsigned int rate)
 static unsigned int es1370_buffer_init( struct es1370_card_s *card, struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1370_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : ES1370_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
-	aui->card_pDmaBuffer = card->pcmout_buffer;
 
 	/* v: dummy 16-byte buffer for the ADC "phantom" DMA erratum -
 	 * without a valid target, the ES1370 can perform stray bus-master
@@ -360,18 +361,18 @@ static void es1370_prepare_playback( struct es1370_card_s *card, struct audioout
 	dbgprintf(("es1370_prepare_playback: enter, dmasize=%X\n", aui->card_dmasize));
 	card->ctrl &= ~ES_DAC2_EN;
 	outpd((card->port + ES_REG_CONTROL), card->ctrl);
-	outpd((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 
 	/* DAC2: FRAME=port 38h, SIZE=port 3Ch, COUNT=port 28h */
+	outpd((card->port + ES_REG_MEM_PAGE), ES_MEM_PAGEO(ES_PAGE_DAC));
 	outpd((card->port + ES_REG_DAC2_FRAME), (unsigned long) pds_cardmem_physicalptr(card->dm, card->pcmout_buffer));
 	outpd((card->port + ES_REG_DAC2_SIZE), (aui->card_dmasize >> 2) - 1);
-	outpd((card->port + ES_REG_DAC2_COUNT), aui->gvars->period_size ? (aui->gvars->period_size >> 2) - 1 : (512>>2) - 1);
+	outpd((card->port + ES_REG_DAC2_COUNT), ((aui->card_period_size ? aui->card_period_size : 512 ) >> 2) - 1);
 
 	card->sctrl &= ~(ES_P2_LOOP_SEL | ES_P2_PAUSE | ES_P2_DAC_SEN | ES_P2_END_INCM | ES_P2_ST_INCM | (0x03<<2));
 	card->sctrl |= ES_P2_MODEO(0x03) | ES_P2_END_INCO(2) | ES_P2_ST_INCO(0); // stereo, 16 bits
-	outpd((card->port + ES_REG_SERIAL), card->sctrl);
-
 	es1370_dac2_rate(card, aui->freq_card);
+	outpd((card->port + ES_REG_SERIAL), card->sctrl);
+	outpd((card->port + ES_REG_CONTROL), card->ctrl);
 	dbgprintf(("es1370_prepare_playback: exit\n"));
 }
 
@@ -410,11 +411,13 @@ static int ES1370_adetect( struct audioout_info_s *aui )
 	 * no driver-side joystick logic is needed (same as SC_E1371.C does
 	 * for the ES1371/1373).
 	 */
-	card->ctrl = ES_1370_CDC_EN | ES_JYSTK_EN | ES_1370_PCLKDIVO(ES_1370_SRTODIV(8000));
+	//card->ctrl = ES_1370_CDC_EN | ES_JYSTK_EN | ES_1370_PCLKDIVO(ES_1370_SRTODIV(8000));
+	card->ctrl = ES_1370_ADC_STOP | ES_1370_CDC_EN | ES_JYSTK_EN | ES_1370_PCLKDIVO(ES_1370_SRTODIV(aui->freq_card));
 	card->sctrl = 0;
 
 	if( es1370_buffer_init(card,aui) ) {
 		es1370_chip_init(card);
+		aui->card_pDmaBuffer = card->pcmout_buffer;
 		return 1;
 	}
 	ES1370_close(aui);
@@ -438,7 +441,7 @@ static void ES1370_setrate( struct audioout_info_s *aui )
 {
 	struct es1370_card_s *card = aui->card_private_data;
 
-	dbgprintf(("ES1370_setrate\n"));
+    dbgprintf(("ES1370_setrate: freq_card=%u\n", aui->freq_card));
 	if(aui->freq_card < 4000)
 		aui->freq_card = 4000;
 	else if(aui->freq_card > 48000)
@@ -467,6 +470,8 @@ static void ES1370_stop( struct audioout_info_s *aui )
 	card->sctrl |= ES_P2_PAUSE;
 	card->sctrl &= ~ES_P2_INT_EN;
 	outpd(card->port + ES_REG_SERIAL, card->sctrl);
+	card->ctrl &= ~ES_DAC2_EN;
+	outpd((card->port + ES_REG_CONTROL), card->ctrl);
 }
 
 /* ES1370 implementation of cardbuf_getpos() */
@@ -504,10 +509,9 @@ static unsigned long ES1370_readMIXER( struct audioout_info_s *aui, unsigned lon
 	return 0;
 }
 
-static int ES1370_IRQRoutine( struct audioout_info_s *aui )
-///////////////////////////////////////////////////////////
+static int ES1370_IRQRoutine( struct es1370_card_s *card )
+//////////////////////////////////////////////////////////
 {
-	struct es1370_card_s *card = aui->card_private_data;
 	int status = inpd(card->port + ES_REG_STATUS );
 	if ( status & ES_DAC2 ) {
 		outpd(card->port + ES_REG_SERIAL , card->sctrl & ~ES_P2_INT_EN );
@@ -516,8 +520,68 @@ static int ES1370_IRQRoutine( struct audioout_info_s *aui )
 	return status & ES_DAC2;
 }
 
+// Unlike AC97MIX.C, each AK4531 channel uses TWO separate 8-bit registers
+// for left/right (not one register with a left/right bitfield), and the
+// codec cannot be read back from hardware - card_readmixer()
+// returns a value cached in software instead.
+
+static const struct aucards_mixerchan_s aucards_ak4531chan_master_vol = {
+	AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME,2,{
+		{ AK4531_LMASTER,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AK4531_RMASTER,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+/* the "PCM"/voice channel is the DAC output level - this is the one that
+ * actually controls how loud the digital audio played by VSBHDA is.
+ */
+static const struct aucards_mixerchan_s aucards_ak4531chan_pcm_vol = {
+	AU_MIXCHAN_PCM,AU_MIXCHANFUNC_VOLUME,2,{
+		{ AK4531_LVOICE,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AK4531_RVOICE,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+static const struct aucards_mixerchan_s aucards_ak4531chan_micin_vol = {
+	AU_MIXCHAN_MICIN,AU_MIXCHANFUNC_VOLUME,1, {
+		{ AK4531_MIC,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+static const struct aucards_mixerchan_s aucards_ak4531chan_linein_vol = {
+	AU_MIXCHAN_LINEIN,AU_MIXCHANFUNC_VOLUME,2, {
+		{ AK4531_LLINE,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AK4531_RLINE,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+static const struct aucards_mixerchan_s aucards_ak4531chan_cdin_vol = {
+	AU_MIXCHAN_CDIN,AU_MIXCHANFUNC_VOLUME,2, {
+		{ AK4531_LCD,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AK4531_RCD,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+static const struct aucards_mixerchan_s aucards_ak4531chan_auxin_vol = {
+	AU_MIXCHAN_AUXIN,AU_MIXCHANFUNC_VOLUME,2, {
+		{ AK4531_LAUXA,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE },
+		{ AK4531_RAUXA,5,0,SUBMIXCH_INFOBIT_REVERSEDVALUE }
+	}};
+
+/* note: AK4531 has no dedicated headphone or S/PDIF output, so
+ * AU_MIXCHAN_HEADPHONE / AU_MIXCHAN_SPDIFOUT are intentionally not listed
+ * here. AU_setmixer_one() looks channels up via AU_search_mixerchan() and
+ * silently does nothing if a channel isn't present in this table, so
+ * AU_setmixer_outs() (which touches MASTER/PCM/HEADPHONE/SPDIFOUT) remains
+ * safe to call unmodified.
+ */
+const struct aucards_mixerchan_s *aucards_ak4531chan_mixerset[] = {
+	&aucards_ak4531chan_master_vol,
+	&aucards_ak4531chan_pcm_vol,
+	&aucards_ak4531chan_micin_vol,
+	&aucards_ak4531chan_linein_vol,
+	&aucards_ak4531chan_cdin_vol,
+	&aucards_ak4531chan_auxin_vol,
+	NULL
+};
+
 const struct sndcard_info_s ES1370_sndcard_info = {
- "ENS70",
+ "ES1370",
  0,
  &ES1370_adetect,
  &ES1370_start,
@@ -525,7 +589,7 @@ const struct sndcard_info_s ES1370_sndcard_info = {
  &ES1370_close,
  &ES1370_setrate,
 
- &MDma_writedata,
+ NULL,
  &ES1370_getbufpos,
  &ES1370_IRQRoutine,
  &ES1370_writeMIXER,

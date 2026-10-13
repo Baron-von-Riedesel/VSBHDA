@@ -7,6 +7,9 @@
     16-bit DMA channel and thus the 8-bit DMA channel may be used for
     16-bit sound.
   - support for SB X-FI cards (EMU20K1 & EMU20K2 chips) added.
+  - support for ES1370 & CS4281 cards added (done by Vicokoby/Claude).
+  - sound hardware driver code now in separate modules - they're loaded
+    dynamically by VSBHDA; SNDCARD.DRV obsolete and removed.
 
   v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state

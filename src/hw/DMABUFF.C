@@ -67,11 +67,11 @@ unsigned int MDma_get_bufsize( struct audioout_info_s *aui, unsigned int maxbufs
 {
 	unsigned int bufsize = (maxbufsize ? maxbufsize : AUCARDS_DMABUFSIZE_MAX);
 	if (!pagesize)
-		pagesize = ( aui->gvars->period_size ? aui->gvars->period_size : AUCARDS_DMABUFSIZE_BLOCK );
+		pagesize = ( aui->card_period_size ? aui->card_period_size : AUCARDS_DMABUFSIZE_BLOCK );
 	bufsize -= bufsize % pagesize; /* align */
 	/* v2.0: max buffer size now limited - using the new /B option */
 	//bufsize = ( min(maxbufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
-	bufsize = min( bufsize, ((aui->gvars->buffers > 1 ) ? aui->gvars->buffers : HW_BUFFERS_DEFAULT ) * pagesize );
+	bufsize = min( bufsize, ((aui->card_buffers > 1 ) ? aui->card_buffers : HW_BUFFERS_DEFAULT ) * pagesize );
 	dbgprintf(("MDma_get_bufsize(max=0x%X,pgsiz=0x%X)=0x%X\n", maxbufsize, pagesize, bufsize));
 	return bufsize;
 }
@@ -90,26 +90,3 @@ unsigned int MDma_initbuf( struct audioout_info_s *aui, unsigned int bufsize )
 	dbgprintf(("MDma_initbuf(bufsize=0x%X)\n", bufsize ));
 	return bufsize;
 }
-
-void MDma_clearbuf( struct audioout_info_s *aui )
-/////////////////////////////////////////////////
-{
-	if(aui->card_pDmaBuffer && aui->card_dmasize)
-		memset(aui->card_pDmaBuffer,0,aui->card_dmasize);
-	return;
-}
-
-void MDma_writedata( struct audioout_info_s *aui, char *src, unsigned int left )
-////////////////////////////////////////////////////////////////////////////////
-{
-	unsigned int todo;
-
-	//dbgprintf(("MDma_writedata( buffer=%X, src=%X)\n", aui->card_pDmaBuffer + aui->card_dmalastput, src));
-	todo = min( left, aui->card_dmasize - aui->card_dmalastput );
-
-	memcpy(aui->card_pDmaBuffer + aui->card_dmalastput,src,todo);
-	if ( left > todo )
-		memcpy(aui->card_pDmaBuffer,src + todo,left - todo);
-	return;
-}
-

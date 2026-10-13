@@ -1,6 +1,8 @@
 
-#ifndef SC_SBLIV_H
-#define SC_SBLIV_H
+#ifndef SC_SBGEN_H
+#define SC_SBGEN_H
+
+#define CA0151 0 /* the CA0151 is never used by VSBHDA */
 
 #define EMU_CHIPS_10K1  1 // SB Live 5.1
 #define EMU_CHIPS_10K2  2 // SB Audigy
@@ -16,7 +18,7 @@
 struct emu_card_version_s {
  char *longname;
  uint32_t subsystem;     // serial
- uint16_t device;
+ //uint16_t device;
  uint8_t  revision;
  uint8_t  chips;         // chips on the card
  uint8_t  max_channels;
@@ -32,9 +34,9 @@ struct emu_driver_func_s{
  void         (*setrate)    ( struct emu10k1_card *card, struct audioout_info_s *aui);
  void         (*start_playback)( struct emu10k1_card *card);
  void         (*stop_playback) ( struct emu10k1_card *card);
- unsigned int (*pcm_pointer_playback)( struct emu10k1_card *card, struct audioout_info_s *aui);
+ unsigned int (*pcm_pointer_playback)( struct audioout_info_s *aui);
  void         (*clear_cache)( struct emu10k1_card *card);
- int          (*interrupt_isr)( struct emu10k1_card *card); /* vsbhda */
+ int          (*interrupt_isr)();
  unsigned int (*mixer_read) ( struct emu10k1_card *card, unsigned int reg);
  void         (*mixer_write)( struct emu10k1_card *card, unsigned int reg, unsigned int value);
  const struct aucards_mixerchan_s **mixerset;
@@ -42,12 +44,12 @@ struct emu_driver_func_s{
 
 struct emu10k1_card {
  unsigned long   iobase;
- unsigned long   serial;
+ unsigned long   serial; /* PCI PCIR_SSVID */
  //unsigned int    irq; /* v2.0: obsolete */
- unsigned short  model;
- unsigned char   chiprev;
- unsigned char   chips;
- unsigned char   chip_select;
+ unsigned short  model; /* PCI PCIR_SSID */
+ unsigned char   chiprev; /* PCI PCIR_RID */
+ unsigned char   chips; /* copied from card_capabilities.chips, unmodified */
+ unsigned char   chip_select; /* copied from card_capabilities.chips, modified */
  struct pci_config_s pci_dev;
  const struct emu_card_version_s *card_capabilities;
  const struct emu_driver_func_s *driver_funcs;
@@ -64,4 +66,4 @@ struct emu10k1_card {
  unsigned int voice_pitch_target;
 };
 
-#endif // SC_SBLIV_H
+#endif // SC_SBGEN_H

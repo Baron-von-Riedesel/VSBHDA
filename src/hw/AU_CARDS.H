@@ -97,24 +97,26 @@ struct sndcard_info_s;
 
 struct audioout_info_s {
  void *card_private_data;         /* card's private data - size defined by sndcard_info_s.private_data_size */
+ const struct sndcard_info_s *card_handler; /* card's info block - v2.1: now here to simplify dynamic loading */
+ char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
  unsigned int  freq_card;
  unsigned char chan_card;
  unsigned char bits_card;
  unsigned char sampleshift_card;  /* samples << sampleshift_card = size of samples in bytes */
  unsigned char card_irq;
  unsigned char card_bytespersign; /* bytespersample_card * chan_card */
+ unsigned char card_buffers;      /* value of option /B */
+ unsigned char card_devidx;       /* value of option /DEV */
+   signed char card_pin;          /* value of option /O - used by HDA and SBLIVE */
  enum pcmformat card_wave_id;     /* PCM format - usually 16-bit signed */
  enum card_ctrlbits card_ctrlbits;
  enum card_infobits card_infobits;
+ unsigned int  card_period_size;  /* value of option /PS */
  unsigned int  card_dmasize;      /* card's dma buffer size in bytes; set in dmabuff.c */
  unsigned int  card_dmalastput;   /* current dma buffer write offset; updated in AU_writedata() */
  unsigned int  card_dmaspace;     /* "free" dma buffer size in bytes; set in AU_get_bufpos_space() */
                                   /* should usually be set to ~period size if no IRQs got lost */
- unsigned int  buffer_protection; /* v2.0: gap between read/write buffer pointer in bytes */
- char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
-
- const struct sndcard_info_s *card_handler; // function structure of the card
- const struct globalvars *gvars;
+ unsigned int  card_buffer_protection; /* v2.0: gap between read/write buffer pointer in bytes */
  short card_master_volume;
  short card_mixer_values[AU_MIXCHANS_NUM]; // -1, 0-100
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
@@ -156,7 +158,7 @@ struct sndcard_info_s {
 
  void      (*cardbuf_writedata)(struct audioout_info_s *, char *buffer, unsigned int bytes); // write data into the buffer
  unsigned int (*cardbuf_getpos)(struct audioout_info_s *); // get the buffer write pointer ( or "free" space )
- int             (*irq_routine)(struct audioout_info_s *); // check if IRQ is caused by card and acknowledge
+ int             (*irq_routine)(); // check if IRQ is caused by card and acknowledge
 
  void          (*card_writemixer)(struct audioout_info_s *, unsigned long mixreg, unsigned long value);
  unsigned long  (*card_readmixer)(struct audioout_info_s *, unsigned long mixreg);
@@ -164,10 +166,14 @@ struct sndcard_info_s {
  unsigned int private_data_size;
 };
 
-#ifdef NOTFLAT
-#define FAREXP _far
-#else
+#ifdef DYNAMIC /* no far AU_ entries if drivers are loaded dynamically */
 #define FAREXP
+#else
+# ifdef NOTFLAT
+# define FAREXP _far
+# else
+# define FAREXP
+# endif
 #endif
 
 //main soundcard routines

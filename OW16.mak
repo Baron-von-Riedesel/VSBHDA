@@ -1,5 +1,5 @@
 
-# Create vsbhda16.exe & sndcard.drv with Open Watcom and JWasm.
+# Create vsbhda16.exe with Open Watcom and JWasm.
 # Enter
 #   wmake -f ow16.mak
 # Optionally, for a debug version, enter
@@ -19,16 +19,22 @@ DEBUG=0
 !ifndef WATCOM
 WATCOM=\ow20
 !endif
+
 # use OW v2 (0) or OW v1.9 (1)
 !ifndef USE19
 USE19=0
 !endif
+
 !ifndef USEJWL
 USEJWL=1
 !endif
 
+DYNAMIC=1
+
 # activate next line if FM synth should be deactivated
 #NOFM=1
+
+NAME=VSBHDA16
 
 CC=$(WATCOM)\binnt\wcc386.exe
 CPP=$(WATCOM)\binnt\wpp386.exe
@@ -39,9 +45,6 @@ LINK=$(WATCOM)\binnt\wlink.exe
 !endif
 LIB=$(WATCOM)\binnt\wlib.exe
 ASM=jwasm.exe
-
-NAME=VSBHDA16
-NAME2=SNDCARD
 
 !if $(DEBUG)
 OUTD=ow16d
@@ -57,6 +60,8 @@ A_DEBUG_FLAGS=
 OW19=-DOW19
 !endif
 
+LOADDRVOBJ=$(OUTD)/loaddrv.obj
+
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
 	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
@@ -66,19 +71,10 @@ OBJFILES = &
 !endif
 	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
 	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/dpmiisr.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/auimp16.obj		$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
+	$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
+	$(OUTD)/au_cards.obj &
+	$(LOADDRVOBJ) &
 	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
-
-OBJFILES2 = &
-	$(OUTD)/ac97mix.obj		$(OUTD)/au_cards.obj &
-	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
-	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/sc_sbxfi.obj &
-	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj	$(OUTD)/sc_sbliv.obj	$(OUTD)/sc_sbl24.obj &
-	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj  &
-	$(OUTD)/sc_e1370.obj	$(OUTD)/ak4531mix.obj	$(OUTD)/sc_cs4281.obj &
-	$(OUTD)/dpmi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj &
-	$(OUTD)/libmain.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
@@ -101,7 +97,7 @@ LIBS=
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {src\hw}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -DDYNAMIC -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
 
 {src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
@@ -109,7 +105,7 @@ LIBS=
 {src\startup}.c{$(OUTD)}.obj
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)\$(NAME).EXE $(OUTD)\$(NAME2).DRV
+all: $(OUTD) $(OUTD)\$(NAME).EXE
 
 $(OUTD):
 	@mkdir $(OUTD)
@@ -124,40 +120,10 @@ op q,statics,m=$*.map
 disable 80
 <<
 
-$(OUTD)\$(NAME2).DRV: $(OUTD)\$(NAME2).lib $(OUTD)\dstrt16x.obj $(OUTD)\auexp16.obj
-	@$(LINK) @<<
-format dos 
-file $(OUTD)\dstrt16x.obj,$(OUTD)\auexp16.obj name $*.DRV
-libpath $(WATCOM)\lib386\dos;$(WATCOM)\lib386
-lib $*.lib
-op q,statics,m=$*.map
-disable 80
-<<
-
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
-$(OUTD)\$(NAME2).lib: $(OBJFILES2)
-	@$(LIB) -q -b -n $(OUTD)\$(NAME2).lib $(OBJFILES2)
-
-$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)/ak4531mix.obj: src\hw\ak4531mix.c
 $(OUTD)/au_cards.obj:  src\hw\au_cards.c
-$(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
-$(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
-$(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
-$(OUTD)/physmem.obj:   src\hw\physmem.c
-$(OUTD)/pcibios.obj:   src\hw\pcibios.c
-$(OUTD)/sc_e1370.obj:  src\hw\sc_e1370.c
-$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
-$(OUTD)/sc_cs4281.obj: src\hw\sc_cs4281.c
-$(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
-$(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
-$(OUTD)/sc_sbl24.obj:  src\hw\sc_sbl24.c
-$(OUTD)/sc_sbliv.obj:  src\hw\sc_sbliv.c
-$(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
-$(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
-$(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/auimp16.obj:   src\auimp16.asm
@@ -213,9 +179,7 @@ $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\$(NAME).lib
-	@del $(OUTD)\$(NAME2).lib
 	@del $(OUTD)\$(NAME).EXE
-	@del $(OUTD)\$(NAME2).DRV
 	@del $(OUTD)\*.obj
 	@del $(OUTD)\*.map
 	@del $(OUTD)\*.lst

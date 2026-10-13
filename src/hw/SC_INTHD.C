@@ -212,7 +212,7 @@ static unsigned int hda_buffer_init( struct audioout_info_s *aui, struct intelhd
 	unsigned long gcap, sdo_index;
 
     /* v1.7: period_size has become a cmdline option */
-	card->pcmout_period_size = ( aui->gvars->period_size ? aui->gvars->period_size : AZX_PERIOD_SIZE_DEF );
+	card->pcmout_period_size = ( aui->card_period_size ? aui->card_period_size : AZX_PERIOD_SIZE_DEF );
 	dbgprintf(("hda_buffer_init: period_size=%u\n", card->pcmout_period_size ));
 
 	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, card->pcmout_period_size );
@@ -1363,10 +1363,10 @@ static int HDA_adetect( struct audioout_info_s *aui )
 	unsigned int devidx;
 
 	/* don't search for vendors/deviceIDs. Instead scan for HDAs only, and
-	 * use gvars.device as start index for the scan.
+	 * use card_devidx as start index for the scan.
 	 */
 	//if(pcibios_search_devices(intelhda_devices,&card->pci_dev)!=PCI_SUCCESSFUL)
-	for ( devidx = aui->gvars->device;; devidx++ ) {
+	for ( devidx = aui->card_devidx; ; devidx++ ) {
 		__dpmi_meminfo info;
 		unsigned int timeout;
 		char *pReason;
@@ -1400,8 +1400,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		}
 		/* the physical addr, after mapped to a linear addr, is finally converted to a ptr */
 		card->hdac = (struct HDAREGS_s *)NearPtr( info.address );
-		if( aui->gvars->pin >= 0 )
-			card->config_select = aui->gvars->pin;
+		if( aui->card_pin >= 0 )
+			card->config_select = aui->card_pin;
 
 		card->board_driver_type = card->pci_dev.device_type;
 		if( !hda_buffer_init( aui, card )) {
@@ -1603,10 +1603,9 @@ static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long r
  * was during init, while when playing there's nothing to communicate.
  */
 
-static int HDA_IRQRoutine( struct audioout_info_s* aui )
+static int HDA_IRQRoutine( struct intelhd_card_s *card )
 ////////////////////////////////////////////////////////
 {
-	struct intelhd_card_s *card = aui->card_private_data;
 	int status = card->sd->bSts & SD_INT_MASK;
 	int corbsts;
 	int rirbsts;
@@ -1642,7 +1641,7 @@ struct sndcard_info_s HDA_sndcard_info = {
     &HDA_close,
     &HDA_setrate,
 
-    &MDma_writedata, /* =cardbuf_writedata() */
+    NULL,            /* =cardbuf_writedata() */
     &HDA_getbufpos,  /* =cardbuf_getpos() */
     &HDA_IRQRoutine,
     &HDA_writeMIXER, /* =card_writemixer() */

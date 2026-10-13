@@ -3134,7 +3134,7 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct a
 	uint32_t pagecount,pcmbufp,pages;
 
 	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, EMU20KX_PAGESIZE);
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : 512);
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : 512);
 	/* alloc memory for 1) page table, 2) silentpage, 3) pcmout-buffer */
 	if (!MDma_alloc_cardmem( &card->dm, EMU20KX_MAXPAGES * sizeof(uint32_t)
 							+ EMU20KX_PAGESIZE				 // silentpage
@@ -3161,7 +3161,6 @@ static unsigned int snd_emu20kx_buffer_init(struct emu20kx_card_s *card,struct a
 		//card->virtualpagetable[pagecount] = ((uint32_t)card->silentpage) << PAGESHIFT;
 		card->virtualpagetable[pagecount] = (pds_cardmem_physicalptr(card->dm,card->silentpage)) << PAGESHIFT;
 
-	aui->card_pDmaBuffer = card->pcmout_buffer;
 	dbgprintf(("emu20kx_buffer_init: pcmout_buffer=%X size=%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
@@ -3569,6 +3568,8 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	/* Build topology */
 	atc_connect_resources(card);
 
+	aui->card_pDmaBuffer = card->pcmout_buffer;
+
 	return 1;
 
 err_adetect:
@@ -3615,7 +3616,7 @@ static void EMU20KX_start(struct audioout_info_s *aui)
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
 	struct src *src = card->apcm_src;
-	int period_size = aui->gvars->period_size ? aui->gvars->period_size : 512;
+	int period_size = aui->card_period_size ? aui->card_period_size : 512;
 	unsigned int max_cisz;
 
 #if 1
@@ -3674,7 +3675,7 @@ static unsigned int EMU20KX_getbufpos(struct audioout_info_s *aui)
 	//unsigned int max_cisz;
 
 	/* reprogram timer */
-	card->hw->set_timer_tick(card->hw, (aui->gvars->period_size ? aui->gvars->period_size : 512 ) >> TIMER_SHIFT );
+	card->hw->set_timer_tick(card->hw, (aui->card_period_size ? aui->card_period_size : 512 ) >> TIMER_SHIFT );
 
 	bufpos = src_get_ca(card->apcm_src);
 
@@ -3725,10 +3726,9 @@ static unsigned long EMU20KX_readMIXER(struct audioout_info_s *aui, unsigned lon
 	return 0;
 }
 
-static int EMU20KX_IRQRoutine( struct audioout_info_s *aui )
+static int EMU20KX_IRQRoutine( struct emu20kx_card_s *card )
 ////////////////////////////////////////////////////////////
 {
-	struct emu20kx_card_s *card = aui->card_private_data;
 	int status = card->hw->get_timer_interrupt_pending(card->hw);
 
 	//dbgprintf(("emu20kx_IRQRoutine status=0x%X\n", status));
@@ -3750,7 +3750,7 @@ static const struct aucards_mixerchan_s *sbxfi_mixerset[] = {
 	NULL
 };
 
-struct sndcard_info_s EMU20KX_sndcard_info = {
+struct sndcard_info_s SBXFI_sndcard_info = {
  "CTXFI",
  0,
  &EMU20KX_adetect,
@@ -3759,7 +3759,7 @@ struct sndcard_info_s EMU20KX_sndcard_info = {
  &EMU20KX_close,
  &EMU20KX_setrate,
 
- &MDma_writedata,
+ NULL,
  &EMU20KX_getbufpos,
  &EMU20KX_IRQRoutine,
  &EMU20KX_writeMIXER,

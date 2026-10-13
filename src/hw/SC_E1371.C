@@ -470,10 +470,9 @@ static unsigned int es1371_buffer_init( struct ensoniq_card_s *card, struct audi
 {
 	/* v1.7: use /PS cmdline option if set */
 	//card->pcmout_bufsize = MDma_get_bufsize( aui, 0, ES1371_DMABUF_ALIGN, bytes_per_sample, 0);
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : ES1371_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : ES1371_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
-	aui->card_pDmaBuffer = card->pcmout_buffer;
 	dbgprintf(("es1371_buffer_init: pcmout_buffer:%X size:%d\n",(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
 	return 1;
 }
@@ -574,7 +573,7 @@ static void es1371_prepare_playback( struct ensoniq_card_s *card, struct audioou
 	outpd((card->port + ES_REG_DAC_SIZE), (aui->card_dmasize >> 2) - 1);
 	/* v1.7: use /PS cmdline option if set */
 	//outpd((card->port + ES_REG_DAC_COUNT), (aui->card_dmasize >> 2) - 1);
-	outpd((card->port + ES_REG_DAC_COUNT), aui->gvars->period_size ? (aui->gvars->period_size >> 2) - 1 : (512>>2) - 1);
+	outpd((card->port + ES_REG_DAC_COUNT), aui->card_period_size ? (aui->card_period_size >> 2) - 1 : (512>>2) - 1);
 
 	card->sctrl &= ~(ES_DAC_LOOP_SEL | ES_DAC_PAUSE | ES_P1_SCT_RLD | ES_DAC_MODEM );
 	card->sctrl |= ES_DAC_MODEO(0x03); // stereo, 16 bits
@@ -643,6 +642,7 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 	if( es1371_buffer_init(card,aui) ) {
 		es1371_chip_init(card);
 		es1371_ac97_init(card);
+		aui->card_pDmaBuffer = card->pcmout_buffer;
 		return 1;
 	}
 	ES1371_close(aui);
@@ -744,10 +744,9 @@ static unsigned long ES1371_readMIXER( struct audioout_info_s *aui, unsigned lon
 #endif
 }
 
-static int ES1371_IRQRoutine( struct audioout_info_s *aui )
+static int ES1371_IRQRoutine( struct ensoniq_card_s *card )
 ///////////////////////////////////////////////////////////
 {
-	struct ensoniq_card_s *card = aui->card_private_data;
 	int status = inpd(card->port + ES_REG_STATUS );
 	//dbgprintf(("ES1371_IRQRoutine\n"));
 	if ( status & ES_1371_ST_DAC ) {
@@ -766,7 +765,7 @@ const struct sndcard_info_s ES1371_sndcard_info = {
  &ES1371_close,
  &ES1371_setrate,
 
- &MDma_writedata,
+ NULL,
  &ES1371_getbufpos,
  &ES1371_IRQRoutine,
  &ES1371_writeMIXER,

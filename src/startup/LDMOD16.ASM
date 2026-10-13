@@ -199,7 +199,7 @@ endif
 	mov cx, word ptr dwSizeCode
 	mov ax, 3F00h
 	int 21h
-	jc read_err
+	jc read_errX
 
 ;--- read data, init bss+stack
 	mov eax, ds
@@ -211,9 +211,9 @@ endif
 	push eax
 	mov ax, 3F00h
 	int 21h
-	jc read_err
 	mov edi, ecx
 	pop ecx
+	jc read_err
 	push es
 	push ds
 	pop es
@@ -249,6 +249,9 @@ endif
 	ret
 
 if 1
+read_errX:
+	pop ds
+	jmp read_err
 nomem:
 nodesc:
 	mov ax, 109

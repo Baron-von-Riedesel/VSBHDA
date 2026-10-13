@@ -189,9 +189,6 @@ struct via82xx_card
     unsigned int   pcmout_bufsize;
     int            pcmout_pages;
     int            period_size; /* v1.7 */
-#ifdef _DEBUG
-    int            config; /* to test multiple configurations */
-#endif
 };
 
 static void via82xx_AC97Codec_ready(unsigned int baseport);
@@ -318,7 +315,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	struct via82xx_card *card = aui->card_private_data;
 
 #ifdef _DEBUG
-	card->config = aui->gvars->device; /* use the cmdline option /DEV to select a configuration */
+	//card->config = aui->card_devidx; /* use the cmdline option /DEV to select a configuration */
 #endif
 
 	if (pcibios_search_devices(via_devices, &card->pci_dev) != PCI_SUCCESSFUL)
@@ -346,7 +343,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	dbgprintf(("VIA82XX_adetect: model=%s, revision=%X, irq=%d\n",card->pci_dev.device_name ? card->pci_dev.device_name : "<unknown>", card->chiprev, aui->card_irq));
 
 	/* v1.7: use /PS cmdline value if available */
-	card->period_size = ( aui->gvars->period_size ? aui->gvars->period_size : PCMBUFFERPAGESIZE );
+	card->period_size = ( aui->card_period_size ? aui->card_period_size : PCMBUFFERPAGESIZE );
 	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, card->period_size );
 	if (!MDma_alloc_cardmem( &card->dm, VIRTUALPAGETABLESIZE + card->pcmout_bufsize + 4096 )) return 0;
 
@@ -361,10 +358,10 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	if ( card->pci_dev.device_name )
 		VIA82XX_sndcard_info.shortname = card->pci_dev.device_name;
 
-	aui->card_pDmaBuffer = card->pcmout_buffer;
-
 	// init chip
 	via82xx_chip_init(card);
+
+	aui->card_pDmaBuffer = card->pcmout_buffer;
 
 	return 1;
 
@@ -642,10 +639,9 @@ static unsigned long VIA82XX_readMIXER(struct audioout_info_s *aui,unsigned long
 	return retval;
 }
 
-static int VIA82XX_IRQRoutine(struct audioout_info_s* aui)
+static int VIA82XX_IRQRoutine( struct via82xx_card *card )
 //////////////////////////////////////////////////////////
 {
-	struct via82xx_card *card = aui->card_private_data;
 	unsigned int status = inp(card->iobase + VIA_REG_OFFSET_STATUS) & (VIA_REG_STATUS_FLAG | VIA_REG_STATUS_EOL);
 
 	if (status)
@@ -703,7 +699,7 @@ struct sndcard_info_s VIA82XX_sndcard_info = {
  &VIA82XX_close,
  &VIA82XX_setrate,
 
- &MDma_writedata,
+ NULL,
  &VIA82XX_getbufpos,
  &VIA82XX_IRQRoutine,
  &VIA82XX_writeMIXER,

@@ -297,7 +297,7 @@ static unsigned int cs4281_rate_to_rv(unsigned int rate)
 static unsigned int cs4281_buffer_init( struct cs4281_card_s *card, struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->gvars->period_size ? aui->gvars->period_size : CS4281_DMABUF_ALIGN );
+	card->pcmout_bufsize = MDma_get_bufsize( aui, 0, aui->card_period_size ? aui->card_period_size : CS4281_DMABUF_ALIGN );
 	if (!MDma_alloc_cardmem( &card->dm, card->pcmout_bufsize ) ) return 0;
 	card->pcmout_buffer = card->dm.pMem;
 	aui->card_pDmaBuffer = card->pcmout_buffer;
@@ -731,10 +731,9 @@ static unsigned long CS4281_readMIXER( struct audioout_info_s *aui, unsigned lon
 	return cs4281_ac97_read( aui->card_private_data, reg );
 }
 
-static int CS4281_IRQRoutine( struct audioout_info_s *aui )
-///////////////////////////////////////////////////////////
+static int CS4281_IRQRoutine( struct cs4281_card_s *card )
+//////////////////////////////////////////////////////////
 {
-	struct cs4281_card_s *card = aui->card_private_data;
 	uint32_t status = cs4281_peek(card, BA0_HISR);
 	int ours = 0;
 
@@ -777,7 +776,7 @@ const struct sndcard_info_s CS4281_sndcard_info = {
  &CS4281_close,
  &CS4281_setrate,
 
- &MDma_writedata,
+ NULL,
  &CS4281_getbufpos,
  &CS4281_IRQRoutine,
  &CS4281_writeMIXER,
