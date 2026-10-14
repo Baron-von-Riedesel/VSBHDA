@@ -102,9 +102,11 @@ else
 endif
 endm
 
-	.data
+	.data?
 
 params LDPARMS <>
+
+	.data
 
 DStr macro text:vararg
 local sym
@@ -118,7 +120,7 @@ endm
 	exitm <SNDCARD_INFO {DStr(modname),0,dyn_adetect, my_start, my_stop, my_close, my_setrate, NULL, my_getpos, my_irq, my_wrMixer, my_rdMixer, 0, 0}>
 endm
 
-;--- currently dynamically loaded drivers are mixed with static ones -
+;--- currently dynamically loaded drivers may be mixed with static ones -
 ;--- so the loading should be as transparent as possible.
 
 if ES1370
@@ -465,6 +467,14 @@ my_rdMixer proc c aui:ptr
 	ret
 my_rdMixer endp
 
+;--- this is the first callout by AU_CARDS.AU_init();
+;--- the card_info member in aui has been set to one of the drivers;
+;--- card_info.shortname contains the driver file name.
+;--- Now the first thing to do is to load the driver file with _LoadDriver();
+;--- if that succeeds, the driver's entry has to be called - it's defined by
+;--- LibMain32.asm. This function returns the card_info struct of the driver;
+;--- thus the driver's functions ( adetect, setrate, start, ... ) can be called.
+
 dyn_adetect proc c aui:ptr AUI
 
 	mov edx, aui
@@ -487,14 +497,17 @@ endif
 		add eax, 8
 		mov ds, eax
 		mov es, eax
-		call ss:params.dfCsEip		;call LibMain()
+		call ss:params.dfCsEip		;call driver's LibMain() - stack NOT rebased here!
 		add esp, 3*4
 		pop ds
 		pop es
 		@dprintf CStr("lddrv.adetect: LibMain() returned, eax=%X",10), eax
 
-;--- LibMain() has returned the card driver's SDNCARD_INFO.
-;--- this data is stored in params, it cannot be used by AU_CARDS.C.
+;--- LibMain() has returned a SDNCARD_INFO struct;
+;--- however, that's not the one defined by the driver code - it's defined in
+;--- LIBMAIN32.ASM and contains addresses of functions with RETF!
+;--- the returned struct address is stored in params, it cannot be used by
+;--- AU_CARDS.C.
 
 		.if eax
 			Rebase2Intern eax
@@ -502,7 +515,16 @@ endif
 			invoke my_adetect, aui
 			@dprintf CStr("lddrv.adetect: adetect returned, eax=%X",10), eax
 			.if eax
-;---- translate the DMA buffer pointer - it's not used by the drivers
+;--- after driver's adetect() has run, card_info's shortname member may hold
+;--- the name of the soundcard that has been found; store it in the cardinfo
+;--- struct known by AU_CARDS.C
+				mov edx, params.card_info
+				mov edx, [edx].SNDCARD_INFO.shortname
+				Rebase2Intern edx
+				mov ecx, aui
+				mov ecx, [ecx].AUI.card_info
+				mov [ecx].SNDCARD_INFO.shortname, edx
+;--- translate the DMA buffer pointer - it's not used by the drivers
 				mov edx, aui
 				mov ecx, [edx].AUI.card_pDmaBuffer
 				Rebase2Intern ecx

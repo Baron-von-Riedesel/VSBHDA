@@ -29,8 +29,6 @@ USE19=0
 USEJWL=1
 !endif
 
-DYNAMIC=1
-
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
@@ -60,21 +58,19 @@ A_DEBUG_FLAGS=
 OW19=-DOW19
 !endif
 
-LOADDRVOBJ=$(OUTD)/loaddrv.obj
+!ifndef NOFM
+FMOBJS=$(OUTD)/dbopl.obj	$(OUTD)/vopl3.obj
+!endif
 
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
 	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
-	$(OUTD)/adpcm.obj &
-!ifndef NOFM
-	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
-!endif
-	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
-	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/dpmiisr.obj		$(OUTD)/uninst.obj &
-	$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj &
-	$(OUTD)/au_cards.obj &
-	$(LOADDRVOBJ) &
-	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj
+	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj &
+	$(OUTD)/mixer.obj		$(OUTD)/adpcm.obj		$(FMOBJS) &
+	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj &
+	$(OUTD)/ldmod16.obj		$(OUTD)/sbrk.obj		$(OUTD)/malloc.obj		$(OUTD)/rte200.obj		$(OUTD)/au_cards.obj &
+	$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/getenv.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj &
+	$(OUTD)/dpmiisr.obj		$(OUTD)/loaddrv.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
@@ -126,8 +122,6 @@ $(OUTD)\$(NAME).lib: $(OBJFILES)
 $(OUTD)/au_cards.obj:  src\hw\au_cards.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
-$(OUTD)/auimp16.obj:   src\auimp16.asm
-$(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/dpmi.obj:      src\dpmi.asm
 $(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
 $(OUTD)/dprintf.obj:   src\dprintf.asm
@@ -135,6 +129,7 @@ $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
 $(OUTD)/int31.obj:     src\int31.asm
 $(OUTD)/linear.obj:    src\linear.c
+$(OUTD)/loaddrv.obj:   src\loaddrv.asm
 $(OUTD)/logfile.obj:   src\logfile.asm
 $(OUTD)/main.obj:      src\main.c
 $(OUTD)/mixer.obj:     src\mixer.asm

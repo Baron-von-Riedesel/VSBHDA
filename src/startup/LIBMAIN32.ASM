@@ -97,6 +97,9 @@ my_adetect proc far c aui:ptr
 	push eax
 	call __sndcard_info.adetect
 	add esp,4
+;--- cardinfo's shortname used to return name of detected card.
+	mov edx, __sndcard_info.shortname
+	mov cardinfo.shortname, edx
 error:
 	ret
 my_adetect endp
@@ -158,15 +161,14 @@ __GETDS proc public
 __GETDS endp
 endif
 
-;--- LibMain; returns linear address of card's card_info struct
-;--- baseaddr: caller's base address
+;--- LibMain; returns address of local card_info struct (functions with RETF!)
+;--- baseaddr: caller's base address.
+;--- setup heap variables, DSBase and basediff.
 
 LibMain proc far c public uses ebx baseaddr:dword, heapsize:dword, rmstack:dword
 
 	mov eax, rmstack
 	mov __linear_rmstack, eax
-	mov eax, __sndcard_info.shortname
-	mov cardinfo.shortname, eax
 	mov eax, _end
 	mov _dynend, eax
 	add eax, heapsize

@@ -42,6 +42,7 @@ USE19=0
 USEJWL=1
 !endif
 
+# set to 0 to create the (deprecated) monolithic variant
 !ifndef DYNAMIC
 DYNAMIC=1
 !endif
@@ -84,21 +85,23 @@ OW19=-DOW19
 
 !if $(DYNAMIC)
 LOADDRVOBJ=$(OUTD)/loaddrv.obj
+MAKE16=ow16.mak
+!else
+MAKE16=ow16l.mak
+!endif
+
+!ifndef NOFM
+FMOBJS=$(OUTD)/dbopl.obj	$(OUTD)/vopl3.obj
 !endif
 
 OBJFILES = &
 	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
 	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
-	$(OUTD)/adpcm.obj &
-!ifndef NOFM
-	$(OUTD)/dbopl.obj		$(OUTD)/vopl3.obj &
-!endif
-$(OUTD)/au_cards.obj &
+	$(OUTD)/adpcm.obj		$(OUTD)/au_cards.obj	$(FMOBJS) &
 !if $(DYNAMIC)
 	$(LOADDRVOBJ) &
 !else
-	$(OUTD)/ac97mix.obj		
-	$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
+	$(OUTD)/ac97mix.obj		$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj &
 	$(OUTD)/sc_sbgen.obj	$(OUTD)/sblive.obj		$(OUTD)/sblive24.obj &
 	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj &
@@ -157,17 +160,13 @@ $(CONSTATTR) $(CONST2ATTR)
 !endif
 
 $(OUTD16)\$(NAME)16.EXE: .always
-!if $(DYNAMIC)
-	@wmake -h -f OW16.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
-!else
-	@wmake -h -f OW16l.mak debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
-!endif
+	@wmake -h -f $(MAKE16) debug=$(DEBUG) watcom=$(WATCOM) use19=$(USE19) usejwl=$(USEJWL)
 
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
-$(OUTD)/au_cards.obj:  src\hw\au_cards.c
 $(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
+$(OUTD)/au_cards.obj:  src\hw\au_cards.c
 $(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
 $(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
@@ -184,6 +183,7 @@ $(OUTD)/sc_sbgen.obj:  src\hw\sc_sbgen.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
+
 $(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/dpmi.obj:      src\dpmi.asm
 $(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
@@ -232,7 +232,7 @@ $(OUTD)/rmwrap.obj:    src\rmwrap.asm src\rmcode1.asm src\rmcode2.asm
 	@$(ASM) -q -D?MODEL=flat $(OW19) -Fo$@ -DOUTD=$(OUTD) src\rmwrap.asm
 
 clean: .SYMBOLIC
-	@wmake -h -f OW16.mak debug=$(DEBUG) clean
+	@wmake -h -f $(MAKE16) debug=$(DEBUG) clean
 	@del $(OUTD)\$(NAME).EXE
 	@del $(OUTD)\$(NAME).lib
 	@del $(OUTD)\*.obj

@@ -1,5 +1,5 @@
 
-# Create vsbhda16.exe & sndcard.drv with Open Watcom and JWasm.
+# Create vsbhda16.exe with Open Watcom and JWasm.
 # Enter
 #   make -f Linux16.mak
 # Optionally, for a debug version, enter
@@ -23,6 +23,8 @@ endif
 # activate next line if FM synth should be deactivated
 #NOFM=1
 
+NAME=VSBHDA16
+
 CC=$(WATCOM)/binl/wcc386
 CPP=$(WATCOM)/binl/wpp386
 ifeq ($(USEJWL),1)
@@ -32,9 +34,6 @@ LINK=$(WATCOM)/binl/wlink
 endif
 LIB=$(WATCOM)/binl/wlib
 ASM=jwasm
-
-NAME=VSBHDA16
-NAME2=SNDCARD
 
 ifeq ($(DEBUG),1)
 OUTD=ow16d
@@ -58,21 +57,11 @@ OBJFILES = \
 	$(OUTD)/MAIN.obj		$(OUTD)/SNDISR.obj		$(OUTD)/PTRAP.obj		$(OUTD)/LINEAR.obj		$(OUTD)/PIC.obj \
 	$(OUTD)/VSB.obj			$(OUTD)/VDMA.obj		$(OUTD)/VIRQ.obj		$(OUTD)/VMPU.obj		$(OUTD)/TSF.obj \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj \
-	$(OUTD)/MIXER.obj		$(OUTD)/ADPCM.obj \
-	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj		$(FMOBJS) \
-	$(OUTD)/AUIMP16.obj		$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj \
+	$(OUTD)/MIXER.obj		$(OUTD)/ADPCM.obj		$(FMOBJS) \
+	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj \
+	$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj		$(OUTD)/AU_CARDS.obj \
 	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj \
-	$(OUTD)/DPMIISR.obj
-
-OBJFILES2 = \
-	$(OUTD)/AC97MIX.obj		$(OUTD)/AU_CARDS.obj \
-	$(OUTD)/DMABUFF.obj		$(OUTD)/PCIBIOS.obj		$(OUTD)/PHYSMEM.obj		$(OUTD)/TIMER.obj \
-	$(OUTD)/SC_E1371.obj	$(OUTD)/SC_ICH.obj		$(OUTD)/SC_INTHD.obj	$(OUTD)/SC_VIA82.obj \
-	$(OUTD)/SC_SBGEN.obj	$(OUTD)/SBLIVE.obj		$(OUTD)/SBLIVE24.obj \
-	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj	$(OUTD)/CTHW20K2.obj \
-	$(OUTD)/SC_E1370.obj	$(OUTD)/SC_CS4281.obj \
-	$(OUTD)/DPMI.obj	    $(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj \
-	$(OUTD)/LIBMAIN.obj
+	$(OUTD)/DPMIISR.obj		$(OUTD)/LOADDRV.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
@@ -103,7 +92,7 @@ $(OUTD)/%.obj: src/startup/%.ASM
 $(OUTD)/%.obj: src/startup/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)/$(NAME).EXE $(OUTD)/$(NAME2).DRV
+all: $(OUTD) $(OUTD)/$(NAME).EXE
 
 $(OUTD):
 	@mkdir $(OUTD)
@@ -117,43 +106,12 @@ lib $(OUTD)/$(NAME).lib \
 op q,statics,m=$(OUTD)/$(NAME).map \
 disable 80
 
-$(OUTD)/$(NAME2).DRV: $(OUTD)/$(NAME2).lib $(OUTD)/DSTRT16X.obj $(OUTD)/AUEXP16.obj
-	@$(LINK) \
-format dos \
-file $(OUTD)/DSTRT16X.obj, $(OUTD)/AUEXP16.obj name $@ \
-libpath $(WATCOM)/lib386/dos:$(WATCOM)/lib386 \
-lib $(OUTD)/$(NAME2).lib \
-op q,statics,m=$(OUTD)/$(NAME2).map \
-disable 80
-
 $(OUTD)/$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME).lib $(OBJFILES)
 
-$(OUTD)/$(NAME2).lib: $(OBJFILES2)
-	@$(LIB) -q -b -n $(OUTD)/$(NAME2).lib $(OBJFILES2)
-
-$(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
 $(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
-$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
-$(OUTD)/CTHW20K2.obj:  src/hw/CTHW20K2.C
-$(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
-$(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
-$(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
-$(OUTD)/SBLIVE24.obj:  src/hw/SBLIVE24.C
-$(OUTD)/SBLIVE.obj:    src/hw/SBLIVE.C
-$(OUTD)/SC_CS4281.obj: src/hw/SC_CS4281.C
-$(OUTD)/SC_E1370.obj:  src/hw/SC_E1370.C
-$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
-$(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
-$(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
-$(OUTD)/SC_SBGEN.obj:  src/hw/SC_SBGEN.C
-$(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
-$(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
-$(OUTD)/TIMER.obj:     src/hw/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C
-$(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
-$(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
 $(OUTD)/DPMI.obj:      src/DPMI.ASM
 $(OUTD)/DPMIISR.obj:   src/DPMIISR.ASM
 $(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
@@ -161,6 +119,7 @@ $(OUTD)/FILEACC.obj:   src/FILEACC.ASM
 $(OUTD)/HAPI.obj:      src/HAPI.ASM
 $(OUTD)/INT31.obj:     src/INT31.ASM
 $(OUTD)/LINEAR.obj:    src/LINEAR.C
+$(OUTD)/LOADDRV.obj:   src/LOADDRV.ASM
 $(OUTD)/LOGFILE.obj:   src/LOGFILE.ASM
 $(OUTD)/MAIN.obj:      src/MAIN.C
 $(OUTD)/MIXER.obj:     src/MIXER.ASM
@@ -205,9 +164,7 @@ $(OUTD)/RMWRAP.obj:    src/RMWRAP.ASM src/RMCODE1.ASM src/RMCODE2.ASM
 
 clean:
 	@rm -f $(OUTD)/$(NAME).lib
-	@rm -f $(OUTD)/$(NAME2).lib
 	@rm -f $(OUTD)/$(NAME).EXE
-	@rm -f $(OUTD)/$(NAME2).DRV
 	@rm -f $(OUTD)/*.obj
 	@rm -f $(OUTD)/*.map
 	@rm -f $(OUTD)/*.lst

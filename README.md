@@ -26,8 +26,8 @@ VSBHDA uses source code from:
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
 A few **makefiles** are supplied to create the binaries:
- * Makefile/OW16.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
- * Linux.mak/Linux16.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
+ * Makefile/OW16.mak/Drivers.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
+ * Linux.mak/Linux16.mak/LinuxDrv.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * djgpp.mak: for DOS using DJGPP v2.05 and JWasm; cannot create the 16-bit variant of VSBHDA
 
 Source of tools used by the makefiles:

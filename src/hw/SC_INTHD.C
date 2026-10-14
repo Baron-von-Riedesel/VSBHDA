@@ -1430,8 +1430,10 @@ static int HDA_adetect( struct audioout_info_s *aui )
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
 					/* v1.7 set the specific device name if there's one */
-					if ( card->pci_dev.device_name )
-						HDA_sndcard_info.shortname = card->pci_dev.device_name;
+                    if ( card->pci_dev.device_name ) {
+                        _asm int 3;
+                        HDA_sndcard_info.shortname = card->pci_dev.device_name;
+                    }
 					dbgprintf(("HDA_adetect: exit, found mixer for codec %u\n", i ));
 					printf("HDA widgets to be used: DAC=%d Pin=%d Volume=%d\n",
 						(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),

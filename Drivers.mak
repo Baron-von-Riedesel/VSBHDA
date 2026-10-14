@@ -32,8 +32,6 @@ USE19=0
 !ifndef USEJWL
 USEJWL=1
 !endif
-# activate next line if FM synth should be deactivated
-#NOFM=1
 
 CC=$(WATCOM)\binnt\wcc386.exe
 CPP=$(WATCOM)\binnt\wpp386.exe
@@ -47,11 +45,11 @@ LINK=$(WATCOM)\binnt\wlink.exe
 !endif
 
 !if $(DEBUG)
-OUTD=drvd
+OUTD=driverd
 C_DEBUG_FLAGS=-D_DEBUG
 A_DEBUG_FLAGS=-D_DEBUG -Fl$* -Sg
 !else
-OUTD=drv
+OUTD=driver
 C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 !endif
@@ -65,97 +63,100 @@ C_EXTRA_FLAGS=-DNOTFLAT
 LD_FLAGS=
 
 INCLUDES=-Isrc\hw -Isrc -I$(WATCOM)\h 
-LIBS=\ow20\lib386\dos\clib3s.lib
+LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 
 all: $(OUTD) $(OUTD)\CS4281.DRV $(OUTD)\ES1370.DRV $(OUTD)\ES1371.DRV $(OUTD)\ICH.DRV $(OUTD)\HDA.DRV $(OUTD)\SBGEN.DRV $(OUTD)\SBXFI.DRV $(OUTD)\VIA82.DRV
 
 $(OUTD):
 	@mkdir $(OUTD)
 
-MODOBJ = &
+HLPOBJ = &
 	$(OUTD)\physmem.obj   $(OUTD)\dmabuff.obj  $(OUTD)\pcibios.obj  $(OUTD)\timer.obj   $(OUTD)\ac97mix.obj &
 	$(OUTD)\libmain32.obj $(OUTD)\dpmi.obj     $(OUTD)\dprintf.obj  $(OUTD)\vioout.obj  $(OUTD)\malloc.obj &
 	$(OUTD)\sbrk.obj
 
-$(OUTD)/CS4281.DRV: $(OUTD)\sc_cs4281.obj  $(MODOBJ)
+$(OUTD)/CS4281.DRV: $(OUTD)\sc_cs4281.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_cs4281.obj $(MODOBJ) }
+file { $(OUTD)\sc_cs4281.obj }
 name $@
 alias __sndcard_info=_CS4281_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\cs4281.map,nodefaultlibs
 <<
 
-$(OUTD)/ES1370.DRV: $(OUTD)\sc_e1370.obj  $(MODOBJ)
+$(OUTD)/ES1370.DRV: $(OUTD)\sc_e1370.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_e1370.obj $(MODOBJ) }
+file { $(OUTD)\sc_e1370.obj }
 name $@
 alias __sndcard_info=_ES1370_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\es1370.map,nodefaultlibs
 <<
 
-$(OUTD)/ES1371.DRV: $(OUTD)\sc_e1371.obj  $(MODOBJ)
+$(OUTD)/ES1371.DRV: $(OUTD)\sc_e1371.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_e1371.obj $(MODOBJ) }
+file { $(OUTD)\sc_e1371.obj }
 name $@
 alias __sndcard_info=_ES1371_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\es1371.map,nodefaultlibs
 <<
 
-$(OUTD)/ICH.DRV: $(OUTD)\sc_ich.obj  $(MODOBJ)
+$(OUTD)/ICH.DRV: $(OUTD)\sc_ich.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_ich.obj $(MODOBJ) }
+file { $(OUTD)\sc_ich.obj }
 name $@
 alias __sndcard_info=_ICH_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\ich.map,nodefaultlibs
 <<
 
-$(OUTD)/HDA.DRV: $(OUTD)\sc_inthd.obj  $(MODOBJ)
+$(OUTD)/HDA.DRV: $(OUTD)\sc_inthd.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_inthd.obj $(MODOBJ) }
+file { $(OUTD)\sc_inthd.obj }
 name $@
 alias __sndcard_info=_HDA_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\hda.map,nodefaultlibs
 <<
 
-$(OUTD)/SBGEN.DRV: $(OUTD)\sc_sbgen.obj $(OUTD)\sblive.obj $(OUTD)\sblive24.obj $(MODOBJ)
+$(OUTD)/SBGEN.DRV: $(OUTD)\sc_sbgen.obj $(OUTD)\sblive.obj $(OUTD)\sblive24.obj $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sblive $(OUTD)\sblive24 $(OUTD)\sc_sbgen $(MODOBJ) }
+file { $(OUTD)\sblive $(OUTD)\sblive24 $(OUTD)\sc_sbgen }
 name $@
 alias __sndcard_info=_SBGEN_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\sbgen.map,nodefaultlibs
 <<
 
-$(OUTD)/SBXFI.DRV: $(OUTD)\sc_sbxfi.obj $(OUTD)\cthw20k1.obj $(OUTD)\cthw20k2.obj $(MODOBJ)
+$(OUTD)/SBXFI.DRV: $(OUTD)\sc_sbxfi.obj $(OUTD)\cthw20k1.obj $(OUTD)\cthw20k2.obj $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_sbxfi $(OUTD)\cthw20k1 $(OUTD)\cthw20k2 $(MODOBJ) }
+file { $(OUTD)\sc_sbxfi $(OUTD)\cthw20k1 $(OUTD)\cthw20k2 }
 name $@
 alias __sndcard_info=_SBXFI_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\sbxfi.map,nodefaultlibs
 <<
 
-$(OUTD)/VIA82.DRV: $(OUTD)\sc_via82.obj  $(MODOBJ)
+$(OUTD)/VIA82.DRV: $(OUTD)\sc_via82.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
-file { $(OUTD)\sc_via82.obj $(MODOBJ) }
+file { $(OUTD)\sc_via82.obj }
 name $@
 alias __sndcard_info=_VIA82XX_sndcard_info
-lib $(LIBS)
+lib { $(LIBS) }
 disable 1014
 op q,statics,m=$(OUTD)\via82.map,nodefaultlibs
 <<
+
+$(OUTD)/drvhlp.lib: $(HLPOBJ)
+	@$(LIB) -q -b -n $@ $(HLPOBJ)
 
 $(OUTD)\sc_cs4281.obj: src\hw\sc_cs4281.c
 	@$(CC) $(C_DEBUG_FLAGS) $(C_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -fo=$@ $<
@@ -211,5 +212,5 @@ $(OUTD)\vioout.obj:    src\vioout.asm
 clean: .SYMBOLIC
 	@del $(OUTD)\*.drv
 	@del $(OUTD)\*.obj
-	@del $(OUTD)\*.lst
+	@del $(OUTD)\*.lib
 	@del $(OUTD)\*.map
