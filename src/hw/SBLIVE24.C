@@ -39,6 +39,7 @@
 
 #define CARD(name, rev, subsys, chips, maxchn) {name, subsys, rev, chips, maxchn}
 
+/* status of the SB1070 ( SB 5.1 VX )? */
 const struct emu_card_version_s emucards_07[] = {
  CARD("Audigy LS [SB0310]"         ,0,0x10021102,EMU_CHIPS_0106,8),
  CARD("Audigy LS [SB0310b]"        ,0,0x10051102,EMU_CHIPS_0106,8),
@@ -96,11 +97,8 @@ static void snd_emu_ac97_mute( struct emu10k1_card *card)
 static unsigned int snd_ca0106_ptr_read( struct emu10k1_card *card,unsigned int reg,unsigned int chn)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	unsigned int val;
-
 	outpd(card->iobase + CA0106_PTR, (reg << 16) | chn);
-	val = inpd(card->iobase + CA0106_DATA);
-	return val;
+	return inpd(card->iobase + CA0106_DATA);
 }
 
 static void snd_ca0106_ptr_write( struct emu10k1_card *card,unsigned int reg,unsigned int chn,unsigned int data)
@@ -111,10 +109,14 @@ static void snd_ca0106_ptr_write( struct emu10k1_card *card,unsigned int reg,uns
 	return;
 }
 
+/* v2.1: snd_audigyls_selector() and snd_live24_selector() will now be called
+ *       only for entries in emucards_07; hence EMU_CHIPS_0106 is ALWAYS true;
+ */
 static unsigned int snd_audigyls_selector( struct emu10k1_card *card, struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if((card->chips & EMU_CHIPS_0106) && ((card->serial == 0x10021102) || (card->serial == 0x10051102))){
+	//if((card->chips & EMU_CHIPS_0106) && ((card->serial == 0x10021102) || (card->serial == 0x10051102))){
+	if( (card->serial == 0x10021102) || (card->serial == 0x10051102) ) {
 		dbgprintf(("snd_audigyls_selector: Audigy LS detected\n"));
 		return 1;
 	}
@@ -125,18 +127,21 @@ static unsigned int snd_audigyls_selector( struct emu10k1_card *card, struct aud
 static unsigned int snd_live24_selector( struct emu10k1_card *card, struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	if((card->chips & EMU_CHIPS_0106) && ((card->serial == 0x10061102) || (card->serial == 0x10071102) || (card->serial==0x10091462) || (card->serial==0x30381297) || (card->serial == 0x10121102) || !card->card_capabilities->subsystem)){
-		dbgprintf(("snd_live24_selector: Live 24 detected\n"));
-		return 1;
-	}
+	/* variables card_capabilities->subsystem and card_serial are identical! */
+	//if((card->chips & EMU_CHIPS_0106) && ((card->serial == 0x10061102) || (card->serial == 0x10071102) ||
+	//     (card->serial==0x10091462) || (card->serial==0x30381297) || (card->serial == 0x10121102) ||
+	//     !card->card_capabilities->subsystem)){
+	if ( snd_audigyls_selector( card, aui ) )
+		return 0;
 
-	return 0;
+	dbgprintf(("snd_live24_selector: Live 24 detected\n"));
+	return 1;
 }
-
-/* init for all CA0106 cards */
 
 #define SPCS_INIT SPCS_CLKACCY_1000PPM | SPCS_SAMPLERATE_48 | SPCS_CHANNELNUM_LEFT | SPCS_SOURCENUM_UNSPEC | \
     SPCS_GENERATIONSTATUS | 0x00001200 | 0x00000000 | SPCS_EMPHASIS_NONE | SPCS_COPYRIGHT
+
+/* init for all CA0106 cards */
 
 static void snd_ca0106_hw_init( struct emu10k1_card *card)
 //////////////////////////////////////////////////////////
@@ -152,6 +157,14 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 	snd_ca0106_ptr_write(card, SPCS2, 0, SPCS_INIT ); /* center/LFE */
 	snd_ca0106_ptr_write(card, SPCS3, 0, SPCS_INIT );
 
+	dbgprintf(("snd_ca0106_hw_init: regs 63-66=%X %X %X %X, reg 6a=%X\n",
+			snd_ca0106_ptr_read(card, 0x63, 0), snd_ca0106_ptr_read(card, 0x64, 0),
+			snd_ca0106_ptr_read(card, 0x65, 0), snd_ca0106_ptr_read(card, 0x66, 0),
+			snd_ca0106_ptr_read(card, 0x6a, 0) ));
+
+	/* value 0x00fc0000 mutes, value 0 unmutes;
+	 * playback will be unmuted in snd_pcm_prepare_playback()
+	 */
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0, 0x00fc0000);
 	snd_ca0106_ptr_write(card, CAPTURE_MUTE, 0, 0x00fc0000);
 
@@ -159,18 +172,43 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 	outpw(card->iobase + CA0106_AC97DATA, 0x8000); // mute
 
 	snd_ca0106_ptr_write(card, SPDIF_SELECT1, 0, 0xf);
+
+	/* fixme: value for SPDIF_SELECT2 in ALSA driver: 0xf0000 */
 	snd_ca0106_ptr_write(card, SPDIF_SELECT2, 0, 0x01010001); // enable analog,spdif,ac97 front
 	//snd_ca0106_ptr_write(card, SPDIF_SELECT2, 0, 0x0f0f0000); // enable analog and spdif 7.1
 
 	snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 0, 0x40c81000); // goes to 0x40c80000 when doing SPDIF IN/OUT
-	snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 1, 0xffffffff); // (Mute) CAPTURE feedback into PLAYBACK volume. Only lower 16 bits matter.
+	/* (Mute) CAPTURE feedback into PLAYBACK volume.
+	 * Only lower 16 bits matter.
+	 */
+	snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 1, 0xffffffff);
 
-	// ??? does this work at all ?
+#if 0 /* fixme: writes to chn 2 & 3 in ALSA */
+	/* SPDIF IN Volume */
+	snd_ca0106_ptr_write(chip, CAPTURE_CONTROL, 2, 0x30300000);
+	/* SPDIF IN Volume, 0x70 = (vol & 0x3f) | 0x40 */
+	snd_ca0106_ptr_write(chip, CAPTURE_CONTROL, 3, 0x00700000);
+#endif
+
+	/* ??? does this work at all?
+	 * CA0106.H says that this is the default; also done in ALSA
+	 */
 	snd_ca0106_ptr_write(card, PLAYBACK_ROUTING1, 0, 0x32765410);
 	//snd_ca0106_ptr_write(card, PLAYBACK_ROUTING1, 0, 0x10765410);
+	/* CA0106.H says that this is the default
+	 */
 	snd_ca0106_ptr_write(card, PLAYBACK_ROUTING2, 0, 0x76767676);
+#if 0 /* fixme: writes done in ALSA */
+	snd_ca0106_ptr_write(chip, CAPTURE_ROUTING1, 0, 0x32765410);
+	snd_ca0106_ptr_write(chip, CAPTURE_ROUTING2, 0, 0x76767676);
+#endif
+	/* playback volume 1/2 are ports 0x66/0x6a
+	 * capture volume 1/2 are ports  0x61/0x62
+	 * PLAYBACK_VOLUME1 is for SPDIF,
+	 * PLAYBACK_VOLUME2 is for I2S (analog)
+	 */
 
-	// mute unused channels
+	/* mute unused channels */
 	for(ch = 0; ch < 4; ch++) {
 		snd_ca0106_ptr_write(card, CAPTURE_VOLUME1, ch, 0xffffffff); // Only high 16 bits matter
 		snd_ca0106_ptr_write(card, CAPTURE_VOLUME2, ch, 0xffffffff); // mute ???
@@ -180,9 +218,16 @@ static void snd_ca0106_hw_init( struct emu10k1_card *card)
 		snd_ca0106_ptr_write(card, PLAYBACK_VOLUME2, ch, 0xffffffff); // Mute
 	}
 
+	/* GPIO: caller (snd_audigyls_hw_init/snd_live24_hw_init) will set another value! */
 	outpd(card->iobase + CA0106_GPIO, 0x0);
 	return;
 }
+
+/* in ALSA there's a gpio_type variable with values:
+ * 1: store 0x5f5301 in GPIO, analog, used by most cards
+ * 2: ???
+ * 3: store 0x5f03a3/0x5f02a2 [analog/spdif] in GPIO, used by 2 cards
+ */
 
 static void snd_audigyls_hw_init( struct emu10k1_card *card, struct audioout_info_s *aui )
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -190,8 +235,10 @@ static void snd_audigyls_hw_init( struct emu10k1_card *card, struct audioout_inf
 	dbgprintf(("snd_audigyls_hw_init\n"));
 	snd_ca0106_hw_init(card);
 
-	//outpd(card->iobase + CA0106_GPIO, 0x005f03a3); // analog
-	outpd(card->iobase + CA0106_GPIO, 0x005f02a2);// SPDIF
+	//outpd(card->iobase + CA0106_GPIO, 0x005f03a3); /* analog - ALSA */
+	//outpd(card->iobase + CA0106_GPIO, 0x005f02a2); /* SPDIF - MpxPlay */
+	/* v2.1: /O option 0=mpxplay variant, 1=ALSA variant */
+	outpd(card->iobase + CA0106_GPIO, (aui->card_outdev == 1) ? 0x005f03a3 : 0x005f02a2);
 
 	outpd(card->iobase + CA0106_HCFG, HCFG_AC97 | HCFG_AUDIOENABLE); // AC97 2.0, enable outputs
 
@@ -209,8 +256,10 @@ static void snd_live24_hw_init( struct emu10k1_card *card, struct audioout_info_
 	dbgprintf(("snd_live24_hw_init\n"));
 	snd_ca0106_hw_init(card);
 
-	//outpd(card->iobase + CA0106_GPIO, 0x005f5301); // analog
-	outpd(card->iobase + CA0106_GPIO, 0x005f5201); // SPDIF
+	//outpd(card->iobase + CA0106_GPIO, 0x005f5301); /* analog - ALSA */
+	//outpd(card->iobase + CA0106_GPIO, 0x005f5201); /* SPDIF - MpxPlay */
+	/* v2.1: /O option 0=MpxPlay variant, 1=ALSA variant */
+	outpd(card->iobase + CA0106_GPIO, (aui->card_outdev == 1) ? 0x005f5301 : 0x005f5201 );
 
 	outpd(card->iobase + CA0106_HCFG, HCFG_AUDIOENABLE);
 	return;
@@ -232,7 +281,7 @@ static unsigned int snd_buffer_init( struct emu10k1_card *card, struct audioout_
 	if (! MDma_alloc_cardmem(&card->dm, CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t) + card->pcmout_bufsize) ) return 0;
 	card->virtualpagetable = (uint32_t *)card->dm.pMem;
 	card->pcmout_buffer = ((char *)card->virtualpagetable) + CA0106_DMABUF_PERIODS * 2 * sizeof(uint32_t);
-	dbgprintf(("snd_buffer init: pagetable:%8X pcmoutbuf:%8X size:%d\n",(unsigned long)card->virtualpagetable,(unsigned long)card->pcmout_buffer,card->pcmout_bufsize));
+	dbgprintf(("snd_buffer init: pagetable=%X pcmoutbuf=%X size=%u\n", card->virtualpagetable, card->pcmout_buffer, card->pcmout_bufsize));
 	return 1;
 }
 
@@ -242,7 +291,11 @@ static void snd_pcm_prepare_playback( struct emu10k1_card *card, struct audioout
 	const uint32_t channel = 0;
 	uint32_t *table_base = card->virtualpagetable;
 	uint32_t period_size_bytes = card->period_size;
+	uint32_t physaddr;
 	uint32_t i,reg40_set,reg71_set;
+
+	/* reg 40 = BASIC_INTERRUPT */
+	/* reg 71 = CAPTURE_CONTROL */
 
 	switch(aui->freq_card){
 	case 44100:
@@ -263,15 +316,25 @@ static void snd_pcm_prepare_playback( struct emu10k1_card *card, struct audioout
 		break;
 	}
 
-	/* reg40: bits 16-23: frequency, 2 bits per channel 0=48k, 1=44.1k, 2=96k, 3=192k */
+	/* reg40,chn0 bits:
+	 * 16-23: frequency, 2 bits per channel 0=48k, 1=44.1k, 2=96k, 3=192k
+	 */
 	i = snd_ca0106_ptr_read(card, BASIC_INTERRUPT, 0); // control host to fifo
 	i &= ~(3 << (16 + channel * 2));
 	i |= reg40_set << ( 16 + channel * 2);
 	snd_ca0106_ptr_write(card, BASIC_INTERRUPT, 0, i);
 
+	/* reg71,chn0 bits:
+	 * 0-1=output rate;
+	 * 2-3=input rate;
+	 * 8-9=record rate;
+	 * 16-17:I2S output rate;
+	 * 18=host/SRC;
+	 * 24-25=SPDIF output rate;
+	 */
 	i = snd_ca0106_ptr_read(card, CAPTURE_CONTROL, 0); // control DAC rate (SPDIF)
 	i = (i & (~0x03030000)) | reg71_set;
-    snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 0, i);
+	snd_ca0106_ptr_write(card, CAPTURE_CONTROL, 0, i);
 
 	i = inpd(card->iobase + CA0106_HCFG); // control bit width
 	if(aui->bits_card == 32)
@@ -280,24 +343,36 @@ static void snd_pcm_prepare_playback( struct emu10k1_card *card, struct audioout
 		i &= ~HCFG_PLAYBACK_S32_LE;
 	outpd(card->iobase + CA0106_HCFG,i);
 
+	/* MpxPlay uses DOS memory as buffer, assuming linear == physical addresses;
+	 * this isn't true for VSBHDA; adjustments:
+	 * - use physaddr instead of pcmout_buffer for pagetable entries
+	 * - to set PLAYBACK_LIST_ADDR translate table_base to physical address
+	 * - to set PLAYBACK_DMA_ADDR use physaddr
+	 */
+	physaddr = pds_cardmem_physicalptr( card->dm, card->pcmout_buffer );
+
 	// build pagetable
 	for(i = 0; i < CA0106_DMABUF_PERIODS; i++){
-		table_base[i*2]   = (uint32_t)((char *)card->pcmout_buffer + ( i * period_size_bytes ));
+		table_base[i*2]   = physaddr + i * period_size_bytes;
 		table_base[i*2+1] = period_size_bytes << 16;
 	}
 
-	//snd_ca0106_ptr_write(card, PLAYBACK_LIST_ADDR, channel, (uint32_t)(table_base));
 	snd_ca0106_ptr_write(card, PLAYBACK_LIST_ADDR, channel, pds_cardmem_physicalptr( card->dm, table_base ));
 	snd_ca0106_ptr_write(card, PLAYBACK_LIST_SIZE, channel, (CA0106_DMABUF_PERIODS - 1) << 19);
 	snd_ca0106_ptr_write(card, PLAYBACK_LIST_PTR, channel, 0);
-	//snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, (uint32_t)card->pcmout_buffer);
-	snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, pds_cardmem_physicalptr( card->dm, card->pcmout_buffer ));
+
+	snd_ca0106_ptr_write(card, PLAYBACK_DMA_ADDR, channel, physaddr);
 	snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, 0);
 	//snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_SIZE, channel, period_size_bytes<<16);
 	snd_ca0106_ptr_write(card, PLAYBACK_POINTER, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_PERIOD_END_ADDR, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_FIFO_OFFSET_ADDRESS, channel, 0);
 	snd_ca0106_ptr_write(card, PLAYBACK_MUTE, 0x0, 0x0); // unmute output
+
+	dbgprintf(("snd_pcm_prepare_playback: regs 63-66=%X %X %X %X, reg 6a=%X, reg71=%X\n",
+			snd_ca0106_ptr_read(card, 0x63, 0), snd_ca0106_ptr_read(card, 0x64, 0),
+			snd_ca0106_ptr_read(card, 0x65, 0), snd_ca0106_ptr_read(card, 0x66, 0),
+			snd_ca0106_ptr_read(card, 0x6a, 0), snd_ca0106_ptr_read(card, 0x71, 0) ));
 
 	dbgprintf(("snd_pcm_prepare playback: exit\n"));
 	return;
@@ -377,7 +452,7 @@ static unsigned int snd_pcm_pointer_playback( struct audioout_info_s *aui )
 
 	ptr = (ptr4 * card->period_size) + ptr1;
 
-	dbgprintf(("snd_pcm_pointer_playback: list_ptr:%3d period_ptr:%4d bufpos:%d",ptr4,ptr1,ptr));
+	dbgprintf(("snd_pcm_pointer_playback: bufpos:0x%X [list_ptr:%d period_ptr:%d]\n", ptr, ptr4, ptr1));
 
 	/* AU_cardbuf_space() expects position in byte units! */
 	//ptr /= aui->chan_card;

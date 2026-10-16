@@ -805,9 +805,7 @@ bool SNDISR_Exit( void )
 #ifdef _LOGBUFFMAX
     printf("SNDISR_Exit: max PCM buffer usage=%u\n", isr.dwMaxBytes );
 #endif
-#ifdef _DEBUG
-    printf("SNDISR_Exit: cnt total/voice=%u/%u max/avg samples=%u/%u\n", isr.cntTotal, isr.cntDigital, isr.max_samples, isr.cntTotal ? isr.total_samples / isr.cntTotal : 0 );
-#endif
+    dbgprintf(("SNDISR_Exit: cnt total/voice=%u/%u max/avg samples=%u/%u\n", isr.cntTotal, isr.cntDigital, isr.max_samples, isr.cntTotal ? isr.total_samples / isr.cntTotal : 0 ));
     return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }
 

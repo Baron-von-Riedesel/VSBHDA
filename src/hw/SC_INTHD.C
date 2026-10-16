@@ -26,7 +26,7 @@
 #include "AU_CARDS.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
-#include "SC_INTHD.H"
+#include "HDA.H"
 
 #define SETPOWERSTATE 1  /* apparently necessary on some laptops */
 #define RESETCODECONCLOSE 0 /* todo: explain the benefits! */
@@ -1400,8 +1400,8 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		}
 		/* the physical addr, after mapped to a linear addr, is finally converted to a ptr */
 		card->hdac = (struct HDAREGS_s *)NearPtr( info.address );
-		if( aui->card_pin >= 0 )
-			card->config_select = aui->card_pin;
+		if( aui->card_outdev >= 0 )
+			card->config_select = aui->card_outdev;
 
 		card->board_driver_type = card->pci_dev.device_type;
 		if( !hda_buffer_init( aui, card )) {
@@ -1417,7 +1417,7 @@ static int HDA_adetect( struct audioout_info_s *aui )
 			  card->pci_dev.device_name ? card->pci_dev.device_name : "NULL",
 			  (long)card->pci_dev.vendor_id,(long)card->pci_dev.device_id));
 		hda_hw_init( card );
-		dbgprintf(("HDA_adetect: hw init done\n" ));
+		dbgprintf(("HDA_adetect: hw init done, hdac=%X, pcm_buffer=%X, irq=%u\n", card->hdac, card->pcmout_buffer, aui->card_irq ));
 
 		/* hda_mixer_init talks to codec; means CORB/RIRB must be ready to use */
 		card->hdac->corbctl = 2; /* start CORB DMA engine */
@@ -1430,10 +1430,9 @@ static int HDA_adetect( struct audioout_info_s *aui )
 				card->codec_index = i;
 				if( hda_mixer_init( card ) ) {
 					/* v1.7 set the specific device name if there's one */
-                    if ( card->pci_dev.device_name ) {
-                        _asm int 3;
-                        HDA_sndcard_info.shortname = card->pci_dev.device_name;
-                    }
+					if ( card->pci_dev.device_name ) {
+						HDA_sndcard_info.shortname = card->pci_dev.device_name;
+					}
 					dbgprintf(("HDA_adetect: exit, found mixer for codec %u\n", i ));
 					printf("HDA widgets to be used: DAC=%d Pin=%d Volume=%d\n",
 						(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
@@ -1554,11 +1553,9 @@ static unsigned int HDA_getbufpos( struct audioout_info_s *aui )
 
 	bufpos = card->sd->dwLinkPos;
 
-	/*
-	dbgprintf(("HDA_getbufpos: bufpos=%X sts=%X ctl=%X cbl=%u ds=%u ps=%u pn=%u\n",
-	    bufpos, card->sd->bSts, card->sd->wCtl, card->sd->dwBufLen, aui->card_dmasize,
-	    card->pcmout_period_size, card->pcmout_num_periods ));
-	 */
+	//dbgprintf(("HDA_getbufpos: bufpos=%X sts/ctl/cbl=%X/%X/%u dma_size=%u period #/size=%u/%u\n",
+	//    bufpos, card->sd->bSts, card->sd->wCtl, card->sd->dwBufLen, aui->card_dmasize, card->pcmout_num_periods, card->pcmout_period_size ));
+
 	return bufpos;
 }
 
@@ -1622,6 +1619,7 @@ static int HDA_IRQRoutine( struct intelhd_card_s *card )
      */
 	//rirbsts = card->hdac->rirbsts & RIRB_INT_MASK; /* b0 & b2 */
 	rirbsts = card->hdac->rirbsts & card->hdac->rirbctl & RIRB_INT_MASK; /* b0 & b2 */
+	//dbgprintf(("HDA_IRQRoutine: status=%X, corbsts=%X, rirbsts=%X\n", status, corbsts, rirbsts));
 	if(corbsts)
 		card->hdac->corbsts = corbsts; /* wc; 1 clears the bits */
 	if(rirbsts)

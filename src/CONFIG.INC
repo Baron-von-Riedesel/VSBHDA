@@ -75,7 +75,9 @@ endif
 
 ifdef DJGPP
 _Go32_Info_Block struct
-	dd 6 dup (?)
+	dd ?,?,?
+linear_address_of_transfer_buffer dd ?
+	dd ?,?
 	db ?,?
 	dw ?
 	dd ?

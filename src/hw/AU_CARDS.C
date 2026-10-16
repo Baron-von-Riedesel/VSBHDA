@@ -125,7 +125,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	aui->card_buffers = gvars->buffers;
 	aui->card_period_size = gvars->period_size;
 	aui->card_devidx = gvars->device;
-	aui->card_pin = gvars->pin;
+	aui->card_outdev = gvars->pin;
 
 	for ( i = 0; i < NUMCARDS; i++ ) {
 		aui->card_handler = sndcard_info_table[i];
@@ -148,7 +148,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 					dbgprintf(("AU_init: ERROR, cardbuf_getpos==NULL!\n"));
 				} else {
 					//aui->freq_card = aui->chan_card = aui->bits_card = 0;
-					dbgprintf(("AU_init: found card %s\n", aui->card_handler->shortname));
+					dbgprintf(("AU_init: found card %s, irq=%u\n", aui->card_handler->shortname, aui->card_irq));
 					return(aui);
 				}
 			}
@@ -308,6 +308,7 @@ void FAREXP AU_setmixer_init( struct audioout_info_s *aui )
 	return;
 }
 
+#if 0
 static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucards_mixerchan_s *mixeri[], unsigned int mixchannum )
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
@@ -318,6 +319,7 @@ static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucar
 	}
 	return NULL;
 }
+#endif
 
 /* set mixer volume for "mixchannum" (0-10):
  * MASTER, PCM, HEADPHONE, SPDIF, SYNTH, MICIN, ...
@@ -327,9 +329,10 @@ static const struct aucards_mixerchan_s *AU_search_mixerchan( const struct aucar
 void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, int function, unsigned int setmode, int newvalue )
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-	const struct sndcard_info_s *cardi;
+	const struct sndcard_info_s *cardinfo;
 	const struct aucards_mixerchan_s *onechi; // one mixer channel infos (master,pcm,etc.)
 	unsigned int subchannelnum, sch;
+    int i;
 	long newpercentval, maxpercentval;
 
 	dbgprintf(("AU_setmixer_one( channel=%u, function=%u, setmode=%u, newvalue=%u )\n", channel, function, setmode, newvalue ));
@@ -343,24 +346,33 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 	/* 0 = master, 1 = pcm, ... */
 	if( channel >= AU_MIXCHANS_NUM )
 		return;
-	cardi = aui->card_handler;
-	if(!cardi) {
+	cardinfo = aui->card_handler;
+	if(!cardinfo) { /* this shouldn't happen */
 		dbgprintf(("AU_setmixer_one: no card handler, exit\n" ));
 		return;
 	}
-	if(!cardi->card_writemixer || !cardi->card_readmixer || !cardi->card_mixerchans) {
-		dbgprintf(("AU_setmixer_one: card info invalid: writemixer=%X, readmixer=%X, mixerchans=%X\n", cardi->card_writemixer, cardi->card_readmixer, cardi->card_mixerchans ));
+	if(!cardinfo->card_writemixer || !cardinfo->card_readmixer || !cardinfo->card_mixerchans) {
+		dbgprintf(("AU_setmixer_one: card info invalid: writemixer=%X, readmixer=%X, mixerchans=%X\n",
+				cardinfo->card_writemixer, cardinfo->card_readmixer, cardinfo->card_mixerchans ));
 		return;
 	}
-	onechi = AU_search_mixerchan( cardi->card_mixerchans, channel );
+
+	//onechi = AU_search_mixerchan( cardinfo->card_mixerchans, channel );
+	for ( i = 0; cardinfo->card_mixerchans[i] ; i++ )
+		if (cardinfo->card_mixerchans[i]->channel == channel)
+			break;
+
+	onechi = cardinfo->card_mixerchans[i];
 	if(!onechi) {
-		dbgprintf(("AU_setmixer_one: search_mixerchan failed\n" ));
+		dbgprintf(("AU_setmixer_one: mixer channel %u not found in 0x%X\n", channel, cardinfo->card_mixerchans ));
 		return;
 	}
 	subchannelnum = onechi->subchannelnum;
-	dbgprintf(("AU_setmixer_one: channel=%u, subchannelnum=%u\n", channel, subchannelnum ));
-	if( !subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS) )
+	if( !subchannelnum || (subchannelnum > AU_MIXERCHAN_MAX_SUBCHANNELS) ) {
+		dbgprintf(("AU_setmixer_one: subchannel %u in channelinfo 0x%X invalid\n", subchannelnum, onechi ));
 		return;
+	}
+	dbgprintf(("AU_setmixer_one: channel=%u, subchannelnum=%u\n", channel, subchannelnum ));
 
 	maxpercentval = AU_MIXCHAN_MAX_VALUE_VOLUME;
 
@@ -408,10 +420,10 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 		 * Thus the values submixch_bits and submixch_shift aren't used.
 		 */
 		if ( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) {
-			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u)\n", newpercentval ));
-			cardi->card_writemixer( aui, subchi->submixch_register, newpercentval );
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u, %u)\n", subchi->submixch_register, newpercentval ));
+			cardinfo->card_writemixer( aui, subchi->submixch_register, newpercentval );
 		} else {
-			/* vsbhda: don't use floats here - function may be called during interrupt time */
+			/* vsbhda: don't use floats here - function isn't called by interrupt handler, but still... */
 			//newchval=(long)(((float)newpercentval * (float)subchi->submixch_max + ((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
 			newchval = (((int64_t)newpercentval * maxchval + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
 			dbgprintf(("AU_setmixer_one: newchval=%X max=%X\n", newchval, maxchval ));
@@ -424,13 +436,13 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 			newchval <<= subchi->submixch_shift;                             // shift to position
 			dbgprintf(("AU_setmixer_one: newchval=%X after shift\n", newchval ));
 
-			currchval = cardi->card_readmixer( aui, subchi->submixch_register);// read current value
+			currchval = cardinfo->card_readmixer( aui, subchi->submixch_register);// read current value
 			dbgprintf(("AU_setmixer_one: called card_readmixer(%X)=%X (max=%X, shift=%u)\n", subchi->submixch_register, currchval, maxchval, subchi->submixch_shift ));
 			currchval &= ~(maxchval << subchi->submixch_shift);  // unmask
 			newchval = (currchval | newchval);                               // add new value
 
 			dbgprintf(("AU_setmixer_one: calling card_writemixer(%X, %X) [currchval=%X]\n", subchi->submixch_register, newchval, currchval ));
-			cardi->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
+			cardinfo->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
 		}
 	}
 
@@ -440,12 +452,11 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 	return;
 }
 
-#define AU_MIXCHANS_OUTS 4
-
 /* for AC97, there's another out channel, AU_MIXCHAN_SYNTH (see AU_CARDS.H) */
 
-static const unsigned int au_mixchan_outs[AU_MIXCHANS_OUTS] = {
-	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT };
+static const unsigned int au_mixchan_outs[] = {
+	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT
+};
 
 /* set the volumes of "output channels:", defined in array above.
  * for VSBHDA, this is actually the mixer function that's used for volume setting;
@@ -457,7 +468,7 @@ void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode,
 {
 	unsigned int i;
 
-	for( i = 0; i < AU_MIXCHANS_OUTS; i++ )
+	for( i = 0; i < (sizeof(au_mixchan_outs)/sizeof(au_mixchan_outs[0])); i++ )
 		AU_setmixer_one( aui, au_mixchan_outs[i], AU_MIXCHANFUNC_VOLUME, setmode, newvalue );
 
 	aui->card_master_volume = aui->card_mixer_values[AU_MIXCHAN_MASTER];
@@ -472,7 +483,7 @@ void FAREXP AU_setmixer_outs( struct audioout_info_s *aui, unsigned int setmode,
 static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum )
 //////////////////////////////////////////////////////////////////////////////////
 {
-	const struct sndcard_info_s *cardi;
+	const struct sndcard_info_s *cardinfo;
 	const struct aucards_mixerchan_s *onechi;    // one mixer channel infos (master,pcm,etc.)
 	const struct aucards_submixerchan_s *subchi; // one subchannel infos (left,right,etc.)
 	unsigned long channel,function,subchannelnum;
@@ -485,12 +496,12 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 	channel = AU_MIXCHANFUNCS_GETCHAN(mixchannum);
 	if(channel > AU_MIXCHANS_NUM)
 		return -1;
-	cardi = aui->card_handler;
-	if(!cardi)
+	cardinfo = aui->card_handler;
+	if(!cardinfo)
 		return -1;
-	if(!cardi->card_readmixer || !cardi->card_mixerchans)
+	if(!cardinfo->card_readmixer || !cardinfo->card_mixerchans)
 		return -1;
-	onechi = AU_search_mixerchan(cardi->card_mixerchans,mixchannum);
+	onechi = AU_search_mixerchan(cardinfo->card_mixerchans,mixchannum);
 	if(!onechi)
 		return -1;
 	subchannelnum = onechi->subchannelnum;
@@ -506,7 +517,7 @@ static int AU_getmixer_one( struct audioout_info_s *aui, unsigned int mixchannum
 		return -1;
 	}
 
-	value = cardi->card_readmixer( aui, subchi->submixch_register );
+	value = cardinfo->card_readmixer( aui, subchi->submixch_register );
 
 	/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL==1, just return the plain value -
 	 * it's a volume percentage already. Thus it's ensured that the values in submixch_shift/max

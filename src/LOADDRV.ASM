@@ -19,11 +19,20 @@ VIA82  equ 1
 
 NULL equ 0
 
+	include CONFIG.INC
 	include DEBUG.INC
 
 HEAPSIZE equ 2000h	;additional memory behind stack
 
+ifdef DJGPP
+;--- problem with DJGPP is that this format (a variant of COFF)
+;--- doesn't know groups. If model isn't flat, one has to use assume for data access.
+	assume ds:_DATA
+_linear_rmstack textequ <_go32_info_block.linear_address_of_transfer_buffer>
+externdef c _go32_info_block:_Go32_Info_Block
+else
 externdef c _linear_rmstack:dword
+endif
 externdef c DSBase:dword
 
 ;--- structs
@@ -102,7 +111,11 @@ else
 endif
 endm
 
+ifdef DJGPP
+	.data
+else
 	.data?
+endif
 
 params LDPARMS <>
 
@@ -117,7 +130,7 @@ sym db text,0
 endm
 
 @DefInfo macro modname
-	exitm <SNDCARD_INFO {DStr(modname),0,dyn_adetect, my_start, my_stop, my_close, my_setrate, NULL, my_getpos, my_irq, my_wrMixer, my_rdMixer, 0, 0}>
+	exitm <SNDCARD_INFO {DStr(modname),0,dyn_adetect, my_start, my_stop, my_close, my_setrate, NULL, my_getpos, my_irq, my_wrMixer, my_rdMixer, my_Mixerdata, 0}>
 endm
 
 ;--- currently dynamically loaded drivers may be mixed with static ones -
@@ -155,6 +168,8 @@ if VIA82
 	public c VIA82XX_sndcard_info
 VIA82XX_sndcard_info @DefInfo("VIA82.DRV")
 endif
+
+my_Mixerdata dd 9 dup (0)
 
 	.code
 
@@ -216,6 +231,7 @@ endif
 	mov word ptr dwImgBase+2, bx
 	mov word ptr params.memhdl+0,di
 	mov word ptr params.memhdl+2,si
+	@dprintf CStr("LoadDriver: image base/size=%X/%X, full size=%X",10), dwImgBase, dwSizeImg, dwSizeAll
 
 ;--- alloc descriptors for code & data
 	mov cx,2
@@ -268,7 +284,7 @@ endif
 	pop ds
 	jc read_err
 
-;--- clear _BSS segment ( +heap )
+;--- clear _BSS segment
 
 	mov eax, dwSizeAll
 	sub eax, ecx
@@ -311,6 +327,7 @@ endif
 if @Model ne 7
 	sub eax, DSBase
 	mov params.ImgDiff, eax
+	@dprintf CStr("LoadDriver: ImgDiff=%X, DSBase=%X",10), params.ImgDiff, DSBase
 endif
 	mov eax, 1
 	ret
@@ -488,7 +505,7 @@ dyn_adetect proc c aui:ptr AUI
 		push es
 		push _linear_rmstack
 		push HEAPSIZE
-ifdef NOTFLAT
+if @Model ne 7
 		push DSBase
 else
 		push 0
@@ -515,24 +532,51 @@ endif
 			invoke my_adetect, aui
 			@dprintf CStr("lddrv.adetect: adetect returned, eax=%X",10), eax
 			.if eax
+				push ebx
+				push esi
+				mov esi, aui
 ;--- after driver's adetect() has run, card_info's shortname member may hold
 ;--- the name of the soundcard that has been found; store it in the cardinfo
 ;--- struct known by AU_CARDS.C
+				mov ebx, [esi].AUI.card_info
 				mov edx, params.card_info
-				mov edx, [edx].SNDCARD_INFO.shortname
-				Rebase2Intern edx
-				mov ecx, aui
-				mov ecx, [ecx].AUI.card_info
-				mov [ecx].SNDCARD_INFO.shortname, edx
-;--- translate the DMA buffer pointer - it's not used by the drivers
-				mov edx, aui
-				mov ecx, [edx].AUI.card_pDmaBuffer
+				mov ecx, [edx].SNDCARD_INFO.shortname
 				Rebase2Intern ecx
-				mov [edx].AUI.card_pDmaBuffer, ecx
+				mov [ebx].SNDCARD_INFO.shortname, ecx
+;--- soundcard infobits ( currently just SCINFO_CARDBUF_SPACE, that no driver sets )
+				mov ecx, [edx].SNDCARD_INFO.infobits
+				mov [ebx].SNDCARD_INFO.infobits, ecx
+;--- translate the mixerdata vector
+				mov ecx, [edx].SNDCARD_INFO.Mixerdata
+				jecxz @F
+				Rebase2Intern ecx
+				mov ebx, offset my_Mixerdata
+				call translate_mixerarray
+@@:
+;--- translate the DMA buffer pointer - it has been set by the driver, but isn't used by it
+				mov edx, [esi].AUI.card_pDmaBuffer
+				Rebase2Intern edx
+				mov [esi].AUI.card_pDmaBuffer, edx
+				pop esi
+				pop ebx
 			.endif
 		.endif
 	.endif
 	ret
+
+;--- translate the mixerdata vector; the array is used by AU_CARDS.setmixer_one();
+
+translate_mixerarray:
+	mov edx, [ecx]
+	cmp edx, 0
+	jz @F
+	Rebase2Intern edx
+	mov [ebx], edx
+	add ecx, 4
+	add ebx, 4
+	jmp translate_mixerarray
+@@:
+	retn
 dyn_adetect endp
 
     end

@@ -48,6 +48,7 @@ extern const struct emu_card_version_s emucards_04[];
 extern const struct emu_card_version_s emucards_08[];
 extern const struct emu_card_version_s emucards_07[];
 
+/* SB card table for device-IDs 0002, 0004, 0008, 0007 */
 static const struct emu_card_version_s *cardtable[] = {
 	emucards_02,
 	emucards_04,
@@ -69,8 +70,8 @@ static const struct emu_driver_func_s *emu_driver_all_funcs[] = {
 #if CA0151
  &emu_driver_p16v_funcs, /* SB Audigy 2/4 if bits are > 16 */
 #endif
- &emu_driver_audigyls_funcs, /* SB Audify LS - defined in SC_SBL24.C */
- &emu_driver_live24_funcs, /* SB Live 24 - defined in SC_SBL24.C */
+ &emu_driver_audigyls_funcs, /* SB Audify LS - defined in SBLIVE24.C */
+ &emu_driver_live24_funcs, /* SB Live 24 - defined in SBLIVE24.C */
 };
 
 struct sndcard_info_s SBGEN_sndcard_info;

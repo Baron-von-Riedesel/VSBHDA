@@ -3487,7 +3487,7 @@ static const struct pci_device_s emu20kx_devices[]={
  {NULL,0,0,0}
 };
 
-static void EMU20KX_close(struct audioout_info_s *aui);
+static void SBXFI_close(struct audioout_info_s *aui);
 
 static struct {
 	int (*create)(struct hw *hw, void **rmgr);
@@ -3503,14 +3503,14 @@ static struct {
 	[DAIO]   = { daio_mgr_create },
 };
 
-static int EMU20KX_adetect(struct audioout_info_s *aui)
+static int SBXFI_adetect(struct audioout_info_s *aui)
 ///////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
 	int i;
 
 	if(pcibios_search_devices( emu20kx_devices, &card->pci_dev) != PCI_SUCCESSFUL) {
-		dbgprintf(("emu20kx_adetect: pcibios_search_devices failed\n"));
+		dbgprintf(("sbxfi_adetect: pcibios_search_devices failed\n"));
 		goto err_adetect;
 	}
 
@@ -3528,7 +3528,7 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	aui->card_irq = card->pci_dev.bIrq;
 	card->subsys_id = pcibios_ReadConfig_Word(&card->pci_dev,PCIR_SSID);
 
-	dbgprintf(("emu20kx_adetect: vend_id=%X dev_id=%X subid=%X irq=%u\n",
+	dbgprintf(("sbxfi_adetect: vend_id=%X dev_id=%X subid=%X irq=%u\n",
 			card->pci_dev.vendor_id, card->pci_dev.device_id, card->subsys_id, card->pci_dev.bIrq));
 
 	if(!snd_emu20kx_buffer_init(card,aui))
@@ -3547,7 +3547,7 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 		int err;
 		if (rsc_mgr_funcs[i].create) {
 			if (err = rsc_mgr_funcs[i].create(card->hw, (void **)&card->rsc_mgrs[i])) {
-				dbgprintf(("emu20kx_adetect: create rsc_mgr[%u] failed\n", i));
+				dbgprintf(("sbxfi_adetect: create rsc_mgr[%u] failed\n", i));
 				goto err_adetect;
 			}
 		}
@@ -3573,15 +3573,15 @@ static int EMU20KX_adetect(struct audioout_info_s *aui)
 	return 1;
 
 err_adetect:
-	EMU20KX_close(aui);
+	SBXFI_close(aui);
 	return 0;
 }
 
-static void EMU20KX_close(struct audioout_info_s *aui)
+static void SBXFI_close(struct audioout_info_s *aui)
 //////////////////////////////////////////////////-///
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
-	dbgprintf(("emu20kx_close\n"));
+	dbgprintf(("sbxfi_close\n"));
 	if(card){
 		if(card->hw) {
 			snd_emu20kx_chip_close(card);
@@ -3591,11 +3591,11 @@ static void EMU20KX_close(struct audioout_info_s *aui)
 	}
 }
 
-static void EMU20KX_setrate(struct audioout_info_s *aui)
+static void SBXFI_setrate(struct audioout_info_s *aui)
 //////////////////-///////////////////////////////-/////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
-	dbgprintf(("emu20kx_setrate: freq_card=%u\n", aui->freq_card));
+	dbgprintf(("sbxfi_setrate: freq_card=%u\n", aui->freq_card));
 
 	/* emu20kx_set_output_format() has been called during card_init()
 	 * because that function needs card->rsr/msr to be set.
@@ -3611,7 +3611,7 @@ static void EMU20KX_setrate(struct audioout_info_s *aui)
 
 #define TIMER_SHIFT 1
 
-static void EMU20KX_start(struct audioout_info_s *aui)
+static void SBXFI_start(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
@@ -3626,7 +3626,7 @@ static void EMU20KX_start(struct audioout_info_s *aui)
 	max_cisz = period_size;
 #endif
 
-	dbgprintf(("emu20kx_start: period_size=%u, max_cisz=%u\n", period_size, max_cisz));
+	dbgprintf(("sbxfi_start: period_size=%u, max_cisz=%u\n", period_size, max_cisz));
 
 	/* ctatc.c, atm_pcm_playback_start()
 	 * the addresses in set_sa(), set_la() and set_ca() are "logical" -
@@ -3647,13 +3647,13 @@ static void EMU20KX_start(struct audioout_info_s *aui)
 
 /* ctatm.c, atm_pcm_stop() */
 
-static void EMU20KX_stop(struct audioout_info_s *aui)
+static void SBXFI_stop(struct audioout_info_s *aui)
 /////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
 	struct src *src = card->apcm_src;
 
-	dbgprintf(("emu20kx_stop\n"));
+	dbgprintf(("sbxfi_stop\n"));
 
 	card->hw->set_timer_tick(card->hw, 0);
 	card->hw->set_timer_irq(card->hw, 0);
@@ -3667,7 +3667,7 @@ static void EMU20KX_stop(struct audioout_info_s *aui)
 
 /* ctatm.c - atc_pcm_playback_position() */
 
-static unsigned int EMU20KX_getbufpos(struct audioout_info_s *aui)
+static unsigned int SBXFI_getbufpos(struct audioout_info_s *aui)
 //////////////////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
@@ -3682,9 +3682,9 @@ static unsigned int EMU20KX_getbufpos(struct audioout_info_s *aui)
 	/* todo: explain max_cisz purpose */
 	//max_cisz = card->apcm_src->multi * card->apcm_src->rsc.msr * 0x80;
 	//bufpos = (bufpos + aui->card_dmasize - max_cisz) % aui->card_dmasize;
-	//dbgprintf(("emu20kx_getbufpos: bufpos=%X max_cisz=%X\n", bufpos, max_cisz ));
+	//dbgprintf(("sbxfi_getbufpos: bufpos=%X max_cisz=%X\n", bufpos, max_cisz ));
 
-	//dbgprintf(("emu20kx_getbufpos: pos=0x%X dmasize=%d\n", bufpos, aui->card_dmasize));
+	//dbgprintf(("sbxfi_getbufpos: pos=0x%X dmasize=%d\n", bufpos, aui->card_dmasize));
 
 	return bufpos;
 }
@@ -3696,7 +3696,7 @@ static unsigned int EMU20KX_getbufpos(struct audioout_info_s *aui)
  * translation: volXFI = volAU * 7168 / 100
  */
 
-static void EMU20KX_writeMIXER(struct audioout_info_s *aui, unsigned long reg, unsigned long val)
+static void SBXFI_writeMIXER(struct audioout_info_s *aui, unsigned long reg, unsigned long val)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct emu20kx_card_s *card = aui->card_private_data;
@@ -3705,7 +3705,7 @@ static void EMU20KX_writeMIXER(struct audioout_info_s *aui, unsigned long reg, u
 	struct amixer *master;
 	//struct amixer *pcm;
 
-	dbgprintf(("emu20kx_writeMIXER(%X, reg=%X, value=%u)\n", aui, reg, val));
+	dbgprintf(("sbxfi_writeMIXER(%X, reg=%X, value=%u)\n", aui, reg, val));
 
 	/* set left & right channel */
 	for (i = 0; i < 2; i++ ) {
@@ -3718,20 +3718,20 @@ static void EMU20KX_writeMIXER(struct audioout_info_s *aui, unsigned long reg, u
 	}
 }
 
-static unsigned long EMU20KX_readMIXER(struct audioout_info_s *aui, unsigned long reg)
+static unsigned long SBXFI_readMIXER(struct audioout_info_s *aui, unsigned long reg)
 //////////////////////////////////////////////////////////////////////////////////////
 {
 	//struct emu20kx_card_s *card = aui->card_private_data;
-	dbgprintf(("emu20kx_readMIXER\n"));
+	dbgprintf(("sbxfi_readMIXER\n"));
 	return 0;
 }
 
-static int EMU20KX_IRQRoutine( struct emu20kx_card_s *card )
+static int SBXFI_IRQRoutine( struct emu20kx_card_s *card )
 ////////////////////////////////////////////////////////////
 {
 	int status = card->hw->get_timer_interrupt_pending(card->hw);
 
-	//dbgprintf(("emu20kx_IRQRoutine status=0x%X\n", status));
+	//dbgprintf(("sbxfi_IRQRoutine status=0x%X\n", status));
 	if ( status ) {
 		card->hw->ack_interrupt(card->hw, status ); /* ack interrupt */
 	}
@@ -3753,17 +3753,17 @@ static const struct aucards_mixerchan_s *sbxfi_mixerset[] = {
 struct sndcard_info_s SBXFI_sndcard_info = {
  "CTXFI",
  0,
- &EMU20KX_adetect,
- &EMU20KX_start,
- &EMU20KX_stop,
- &EMU20KX_close,
- &EMU20KX_setrate,
+ &SBXFI_adetect,
+ &SBXFI_start,
+ &SBXFI_stop,
+ &SBXFI_close,
+ &SBXFI_setrate,
 
  NULL,
- &EMU20KX_getbufpos,
- &EMU20KX_IRQRoutine,
- &EMU20KX_writeMIXER,
- &EMU20KX_readMIXER,
+ &SBXFI_getbufpos,
+ &SBXFI_IRQRoutine,
+ &SBXFI_writeMIXER,
+ &SBXFI_readMIXER,
  sbxfi_mixerset,
  sizeof(struct emu20kx_card_s)
 };

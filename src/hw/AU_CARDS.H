@@ -46,7 +46,7 @@ enum pcmformat {
     WAVEID_PCM_FLOAT = 3, /* 32/64-bit float */
 };
 
-//au_cards mixer channels - see AC97.C, aucards_ac97_chan_mixerset[]
+//au_cards mixer channels - see AC97MIX.C, aucards_ac97_chan_mixerset[]
 enum MIXCHAN {
     AU_MIXCHAN_MASTER = 0,  // master out
     AU_MIXCHAN_PCM,         // pcm out
@@ -95,6 +95,9 @@ enum MIXMODE {
 
 struct sndcard_info_s;
 
+/* v2.1: if one of the first 3 members ( pointers ) are changed,
+ *       it may be necessary to adjust struct AUI in loaddrv.asm!
+ */
 struct audioout_info_s {
  void *card_private_data;         /* card's private data - size defined by sndcard_info_s.private_data_size */
  const struct sndcard_info_s *card_handler; /* card's info block - v2.1: now here to simplify dynamic loading */
@@ -107,7 +110,7 @@ struct audioout_info_s {
  unsigned char card_bytespersign; /* bytespersample_card * chan_card */
  unsigned char card_buffers;      /* value of option /B */
  unsigned char card_devidx;       /* value of option /DEV */
-   signed char card_pin;          /* value of option /O - used by HDA and SBLIVE */
+   signed char card_outdev;       /* value of option /O - used by HDA and SBLIVE */
  enum pcmformat card_wave_id;     /* PCM format - usually 16-bit signed */
  enum card_ctrlbits card_ctrlbits;
  enum card_infobits card_infobits;

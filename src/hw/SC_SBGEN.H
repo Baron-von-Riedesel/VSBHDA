@@ -13,7 +13,7 @@
 #define EMU_CHIPS_0108 16 // Audigy2 Value
 #define EMU_CHIPS_0151 32 // P16V (Audigy 2,4)
 
-#define EMU_CHIPS_24BIT (EMU_CHIPS_0106 | EMU_CHIPS_0151)
+//#define EMU_CHIPS_24BIT (EMU_CHIPS_0106 | EMU_CHIPS_0151)
 
 struct emu_card_version_s {
  char *longname;

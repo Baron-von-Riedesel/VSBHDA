@@ -194,7 +194,7 @@ _Snd_Notify31 endp
 
 _SND_InstallISR proc public uses ebx interrupt:byte, isr:dword
 
-	@dprintf CStr("SND_InstallISR(int=0x%X) enter",10), interrupt
+	@dprintf CStr("SND_InstallISR(int=0x%X, isr=%X) enter",10), interrupt, isr
 
 	mov bl, interrupt
 	mov ax, 204h

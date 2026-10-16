@@ -115,7 +115,6 @@ else
 	call cs:[oldint31]
 @@:
 endif
-
 	invoke fopen, pName, offset szWB
 	.if eax
 		mov ebx, eax

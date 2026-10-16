@@ -445,12 +445,14 @@ bool PTRAP_Uninstall_PortTraps( int bRM, int bPM )
             }
         }
     }
-    ptrap.QPI_regs.x.ax = 0x1A07; /* set trap handler */
-    ptrap.QPI_regs.x.di = ptrap.QPI_OldCallback.v86.offset;
-    ptrap.QPI_regs.x.es = ptrap.QPI_OldCallback.v86.segment;
-    if( __dpmi_simulate_real_mode_procedure_retf(&ptrap.QPI_regs) != 0) //restore old handler
-        return false;
-
+    /* v2.1: call QPI only if real-mode trapping is ON */
+    if ( bRM ) {
+        ptrap.QPI_regs.x.ax = 0x1A07; /* set trap handler */
+        ptrap.QPI_regs.x.di = ptrap.QPI_OldCallback.v86.offset;
+        ptrap.QPI_regs.x.es = ptrap.QPI_OldCallback.v86.segment;
+        if( __dpmi_simulate_real_mode_procedure_retf(&ptrap.QPI_regs) != 0) //restore old handler
+            return false;
+    }
     /* uninstall realmode callback for realmode port trapping */
     _exit_rmcbIO( &ptrap.rmcb );
 

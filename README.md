@@ -3,13 +3,15 @@ Sound blaster emulation for HDA (and AC97/SBLive); a fork of crazii's SBEMU: htt
 
 Works with unmodified HDPMI binaries, making it compatible with HX.
 
-**Supported Sound cards:**
- * HDA ( Intel High Definition Audio )
+**Supported Sound hardware:**
+ * ES1370 chip by Ensoniq ( AudioPCI )
  * Intel ICH, Nvidia nForce, SiS 7012
+ * HDA ( Intel High Definition Audio )
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
- * SB Live, SB Audigy ( based on EMU10Kx )
- * SB based on ES1371/1373 (Ensoniq)
- * SB based on CA0106 chip ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
+ * SB based on ES1371/1373 ( AudioPCI '97 )
+ * SB based on EMU10Kx ( SB Live, SB Audigy )
+ * SB based on CA0106 ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
+ * SB based on EMU20Kx ( SB X-Fi, SB X-Fi Titanium [untested] ) 
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 

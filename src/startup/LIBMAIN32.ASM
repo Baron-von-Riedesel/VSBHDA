@@ -84,12 +84,15 @@ _bOMode db OMODE
 	.code
 
 ;--- allocate the private data here in adetect - it's the first call into the driver code!
+;--- the driver's adetect may modify some members of the card_info struct:
+;--- shortname, Mixerdata, ...
+;--- so after the call it's the right time to copy those members to cardinfo.
 
 my_adetect proc far c aui:ptr
 
 	invoke calloc, 1, __sndcard_info.datasize
 	and eax, eax
-	jz error
+	jz done
 	mov edx, eax
 	mov eax, aui
 	Rebase2Intern eax
@@ -97,10 +100,14 @@ my_adetect proc far c aui:ptr
 	push eax
 	call __sndcard_info.adetect
 	add esp,4
+	and eax, eax
+	jz done
 ;--- cardinfo's shortname used to return name of detected card.
-	mov edx, __sndcard_info.shortname
-	mov cardinfo.shortname, edx
-error:
+	mov ecx, __sndcard_info.shortname
+	mov edx, __sndcard_info.Mixerdata
+	mov cardinfo.shortname, ecx
+	mov cardinfo.Mixerdata, edx
+done:
 	ret
 my_adetect endp
 

@@ -6,8 +6,7 @@
 #   make -f LinuxDrv.mak DEBUG=1
 
 # 1. Adjust WATCOM - directory where Open Watcom is installed.
-# 2. Adjust USE19  - should be 1 if OW v1.9 is to be used.
-# 3. Adjust USEJWL - should be 0 if JWLink isn't available
+# 2. Adjust USEJWL - should be 0 if JWLink isn't available
 #                    and OW's WLink is to be used.
 
 ifndef DEBUG
@@ -16,11 +15,6 @@ endif
 
 ifndef WATCOM
 WATCOM=$(HOME)/Watcom
-endif
-
-# use OW v2 (0) or OW v1.9 (1)
-ifndef USE19
-USE19=0
 endif
 
 # use jwlink (1) or wlink (0)
@@ -47,10 +41,6 @@ else
 OUTD=driver
 C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
-endif
-
-ifeq ($(USE19),1)
-OW19=-DOW19
 endif
 
 C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111

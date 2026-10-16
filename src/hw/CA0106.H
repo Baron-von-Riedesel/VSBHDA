@@ -305,8 +305,8 @@
 #define PLAYBACK_ROUTING1       0x63            /* Playback routing of channels 0-7. Effects AC3 output. Default 0x32765410 */
 #define ROUTING1_REAR           0x77000000      /* Channel_id 0 sends to 10, Channel_id 1 sends to 32 */
 #define ROUTING1_NULL           0x00770000      /* Channel_id 2 sends to 54, Channel_id 3 sends to 76 */
-#define ROUTING1_CENTER_LFE     0x00007700      /* 0x32765410 means, send Channel_id 0 to FRONT, Channel_id 1 to REAR */
-#define ROUTING1_FRONT          0x00000077    /* Channel_id 2 to CENTER_LFE, Channel_id 3 to NULL. */
+#define ROUTING1_CENTER_LFE     0x00007700      /* 0x32765410 means, send Channel_id 0 to FRONT, Channel_id 1 to REAR, */
+#define ROUTING1_FRONT          0x00000077      /* Channel_id 2 to CENTER_LFE, Channel_id 3 to NULL. */
                         /* Channel_id's handle stereo channels. Channel X is a single mono channel */
                         /* Host is input from the PCI bus. */
                         /* Host channel 0 [2:0] -> SPDIF Mixer/Router channel 0-7.
@@ -357,9 +357,9 @@
                         /* Similar to register 0x66, except that the destination is the I2S mixer instead of the SPDIF mixer. I.E. Outputs to the Analog outputs instead of SPDIF. */
 #define UNKNOWN6b               0x6b            /* Unknown. Readonly. Default 00400000 00400000 00400000 00400000 */
 #define UART_A_DATA        0x6c            /* Uart, used in setting sample rates, bits per sample etc. */
-#define UART_A_CMD        0x6d            /* Uart, used in setting sample rates, bits per sample etc. */
+#define UART_A_CMD         0x6d            /* Uart, used in setting sample rates, bits per sample etc. */
 #define UART_B_DATA        0x6e            /* Uart, Unknown. */
-#define UART_B_CMD        0x6f            /* Uart, Unknown. */
+#define UART_B_CMD         0x6f            /* Uart, Unknown. */
 #define SAMPLE_RATE_TRACKER_STATUS 0x70         /* Readonly. Default 00108000 00108000 00500000 00500000 */
                         /* Estimated sample rate [19:0] Relative to 48kHz. 0x8000 =  1.0
                          * Rate Locked [20]

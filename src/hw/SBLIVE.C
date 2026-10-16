@@ -30,6 +30,9 @@
 #include "AC97MIX.H"
 #include "SC_SBGEN.H"
 #include "EMU10K1.H"
+#if CA0151
+#include "P16V.H"
+#endif
 
 #define MAXPAGES        1024 /* true max is 8192, but 1024 wastes 28 kB less */
 #define LOOPINT         1 /* v1.9: 1=use loop interrupt; 0=use timer interrupt */
@@ -265,6 +268,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 	emu10k1_writeptr(card, SPCS1, 0, SPCS_INIT);
 	emu10k1_writeptr(card, SPCS2, 0, SPCS_INIT);
 
+#if CA0151
 	if (card->card_capabilities->chips & EMU_CHIPS_0151) { // audigy2,4 (24 bit)
 		// Hacks for Alice3 to work independent of haP16V driver
 		uint32_t tmp;
@@ -302,7 +306,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 		//emu10k1_ptr20_write(card, CAPTURE_P16V_SOURCE, 0, 0x78e4); // in ALSA
 		emu10k1_ptr20_write(card, CAPTURE_P16V_SOURCE, 0, 0x0000); // ??? in Mpxplay (was 0x0400)
 	}
-
+#endif
 	if (card->chips & EMU_CHIPS_0108) { // Audigy2 Value
 		// Hacks for Alice3 to work independent of haP16V driver
 		uint32_t tmp;
@@ -378,7 +382,7 @@ static void snd_emu10k1_hw_init( struct emu10k1_card *card, struct audioout_info
 
 	//mixer (routing) config
 	if (card->chip_select & EMU_CHIPS_10KX)
-		snd_emu10kx_fx_init(card, aui->card_pin);
+		snd_emu10kx_fx_init(card, aui->card_outdev);
 
 	//Enable the audio bit
 	//outpd(card->iobase + HCFG, inpd(card->iobase + HCFG) | HCFG_AUDIOENABLE);
@@ -564,8 +568,8 @@ static void snd_emu10kx_set_control_gpr( struct emu10k1_card *card, unsigned int
 	return;
 }
 
-static void snd_emu10kx_fx_init( struct emu10k1_card *card, int pin)
-////////////////////////////////////////////////////////////////////
+static void snd_emu10kx_fx_init( struct emu10k1_card *card, int outdev)
+///////////////////////////////////////////////////////////////////////
 {
 	unsigned int i, pc = 0;
 
@@ -598,7 +602,7 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card, int pin)
 
 			// Rear output + Master Volume
 			/* v1.8: "rear" output requires option /O1 */
-			if (pin == 1) {
+			if (outdev == 1) {
 				A_OP(iMAC0, A_EXTOUT(A_EXTOUT_AREAR_L),  0xc0, A_GPR(8), A_FXBUS(FXBUS_PCM_LEFT));
 				A_OP(iMAC0, A_EXTOUT(A_EXTOUT_AREAR_R),  0xc0, A_GPR(9), A_FXBUS(FXBUS_PCM_RIGHT));
 			}
@@ -655,7 +659,7 @@ static void snd_emu10kx_fx_init( struct emu10k1_card *card, int pin)
 		L_OP(iACC3, EXTOUT(EXTOUT_HEADPHONE_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
 
 		// v1.7: enable rear "speaker" connection on SB Live if /O1 option is set
-		if (pin == 1) {
+		if (outdev == 1) {
 			L_OP(iACC3, EXTOUT(EXTOUT_REAR_L), 0x40, 0x40, FXBUS(FXBUS_PCM_LEFT));
 			L_OP(iACC3, EXTOUT(EXTOUT_REAR_R), 0x40, 0x40, FXBUS(FXBUS_PCM_RIGHT));
 		}
@@ -1138,9 +1142,12 @@ static int snd_emu10kx_isr( struct emu10k1_card *card )
 }
 
 #ifndef AUDIGY1_USE_AC97
+/* for magic values 8 & 9 see snd_emu10kx_fx_init();
+ * for the Audigy, just the master volume is set.
+ */
 static const struct aucards_mixerchan_s emu_10k2_master_vol = {
-    AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME,2,{
-  { 8, 31, 0, 0},
+    AU_MIXCHAN_MASTER,AU_MIXCHANFUNC_VOLUME,2,{   /* 2 "submixer" channels */
+  { 8, 31, 0, 0}, /* register, bits, shift, infobits */
   { 9, 31, 0, 0}
  }
 };

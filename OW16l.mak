@@ -1,9 +1,9 @@
 
 # Create vsbhda16.exe & sndcard.drv with Open Watcom and JWasm.
 # Enter
-#   wmake -f ow16.mak
+#   wmake -f ow16l.mak
 # Optionally, for a debug version, enter
-#   wmake -f ow16.mak debug=1
+#   wmake -f ow16l.mak debug=1
 #
 # The build process is supposed to be run in either Windows or DOS.
 # For DOS, however, it's necessary to install the HX runtime package

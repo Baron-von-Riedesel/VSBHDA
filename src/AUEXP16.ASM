@@ -1,5 +1,6 @@
 
 ;--- 16-bit only: export table for sndcard.drv
+;--- v2.1: no longer used by standard vsbhda.
 
 	.386
 	.model small

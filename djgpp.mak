@@ -10,13 +10,22 @@
 # The simplest workaround is to run HDPMI32.EXE with option -r before
 # DJGPP's make tool is executed.
 
-ifndef DEBUG
-DEBUG=0
+# v2.1 introduced low-level hardware routines created as separate modules;
+# to ensure that the vsbhda binary and the driver modules are compatible
+# option -fshort-enums has to be set, since this is the default for OW.
+
+ifndef debug
+debug=0
 endif
 
 NAME=VSBHDA
 
-ifeq ($(DEBUG),1)
+# set to 0 to create the (deprecated) monolithic variant
+ifndef DYNAMIC
+DYNAMIC=1
+endif
+
+ifeq ($(debug),1)
 OUTD=djgppd
 C_DEBUG_FLAGS=-D_DEBUG
 A_DEBUG_FLAGS=-D_DEBUG -Fl=$(OUTD)/
@@ -35,25 +44,37 @@ vpath %.h $(vpath_header)
 vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
 
-OBJFILES=\
-	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/dbopl.o		$(OUTD)/linear.o	$(OUTD)/pic.o\
-	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vopl3.o		$(OUTD)/vmpu.o		$(OUTD)/tsf.o\
-	$(OUTD)/adpcm.o\
-	$(OUTD)/ac97mix.o	$(OUTD)/au_cards.o\
-	$(OUTD)/dmabuff.o	$(OUTD)/pcibios.o	$(OUTD)/physmem.o	$(OUTD)/timer.o\
-	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o\
-	$(OUTD)/sc_sbgen.o	$(OUTD)/sblive.o	$(OUTD)/sblive24.o\
-	$(OUTD)/sc_sbxfi.o	$(OUTD)/cthw20k1.o	$(OUTD)/cthw20k2.o\
-	$(OUTD)/sc_e1370.o	$(OUTD)/sc_cs4281.o\
-	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o\
-	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o	$(OUTD)/fileacc.o\
-	$(OUTD)/logfile.o	$(OUTD)/dpmiisr.o
+ifndef NOFM
+FMOBJS=$(OUTD)/dbopl.o	$(OUTD)/vopl3.o
+endif
+
+ifeq ($(DYNAMIC),1)
+LOADDRVOBJ=$(OUTD)/loaddrv.o
+endif
+
+OBJFILES = \
+	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/linear.o	$(OUTD)/pic.o \
+	$(OUTD)/vsb.o		$(OUTD)/vdma.o		$(OUTD)/virq.o		$(OUTD)/vmpu.o		$(OUTD)/tsf.o \
+	$(OUTD)/adpcm.o		$(OUTD)/au_cards.o	$(FMOBJS)			$(LOADDRVOBJ) \
+	$(OUTD)/stackio.o	$(OUTD)/stackisr.o	$(OUTD)/sbisr.o		$(OUTD)/int31.o		$(OUTD)/rmwrap.o	$(OUTD)/mixer.o \
+	$(OUTD)/hapi.o		$(OUTD)/dprintf.o	$(OUTD)/vioout.o	$(OUTD)/dpmi.o		$(OUTD)/uninst.o \
+	$(OUTD)/fileacc.o	$(OUTD)/logfile.o \
+	$(OUTD)/dpmiisr.o
+
+ifeq ($(DYNAMIC),0)
+OBJFILES += \
+	$(OUTD)/ac97mix.o	$(OUTD)/dmabuff.o	$(OUTD)/pcibios.o	$(OUTD)/physmem.o	$(OUTD)/timer.o \
+	$(OUTD)/sc_e1371.o	$(OUTD)/sc_ich.o	$(OUTD)/sc_inthd.o	$(OUTD)/sc_via82.o \
+	$(OUTD)/sc_sbgen.o	$(OUTD)/sblive.o	$(OUTD)/sblive24.o \
+	$(OUTD)/sc_sbxfi.o	$(OUTD)/cthw20k1.o	$(OUTD)/cthw20k2.o \
+	$(OUTD)/sc_e1370.o	$(OUTD)/sc_cs4281.o
+endif
 
 INCLUDE_DIRS=src src/hw
 SRC_DIRS=src src/hw
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
-C_EXTRA_FLAGS=-march=i586
+C_EXTRA_FLAGS=-march=i586 -fshort-enums
 LD_FLAGS=$(addprefix -Xlinker ,$(LD_EXTRA_FLAGS))
 LD_EXTRA_FLAGS=-Map $(OUTD)/$(NAME).map
 
@@ -137,6 +158,9 @@ $(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/fileacc.o::  fileacc.asm
 $(OUTD)/hapi.o::     hapi.asm
 $(OUTD)/int31.o::    int31.asm
+ifeq ($(DYNAMIC),1)
+$(OUTD)/loaddrv.o::  loaddrv.asm
+endif
 $(OUTD)/logfile.o::  logfile.asm
 $(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/sbisr.o::    sbisr.asm

@@ -2,6 +2,7 @@
 ;--- for 16-bit variant: import & call functions in sndcard.drv binary.
 ;--- the calls trigger a full stack switch, so that the called
 ;--- functions can assume small model setup SS=DS.
+;--- v2.1: no longer used by standard vsbhda.
 
 	.386
 	.MODEL small

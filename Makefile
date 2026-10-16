@@ -95,22 +95,23 @@ FMOBJS=$(OUTD)/dbopl.obj	$(OUTD)/vopl3.obj
 !endif
 
 OBJFILES = &
-	$(OUTD)/main.obj		$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj		$(OUTD)/linear.obj		$(OUTD)/pic.obj &
-	$(OUTD)/vsb.obj			$(OUTD)/vdma.obj		$(OUTD)/virq.obj		$(OUTD)/vmpu.obj		$(OUTD)/tsf.obj &
-	$(OUTD)/adpcm.obj		$(OUTD)/au_cards.obj	$(FMOBJS) &
-!if $(DYNAMIC)
-	$(LOADDRVOBJ) &
-!else
+	$(OUTD)/main.obj	$(OUTD)/sndisr.obj		$(OUTD)/ptrap.obj	$(OUTD)/linear.obj	$(OUTD)/pic.obj &
+	$(OUTD)/vsb.obj		$(OUTD)/vdma.obj		$(OUTD)/virq.obj	$(OUTD)/vmpu.obj	$(OUTD)/tsf.obj &
+	$(OUTD)/adpcm.obj	$(OUTD)/au_cards.obj	$(FMOBJS)			$(LOADDRVOBJ) &
+	$(OUTD)/stackio.obj	$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj	$(OUTD)/int31.obj	$(OUTD)/rmwrap.obj	$(OUTD)/mixer.obj &
+	$(OUTD)/hapi.obj	$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj	$(OUTD)/dpmi.obj	$(OUTD)/uninst.obj	$(OUTD)/getenv.obj &
+	$(OUTD)/malloc.obj	$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj	$(OUTD)/logfile.obj	$(OUTD)/strtol.obj	$(OUTD)/_matherr.obj &
+	$(OUTD)/dpmiisr.obj
+
+!if !$(DYNAMIC)
+OBJFILES += &
 	$(OUTD)/ac97mix.obj		$(OUTD)/dmabuff.obj		$(OUTD)/pcibios.obj		$(OUTD)/physmem.obj		$(OUTD)/timer.obj &
 	$(OUTD)/sc_e1371.obj	$(OUTD)/sc_ich.obj		$(OUTD)/sc_inthd.obj	$(OUTD)/sc_via82.obj &
 	$(OUTD)/sc_sbgen.obj	$(OUTD)/sblive.obj		$(OUTD)/sblive24.obj &
 	$(OUTD)/sc_sbxfi.obj	$(OUTD)/cthw20k1.obj	$(OUTD)/cthw20k2.obj &
 	$(OUTD)/sc_e1370.obj	$(OUTD)/sc_cs4281.obj &
 !endif
-	$(OUTD)/stackio.obj		$(OUTD)/stackisr.obj	$(OUTD)/sbisr.obj		$(OUTD)/int31.obj		$(OUTD)/rmwrap.obj		$(OUTD)/mixer.obj &
-	$(OUTD)/hapi.obj		$(OUTD)/dprintf.obj		$(OUTD)/vioout.obj		$(OUTD)/dpmi.obj		$(OUTD)/uninst.obj		$(OUTD)/getenv.obj &
-	$(OUTD)/malloc.obj		$(OUTD)/sbrk.obj		$(OUTD)/fileacc.obj		$(OUTD)/logfile.obj		$(OUTD)/strtol.obj		$(OUTD)/_matherr.obj &
-	$(OUTD)/dpmiisr.obj
+
 	
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option

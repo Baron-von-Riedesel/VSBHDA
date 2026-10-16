@@ -222,6 +222,7 @@ int LogfileExit( void )
 ///////////////////////
 {
     void *hLog;
+    dbgprintf(("LogFileExit: logfile start/size=%X/%X\n", logfile_start, logfile_ofs ));
     if ( logfile_start ) {
         Int41_Exit();
         if ( logfile_ofs ) {
