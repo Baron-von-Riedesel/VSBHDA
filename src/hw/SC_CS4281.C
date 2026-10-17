@@ -48,6 +48,18 @@
 #define CS4281_FIFO_SIZE 32     /* per-channel FIFO size in samples, full-duplex 2ch */
 #define CS4281_DMABUF_ALIGN 512
 
+/* Longest time (in tenths of a millisecond) the card may go between two of its
+ * interrupts when /B is not given. This card only interrupts at the half and at
+ * the end of the DMA ring, so with the default 8x512 = 4096 byte ring that is
+ * 512 frames: 11.6 ms at 44100 Hz, but 23 ms at 22050 Hz and 46 ms at 11025 Hz.
+ * The SB emulation advances the DMA position the game sees (and raises the SB
+ * IRQ) once per card interrupt; games that poll that position (Ultimate Doom)
+ * get sound effects that hang or echo when the steps are too coarse. Observed on
+ * real hardware: fine at 11.6 ms and below (/F44100, /F22050 /B4, /F22050 /B2),
+ * broken at 16 ms and above (/F32000, /F22050, /F16000, /F11025).
+ */
+#define CS4281_MAX_IRQ_TENTHS_MS 117
+
 //-------------------------------------------------------------------------
 // BA0 register offsets/bits actually used by this (playback-only) driver.
 // Full register set is much larger - see the ALSA driver for anything not
@@ -99,6 +111,7 @@
 #define  BA0_DCR_MSK     (1<<0)  /* DMA mask (1 = channel masked/stopped) */
 
 #define BA0_FCR0        0x0180  /* FIFO Control 0 (playback FIFO) */
+#define BA0_FCR_N(n)    (0x0180 + (n)*4) /* FIFO Control, engines 0-3 (ALSA: regFCR = BA0_FCR0 + n*4) */
 #define  BA0_FCR_FEN     (1UL<<31) /* FIFO enable */
 #define  BA0_FCR_RS(x)   (((x)&0x1f)<<24) /* right slot mapping */
 #define  BA0_FCR_LS(x)   (((x)&0x1f)<<16) /* left slot mapping */
@@ -198,6 +211,20 @@ static void cs4281_set_power_d0(struct pci_config_s *dev)
 	}
 }
 
+/* Enable I/O space, memory space and bus mastering; clear "interrupt disable".
+ * Unlike pcibios_enable_BM_MM() this does NOT clear the I/O-space enable bit
+ * (that was the variant that coincided with a page fault, see CS4281_adetect()),
+ * and unlike pcibios_enable_BM_IO() it guarantees Memory Space Enable, which
+ * BA0 (a memory BAR) needs - Linux's pci_enable_device() sets it too. */
+static void cs4281_enable_io_mem_bm(struct pci_config_s *dev)
+//////////////////////////////////////////////////////////////
+{
+	uint16_t cmd = pcibios_ReadConfig_Word(dev, PCIR_PCICMD);
+	cmd |= 0x0001 | 0x0002 | 0x0004; /* IO space | memory space | bus master */
+	cmd &= ~0x0400;                  /* INTx disable off */
+	pcibios_WriteConfig_Word(dev, PCIR_PCICMD, cmd);
+}
+
 //-------------------------------------------------------------------------
 
 struct cs4281_card_s
@@ -209,18 +236,37 @@ struct cs4281_card_s
 	char *pcmout_buffer;
 	long  pcmout_bufsize;
 	unsigned int frag; /* half/full transfer toggle - see CS4281_IRQRoutine() */
+	unsigned int lastpos; /* last valid position (bytes) returned by CS4281_getbufpos() */
+#ifdef _DEBUG
+	/* diagnostic counters only; they are updated from the IRQ/ISR context, so
+	 * they are just printed (never dbgprintf'ed there) when the card is closed */
+	unsigned int dbg_getpos;   /* # of CS4281_getbufpos() calls */
+	unsigned int dbg_bad_dcc;  /* # of DCC0 readings outside 0..dmasize_frames-1 */
+	unsigned int dbg_late;     /* # of position steps > 3/4 of the ring: the normal step of this card is
+	                           * exactly HALF a ring (IRQ at half and at end), so only a step well above
+	                           * that means the ISR ran late */
+	unsigned int dbg_maxjump;  /* largest position step between two calls, in bytes */
+	unsigned int dbg_irq;      /* # of DMA interrupts handled */
+	unsigned int dbg_dup;      /* # of reports the ALSA duplicate-filter would have dropped */
+#endif
 };
 
+/* MMIO register access. The pointer MUST be volatile: otherwise the compiler
+ * is free to cache, merge, reorder or drop accesses to the same address
+ * (e.g. polling loops, or the "write DMR twice" sequence in CS4281_start()).
+ * The plain ReadLinearD()/WriteLinearD() helpers from LINEAR.H aren't
+ * volatile, so they aren't used for device registers here.
+ */
 static uint32_t cs4281_peek(struct cs4281_card_s *card, unsigned long offs)
 ///////////////////////////////////////////////////////////////////////////
 {
-	return ReadLinearD(card->ba0 + offs);
+	return *(volatile uint32_t *)NearPtr( card->ba0 + offs );
 }
 
 static void cs4281_poke(struct cs4281_card_s *card, unsigned long offs, uint32_t val)
 /////////////////////////////////////////////////////////////////////////////////////
 {
-	WriteLinearD(card->ba0 + offs, val);
+	*(volatile uint32_t *)NearPtr( card->ba0 + offs ) = val;
 }
 
 //-------------------------------------------------------------------------
@@ -261,7 +307,7 @@ static unsigned long cs4281_ac97_read(struct cs4281_card_s *card, unsigned long 
 		pds_delay_10us(1);
 	}
 	dbgprintf(("cs4281_ac97_read: DCV timeout, reg=%X\n", reg));
-	return 0xffff;
+	return 0; /* see comment at the VSTS timeout below */
 
 dcv_ok:
 	for (t = 0; t < 100; t++) {
@@ -270,14 +316,28 @@ dcv_ok:
 		pds_delay_10us(1);
 	}
 	dbgprintf(("cs4281_ac97_read: VSTS timeout, reg=%X\n", reg));
-	return 0xffff;
+	/* ALSA returns 0xffff on a failed read, but VSBHDA's mixer code does
+	 * read-modify-write (AU_setmixer_one): 0xffff would come back as
+	 * "muted" (bit 15 set) and silence the channel. Return 0 instead, like
+	 * es1371_codec_read() does - the mute bit then stays clear.
+	 */
+	return 0;
 }
 
 //-------------------------------------------------------------------------
 
-static unsigned int cs4281_rate_to_rv(unsigned int rate)
-////////////////////////////////////////////////////////
+/* real_rate (optional): rate the hardware will really produce. Exact for the
+ * fixed table rates; for all others the divisor is truncated, so the real
+ * rate can differ (e.g. 36000 -> 36571 Hz) - see ALSA's snd_cs4281_rate().
+ * rate must be >0 (CS4281_setrate() clamps it to 4000-48000).
+ */
+static unsigned int cs4281_rate_to_rv(unsigned int rate, unsigned int *real_rate)
+//////////////////////////////////////////////////////////////////////////////////
 {
+	unsigned int val;
+
+	if (real_rate)
+		*real_rate = rate;
 	/* a handful of rates map to fixed hardware indices; anything else
 	 * uses the direct divisor formula. Both forms are accepted by
 	 * BA0_DACSR - see ALSA's snd_cs4281_rate(). */
@@ -289,7 +349,10 @@ static unsigned int cs4281_rate_to_rv(unsigned int rate)
 		case 44100: return 1;
 		case 48000: return 0;
 	}
-	return 1536000UL / rate;
+	val = 1536000UL / rate;
+	if (real_rate)
+		*real_rate = 1536000UL / val;
+	return val;
 }
 
 //-------------------------------------------------------------------------
@@ -314,6 +377,7 @@ static int cs4281_chip_init(struct cs4281_card_s *card)
 {
 	uint32_t tmp;
 	unsigned int t;
+	int retry_count = 2; /* as ALSA: one retry if the AC-link doesn't come up */
 
 	dbgprintf(("cs4281_chip_init: enter\n"));
 
@@ -345,6 +409,10 @@ static int cs4281_chip_init(struct cs4281_card_s *card)
 	if (tmp & BA0_EPPMC_FPDN)
 		cs4281_poke(card, BA0_EPPMC, tmp & ~BA0_EPPMC_FPDN);
 
+/* ALSA's snd_cs4281_chip_init() jumps back to here (CFLR check, then the whole
+ * reset/clock/AC-link bring-up) once if input slots 3+4 never become valid.
+ */
+retry:
 	tmp = cs4281_peek(card, BA0_CFLR);
 	if (tmp != BA0_CFLR_DEFAULT) {
 		cs4281_poke(card, BA0_CFLR, BA0_CFLR_DEFAULT);
@@ -422,12 +490,27 @@ crdy_ok:
 			goto isv_ok;
 		pds_delay_10us(10);
 	}
+	if (--retry_count > 0) {
+		dbgprintf(("cs4281_chip_init: ISV3/4 not seen, retrying\n"));
+		goto retry;
+	}
 	dbgprintf(("cs4281_chip_init: ISV3/4 not seen\n"));
 	return 0;
 
 isv_ok:
 	/* commence digital audio transfer to the codec (slots 3+4 = PCM L/R) */
 	cs4281_poke(card, BA0_ACOSV, BA0_ACOSV_SLV(3) | BA0_ACOSV_SLV(4));
+
+	/* all four FIFOs start out unassigned (slot 31 = none), like ALSA does;
+	 * each engine gets its own FIFO_SIZE-sample window. Engine 0 is then
+	 * re-mapped to the PCM playback slots right below.
+	 */
+	{
+		unsigned int n;
+		for (n = 0; n < 4; n++)
+			cs4281_poke(card, BA0_FCR_N(n), BA0_FCR_LS(31) | BA0_FCR_RS(31) |
+			                                BA0_FCR_SZ(CS4281_FIFO_SIZE) | BA0_FCR_OF(n * CS4281_FIFO_SIZE));
+	}
 
 	/* playback FIFO (DMA engine/FIFO index 0): left=slot0, right=slot1 */
 	cs4281_poke(card, BA0_FCR0, BA0_FCR_FEN | BA0_FCR_LS(0) | BA0_FCR_RS(1) |
@@ -454,9 +537,22 @@ isv_ok:
 	 * by testing, this register stayed muted and silent even with
 	 * Master and PCM both unmuted.
 	 */
-	cs4281_ac97_write(card, AC97_MASTER_VOL_STEREO, 0x0C0C);
-	cs4281_ac97_write(card, AC97_PCMOUT_VOL,        0x0C0C);
-	cs4281_ac97_write(card, AC97_HEADPHONE_VOL,     0x0C0C);
+	/* LEVELS: these used to be 0x0C0C ("unmuted, some attenuation") on the
+	 * assumption that AU_setmixer_outs() would set the real level afterwards.
+	 * That never happens for drivers loaded as .DRV modules: LOADDRV.ASM hands
+	 * the core an sndcard_info with mixerchans=0, so AU_setmixer_one() bails
+	 * out ("card info invalid ... mixerchans=0" in the log) and whatever is
+	 * written here is the FINAL analog level. 0x0C0C is -18 dB on Master and
+	 * Headphone plus -6 dB on PCM, i.e. -24 dB overall - much quieter than the
+	 * ES1370 driver, which leaves its AK4531 at 0 dB. So: no attenuation.
+	 * Mind that the two registers use different scales: Master/Headphone
+	 * 0x00 = 0 dB, but PCM-out 0x08 = 0 dB (0x00 would be +12 dB gain).
+	 * (If the loader ever passes the mixer table to the core, /VOL will override
+	 * these values at startup, as originally intended.)
+	 */
+	cs4281_ac97_write(card, AC97_MASTER_VOL_STEREO, 0x0000);
+	cs4281_ac97_write(card, AC97_PCMOUT_VOL,        0x0808);
+	cs4281_ac97_write(card, AC97_HEADPHONE_VOL,     0x0000);
 
 	/* CD-IN: unmute too. This carries the ANALOG audio signal coming in
 	 * on the card's 4-pin CD-audio header (from a CD-ROM drive's own
@@ -539,7 +635,7 @@ static void cs4281_prepare_playback( struct cs4281_card_s *card, struct audioout
 
 	cs4281_poke(card, BA0_SRCSA, (0<<0) | (1<<8) | (10<<16) | (11<<24));
 
-	rv = cs4281_rate_to_rv(aui->freq_card);
+	rv = cs4281_rate_to_rv(aui->freq_card, NULL);
 	cs4281_poke(card, BA0_DACSR, rv);
 
 	/* re-assert the playback FIFO's slot mapping (shares FIFO index 0
@@ -565,12 +661,18 @@ static int CS4281_adetect( struct audioout_info_s *aui )
 {
 	struct cs4281_card_s *card = aui->card_private_data;
 	unsigned long physaddr;
+	uint32_t bar0_before;
 
 	if(pcibios_search_devices( cs4281_devices, &card->pci_dev ) != PCI_SUCCESSFUL)
 		return 0;
 
 	dbgprintf(("CS4281_adetect: known card found, enable PCI io and busmaster\n"));
-	/* NOTE: reverted from pcibios_enable_BM_MM() back to pcibios_enable_BM_IO().
+	/* NOTE: pcibios_enable_BM_MM() was reverted earlier (history below); it is not
+	 * used here either. cs4281_enable_io_mem_bm() ORs the Memory-Space-Enable bit
+	 * in WITHOUT clearing I/O-space enable, so on hardware where MSE is already
+	 * set (every tested card) the command register ends up exactly as with
+	 * pcibios_enable_BM_IO(); it only adds MSE when the BIOS left it off.
+	 * Original note: reverted from pcibios_enable_BM_MM() back to pcibios_enable_BM_IO().
 	 * BA0 is a memory BAR, so BM_MM looked like the "more correct" call,
 	 * but switching to it explicitly clears the I/O-space-enable bit in
 	 * the PCI command register - and doing so coincided with a page
@@ -579,8 +681,23 @@ static int CS4281_adetect( struct audioout_info_s *aui )
 	 * was apparently already set some other way, e.g. by the BIOS), so
 	 * BM_MM wasn't fixing anything real - only adding risk. Kept as
 	 * BM_IO until there's a concrete reason to revisit this. */
-	pcibios_enable_BM_IO( &card->pci_dev );
+	/* ORDER MATTERS: go to D0 FIRST, enable decoding/bus-mastering AFTER.
+	 * A D3hot->D0 transition may soft-reset the function (unless its
+	 * No_Soft_Reset PM bit is set), which would wipe the command register
+	 * (bus master, memory/IO enable) and possibly BAR0 - which is why Linux's
+	 * pci_enable_device() powers the device up to D0 first (restoring the BARs
+	 * if needed) and only then sets the enable bits. Previously the enable
+	 * came first and could be lost.
+	 */
+	bar0_before = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	cs4281_set_power_d0( &card->pci_dev ); /* required - see comment above */
+	/* BAR0 lost in the transition? (only restore a plausible memory BAR) */
+	if( bar0_before != 0 && bar0_before != 0xffffffffUL && !(bar0_before & 1) &&
+	    pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) != bar0_before ) {
+		dbgprintf(("CS4281_adetect: BA0 changed across D0 transition, restoring %X\n", bar0_before));
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NAMBAR, bar0_before);
+	}
+	cs4281_enable_io_mem_bm( &card->pci_dev );
 
 	physaddr = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	aui->card_irq = card->pci_dev.bIrq;
@@ -619,10 +736,25 @@ static void CS4281_close( struct audioout_info_s *aui )
 {
 	struct cs4281_card_s *card = aui->card_private_data;
 	dbgprintf(("CS4281_close\n"));
+#ifdef _DEBUG
+	if( card && card->dbg_getpos ) {
+		unsigned int fc = aui->freq_card ? aui->freq_card : 1;
+		dbgprintf(("CS4281 diag: irqs=%u dup-reports=%u getpos-calls=%u bad-DCC=%u\n",
+			card->dbg_irq, card->dbg_dup, card->dbg_getpos, card->dbg_bad_dcc));
+		dbgprintf(("CS4281 diag: ring=%u bytes (normal step %u), largest step=%u bytes (~%u ms), steps > 3/4 ring: %u\n",
+			aui->card_dmasize, aui->card_dmasize >> 1, card->dbg_maxjump,
+			(unsigned int)((card->dbg_maxjump >> 2) * 1000UL / fc), card->dbg_late));
+	}
+#endif
 	if( card ) {
 		if( card->ba0 ) {
 			cs4281_chip_close( card );
-			card->ba0_mapinfo.address = LinearAddr( (void*)card->ba0 );
+			/* card->ba0 already IS the linear address returned by
+			 * __dpmi_physical_address_mapping() (see adetect), not a near
+			 * pointer - so it must NOT go through LinearAddr(), which adds
+			 * DSBase again (wrong on DJGPP, where DSBase != 0).
+			 */
+			card->ba0_mapinfo.address = card->ba0;
 			__dpmi_free_physical_address_mapping( &card->ba0_mapinfo );
 			card->ba0 = 0;
 		}
@@ -630,10 +762,34 @@ static void CS4281_close( struct audioout_info_s *aui )
 	}
 }
 
+/* Size of the DMA ring actually used (never more than what was allocated).
+ * If the user gave /B explicitly it is used as is. Otherwise the ring is cut so
+ * that the interval between card interrupts (= half a ring) does not exceed
+ * CS4281_MAX_IRQ_TENTHS_MS at the current rate: 4096 bytes at 44100/48000 Hz
+ * (unchanged), 2048 at 22050, 1024 at 11025/16000, ... Never less than two pages.
+ */
+static unsigned int cs4281_ring_size(struct audioout_info_s *aui, struct cs4281_card_s *card)
+//////////////////////////////////////////////////////////////////////////////////////////////
+{
+	unsigned int size = card->pcmout_bufsize;
+	unsigned int page = aui->card_period_size ? aui->card_period_size : CS4281_DMABUF_ALIGN;
+	unsigned long limit;
+
+	if (aui->card_buffers > 1) /* /B given: the user decides */
+		return size;
+	/* ring bytes = 2 (halves) * frames per interrupt interval * 4 (16-bit stereo) */
+	limit = (unsigned long)aui->freq_card * CS4281_MAX_IRQ_TENTHS_MS / 10000UL * 2 * 4;
+	limit -= limit % page;
+	if (limit < 2UL * page)
+		limit = 2UL * page;
+	return (limit < size) ? (unsigned int)limit : size;
+}
+
 static void CS4281_setrate( struct audioout_info_s *aui )
 /////////////////////////////////////////////////////////
 {
 	struct cs4281_card_s *card = aui->card_private_data;
+	unsigned int real_rate;
 
 	dbgprintf(("CS4281_setrate\n"));
 	if(aui->freq_card < 4000)
@@ -641,7 +797,14 @@ static void CS4281_setrate( struct audioout_info_s *aui )
 	else if(aui->freq_card > 48000)
 		aui->freq_card = 48000;
 
-	MDma_initbuf(aui, card->pcmout_bufsize);
+	/* update freq_card with the rate the divider really produces, so the
+	 * resampler matches the hardware clock (as SC_SBLIV.C/SC_SBXFI.C do) */
+	cs4281_rate_to_rv(aui->freq_card, &real_rate);
+	aui->freq_card = real_rate;
+	dbgprintf(("CS4281_setrate: freq_card=%u\n", aui->freq_card));
+
+	MDma_initbuf(aui, cs4281_ring_size(aui, card));
+	dbgprintf(("CS4281_setrate: DMA ring=%u of %u allocated bytes\n", aui->card_dmasize, card->pcmout_bufsize));
 	cs4281_prepare_playback(card,aui);
 }
 
@@ -652,6 +815,7 @@ static void CS4281_start( struct audioout_info_s *aui )
 	uint32_t dmr = BA0_DMR_TYPE_SINGLE | BA0_DMR_AUTO | BA0_DMR_TR_READ;
 
 	card->frag = 0;
+	card->lastpos = 0;
 	dbgprintf(("CS4281_start\n"));
 	/* Force a clean (re)start of the DMA engine: write DMR with the
 	 * DMA-enable bit still clear, THEN with it set (0->1 transition) -
@@ -714,8 +878,36 @@ static unsigned int CS4281_getbufpos( struct audioout_info_s *aui )
 	struct cs4281_card_s *card = aui->card_private_data;
 	unsigned int dmasize_frames = aui->card_dmasize >> 2;
 	unsigned int dcc = cs4281_peek(card, BA0_DCC0) & 0xffffff;
-	unsigned int bufpos_frames = dmasize_frames - (dcc + 1);
-	return bufpos_frames << 2;
+	unsigned int bufpos;
+
+	/* DCC0 counts down from dmasize_frames-1 (the value written to DBC0) to 0,
+	 * then the autoinit reload starts over. Anything >= dmasize_frames is not a
+	 * position (e.g. read at the instant of the reload): without this check the
+	 * subtraction below would wrap around to a huge unsigned value, and the core
+	 * (AU_cardbuf_space) would turn that garbage into a bogus amount of "free
+	 * space" and write samples into the wrong part of the ring. Keep the last
+	 * known-good position instead.
+	 */
+	if (dcc >= dmasize_frames) {
+#ifdef _DEBUG
+		card->dbg_bad_dcc++;
+#endif
+		return card->lastpos;
+	}
+	bufpos = (dmasize_frames - (dcc + 1)) << 2;
+#ifdef _DEBUG
+	{
+		unsigned int step = (bufpos >= card->lastpos) ? bufpos - card->lastpos
+						          : bufpos + aui->card_dmasize - card->lastpos;
+		card->dbg_getpos++;
+		if (step > card->dbg_maxjump)
+			card->dbg_maxjump = step;
+		if (step > aui->card_dmasize - (aui->card_dmasize >> 2))
+			card->dbg_late++;
+	}
+#endif
+	card->lastpos = bufpos;
+	return bufpos;
 }
 
 static void CS4281_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsigned long val )
@@ -757,10 +949,20 @@ static int CS4281_IRQRoutine( struct cs4281_card_s *card )
 		 * why this card's interrupt kept re-triggering hard enough to
 		 * crash once DMAI was unmasked. */
 		card->frag++;
-		if ((hdsr & BA0_HDSR_DHTC) && !(card->frag & 1))
+		if ((hdsr & BA0_HDSR_DHTC) && !(card->frag & 1)) {
 			card->frag--;
-		else if ((hdsr & BA0_HDSR_DTC) && (card->frag & 1))
+#ifdef _DEBUG
+			card->dbg_dup++;
+#endif
+		} else if ((hdsr & BA0_HDSR_DTC) && (card->frag & 1)) {
 			card->frag--;
+#ifdef _DEBUG
+			card->dbg_dup++;
+#endif
+		}
+#ifdef _DEBUG
+		card->dbg_irq++;
+#endif
 		ours = 1;
 	}
 	cs4281_poke(card, BA0_HICR, BA0_HICR_EOI);
