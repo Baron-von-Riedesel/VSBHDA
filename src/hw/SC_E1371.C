@@ -561,6 +561,7 @@ static void es1371_ac97_init(struct ensoniq_card_s *card)
 	es1371_codec_write(card, AC97_MASTER_VOL_STEREO, 0x0C0C);
 	es1371_codec_write(card, AC97_PCMOUT_VOL,        0x0C0C);
 	es1371_codec_write(card, AC97_HEADPHONE_VOL,     0x0C0C);
+	es1371_codec_write(card, AC97_CD_VOL,            0x0C0C);
 	es1371_codec_write(card, AC97_EXTENDED_STATUS,AC97_EA_SPDIF);
 	dbgprintf(("es1371_ac97_init: exit\n"));
 }
