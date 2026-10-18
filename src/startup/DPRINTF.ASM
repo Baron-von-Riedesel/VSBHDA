@@ -10,12 +10,7 @@
 
 SETBORDER equ 0	;1=support _SetBorder(color)
 
-OM_DOS      equ 1
-OM_DIRECT   equ 2
-OM_DEBUGGER equ 4
-OM_BUFFERED equ 8
-
-;	include CONFIG.INC
+	include DEBUG.INC
 
 ifdef DJGPP
 	assume ds:_DATA

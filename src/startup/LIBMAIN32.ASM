@@ -53,6 +53,8 @@ Rebase2Intern macro x
 	sub x, basediff
 endm
 
+;--- call one the driver's exported functions
+
 @CallVector macro member, arg1, arg2, arg3
 ifnb <arg3>
 	push arg3
@@ -87,9 +89,9 @@ _curbrk dd 0
 _dynend dd 0
 basediff dd 0
 ifdef _DEBUG
-OMODE equ 4	;OM_DEBUGGER ( output via int 41h )
+OMODE equ OM_DEBUGGER	; output via int 41h
 else
-OMODE equ 1	;OM_DOS ( output via DOS int 21h )
+OMODE equ OM_DOS	; output via DOS int 21h
 endif
 externdef _bOMode:byte
 _bOMode db OMODE
@@ -129,9 +131,9 @@ my_adetect endp
 
 my_start proc far c aui:ptr
 	@CallVector start, aui
-	cmp _bOMode, 1	;DOS output active?
+	cmp _bOMode, OM_DOS
 	jnz @F
-	mov _bOMode, 2	;switch to direct VIO out
+	mov _bOMode, OM_DIRECT
 @@:
 	ret
 my_start endp

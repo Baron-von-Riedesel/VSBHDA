@@ -143,6 +143,12 @@ _osmajor   db 0
 _osminor   db 0
 _Extender  db 0
 _ExtenderSubtype db 0
+;--- v2.1: moved here from linear.c 
+;--- define these so no fpu exc handling is linked in
+externdef c __8087:byte
+externdef c __real87:byte
+__8087     db 0
+__real87   db 0
 endif
 _DATA ends
 

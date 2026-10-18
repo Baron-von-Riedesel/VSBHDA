@@ -11,12 +11,7 @@ COMPAT4   equ 1	; 1=support /CF4
 CF_STIONEOI equ 2
 CF_NODIVERR equ 8
 
-;--- bOMode values
-OM_DOS      equ 1
-OM_DIRECT   equ 2
-OM_DEBUGGER equ 4
 ifdef _DEBUG
-OM_BUFFERED equ 8
 LOGFILESIZE equ 1000000h	;size of logfile buffer (16 MB)
 endif
 
