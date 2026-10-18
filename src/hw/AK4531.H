@@ -77,4 +77,19 @@
 #define AK4531_OUTSW1_CD_L  (1<<2)
 #define AK4531_OUTSW1_CD_R  (1<<1)
 
+/* remaining output-mix routing bits, from ALSA's ak4531_codec.c control list.
+ * Not enabled by SC_E1370.C (VSBHDA only needs PCM + CD pass-through, the
+ * same set es1371_ac97_init() unmutes on an AC'97 codec); listed here so
+ * that nobody has to guess them when adding more inputs.
+ */
+#define AK4531_OUTSW1_MIC    (1<<0)  /* "Mic Playback Switch"    */
+#define AK4531_OUTSW1_LINE_L (1<<4)  /* "Line Playback Switch"   */
+#define AK4531_OUTSW1_LINE_R (1<<3)
+#define AK4531_OUTSW1_FM_L   (1<<6)  /* "PCM Playback Switch" #1 = FM */
+#define AK4531_OUTSW1_FM_R   (1<<5)
+#define AK4531_OUTSW2_MONO1  (1<<0)  /* "Mono Playback Switch" 0 */
+#define AK4531_OUTSW2_MONO2  (1<<1)  /* "Mono Playback Switch" 1 */
+#define AK4531_OUTSW2_AUX_L  (1<<5)  /* "Aux Playback Switch"    */
+#define AK4531_OUTSW2_AUX_R  (1<<4)
+
 #endif // AK4531_H
