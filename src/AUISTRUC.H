@@ -5,15 +5,10 @@
 extern "C" {
 #endif
 
-/* interface definitions vsbhda <-> drivers */
-
-#ifndef max
-#define max(a,b) (((a)>(b))? (a):(b))
-#endif
-
-#ifndef min
-#define min(a,b) (((a)<(b))? (a):(b))
-#endif
+/* interface definitions vsbhda <-> drivers:
+ * 1. struct audioout_info_s
+ * 2. struct sndcard_info_s
+ */
 
 /* r/w access for cards */
 enum card_ctrlbits {
@@ -125,9 +120,9 @@ enum SubMixChFlags {
 };
 
 /* soundcard mixer structures.
- * vsbhda: fields submixch_max and submixch_shift aren't used if SUBMIXCH_INFOBIT_CARD_SETVOL is set,
- * which is always true for HDA.
- * field submixch_register for HDA contains a node id, btw.
+ * if SUBMIXCH_INFOBIT_CARD_SETVOL is set, then
+ * fields _register, _bits and _shift are free to use by the driver code;
+ * i.e. field submixch_register for HDA contains a node id.
  */
 struct aucards_submixerchan_s {
  unsigned long submixch_register; // register-address of channel

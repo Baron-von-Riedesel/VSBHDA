@@ -414,9 +414,9 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 		const struct aucards_submixerchan_s *subchi = &(onechi->submixerchans[sch]); // one subchannel infos (left,right,etc.)
 		unsigned long currchval,newchval,maxchval;
 
-		maxchval = (1 << subchi->submixch_bits) - 1;
 		/* vsbhda: if card handles mixer setting on its own then don't check subchannel settings */
 		if( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
+			maxchval = (1 << subchi->submixch_bits) - 1;
 			/* invalid subchannel infos? */
 			if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !maxchval || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) {
 				dbgprintf(("AU_setmixer_one: setting mixer ignored due to invalid subchannel info (reg=%u, max=%u, shift=%u)\n",
@@ -425,7 +425,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 			}
 		}
 
-		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL==1, let the card handle the volume.
+		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL set, let the card handle the volume.
 		 * Thus the values submixch_bits and submixch_shift aren't used.
 		 */
 		if ( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) {

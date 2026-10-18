@@ -56,6 +56,10 @@
 
 #define CARD(name, rev, subsys, chips, maxchn) {name, subsys, rev, chips, maxchn}
 
+#ifndef max
+#define max(a,b) (((a)>(b))? (a):(b))
+#endif
+
 /* supported cards */
 
 const struct emu_card_version_s emucards_02[] = {

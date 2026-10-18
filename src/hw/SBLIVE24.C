@@ -43,6 +43,10 @@
 
 #define CARD(name, rev, subsys, chips, maxchn) {name, subsys, rev, chips, maxchn}
 
+#ifndef max
+#define max(a,b) (((a)>(b))? (a):(b))
+#endif
+
 /* status of the SB1070 ( SB 5.1 VX )? */
 const struct emu_card_version_s emucards_07[] = {
  CARD("Audigy LS [SB0310]"         ,0,0x10021102,EMU_CHIPS_0106,8),
