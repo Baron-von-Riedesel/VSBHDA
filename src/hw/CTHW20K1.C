@@ -9,10 +9,13 @@
 #include <errno.h>
 #ifndef DJGPP
 #include <conio.h>
+#else
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
 #endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "DEBUG.H"
 #include "TIMER.H"
 #include "PCIBIOS.H"
 #include "REG20K1.H"

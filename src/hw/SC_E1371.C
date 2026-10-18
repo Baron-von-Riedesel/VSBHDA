@@ -22,10 +22,15 @@
 #include <stdio.h>
 #ifndef DJGPP
 #include <conio.h>
+#else
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
 #endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
+#include "TIMER.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"

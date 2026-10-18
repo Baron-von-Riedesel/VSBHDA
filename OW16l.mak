@@ -143,7 +143,6 @@ $(OUTD)\$(NAME2).lib: $(OBJFILES2)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME2).lib $(OBJFILES2)
 
 $(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)/au_cards.obj:  src\hw\au_cards.c
 $(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
 $(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
@@ -162,11 +161,11 @@ $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
+$(OUTD)/au_cards.obj:  src\au_cards.c
 $(OUTD)/auimp16.obj:   src\auimp16.asm
 $(OUTD)/auexp16.obj:   src\auexp16.asm
 $(OUTD)/dpmi.obj:      src\dpmi.asm
 $(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
-$(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
 $(OUTD)/int31.obj:     src\int31.asm
@@ -184,7 +183,6 @@ $(OUTD)/stackisr.obj:  src\stackisr.asm
 $(OUTD)/tsf.obj:       src\tsf.c
 $(OUTD)/uninst.obj:    src\uninst.asm
 $(OUTD)/vdma.obj:      src\vdma.c
-$(OUTD)/vioout.obj:    src\vioout.asm
 $(OUTD)/virq.obj:      src\virq.c
 $(OUTD)/vmpu.obj:      src\vmpu.c
 $(OUTD)/vsb.obj:       src\vsb.c
@@ -196,6 +194,7 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 !endif
 
 $(OUTD)/cstrt16x.obj:  src\startup\cstrt16x.asm
+$(OUTD)/dprintf.obj:   src\startup\dprintf.asm
 $(OUTD)/dstrt16x.obj:  src\startup\dstrt16x.asm
 $(OUTD)/ldmod16.obj:   src\startup\ldmod16.asm
 $(OUTD)/init1632.obj:  src\startup\init1632.asm
@@ -203,6 +202,7 @@ $(OUTD)/getenv.obj:    src\startup\getenv.asm
 $(OUTD)/malloc.obj:    src\startup\malloc.asm
 $(OUTD)/sbrk.obj:      src\startup\sbrk.asm
 $(OUTD)/strtol.obj:    src\startup\strtol.asm
+$(OUTD)/vioout.obj:    src\startup\vioout.asm
 $(OUTD)/_matherr.obj:  src\startup\_matherr.asm
 $(OUTD)/libmain.obj:   src\startup\libmain.c
 

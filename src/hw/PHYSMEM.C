@@ -17,8 +17,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "DPMI.H"
-#include "CONFIG.H" /* for dbgprintf() */
+#include "DPMIDRV.H"
+#include "DEBUG.H"
 #include "PHYSMEM.H"
 
 static __dpmi_regs regs;

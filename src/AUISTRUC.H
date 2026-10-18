@@ -1,9 +1,11 @@
-#ifndef au_cards_h
-#define au_cards_h
+#ifndef auistruc_h
+#define auistruc_h
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* interface definitions vsbhda <-> drivers */
 
 #ifndef max
 #define max(a,b) (((a)>(b))? (a):(b))
@@ -12,15 +14,6 @@ extern "C" {
 #ifndef min
 #define min(a,b) (((a)<(b))? (a):(b))
 #endif
-
-#if defined(DJGPP)
-#include <pc.h>
-#define inpd inportl
-#define outpd outportl
-#endif
-
-#include "PHYSMEM.H"
-#include "TIMER.H"
 
 /* r/w access for cards */
 enum card_ctrlbits {
@@ -125,11 +118,11 @@ struct audioout_info_s {
  //int card_mixer_values[AU_MIXCHANS_NUM][AU_MIXCHANFUNCS_NUM]; // -1, 0-100
 };
 
-//aucards_submixerchan_s->infobits
-#define SUBMIXCH_INFOBIT_REVERSEDVALUE  1 // reversed value
-//#define SUBMIXCH_INFOBIT_SUBCH_SWITCH   2 // set register if value!=submixch_max
-//new for vsbhda
-#define SUBMIXCH_INFOBIT_CARD_SETVOL    4 // let the card software handle volume settings
+enum SubMixChFlags {
+	SUBMIXCH_INFOBIT_REVERSEDVALUE = 1, /* reversed value */
+	//SUBMIXCH_INFOBIT_SUBCH_SWITCH = 2, /* set register if value!=submixch_max */
+	SUBMIXCH_INFOBIT_CARD_SETVOL = 4, /* let the card driver handle volume settings */
+};
 
 /* soundcard mixer structures.
  * vsbhda: fields submixch_max and submixch_shift aren't used if SUBMIXCH_INFOBIT_CARD_SETVOL is set,
@@ -140,7 +133,7 @@ struct aucards_submixerchan_s {
  unsigned long submixch_register; // register-address of channel
  uint8_t submixch_bits;           // no of bits for max value & mask
  uint8_t submixch_shift;          // bit-shift from 0.
- uint8_t submixch_infobits;       //
+ enum SubMixChFlags submixch_infobits;
 };
 
 struct aucards_mixerchan_s {
@@ -169,34 +162,8 @@ struct sndcard_info_s {
  unsigned int private_data_size;
 };
 
-#ifdef DYNAMIC /* no far AU_ entries if drivers are loaded dynamically */
-#define FAREXP
-#else
-# ifdef NOTFLAT
-# define FAREXP _far
-# else
-# define FAREXP
-# endif
-#endif
-
-//main soundcard routines
-extern void *FAREXP AU_init( const struct globalvars * );
-extern int  FAREXP AU_getirq( struct audioout_info_s * );
-//extern void FAREXP AU_prestart( struct audioout_info_s * );
-extern void FAREXP AU_start( struct audioout_info_s * );
-extern void FAREXP AU_stop( struct audioout_info_s * );
-extern void FAREXP AU_close( struct audioout_info_s * );
-extern int  FAREXP AU_setrate( struct audioout_info_s * , int, int, int );
-extern void FAREXP AU_setmixer_init( struct audioout_info_s * );
-extern void FAREXP AU_setmixer_one( struct audioout_info_s *, unsigned int channel, int function, unsigned int setmode, int value );
-extern void FAREXP AU_setmixer_outs( struct audioout_info_s *, unsigned int setmode, int newvalue );
-//extern void FAREXP AU_setmixer_all( struct audioout_info_s * );
-//static void AU_clearbuffs( struct audioout_info_s * );
-extern unsigned int FAREXP AU_cardbuf_space( struct audioout_info_s * );
-extern int  FAREXP AU_writedata( struct audioout_info_s *, char * , unsigned int );
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif // au_cards_h
+#endif // auistruc_h

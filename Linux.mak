@@ -143,8 +143,8 @@ $(OUTD16)/$(NAME)16.EXE:
 $(OUTD)/$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME).lib $(OBJFILES)
 
+ifeq ($(DYNAMIC),0)
 $(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
-$(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
 $(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
 $(OUTD)/CTHW20K2.obj:  src/hw/CTHW20K2.C
 $(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
@@ -161,18 +161,18 @@ $(OUTD)/SC_SBGEN.obj:  src/hw/SC_SBGEN.C
 $(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
 $(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
 $(OUTD)/TIMER.obj:     src/hw/TIMER.C
+else
+$(OUTD)/LOADDRV.obj:   src/LOADDRV.ASM
+endif
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C
+$(OUTD)/AU_CARDS.obj:  src/AU_CARDS.C
 $(OUTD)/DPMI.obj:      src/DPMI.ASM
 $(OUTD)/DPMIISR.obj:   src/DPMIISR.ASM
-$(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
 $(OUTD)/FILEACC.obj:   src/FILEACC.ASM
 $(OUTD)/HAPI.obj:      src/HAPI.ASM
 $(OUTD)/INT31.obj:     src/INT31.ASM
 $(OUTD)/LINEAR.obj:    src/LINEAR.C
-ifeq ($(DYNAMIC),1)
-$(OUTD)/LOADDRV.obj:   src/LOADDRV.ASM
-endif
 $(OUTD)/LOGFILE.obj:   src/LOGFILE.ASM
 $(OUTD)/MAIN.obj:      src/MAIN.C
 $(OUTD)/MIXER.obj:     src/MIXER.ASM
@@ -185,7 +185,6 @@ $(OUTD)/STACKISR.obj:  src/STACKISR.ASM
 $(OUTD)/TSF.obj:       src/TSF.C
 $(OUTD)/UNINST.obj:    src/UNINST.ASM
 $(OUTD)/VDMA.obj:      src/VDMA.C
-$(OUTD)/VIOOUT.obj:    src/VIOOUT.ASM
 $(OUTD)/VIRQ.obj:      src/VIRQ.C
 $(OUTD)/VMPU.obj:      src/VMPU.C
 $(OUTD)/VSB.obj:       src/VSB.C
@@ -195,10 +194,12 @@ $(OUTD)/VOPL3.obj:     src/VOPL3.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 endif
 $(OUTD)/CSTRTDHX.obj:  src/startup/CSTRTDHX.ASM
+$(OUTD)/DPRINTF.obj:   src/startup/DPRINTF.ASM
 $(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
 $(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
 $(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
 $(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
+$(OUTD)/VIOOUT.obj:    src/startup/VIOOUT.ASM
 $(OUTD)/_MATHERR.obj:  src/startup/_MATHERR.ASM
 
 # to avoid any issues with 16-bit relocations in PE binaries,

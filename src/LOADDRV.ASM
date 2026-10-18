@@ -69,21 +69,29 @@ endif
 card_info dd ?	;address of cardinfo returned by LibMain(), translated
 LDPARMS ends
 
-;--- must match struct sndcard_info_s, defined in AU_CARDS.H
+;--- not really necessary, since INVOKE isn't used to call the member function
+FUNC1 typedef proto c :dword
+PFUNC1 typedef ptr FUNC1
+FUNC2 typedef proto c :dword, :dword
+PFUNC2 typedef ptr FUNC2
+FUNC3 typedef proto c :dword, :dword, :dword
+PFUNC3 typedef ptr FUNC3
+
+;--- must match struct sndcard_info_s, defined in AUISTRUC.H
 
 SNDCARD_INFO struct
 shortname dd ?
 infobits  dd ?
-adetect   dd ?
-start     dd ?
-stop      dd ?
-close     dd ?
-setrate   dd ?
-writedata dd ?
-getpos    dd ?
-irq       dd ?
-wrMixer   dd ?
-rdMixer   dd ?
+adetect   PFUNC1 ?
+start     PFUNC1 ?
+stop      PFUNC1 ?
+close     PFUNC1 ?
+setrate   PFUNC1 ?
+writedata PFUNC3 ?
+getpos    PFUNC1 ?
+irq       PFUNC1 ?
+wrMixer   PFUNC3 ?
+rdMixer   PFUNC2 ?
 Mixerdata dd ?
 datasize  dd ?
 SNDCARD_INFO ends
@@ -413,7 +421,7 @@ _FreeDriver proc c uses ebx esi edi
 	ret
 _FreeDriver endp
 
-@CallMember macro member,args
+@CallMember macro member:req,arg1:req,arg2,arg3
 	push es
 	push ss
 	push ds
@@ -422,13 +430,22 @@ _FreeDriver endp
 	push eax
 	push [edx].SNDCARD_INFO.member
 	add eax,8
-	push args
+?ARGS = 1
+ifnb <arg3>
+?ARGS = ?ARGS+1
+	push arg3
+endif
+ifnb <arg2>
+?ARGS = ?ARGS+1
+	push arg2
+endif
+	push arg1
 	mov ss, eax
 	Rebase2Extern esp
 	mov ds, eax
 	mov es, eax
-	call fword ptr [esp+4]
-	add esp,3*4
+	call fword ptr [esp+4*?ARGS]
+	add esp,(2+?ARGS)*4   ;skip eip,cs,arg1,arg2,arg3
 	pop ds
 	pop ss
 	Rebase2Intern esp
@@ -467,6 +484,10 @@ my_setrate proc c aui:ptr
 	@CallMember setrate,aui
 	ret
 my_setrate endp
+my_writedata proc c aui:ptr, pdata:ptr, size_:dword
+	@CallMember writedata,aui,pdata,size_
+	ret
+my_writedata endp
 my_getpos proc c aui:ptr
 	@CallMember getpos,aui
 	ret
@@ -475,12 +496,12 @@ my_irq proc c card:ptr
 	@CallMember irq,card
 	ret
 my_irq endp
-my_wrMixer proc c aui:ptr
-	@CallMember wrMixer,aui
+my_wrMixer proc c aui:ptr,reg:dword,value:dword
+	@CallMember wrMixer,aui,reg,value
 	ret
 my_wrMixer endp
-my_rdMixer proc c aui:ptr
-	@CallMember rdMixer,aui
+my_rdMixer proc c aui:ptr,reg:dword
+	@CallMember rdMixer,aui,reg
 	ret
 my_rdMixer endp
 
@@ -546,6 +567,11 @@ endif
 ;--- soundcard infobits ( currently just SCINFO_CARDBUF_SPACE, that no driver sets )
 				mov ecx, [edx].SNDCARD_INFO.infobits
 				mov [ebx].SNDCARD_INFO.infobits, ecx
+;--- check if writedata member is set
+				cmp [edx].SNDCARD_INFO.writedata,0
+				jz @F
+				mov [ebx].SNDCARD_INFO.writedata, offset my_writedata
+@@:
 ;--- translate the mixerdata vector
 				mov ecx, [edx].SNDCARD_INFO.Mixerdata
 				jecxz @F

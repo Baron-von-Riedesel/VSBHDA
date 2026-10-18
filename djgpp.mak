@@ -12,7 +12,9 @@
 
 # v2.1 introduced low-level hardware routines created as separate modules;
 # to ensure that the vsbhda binary and the driver modules are compatible
-# option -fshort-enums has to be set, since this is the default for OW.
+# option -fshort-enums has to be set (this is the default for OW).
+# The low-level drivers itself should be generated with Drivers.mak, using
+# Open Watcom.
 
 ifndef debug
 debug=0
@@ -70,7 +72,11 @@ OBJFILES += \
 	$(OUTD)/sc_e1370.o	$(OUTD)/sc_cs4281.o
 endif
 
+ifeq ($(DYNAMIC),0)
 INCLUDE_DIRS=src src/hw
+else
+INCLUDE_DIRS=src
+endif
 SRC_DIRS=src src/hw
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
@@ -82,6 +88,7 @@ INCLUDES=$(addprefix -I,$(INCLUDE_DIRS))
 LIBS=$(addprefix -l,stdcxx m)
 
 COMPILE.asm.o=jwasm.exe -q -djgpp -Isrc/startup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
+COMPILE2.asm.o=jwasm.exe -q -zcw -djgpp -Isrc/startup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
 COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
 COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
 
@@ -93,6 +100,9 @@ $(OUTD)/%.o: src/%.cpp
 
 $(OUTD)/%.o: src/%.asm
 	$(COMPILE.asm.o)
+
+$(OUTD)/%.o: src/startup/%.asm
+	$(COMPILE2.asm.o)
 
 $(OUTD)/%.o: src/hw/%.c
 	$(COMPILE.c.o)
@@ -119,32 +129,36 @@ $(OUTD)/rmwrap.o:: rmwrap.asm rmcode1.asm rmcode2.asm
 	jwasm.exe -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode2.bin src/rmcode2.asm
 	jwasm.exe -q -djgpp -D?MODEL=small -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
-$(OUTD)/ac97mix.o::  ac97mix.c   au_cards.h ac97mix.h
-$(OUTD)/au_cards.o:: au_cards.c  au_cards.h dmabuff.h config.h
-$(OUTD)/cthw20k1.o:: cthw20k1.c
-$(OUTD)/cthw20k2.o:: cthw20k2.c
-$(OUTD)/dmabuff.o::  dmabuff.c   au_cards.h dmabuff.h
+ifeq ($(DYNAMIC),0)
+$(OUTD)/ac97mix.o::  ac97mix.c   auistruc.h ac97mix.h
+$(OUTD)/cthw20k1.o:: cthw20k1.c  cthw20kx.h
+$(OUTD)/cthw20k2.o:: cthw20k2.c  cthw20kx.h
+$(OUTD)/dmabuff.o::  dmabuff.c   auistruc.h dmabuff.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
-$(OUTD)/sblive24.o:: sblive24.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h ca0106.h
-$(OUTD)/sblive.o::   sblive.c    au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h emu10k1.h
-$(OUTD)/sc_cs4281.o:: src/hw/sc_cs4281.c au_cards.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
-$(OUTD)/sc_e1371.o:: sc_e1371.c  au_cards.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_e1370.o:: sc_e1370.c  au_cards.h dmabuff.h pcibios.h ak4531.h
-$(OUTD)/sc_ich.o::   sc_ich.c    au_cards.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  au_cards.h dmabuff.h pcibios.h sc_inthd.h
-$(OUTD)/sc_sbgen.o:: sc_sbgen.c  au_cards.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h 
-$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  au_cards.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
-$(OUTD)/sc_via82.o:: sc_via82.c  au_cards.h dmabuff.h pcibios.h ac97.h
-$(OUTD)/timer.o::    timer.c     au_cards.h timer.h
+$(OUTD)/sblive24.o:: sblive24.c  auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h ca0106.h
+$(OUTD)/sblive.o::   sblive.c    auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h emu10k1.h
+$(OUTD)/sc_cs4281.o:: src/hw/sc_cs4281.c auistruc.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
+$(OUTD)/sc_e1371.o:: sc_e1371.c  auistruc.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_e1370.o:: sc_e1370.c  auistruc.h dmabuff.h pcibios.h ak4531.h
+$(OUTD)/sc_ich.o::   sc_ich.c    auistruc.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c  auistruc.h dmabuff.h pcibios.h hda.h
+$(OUTD)/sc_sbgen.o:: sc_sbgen.c  auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h 
+$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  auistruc.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
+$(OUTD)/sc_via82.o:: sc_via82.c  auistruc.h dmabuff.h pcibios.h ac97.h
+$(OUTD)/timer.o::    timer.c     auistruc.h timer.h
+else
+$(OUTD)/loaddrv.o::  loaddrv.asm
+endif
 
 $(OUTD)/adpcm.o::    adpcm.c     adpcm.h
+$(OUTD)/au_cards.o:: au_cards.c  auistruc.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
 $(OUTD)/linear.o::   linear.c    linear.h platform.h
-$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au.h version.h
+$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au_cards.h version.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
 $(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
-$(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au.h
+$(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au_cards.h
 $(OUTD)/tsf.o::      tsf.c       src/tsf/tsf.h
 $(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
 $(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
@@ -154,20 +168,18 @@ $(OUTD)/vmpu.o::     vmpu.c      linear.h platform.h vmpu.h config.h
 
 $(OUTD)/dpmi.o::     dpmi.asm
 $(OUTD)/dpmiisr.o::  dpmiisr.asm
-$(OUTD)/dprintf.o::  dprintf.asm
 $(OUTD)/fileacc.o::  fileacc.asm
 $(OUTD)/hapi.o::     hapi.asm
 $(OUTD)/int31.o::    int31.asm
-ifeq ($(DYNAMIC),1)
-$(OUTD)/loaddrv.o::  loaddrv.asm
-endif
 $(OUTD)/logfile.o::  logfile.asm
 $(OUTD)/mixer.o::    mixer.asm
 $(OUTD)/sbisr.o::    sbisr.asm
 $(OUTD)/stackio.o::  stackio.asm
 $(OUTD)/stackisr.o:: stackisr.asm
 $(OUTD)/uninst.o::   uninst.asm
-$(OUTD)/vioout.o::   vioout.asm
+
+$(OUTD)/dprintf.o::  startup/dprintf.asm
+$(OUTD)/vioout.o::   startup/vioout.asm
 
 clean::
 	del $(OUTD)\$(NAME)D.EXE

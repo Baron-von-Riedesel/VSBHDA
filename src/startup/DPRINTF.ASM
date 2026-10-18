@@ -10,7 +10,12 @@
 
 SETBORDER equ 0	;1=support _SetBorder(color)
 
-	include CONFIG.INC
+OM_DOS      equ 1
+OM_DIRECT   equ 2
+OM_DEBUGGER equ 4
+OM_BUFFERED equ 8
+
+;	include CONFIG.INC
 
 ifdef DJGPP
 	assume ds:_DATA
@@ -21,14 +26,13 @@ __GETDS proto near
 endif
 
 VioPutChar proto
+externdef c _bOMode:byte
 
 	.data
 
-;--- bOMode has value OM_DOS while the program runs as current program;
+;--- _bOMode has value OM_DOS while the program runs as current program;
 ;--- once it has made itself resident, bOMode will be OM_DIRECT or OM_DEBUGGER, meaning
 ;--- stdout shouldn't be used anymore.
-
-externdef c bOMode:byte
 
 	.code
 
@@ -238,16 +242,16 @@ handle_char:
 	call @F
 	mov al,10
 @@:
-	.if bOMode & OM_DOS
+	.if _bOMode & OM_DOS
 		mov dl, al
 		mov ah, 2
 		int 21h
-	.elseif bOMode & OM_DIRECT
+	.elseif _bOMode & OM_DIRECT
 		call VioPutChar
 ifdef _DEBUG
-	.elseif bOMode & (OM_DEBUGGER or OM_BUFFERED)
+	.elseif _bOMode & (OM_DEBUGGER or OM_BUFFERED)
 else
-	.elseif bOMode & OM_DEBUGGER
+	.elseif _bOMode & OM_DEBUGGER
 endif
 		mov dl, al
 		xor ax, ax
@@ -337,13 +341,13 @@ dbgcondbrk proc c public pVoid:ptr
 dbgcondbrk endp
 endif
 
-IsDebuggerPresent proc c public
+_IsDebuggerPresent proc c public
 	mov ax, 04Fh
 	int 41h
 	cmp ax, 0F386h
 	setz al
 	movzx eax,al
 	ret
-IsDebuggerPresent endp
+_IsDebuggerPresent endp
 
 	end

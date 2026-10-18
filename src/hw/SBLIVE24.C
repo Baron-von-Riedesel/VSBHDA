@@ -19,10 +19,14 @@
 #include <stddef.h>
 #ifndef DJGPP
 #include <conio.h>
+#else
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
 #endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "SC_SBGEN.H"

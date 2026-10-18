@@ -15,7 +15,7 @@
 #if VMPU
 #include "VMPU.H"
 #endif
-#include "AU.H"
+#include "AU_CARDS.H"
 #include "ADPCM.H"
 
 /* compatibility switches */

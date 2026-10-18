@@ -1,5 +1,5 @@
 
-/* C interface for __dpmi_xxx replacement functions implemented by djdpmi.asm */
+/* C interface for __dpmi_xxx replacement functions implemented by dpmi.asm */
 
 #ifdef cplusplus
 extern "C" {

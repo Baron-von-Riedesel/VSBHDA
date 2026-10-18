@@ -18,8 +18,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
 #include "DMABUFF.H"
 #include "LINEAR.H"
 
@@ -71,7 +71,7 @@ unsigned int MDma_get_bufsize( struct audioout_info_s *aui, unsigned int maxbufs
 	bufsize -= bufsize % pagesize; /* align */
 	/* v2.0: max buffer size now limited - using the new /B option */
 	//bufsize = ( min(maxbufsize,AUCARDS_DMABUFSIZE_NORMAL) / pagesize ) * pagesize;
-	bufsize = min( bufsize, ((aui->card_buffers > 1 ) ? aui->card_buffers : HW_BUFFERS_DEFAULT ) * pagesize );
+	bufsize = min( bufsize, aui->card_buffers * pagesize );
 	dbgprintf(("MDma_get_bufsize(max=0x%X,pgsiz=0x%X)=0x%X\n", maxbufsize, pagesize, bufsize));
 	return bufsize;
 }

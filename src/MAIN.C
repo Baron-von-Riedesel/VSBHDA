@@ -27,7 +27,7 @@
 #include "VMPU.H"
 #include "VERSION.H"
 
-#include "AU.H"
+#include "AU_CARDS.H"
 
 #define BASE_DEFAULT 0x220
 #define IRQ_DEFAULT 7
@@ -111,7 +111,7 @@ NULL, /* /SF: */
 VOICES_DEFAULT, /* /MV */
 #endif
 0, /* CF */
-HW_FREQ_DEFAULT,  /* frequency */
+HW_FREQ_DEFAULT, /* freq */
 };
 
 static const struct {

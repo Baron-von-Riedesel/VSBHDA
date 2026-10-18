@@ -17,6 +17,7 @@
 #include "VSB.H"
 #include "PTRAP.H"
 #include "ADPCM.H"
+#include "AU_CARDS.H"
 
 #ifdef _DEBUG
 //#define SNDISRLOG /* enables sound interrupt logs */
@@ -56,8 +57,6 @@ void writepcm16data(short);
 # endif
 
 #endif
-
-#include "AU.H"
 
 #if SOUNDFONT
 #include "VMPU.H"

@@ -20,10 +20,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "CONFIG.H"
-#include "DPMI.H"
+#include "DPMIDRV.H"
 #include "LINEAR.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
+#include "TIMER.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "HDA.H"
@@ -1572,9 +1573,12 @@ static void HDA_writeMIXER( struct audioout_info_s *aui, unsigned long reg, unsi
 	/* v1.6: use pcm_vols[] instead of dac_node[] */
 	//int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
 	int maxstep = ( card->pcm_vols[0].node->amp_out_caps >> 8 ) & 0x7F;
+
+	dbgprintf(("HDA_writeMIXER(%X, %u, %u)\n", aui, reg, val ));
 	val = maxstep * val / 100;
 	hda_set_vol_mute( card, reg, 0, HDA_OUTPUT, 0, val ); /* left channel */
 	hda_set_vol_mute( card, reg, 1, HDA_OUTPUT, 0, val ); /* right channel */
+	return;
 }
 
 /* called by AU_setmixer_one();
@@ -1589,11 +1593,13 @@ static unsigned long HDA_readMIXER( struct audioout_info_s *aui, unsigned long r
 	/* v1.6: use pcm_vols[] instead of dac_node[] */
 	//int maxstep = ( card->dac_node[0]->amp_out_caps >> 8 ) & 0x7F;
 	int maxstep = ( card->pcm_vols[0].node->amp_out_caps >> 8 ) & 0x7F;
+
 	val = hda_get_vol_mute( card, reg, 0, HDA_OUTPUT, 0 );
 	if ( maxstep )
 		val = val * 100 / maxstep;
 	else
 		val = 100;
+	dbgprintf(("HDA_readMIXER(%X, %u)=%u\n", aui, reg, val ));
 	return val;
 }
 

@@ -54,13 +54,13 @@ C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 C_EXTRA_FLAGS=-DNOTFLAT
 LD_FLAGS=
 
-INCLUDES=-Isrc\hw -Isrc -I$(WATCOM)\h 
+INCLUDES=-I$(WATCOM)\h 
 LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 
 {src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
-{src}.asm{$(OUTD)}.obj
+{src\hw}.asm{$(OUTD)}.obj
 	@$(ASM) -q -D?MODEL=tiny -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src\hw}.c{$(OUTD)}.obj
@@ -74,7 +74,7 @@ $(OUTD):
 HLPOBJ = &
 	$(OUTD)\physmem.obj   $(OUTD)\dmabuff.obj  $(OUTD)\pcibios.obj  $(OUTD)\timer.obj   $(OUTD)\ac97mix.obj &
 	$(OUTD)\cthw20k1.obj  $(OUTD)\cthw20k2.obj $(OUTD)\sblive.obj   $(OUTD)\sblive24.obj &
-	$(OUTD)\dpmi.obj      $(OUTD)\dprintf.obj  $(OUTD)\vioout.obj &
+	$(OUTD)\dpmidrv.obj   $(OUTD)\dprintf.obj  $(OUTD)\vioout.obj &
 	$(OUTD)\libmain32.obj $(OUTD)\malloc.obj   $(OUTD)\sbrk.obj
 
 $(OUTD)/CS4281.DRV: $(OUTD)\sc_cs4281.obj  $(OUTD)\drvhlp.lib
@@ -180,13 +180,13 @@ $(OUTD)\pcibios.obj:   src\hw\pcibios.c
 $(OUTD)\physmem.obj:   src\hw\physmem.c
 $(OUTD)\timer.obj:     src\hw\timer.c
 
-$(OUTD)\dpmi.obj:      src\dpmi.asm
-$(OUTD)\dprintf.obj:   src\dprintf.asm
-$(OUTD)\vioout.obj:    src\vioout.asm
+$(OUTD)\dpmidrv.obj:   src\hw\dpmidrv.asm
 
+$(OUTD)\dprintf.obj:   src\startup\dprintf.asm
 $(OUTD)\libmain32.obj: src\startup\libmain32.asm
 $(OUTD)\malloc.obj:    src\startup\malloc.asm
 $(OUTD)\sbrk.obj:      src\startup\sbrk.asm
+$(OUTD)\vioout.obj:    src\startup\vioout.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\*.drv

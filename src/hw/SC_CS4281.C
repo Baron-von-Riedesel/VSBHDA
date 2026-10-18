@@ -36,10 +36,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "CONFIG.H"
-#include "DPMI.H"
+#include "AUISTRUC.H"
+#include "DPMIDRV.H"
 #include "LINEAR.H"
-#include "AU_CARDS.H"
+#include "DEBUG.H"
+#include "TIMER.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"

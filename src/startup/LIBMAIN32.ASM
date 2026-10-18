@@ -53,19 +53,32 @@ Rebase2Intern macro x
 	sub x, basediff
 endm
 
-@CallVector macro member, arg, translate:=<1>
-if translate
-	mov eax, arg
+@CallVector macro member, arg1, arg2, arg3
+ifnb <arg3>
+	push arg3
+endif
+ifnb <arg2>
+ ifidn <arg2>,<p2>
+	mov eax, arg2
+	Rebase2Intern eax
+	push eax
+ else
+	push arg2
+ endif
+endif
+ifidn <arg1>,<aui>
+	mov eax, arg1
 	Rebase2Intern eax
 	push eax
 else
-	push arg
+	push arg1
 endif
 	call __sndcard_info.member
 endm
 
 	.data
 
+;--- this is the cardinfo as seen by loaddrv.asm
 cardinfo SNDCARD_INFO <0,0,my_adetect, my_start, my_stop, my_close, my_setrate, NULL, my_getpos, my_irq, my_wrMixer, my_rdMixer, 0, 0>
 
 _DSBase dd 0
@@ -107,6 +120,9 @@ my_adetect proc far c aui:ptr
 	mov edx, __sndcard_info.Mixerdata
 	mov cardinfo.shortname, ecx
 	mov cardinfo.Mixerdata, edx
+	cmp __sndcard_info.writedata,0
+	jz done
+	mov cardinfo.writedata, offset my_writedata
 done:
 	ret
 my_adetect endp
@@ -135,6 +151,11 @@ my_setrate proc far c aui:ptr
 	ret
 my_setrate endp
 
+my_writedata proc far c aui:ptr, p2:ptr, size_:dword
+	@CallVector writedata, aui, p2, size_
+	ret
+my_writedata endp
+
 my_getpos proc far c aui:ptr
 	@CallVector getpos, aui
 	ret
@@ -145,13 +166,13 @@ my_irq proc far c card:ptr
 	ret
 my_irq endp
 
-my_wrMixer proc far c aui:ptr
-	@CallVector wrMixer, aui
+my_wrMixer proc far c aui:ptr, reg:dword, value:dword
+	@CallVector wrMixer, aui, reg, value
 	ret
 my_wrMixer endp
 
-my_rdMixer proc far c aui:ptr
-	@CallVector rdMixer, aui
+my_rdMixer proc far c aui:ptr, reg:dword
+	@CallVector rdMixer, aui, reg
 	ret
 my_rdMixer endp
 

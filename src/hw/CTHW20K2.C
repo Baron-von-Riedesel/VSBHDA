@@ -8,18 +8,14 @@
 #include <malloc.h>
 #include <errno.h>
 #include <string.h>
-#ifndef DJGPP
-#include <conio.h>
-#endif
 
-#include "CONFIG.H"
 #include "LINEAR.H"
-#include "AU_CARDS.H"
+#include "DEBUG.H"
 #include "TIMER.H"
 #include "PCIBIOS.H"
 #include "REG20K2.H"
 #include "CTHW20KX.H"
-#include "DPMI.H"
+#include "DPMIDRV.H"
 
 struct hw20k2 {
 	struct hw hw;

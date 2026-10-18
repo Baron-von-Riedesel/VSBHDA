@@ -28,10 +28,15 @@
 #endif
 #ifndef DJGPP
 #include <conio.h> /* for outb/outw/outd */
+#else
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
 #endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
+#include "TIMER.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
@@ -221,7 +226,7 @@ static unsigned int ich_buffer_init( struct intel_card_s *card, struct audioout_
 /////////////////////////////////////////////////////////////////////////////////////////////
 {
 	/* for ICH, periods should be max 32 */
-	card->periods = min(ICH_DMABUF_PERIODS,(aui->card_buffers > 1) ? aui->card_buffers : HW_BUFFERS_DEFAULT);
+	card->periods = min(ICH_DMABUF_PERIODS, aui->card_buffers );
 
 	/* v2.0: valid periods are 2,4,8,16,32 only;
 	 * that's why MDma_get_bufsize() can't be used (card_buffers must be ignored)

@@ -42,7 +42,7 @@
    - ES1370 cards (AudioPCI, SB PCI64/128, "5507" chip)
    - SB Live and SB Audigy (EMU10K1, EMU10K2)
    - SB X-Fi cards based on CA20K1 and CA20K2 [CA20K2 untested]
-   - SB PCI cards based on ES1371/ES1373
+   - SB PCI cards based on ES1371/ES1373/CT5580
    - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS) [untested]
 
 

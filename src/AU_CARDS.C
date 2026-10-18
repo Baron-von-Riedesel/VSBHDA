@@ -12,7 +12,7 @@
 //*  Please contact with the author (with me) if you want to use           *
 //*  or modify this source.                                                *
 //**************************************************************************
-//function: audio main functions
+//function: call the sound hardware low-level functions
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -20,8 +20,7 @@
 #include <string.h>
 
 #include "CONFIG.H"
-#include "AU_CARDS.H"
-//#include "DMABUFF.H"
+#include "AUISTRUC.H"
 
 //#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
 
@@ -83,6 +82,16 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 extern uint8_t bOMode;
 #endif
 
+#ifdef DYNAMIC /* no far AU_ entries if drivers are loaded dynamically */
+#define FAREXP
+#else
+# ifdef NOTFLAT
+# define FAREXP _far
+# else
+# define FAREXP
+# endif
+#endif
+
 /* gap between buffer read/write pointer;
  * since v2.0, AU_writedata() won't skip samples that exceed free buffer space;
  * to avoid sound distorsion, the free space reported by AU_cardbuf_space()
@@ -122,7 +131,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	/* v1.7: global settings can be accessed directly - card_select_ variables removed
 	 * v2.1: for better module isolation removed gvars from aui.
 	 */
-	aui->card_buffers = gvars->buffers;
+	aui->card_buffers = (gvars->buffers > 1) ? gvars->buffers : HW_BUFFERS_DEFAULT;
 	aui->card_period_size = gvars->period_size;
 	aui->card_devidx = gvars->device;
 	aui->card_outdev = gvars->pin;
@@ -380,7 +389,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 	switch( setmode ) {
 	case MIXER_SETMODE_ABSOLUTE:
 		newpercentval = newvalue;
-		dbgprintf(("AU_setmixer_one: set newpercentval to %u %% )\n", newvalue ));
+		dbgprintf(("AU_setmixer_one: set newpercentval to %u %%\n", newvalue ));
 		break;
 	case MIXER_SETMODE_RELATIVE:
 		if(function == AU_MIXCHANFUNC_VOLUME)
@@ -452,7 +461,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 	return;
 }
 
-/* for AC97, there's another out channel, AU_MIXCHAN_SYNTH (see AU_CARDS.H) */
+/* for AC97, there's another out channel, AU_MIXCHAN_SYNTH (see AUISTRUC.H) */
 
 static const unsigned int au_mixchan_outs[] = {
 	AU_MIXCHAN_MASTER, AU_MIXCHAN_PCM, AU_MIXCHAN_HEADPHONE, AU_MIXCHAN_SPDIFOUT

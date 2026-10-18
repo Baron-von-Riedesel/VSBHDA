@@ -57,11 +57,11 @@ $(OUTD):
 
 HLPOBJ = \
 	$(OUTD)/PHYSMEM.obj   $(OUTD)/DMABUFF.obj  $(OUTD)/PCIBIOS.obj  $(OUTD)/TIMER.obj   $(OUTD)/AC97MIX.obj \
-	$(OUTD)/LIBMAIN32.obj $(OUTD)/DPMI.obj     $(OUTD)/DPRINTF.obj  $(OUTD)/VIOOUT.obj  $(OUTD)/MALLOC.obj \
+	$(OUTD)/LIBMAIN32.obj $(OUTD)/DPMIDRV.obj  $(OUTD)/DPRINTF.obj  $(OUTD)/VIOOUT.obj  $(OUTD)/MALLOC.obj \
 	$(OUTD)/SBRK.obj
 
-$(OUTD)/%.obj: src/%.ASM
-	@$(ASM) -q -DNOTFLAT -Isrc/startup -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+$(OUTD)/%.obj: src/hw/%.ASM
+	@$(ASM) -q -DNOTFLAT -D?MODEL=tiny -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=tiny $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<

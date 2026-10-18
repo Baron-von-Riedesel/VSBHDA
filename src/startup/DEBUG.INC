@@ -1,8 +1,8 @@
 
 ifdef _DEBUG
 
-__dprintf proto c :ptr, :vararg
-@dprintf textequ <invoke __dprintf,>
+_dprintf proto c :ptr, :vararg
+@dprintf textequ <invoke _dprintf,>
 
 else
 

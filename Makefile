@@ -166,8 +166,8 @@ $(OUTD16)\$(NAME)16.EXE: .always
 $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
+!if !$(DYNAMIC)
 $(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)/au_cards.obj:  src\hw\au_cards.c
 $(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
 $(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
 $(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
@@ -184,18 +184,18 @@ $(OUTD)/sc_sbgen.obj:  src\hw\sc_sbgen.c
 $(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
 $(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
 $(OUTD)/timer.obj:     src\hw\timer.c
+!else
+$(OUTD)/loaddrv.obj:   src\loaddrv.asm
+!endif
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
+$(OUTD)/au_cards.obj:  src\au_cards.c
 $(OUTD)/dpmi.obj:      src\dpmi.asm
 $(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
-$(OUTD)/dprintf.obj:   src\dprintf.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm
 $(OUTD)/hapi.obj:      src\hapi.asm
 $(OUTD)/int31.obj:     src\int31.asm
 $(OUTD)/linear.obj:    src\linear.c
-!if $(DYNAMIC)
-$(OUTD)/loaddrv.obj:   src\loaddrv.asm
-!endif
 $(OUTD)/logfile.obj:   src\logfile.asm
 $(OUTD)/main.obj:      src\main.c
 $(OUTD)/mixer.obj:     src\mixer.asm
@@ -208,7 +208,6 @@ $(OUTD)/stackisr.obj:  src\stackisr.asm
 $(OUTD)/tsf.obj:       src\tsf.c
 $(OUTD)/uninst.obj:    src\uninst.asm
 $(OUTD)/vdma.obj:      src\vdma.c
-$(OUTD)/vioout.obj:    src\vioout.asm
 $(OUTD)/virq.obj:      src\virq.c
 $(OUTD)/vmpu.obj:      src\vmpu.c
 $(OUTD)/vsb.obj:       src\vsb.c
@@ -218,10 +217,12 @@ $(OUTD)/vopl3.obj:     src\vopl3.cpp
 	@$(CPP) $(C_DEBUG_FLAGS) -q -oxa -mf -bc -ecc -5s -fp5 -fpi87 $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -fo=$@ $<
 !endif
 $(OUTD)/cstrtdhx.obj:  src\startup\cstrtdhx.asm
+$(OUTD)/dprintf.obj:   src\startup\dprintf.asm
 $(OUTD)/getenv.obj:    src\startup\getenv.asm
 $(OUTD)/malloc.obj:    src\startup\malloc.asm
 $(OUTD)/sbrk.obj:      src\startup\sbrk.asm
 $(OUTD)/strtol.obj:    src\startup\strtol.asm
+$(OUTD)/vioout.obj:    src\startup\vioout.asm
 $(OUTD)/_matherr.obj:  src\startup\_matherr.asm
 
 # to avoid any issues with 16-bit relocations in PE binaries,

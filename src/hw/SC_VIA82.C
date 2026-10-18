@@ -21,10 +21,15 @@
 #include <stdio.h>
 #ifndef DJGPP
 #include <conio.h>
+#else
+#include <pc.h>
+#define inpd inportl
+#define outpd outportl
 #endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
+#include "TIMER.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97.H"
@@ -325,6 +330,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
 	if ( !( card->iobase & 1) || !(card->iobase & 0xfff0 ) ) {
 		printf("VIA 82XX: no base port set for AC97 controller\n");
+		dbgprintf(("VIA82XX_adetect: no base port set for AC97 controller [%X]\n", card->iobase));
 		goto err_adetect;
 	}
 	card->iobase &= 0xFFF0;
@@ -335,7 +341,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 	aui->card_irq = card->pci_dev.bIrq;
 #if SETUPIRQ
 	if (aui->card_irq == 0 || aui->card_irq == 0xFF) {
-		printf("VIA82XX_adetect: no IRQ set, setting to 10\n");
+		printf("VIA 82XX: no IRQ set, setting to 10\n");
 		pcibios_WriteConfig_Byte(&card->pci_dev, PCIR_INTR_LN, 10);
 		aui->card_irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
 	}

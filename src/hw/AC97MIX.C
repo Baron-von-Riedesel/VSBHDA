@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
 #include "AC97MIX.H"
 
 #define MASTERSUBMIXCHAN 2

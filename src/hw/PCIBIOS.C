@@ -22,9 +22,13 @@
 #include <go32.h>
 #endif
 
-#include "PLATFORM.H"
-#include "DPMI.H"
+#include "DPMIDRV.H"
 #include "PCIBIOS.H"
+
+extern unsigned int _linear_psp;
+extern unsigned int _linear_rmstack;
+#define _my_rmstack()  _linear_rmstack
+#define _my_rmstksiz() 0x400
 
 /* PCIBIOSACCESS 1 requires a 1 kB real-mode stack ( it's either the go32
  * transfer buffer [DJGPP] or a separately allocated DOS memory [OW] ).

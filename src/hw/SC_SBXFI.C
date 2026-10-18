@@ -7,19 +7,17 @@
  *    was based on ALSA driver code, probably from ~2005.
  **************************************************************************/
 
-// currently restricted to EMU20K1 (non-titanium cards)!
+// status: EMU20K1 tested
+//         EMU20K2 untested
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
-#ifndef DJGPP
-#include <conio.h>
-#endif
 #include <errno.h>
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "CTHW20KX.H"

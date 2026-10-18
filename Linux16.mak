@@ -12,10 +12,12 @@ endif
 ifndef WATCOM
 WATCOM=$(HOME)/Watcom
 endif
+
 # use OW v2 (0) or OW v1.9 (1)
 ifndef USE19
 USE19=0
 endif
+
 ifndef USEJWL
 USEJWL=1
 endif
@@ -109,12 +111,10 @@ disable 80
 $(OUTD)/$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME).lib $(OBJFILES)
 
-$(OUTD)/AU_CARDS.obj:  src/hw/AU_CARDS.C
-
 $(OUTD)/ADPCM.obj:     src/ADPCM.C
+$(OUTD)/AU_CARDS.obj:  src/AU_CARDS.C
 $(OUTD)/DPMI.obj:      src/DPMI.ASM
 $(OUTD)/DPMIISR.obj:   src/DPMIISR.ASM
-$(OUTD)/DPRINTF.obj:   src/DPRINTF.ASM
 $(OUTD)/FILEACC.obj:   src/FILEACC.ASM
 $(OUTD)/HAPI.obj:      src/HAPI.ASM
 $(OUTD)/INT31.obj:     src/INT31.ASM
@@ -133,7 +133,6 @@ $(OUTD)/STACKISR.obj:  src/STACKISR.ASM
 $(OUTD)/TSF.obj:       src/TSF.C
 $(OUTD)/UNINST.obj:    src/UNINST.ASM
 $(OUTD)/VDMA.obj:      src/VDMA.C
-$(OUTD)/VIOOUT.obj:    src/VIOOUT.ASM
 $(OUTD)/VIRQ.obj:      src/VIRQ.C
 $(OUTD)/VMPU.obj:      src/VMPU.C
 $(OUTD)/VSB.obj:       src/VSB.C
@@ -145,6 +144,7 @@ $(OUTD)/VOPL3.obj:     src/VOPL3.CPP
 endif
 
 $(OUTD)/CSTRT16X.obj:  src/startup/CSTRT16X.ASM
+$(OUTD)/DPRINTF.obj:   src/startup/DPRINTF.ASM
 $(OUTD)/DSTRT16X.obj:  src/startup/DSTRT16X.ASM
 $(OUTD)/LDMOD16.obj:   src/startup/LDMOD16.ASM
 $(OUTD)/INIT1632.obj:  src/startup/INIT1632.ASM
@@ -152,6 +152,7 @@ $(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
 $(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
 $(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
 $(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
+$(OUTD)/VIOOUT.obj:    src/startup/VIOOUT.ASM
 $(OUTD)/_MATHERR.obj:  src/startup/_MATHERR.ASM
 $(OUTD)/LIBMAIN.obj:   src/startup/LIBMAIN.C
 

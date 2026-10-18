@@ -19,12 +19,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#ifndef DJGPP
-#include <conio.h>
-#endif
 
-#include "CONFIG.H"
-#include "AU_CARDS.H"
+#include "AUISTRUC.H"
+#include "DEBUG.H"
 #include "DMABUFF.H"
 #include "PCIBIOS.H"
 #include "AC97MIX.H"

@@ -17,8 +17,6 @@
 #include <stdint.h>
 #include <dos.h>
 
-#include "AU_CARDS.H"
-
 #ifdef DJGPP
 
 #define _disableint() asm("mov $0x900, %%ax \n\t" "int $0x31 \n\t" "mov %%ax, %0\n\t" : "=m"(oldstate) :: "eax" )

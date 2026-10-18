@@ -8,7 +8,7 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * Intel ICH, Nvidia nForce, SiS 7012
  * HDA ( Intel High Definition Audio )
  * VIA VT82C686, VT8233/35/37 (not VT8233A)
- * SB based on ES1371/1373 ( AudioPCI '97 )
+ * SB based on ES1371/73 or CT5580 ( AudioPCI '97, Sound Blaster PCI 64/128 )
  * SB based on EMU10Kx ( SB Live, SB Audigy )
  * SB based on CA0106 ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] ), untested
  * SB based on EMU20Kx ( SB X-Fi, SB X-Fi Titanium [untested] ) 
