@@ -1,4 +1,4 @@
-/* AUX.C: aux device of VSBHDA.DRV - the master volume of the sound card
+/* AUXDRV.C: aux device of VSBHDA.DRV - the master volume of the sound card
  * (set by VSBVXD.386 in the card's mixer). */
 
 #include "VSBDRV.H"

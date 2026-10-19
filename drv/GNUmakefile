@@ -26,7 +26,7 @@ $(OUT)/%.obj: %.C VSBDRV.H | $(OUT)
 $(OUT)/%.obj: %.ASM | $(OUT)
 	$(ASM) -q -Fo$@ $<
 
-OBJS := $(addprefix $(OUT)/,VSBDRV.obj WAVE.obj MIDI.obj MIDIMAP.obj AUX.obj GENMIDI.obj VXDCALL.obj)
+OBJS := $(addprefix $(OUT)/,VSBDRV.obj WAVE.obj MIDI.obj MIDIMAP.obj AUXDRV.obj GENMIDI.obj VXDCALL.obj)
 
 $(OUT)/VSBHDA.DRV: $(OBJS) VSBHDA.LNK
 	$(LINK) option quiet name $@ option map=$(OUT)/VSBHDA.map \

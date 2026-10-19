@@ -2,7 +2,7 @@
  * The sound card is driven by the VxD (any card supported by VSBHDA):
  * - wave output (WAVE.C): the wave buffers are mixed into the VxD's output
  * - MIDI output (MIDI.C): FM synthesizer on the VxD's OPL3 emulation
- * - aux (AUX.C): master volume of the sound card
+ * - aux (AUXDRV.C): master volume of the sound card
  *
  * Install: SYSTEM.INI [drivers] wave=vsbhda.drv, midi=vsbhda.drv,
  * aux=vsbhda.drv; [386Enh] device=vsbvxd.386 (enhanced mode only). */
