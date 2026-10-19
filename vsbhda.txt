@@ -36,14 +36,15 @@
 
     Supported sound hardware:
 
-   - Intel HDA
-   - Intel ICH, Nvidia nForce, SiS 7012
-   - VIA VT82C686, VT8233/35/37, but not VT8233A
+   - Crystal CS4281 cards 
    - ES1370 cards (AudioPCI, SB PCI64/128, "5507" chip)
+   - Intel ICH, Nvidia nForce, SiS 7012
+   - HDA
    - SB Live and SB Audigy (EMU10K1, EMU10K2)
-   - SB X-Fi cards based on CA20K1 and CA20K2 [CA20K2 untested]
    - SB PCI cards based on ES1371/ES1373/CT5580
    - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS) [untested]
+   - SB X-Fi cards based on CA20K1 and CA20K2 [CA20K2 untested]
+   - VIA VT82C686, VT8233/35/37, but not VT8233A
 
 
    3. Usage

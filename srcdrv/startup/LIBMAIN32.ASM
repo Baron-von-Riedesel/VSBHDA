@@ -43,6 +43,7 @@ externdef _curbrk:dword
 externdef _dynend:dword
 externdef _end:near		  ; end of BSS
 externdef _DSBase:dword
+externdef _bOMode:byte
 
 ;--- macros for address translation
 
@@ -89,12 +90,10 @@ _curbrk dd 0
 _dynend dd 0
 basediff dd 0
 ifdef _DEBUG
-OMODE equ OM_DEBUGGER	; output via int 41h
+_bOMode db OM_DEBUGGER
 else
-OMODE equ OM_DOS	; output via DOS int 21h
+_bOMode db OM_DOS
 endif
-externdef _bOMode:byte
-_bOMode db OMODE
 
 	.code
 

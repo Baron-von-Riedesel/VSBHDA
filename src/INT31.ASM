@@ -19,14 +19,14 @@ externdef _Snd_Notify31:near
 if TRAPINT21
 externdef _SB_Notify21:near
 externdef _Snd_Notify21:near
- ifndef NOTFLAT
+ ifndef DPMI16
   if @Model ne 7
 externdef c DSBase:dword
   endif
  endif
 endif
 
-ifdef NOTFLAT
+ifdef DPMI16
 
  if FIXEXC00
 InstallExc00 proto 
@@ -73,7 +73,7 @@ endif
 
 myint31 proc
 
-ifdef NOTFLAT
+ifdef DPMI16
  if FIXEXC00
 	cmp ax, 202h	; get exc vector
 	jz is202
@@ -106,7 +106,7 @@ is_SB:
 	call _SB_Notify31
 	jc prevint
 iret_with_NC:
- ifdef NOTFLAT
+ ifdef DPMI16
 	push bp
 	mov bp,sp
 	and byte ptr [bp+2].IRETS._fl,not 1
@@ -116,7 +116,7 @@ iret_with_NC:
  endif
 	insIRET
 
-ifdef NOTFLAT
+ifdef DPMI16
  if FIXEXC00
 is202:
 	cmp bl,0
@@ -154,7 +154,7 @@ if TRAPINT21
 ;--- (because DOS/4GW, after reading this vector, sets exception vectors without
 ;--- clearing hiword(edx).
 
-ifndef NOTFLAT
+ifndef DPMI16
 	.data
 	align 4
 int21tmp label byte
@@ -201,7 +201,7 @@ _InstallInt31 proc public uses ebx pGVars:ptr GLOBALVARS
 
 	@dprintf CStr("_InstallInt31 enter",10)
 
-ifdef NOTFLAT
+ifdef DPMI16
  if FIXEXC00
 	mov ebx,pGVars
 	test [ebx.GLOBALVARS.compatflags],CF_NODIVERR
@@ -234,7 +234,7 @@ if TRAPINT21
 	jc error
 	mov dword ptr oldint21+0, edx
 	mov word ptr oldint21+SEGOFS, cx
- ifdef NOTFLAT
+ ifdef DPMI16
 	mov ecx, cs
 	mov edx, offset myint21
 	mov ax, 205h
@@ -280,13 +280,13 @@ if TRAPINT21
  endif
 endif
 
-ifdef NOTFLAT
+ifdef DPMI16
 	pop ds
 endif
 	mov eax, 1
 	ret
 error:
-ifdef NOTFLAT
+ifdef DPMI16
 	pop ds
 	assume ds:DGROUP
 endif
@@ -313,7 +313,7 @@ endif
 	int 31h
 	jc error
 
-ifdef NOTFLAT
+ifdef DPMI16
  if FIXEXC00
 	call UninstallExc00
  endif

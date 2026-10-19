@@ -15,7 +15,7 @@ ifdef _DEBUG
 LOGFILESIZE equ 1000000h	;size of logfile buffer (16 MB)
 endif
 
-ifdef NOTFLAT
+ifdef DPMI16
 
 SEGOFS equ 2
 insIRET textequ <iret>

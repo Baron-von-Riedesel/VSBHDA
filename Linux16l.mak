@@ -74,12 +74,12 @@ OBJFILES2 = \
 	$(OUTD)/SC_SBXFI.obj	$(OUTD)/CTHW20K1.obj	$(OUTD)/CTHW20K2.obj \
 	$(OUTD)/SC_E1370.obj	$(OUTD)/SC_CS4281.obj \
 	$(OUTD)/DPMI.obj	    $(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj \
-	$(OUTD)/LIBMAIN.obj
+	$(OUTD)/LIBMAIN.obj		$(OUTD)/LINEAR.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
 CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=-DNOTFLAT -DNOSBXFI
+C_EXTRA_FLAGS=-DDPMI16
 ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
@@ -88,7 +88,7 @@ INCLUDES=-I$(WATCOM)/h -Iinclude
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
-	@$(ASM) -q -DNOTFLAT -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -DDPMI16 -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -100,7 +100,7 @@ $(OUTD)/%.obj: srcdrv/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
-	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw -DDPMI16 -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/startup/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
@@ -204,7 +204,7 @@ $(OUTD)/LIBMAIN.obj:   src/startup/LIBMAIN.C
 $(OUTD)/RMWRAP.obj:    src/RMWRAP.ASM src/RMCODE1.ASM src/RMCODE2.ASM
 	@$(ASM) -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode1.bin src/RMCODE1.ASM
 	@$(ASM) -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode2.bin src/RMCODE2.ASM
-	@$(ASM) -q -DNOTFLAT -D?MODEL=small $(OW19) -Fl$(OUTD)/ -Fo$@ -DOUTD=$(OUTD) src/RMWRAP.ASM
+	@$(ASM) -q -DDPMI16 -D?MODEL=small $(OW19) -Fl$(OUTD)/ -Fo$@ -DOUTD=$(OUTD) src/RMWRAP.ASM
 
 clean:
 	@rm -f $(OUTD)/$(NAME).lib

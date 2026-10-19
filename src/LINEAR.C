@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#if defined(DJGPP) || defined(NOTFLAT)
+#if defined(DJGPP) || defined(DPMI16)
 uint32_t DSBase;
 #endif
 

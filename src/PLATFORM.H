@@ -72,7 +72,7 @@ void fpu_restore(void *buffer);
 void _disable_ints(void);
 void  _enable_ints(void);
 
-#ifdef NOTFLAT
+#ifdef DPMI16
 #pragma aux _disable_ints = \
 	"mov ax, 900h" \
 	"pushf" \

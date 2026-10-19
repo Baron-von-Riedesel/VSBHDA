@@ -51,7 +51,7 @@ A_DEBUG_FLAGS=
 !endif
 
 C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
-C_EXTRA_FLAGS=-DNOTFLAT
+C_EXTRA_FLAGS=
 LD_FLAGS=
 
 INCLUDES=-Iinclude -I$(WATCOM)\h

@@ -53,7 +53,7 @@ dwOldIV   dd 0		;IVT vector irq 2/5/7
  endif
 endif
 
-ifdef NOTFLAT
+ifdef DPMI16
 
 	.code
 
@@ -161,7 +161,7 @@ realsbisr proc
 	mov edi, esp
 	xor ebx, ebx
 	xor ecx, ecx
-  ifdef NOTFLAT
+  ifdef DPMI16
 	mov es, cs:[dwDS]
 	mov eax, es:[dwOldIV]
   else
@@ -199,18 +199,18 @@ realsbisr endp
 VIRQ_Check proc public
 	verr word ptr cs:[currSBvec+SEGOFS]
 	jz exit
- ifdef NOTFLAT
+ ifdef DPMI16
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
  endif
 	mov eax, dword ptr [oldSBvec]
 	mov dword ptr [currSBvec], eax
- ifndef NOTFLAT
+ ifndef DPMI16
 	mov ax, word ptr [oldSBvec+4]
 	mov word ptr [currSBvec+4], ax
  endif
- ifdef NOTFLAT
+ ifdef DPMI16
 	pop ds
     assume ds:DGROUP
  endif
@@ -235,7 +235,7 @@ if WATCHSB
 	cmp ah, 25h
 	jz is_25
  ife HOSTRT
-  ifdef NOTFLAT
+  ifdef DPMI16
 	mov bx, word ptr cs:[currSBvec+0]
 	mov es, word ptr cs:[currSBvec+SEGOFS]
   else
@@ -249,7 +249,7 @@ if WATCHSB
 	ret
 is_25:
 	push es
- ifdef NOTFLAT
+ ifdef DPMI16
 	mov es, cs:[_csalias]
 	assume es:_TEXT
  else
@@ -259,7 +259,7 @@ is_25:
 	mov  word ptr es:[currSBvec+SEGOFS], ds
 	@dprintf CStr("SB_Notify21 ah=25: DS:EDX=%X:%X",10),ds,edx
 	pop es
- ifdef NOTFLAT
+ ifdef DPMI16
 	assume es:DGROUP
  endif
  ife HOSTRT 
@@ -304,7 +304,7 @@ if WATCHSB
 	ret
 is_04:
  ife HOSTRT
-  ifdef NOTFLAT
+  ifdef DPMI16
 	mov dx, word ptr cs:[currSBvec+0]
   else
 	mov edx, dword ptr cs:[currSBvec+0]
@@ -318,7 +318,7 @@ is_04:
 	align 4
 savevector::
 	push ds
- ifdef NOTFLAT
+ ifdef DPMI16
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
  else
@@ -328,7 +328,7 @@ savevector::
 	mov word ptr [currSBvec+SEGOFS], cx
 	mov [bIntSB], bl	; activate notifications
 	pop ds
- ifdef NOTFLAT
+ ifdef DPMI16
 	assume ds:DGROUP
  endif
 	@dprintf CStr("SB_Notify31: CX:EDX=%X:%X",10),cx,edx
@@ -400,14 +400,14 @@ exit:
 	ret
 ife HOSTRT
 saveorgvec:
- ifdef NOTFLAT
+ ifdef DPMI16
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
  endif
 	mov dword ptr [oldSBvec+0], edx
 	mov word ptr [oldSBvec+SEGOFS], cx
- ifdef NOTFLAT
+ ifdef DPMI16
 	pop ds
 	assume ds:DGROUP
  endif

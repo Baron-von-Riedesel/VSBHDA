@@ -1,5 +1,7 @@
 
-// for 16-bit only
+/* for 16-bit module SNDCARD.DRV only;
+ * v2.1: SNDCARD.DRV now obsolete.
+ */
 
 #include <stdint.h>
 
@@ -10,7 +12,7 @@ enum {
 };
 
 uint32_t _linear_rmstack;
-uint32_t DSBase;
+//uint32_t DSBase;
 uint8_t _8087;
 uint8_t bOMode = OM_DOS;
 

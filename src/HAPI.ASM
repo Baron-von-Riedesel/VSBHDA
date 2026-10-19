@@ -9,7 +9,7 @@
 	include CONFIG.INC
 
 _hdpmi_traphandler struct
-ifdef NOTFLAT
+ifdef DPMI16
 wOfsIn dw ?
 wSegIn dw ?
 wOfsOut dw ?
@@ -28,7 +28,7 @@ externdef c HDPMIAPI_Entry: PFAR
 	call HDPMIAPI_Entry
 endm
 
-ifndef NOTFLAT
+ifndef DPMI16
 	assume ds:_DATA
 endif
 
@@ -52,11 +52,11 @@ failed:
 	ret
 _hdpmi_get_vendor_api endp
 
-ifdef NOTFLAT	; string in code not allowed in true small model
+ifdef DPMI16	; string in code not allowed in true small model
 	.const
 endif
 szHDPMI db "HDPMI",0
-ifdef NOTFLAT
+ifdef DPMI16
 	.code
 endif
 
@@ -117,7 +117,7 @@ _hdpmi_simulate_byte_out proc c public uses ebx port:word, value:byte
 	ret
 _hdpmi_simulate_byte_out endp
 
-ifndef NOTFLAT ;v1.9
+ifndef DPMI16 ;v1.9
 ;--- install CLI handler
 ;--- just the offset is provided
 ;--- if it's 0, it's assumed that the handler is to be deinstalled!

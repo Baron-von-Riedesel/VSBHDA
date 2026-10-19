@@ -11,7 +11,7 @@
 
 __dpmi_simulate_real_mode_interrupt proto c intno:byte, pRegs:ptr
 
-ifdef NOTFLAT
+ifdef DPMI16
 ASSUMEDS textequ <DGROUP>
 else
 ASSUMEDS textequ <_DATA>

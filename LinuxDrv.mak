@@ -44,7 +44,7 @@ A_DEBUG_FLAGS=
 endif
 
 C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
-C_EXTRA_FLAGS=-DNOTFLAT
+C_EXTRA_FLAGS=
 LD_FLAGS=
 
 INCLUDES=-Iinclude -I$(WATCOM)/h 
@@ -61,10 +61,10 @@ HLPOBJ = \
 	$(OUTD)/SBRK.obj
 
 $(OUTD)/%.obj: srcdrv/%.ASM
-	@$(ASM) -q -DNOTFLAT -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: srcdrv/startup/%.ASM
-	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: srcdrv/%.C
 	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<

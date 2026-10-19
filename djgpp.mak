@@ -155,17 +155,17 @@ endif
 $(OUTD)/adpcm.o::    adpcm.c     adpcm.h
 $(OUTD)/au_cards.o:: au_cards.c  include/auistruc.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
-$(OUTD)/linear.o::   linear.c    include/linear.h platform.h
-$(OUTD)/main.o::     main.c      include/linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au_cards.h version.h
+$(OUTD)/linear.o::   linear.c    linear.h platform.h
+$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au_cards.h version.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
-$(OUTD)/ptrap.o::    ptrap.c     include/linear.h platform.h ptrap.h config.h
-$(OUTD)/sndisr.o::   sndisr.c    include/linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au_cards.h
+$(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
+$(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au_cards.h
 $(OUTD)/tsf.o::      tsf.c       src/tsf/tsf.h
-$(OUTD)/vdma.o::     vdma.c      include/linear.h platform.h ptrap.h vdma.h config.h
-$(OUTD)/virq.o::     virq.c      include/linear.h platform.h pic.h ptrap.h virq.h config.h
+$(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
+$(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
 $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h
-$(OUTD)/vsb.o::      vsb.c       include/linear.h platform.h vsb.h config.h
-$(OUTD)/vmpu.o::     vmpu.c      include/linear.h platform.h vmpu.h config.h
+$(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
+$(OUTD)/vmpu.o::     vmpu.c      linear.h platform.h vmpu.h config.h
 
 $(OUTD)/dpmi.o::     dpmi.asm
 $(OUTD)/dpmiisr.o::  dpmiisr.asm

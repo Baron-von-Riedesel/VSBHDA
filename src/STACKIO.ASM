@@ -28,7 +28,7 @@ endif
 
 PTRAP_PM_TrapHandler proto :word, :dword, :dword
 
-ifdef NOTFLAT
+ifdef DPMI16
 
 STACKCORR equ 2048
 ASSUMEDS textequ <DGROUP>
@@ -80,7 +80,7 @@ SwitchStackIO proc
 	push ds
 	push es
 	mov ebp, esp
-ifdef NOTFLAT
+ifdef DPMI16
 	mov cx, [ebp].IOEXCFR._errcode
 	and cx, 7
 	add [ebp].IOEXCFR._ip, cx
@@ -179,7 +179,7 @@ dwProc dd ?
 SwitchStackIOrmcb proc
 
 	cld
-ifdef NOTFLAT
+ifdef DPMI16
 	movzx edi, di
 	mov eax, [si]
 else
@@ -283,12 +283,12 @@ _exit_rmcbIO proc public prmcb:ptr
 	ret
 _exit_rmcbIO endp
 
-ifndef NOTFLAT ; currently not active for 16-bit
+ifndef DPMI16 ; currently not active for 16-bit
 
 ;--- CLI trap handler
 ;--- will only be called if CR4.PVI is 0.
 
- ifdef NOTFLAT
+ ifdef DPMI16
 IRETWS struct
 rIp		dw ?
 rCS		dw ?
@@ -308,14 +308,14 @@ _hdpmi_CliHandler proc public
 	push ds
 	push esi
 
- ifdef NOTFLAT
+ ifdef DPMI16
 	lds si, dword ptr [esp+2*4].IRETWS.rIp
 	movzx esi, si
  else
 	lds esi, fword ptr [esp+2*4].IRETDS.rEip
  endif
 
- ifndef NOTFLAT
+ ifndef DPMI16
 	cmp esi, 3
 	jb unchanged
 	cmp word ptr [esi-3], 589Ch	; "pushfd" "pop eax"; needed by ID games' DOS/4G

@@ -81,7 +81,7 @@ fseek endp
 ;--- write (used for logfile in debug version)
 
 ifdef _DEBUG
- ifdef NOTFLAT
+ ifdef DPMI16
 fwrite proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 local tsel:dword
 local desc[8]:byte
@@ -96,7 +96,7 @@ endif
 
 ;--- read (used to read .sf2 files)
 
-ifdef NOTFLAT
+ifdef DPMI16
 fread proc uses es ebx edi pBuffer:ptr, elems:dword, size_:dword, pFile:ptr
 
 ;--- descriptor adjustments needed if client is 16-bit
@@ -157,13 +157,13 @@ fwrite_entry::
 	ret
 endif
 error:
-ifdef NOTFLAT
+ifdef DPMI16
 	call freedesc
 error2:
 endif
 	or eax,-1
 	ret
-ifdef NOTFLAT
+ifdef DPMI16
 freedesc:
 	mov ebx,tsel
 	mov ax,1

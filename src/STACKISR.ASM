@@ -16,7 +16,7 @@ externdef bIntSnd:byte
 
 STACKCHECK equ 0
 
-ifdef NOTFLAT
+ifdef DPMI16
 
 STACKCORR equ 2048
 
@@ -122,7 +122,7 @@ if TRAPINT21
 _Snd_Notify21 proc public
 	cmp ah, 25h
 	jz is_25
-ifdef NOTFLAT
+ifdef DPMI16
 	mov bx, word ptr cs:[currSndvec+0]
 	mov es, word ptr cs:[currSndvec+SEGOFS]
 else
@@ -133,7 +133,7 @@ endif
 	ret
 is_25:
 	push es
-ifdef NOTFLAT
+ifdef DPMI16
 	mov es, cs:[_csalias]
 	assume es:_TEXT
 else
@@ -142,7 +142,7 @@ endif
 	mov dword ptr es:[currSndvec+0], edx
 	mov word ptr es:[currSndvec+SEGOFS], ds
 	pop es
-ifdef NOTFLAT
+ifdef DPMI16
 	assume es:DGROUP
 endif
 	clc  ; return NC - call won't be routed to DPMI host
@@ -162,7 +162,7 @@ _Snd_Notify31 proc public
 	and byte ptr [esp].NOTFR._fl, not 1
 	cmp al, 5
 	jz is_05
-ifdef NOTFLAT
+ifdef DPMI16
 	mov dx, word ptr cs:[currSndvec+0]
 else
 	mov edx, dword ptr cs:[currSndvec+0]
@@ -173,7 +173,7 @@ endif
 
 is_05:
 	push ds
-ifdef NOTFLAT
+ifdef DPMI16
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
 else
@@ -182,7 +182,7 @@ endif
 	mov dword ptr [currSndvec+0], edx
 	mov word ptr [currSndvec+SEGOFS], cx
 	pop ds
-ifdef NOTFLAT
+ifdef DPMI16
 	assume ds:DGROUP
 endif
 	clc  ; return NC - call won't be routed to DPMI host
@@ -204,7 +204,7 @@ _SND_InstallISR proc public uses ebx interrupt:byte, isr:dword
 	mov eax, isr
 	mov dwISR, eax
 
-ifdef NOTFLAT
+ifdef DPMI16
 	push ds
 	mov ds, cs:[_csalias]
 	assume ds:_TEXT
@@ -217,7 +217,7 @@ endif
 	mov dwDS, ss
 	mov [bIntSnd], bl	; activates notification by int 31h handler
 
-ifdef NOTFLAT
+ifdef DPMI16
 	pop ds
 	assume ds:DGROUP
 endif

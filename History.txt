@@ -10,6 +10,7 @@
   - support for ES1370 & CS4281 cards added (done by Vicokoby/Claude).
   - sound hardware driver code now in separate modules - they're loaded
     dynamically by VSBHDA; SNDCARD.DRV obsolete and removed.
+  - fixed driver code for SB Live 24/Audigy SE/LE.
 
   v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state

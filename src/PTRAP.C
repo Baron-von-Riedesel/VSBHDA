@@ -379,7 +379,7 @@ bool PTRAP_Install_PortTraps( int bRM, int bPM )
     int i;
     struct _hdpmi_traphandler traphandler;
 
-#ifdef NOTFLAT
+#ifdef DPMI16
     traphandler.ofsIn  = (uint16_t)&SwitchStackIOIn;
     traphandler.ofsOut = (uint16_t)&SwitchStackIOOut;
 #else
@@ -401,7 +401,7 @@ bool PTRAP_Install_PortTraps( int bRM, int bPM )
     if ( bPM ) {
         /* reset hdpmi=32 option in case it is set */
         _hdpmi_set_context_mode( 0 );
-#ifndef NOTFLAT
+#ifndef DPMI16
         /* install CLI handler */
         _hdpmi_set_cli_handler( _hdpmi_CliHandler );
 #endif
@@ -421,7 +421,7 @@ bool PTRAP_Uninstall_PortTraps( int bRM, int bPM )
         for ( i = 0; i < ptrap.cntranges; i++ )
             if ( portranges[i].traphdl )
                 _hdpmi_uninstall_trap( portranges[i].traphdl );
-#ifndef NOTFLAT
+#ifndef DPMI16
         /* uninstall CLI trap handler */
         _hdpmi_set_cli_handler( NULL );
 #endif

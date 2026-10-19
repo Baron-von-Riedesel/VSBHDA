@@ -61,14 +61,14 @@ OBJFILES = \
 	$(OUTD)/STACKIO.obj		$(OUTD)/STACKISR.obj	$(OUTD)/SBISR.obj		$(OUTD)/INT31.obj		$(OUTD)/RMWRAP.obj \
 	$(OUTD)/MIXER.obj		$(OUTD)/ADPCM.obj		$(FMOBJS) \
 	$(OUTD)/HAPI.obj		$(OUTD)/DPRINTF.obj		$(OUTD)/VIOOUT.obj		$(OUTD)/DPMI.obj		$(OUTD)/UNINST.obj \
-	$(OUTD)/LDMOD16.obj		$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj		$(OUTD)/AU_CARDS.obj \
+	$(OUTD)/SBRK.obj		$(OUTD)/MALLOC.obj		$(OUTD)/RTE200.obj		$(OUTD)/AU_CARDS.obj \
 	$(OUTD)/FILEACC.obj		$(OUTD)/LOGFILE.obj		$(OUTD)/GETENV.obj		$(OUTD)/STRTOL.obj		$(OUTD)/_MATHERR.obj \
 	$(OUTD)/DPMIISR.obj		$(OUTD)/LOADDRV.obj
 
 C_OPT_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option ("function modifier cannot be used ...")
 CPP_OPT_FLAGS=-q -oxa -ms -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=-DNOTFLAT -DNOSBXFI
+C_EXTRA_FLAGS=-DDPMI16
 ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
@@ -77,7 +77,7 @@ INCLUDES=-I$(WATCOM)/h -Iinclude
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
-	@$(ASM) -q -DNOTFLAT -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -DDPMI16 -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
 	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -86,10 +86,10 @@ $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
-	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
-$(OUTD)/%.obj: src/startup/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+#$(OUTD)/%.obj: src/startup/%.C
+#	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)/$(NAME).EXE
 
@@ -142,8 +142,6 @@ endif
 
 $(OUTD)/CSTRT16X.obj:  src/startup/CSTRT16X.ASM
 $(OUTD)/DPRINTF.obj:   src/startup/DPRINTF.ASM
-$(OUTD)/DSTRT16X.obj:  src/startup/DSTRT16X.ASM
-$(OUTD)/LDMOD16.obj:   src/startup/LDMOD16.ASM
 $(OUTD)/INIT1632.obj:  src/startup/INIT1632.ASM
 $(OUTD)/GETENV.obj:    src/startup/GETENV.ASM
 $(OUTD)/MALLOC.obj:    src/startup/MALLOC.ASM
@@ -151,14 +149,13 @@ $(OUTD)/SBRK.obj:      src/startup/SBRK.ASM
 $(OUTD)/STRTOL.obj:    src/startup/STRTOL.ASM
 $(OUTD)/VIOOUT.obj:    src/startup/VIOOUT.ASM
 $(OUTD)/_MATHERR.obj:  src/startup/_MATHERR.ASM
-$(OUTD)/LIBMAIN.obj:   src/startup/LIBMAIN.C
 
 # the 16-bit code is included in binary format into rmwrap.asm.
 
 $(OUTD)/RMWRAP.obj:    src/RMWRAP.ASM src/RMCODE1.ASM src/RMCODE2.ASM
 	@$(ASM) -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode1.bin src/RMCODE1.ASM
 	@$(ASM) -q -bin -Fl$(OUTD)/ -Fo$(OUTD)/rmcode2.bin src/RMCODE2.ASM
-	@$(ASM) -q -DNOTFLAT -D?MODEL=small $(OW19) -Fl$(OUTD)/ -Fo$@ -DOUTD=$(OUTD) src/RMWRAP.ASM
+	@$(ASM) -q -DDPMI16 -D?MODEL=small $(OW19) -Fl$(OUTD)/ -Fo$@ -DOUTD=$(OUTD) src/RMWRAP.ASM
 
 clean:
 	@rm -f $(OUTD)/$(NAME).lib

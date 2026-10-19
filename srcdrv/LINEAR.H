@@ -8,14 +8,9 @@ extern "C"
 
 //linear memory access
 
-#if defined(DJGPP) || defined(NOTFLAT)
 extern uint32_t DSBase;
 static inline uint32_t LinearAddr( void* ptr ) { return DSBase + (uint32_t)ptr; }
 static inline void    *NearPtr( uint32_t linaddr ) { return (void *)(linaddr - DSBase); }
-#else
-static inline uint32_t LinearAddr( void* ptr ) { return (uint32_t)ptr; }
-static inline void    *NearPtr( uint32_t linaddr ) { return (void *)linaddr; }
-#endif
 
 static inline uint16_t ReadLinearW(uint32_t addr) { return *(uint16_t*)NearPtr(addr); }
 static inline uint32_t ReadLinearD(uint32_t addr) { return *(uint32_t*)NearPtr(addr); }

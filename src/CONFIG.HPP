@@ -4,9 +4,9 @@
 
 extern "C" {
 
-int __dprintf(const char *fmt, ... );
+int _dprintf(const char *fmt, ... );
 #ifdef _DEBUG
-#define dbgprintf(x) __dprintf x
+#define dbgprintf(x) _dprintf x
 #else
 #define dbgprintf(x)
 #endif
