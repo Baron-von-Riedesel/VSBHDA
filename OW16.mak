@@ -80,7 +80,7 @@ C_EXTRA_FLAGS=-DNOTFLAT
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 !endif
 
-INCLUDES=-I$(WATCOM)\h
+INCLUDES=-I$(WATCOM)\h -Iinclude
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
@@ -91,9 +91,6 @@ LIBS=
 
 {src}.cpp{$(OUTD)}.obj
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
-
-{src\hw}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -DDYNAMIC -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
 
 {src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
@@ -121,6 +118,7 @@ $(OUTD)\$(NAME).lib: $(OBJFILES)
 
 $(OUTD)/adpcm.obj:     src\adpcm.c
 $(OUTD)/au_cards.obj:  src\au_cards.c
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 $(OUTD)/dpmi.obj:      src\dpmi.asm
 $(OUTD)/dpmiisr.obj:   src\dpmiisr.asm
 $(OUTD)/fileacc.obj:   src\fileacc.asm

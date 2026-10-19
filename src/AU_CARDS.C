@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "CONFIG.H"
+#include "PLATFORM.H"
 #include "AUISTRUC.H"
 
 //#define DMABUFFLOG /* activate in case of DMA buffer handling issues */
@@ -82,14 +83,10 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 extern uint8_t bOMode;
 #endif
 
-#ifdef DYNAMIC /* no far AU_ entries if drivers are loaded dynamically */
-#define FAREXP
+#ifdef FARAU
+#define FAREXP _far
 #else
-# ifdef NOTFLAT
-# define FAREXP _far
-# else
-# define FAREXP
-# endif
+#define FAREXP
 #endif
 
 /* gap between buffer read/write pointer;

@@ -47,7 +47,7 @@ C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 C_EXTRA_FLAGS=-DNOTFLAT
 LD_FLAGS=
 
-INCLUDES=-Isrc/hw -Isrc -I$(WATCOM)/h 
+INCLUDES=-Iinclude -I$(WATCOM)/h 
 LIBS=$(OUTD)/drvhlp.lib $(WATCOM)/lib386/dos/clib3s.lib
 
 all: $(OUTD) $(OUTD)/CS4281.DRV $(OUTD)/ES1370.DRV $(OUTD)/ES1371.DRV $(OUTD)/ICH.DRV $(OUTD)/HDA.DRV $(OUTD)/SBGEN.DRV $(OUTD)/SBXFI.DRV $(OUTD)/VIA82.DRV
@@ -60,14 +60,14 @@ HLPOBJ = \
 	$(OUTD)/LIBMAIN32.obj $(OUTD)/DPMIDRV.obj  $(OUTD)/DPRINTF.obj  $(OUTD)/VIOOUT.obj  $(OUTD)/MALLOC.obj \
 	$(OUTD)/SBRK.obj
 
-$(OUTD)/%.obj: src/hw/%.ASM
-	@$(ASM) -q -DNOTFLAT -D?MODEL=tiny -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
+$(OUTD)/%.obj: srcdrv/%.ASM
+	@$(ASM) -q -DNOTFLAT -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
-$(OUTD)/%.obj: src/startup/%.ASM
-	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=tiny $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
+$(OUTD)/%.obj: srcdrv/startup/%.ASM
+	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
-$(OUTD)/%.obj: src/hw/%.C
-	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -fo=$@ $<
+$(OUTD)/%.obj: srcdrv/%.C
+	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/CS4281.DRV: $(OUTD)/SC_CS4281.obj  $(OUTD)/drvhlp.lib
 	@jwlink format dos \

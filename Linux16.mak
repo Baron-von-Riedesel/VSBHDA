@@ -73,7 +73,7 @@ ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
 
-INCLUDES=-I$(WATCOM)/h
+INCLUDES=-I$(WATCOM)/h -Iinclude
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
@@ -84,9 +84,6 @@ $(OUTD)/%.obj: src/%.C
 
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
-
-$(OUTD)/%.obj: src/hw/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc/hw -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<

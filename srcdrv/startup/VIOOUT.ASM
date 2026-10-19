@@ -1,0 +1,187 @@
+
+;--- low-level output for dbgprintf()
+;--- may be used in ISR; works for flat, tiny and small
+;--- memory models.
+
+	.386
+	.model ?MODEL
+	option casemap:none
+
+	.data
+
+if @Model ne 7
+externdef c _DSBase:dword
+ ifdef DJGPP
+PREFIX textequ <cs:>
+ else
+PREFIX textequ <ds:>
+ endif
+endif
+
+	.code
+
+@getcursorpos macro reg
+	movzx e&reg, byte ptr [edi+62h];page
+	mov reg, [edi+e&reg*2+50h]
+endm
+
+@setcursorpos macro reg
+	movzx e&reg, byte ptr [edi+62h];page
+	mov [edi+e&reg*2+50h], ax
+endm
+
+;--- print a char
+;--- no registers modified
+
+VioPutChar proc
+
+local	bRows:byte
+local	bCols:byte
+local	bChar:byte
+
+	pushad
+
+	mov edi, 400h
+
+if @Model ne 7
+	sub edi, PREFIX[_DSBase]
+endif
+	mov bChar, al
+	mov cl, [edi+4Ah]		; cols
+	mov ch, [edi+84h]		; rows-1
+	mov bCols, cl
+	mov bRows, ch
+	@getcursorpos bx		; bh=row, bl=col
+	movzx eax, bh			; eax=row
+	mul cl
+	add eax, eax
+	movzx ebx, bl			; ebx=col
+	add ebx, ebx
+	add ebx, eax
+	mov si, [edi+04Eh]		; page offset
+	cmp word ptr [edi+63H], 3B4h
+	jz @F
+	add si, 8000h
+@@:
+	movzx esi, si
+	add esi, 0B0000h
+if @Model ne 7
+	sub esi, PREFIX[_DSBase]
+endif
+	mov al, bChar
+
+	cmp al, 13
+	jnz @F
+	mov eax, ebx
+	shr eax, 1
+	div cl
+	mov al, ah
+	xor ah, ah
+	add eax, eax
+	sub ebx, eax
+	jmp char_done
+@@:
+	cmp al, 10
+	jnz @F
+	movzx ecx, cl
+	add ebx, ecx
+	add ebx, ecx
+	jmp char_done
+@@:
+	cmp al, 8
+	jnz @F
+	sub ebx, 2
+	jmp char_done
+@@:
+	mov [ebx+esi], al
+	inc ebx
+	inc ebx
+char_done:
+	mov al, bRows
+	inc al
+	mul cl
+	add eax, eax
+	cmp ebx, eax
+	jc @F
+	call scrollup
+	mov ebx, eax
+@@:
+	mov eax, ebx
+	push eax
+	mov cl, bCols
+	shr eax, 1
+	div cl
+	xchg al, ah
+	@setcursorpos bx
+	pop eax
+	call cursorset
+	popad
+	ret
+
+cursorset:
+	add ax, [edi+4EH]	;offset page
+	mov dx, [edi+63H]
+	shr ax, 1			;the CRT offset is one plane only, no attribute bytes 
+	mov cl, al			;first high byte
+	mov al, 0eh
+	out dx, ax
+	mov ah, cl			;then low byte
+	mov al, 0fh
+	out dx, ax
+	retn
+
+scrollup:			;scroll up one line
+	mov edi, esi
+	push edi
+	movzx ecx, bCols
+	mov esi, ecx
+	lea esi, [esi*2+edi]
+	mov al, bRows
+	mul cl
+	mov cx, ax
+	shr ecx,1
+	cld
+	rep movsd
+	push edi
+	mov cl, bCols
+	mov eax,07200720h
+	shr ecx, 1
+	rep stosd
+	pop eax
+	pop edi
+	sub eax, edi
+	retn
+
+VioPutChar endp
+
+if 0
+VioGetCsrPos proc
+	push edi
+	mov edi, 400h
+if @Model ne 7
+	sub edi, PREFIX[_DSBase]
+endif
+	@getcursorpos ax
+	pop edi
+	ret
+VioGetCsrPos endp
+
+;--- set cursor pos
+;--- usage: invoke VioSetCsrPos, wPos
+;--- col: lobyte wPos
+;--- row: hibyte wPos
+
+VioSetCsrPos proc
+	mov eax, [esp+4]
+	push edi
+	mov edi, 400h
+if @Model ne 7
+	sub edi, PREFIX[_DSBase]
+endif
+	@setcursorpos dx
+	pop edi
+	ret 4
+VioSetCsrPos endp
+endif
+
+	end

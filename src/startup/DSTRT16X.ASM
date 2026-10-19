@@ -1,6 +1,8 @@
 
 ;--- DOS 32-bit dll startup code for 16-bit client
 ;--- to be assembled with "jwasm -zcw dstrt16x.asm"
+;--- v2.1: this file was used for SNDCARD.DRV only, which
+;--- is now "legacy".
 
 	name dllstart
 

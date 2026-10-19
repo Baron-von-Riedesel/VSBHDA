@@ -124,7 +124,7 @@ C_EXTRA_FLAGS_MOD= $(C_EXTRA_FLAGS) -DNOTFLAT
 LD_FLAGS=
 LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
 
-INCLUDES=-I$(WATCOM)\h
+INCLUDES=-I$(WATCOM)\h -Iinclude
 LIBS=
 
 {src}.asm{$(OUTD)}.obj
@@ -136,8 +136,10 @@ LIBS=
 {src}.cpp{$(OUTD)}.obj
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-{src\hw}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
+!if !$(DYNAMIC)
+{srcdrv}.c{$(OUTD)}.obj
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
+!endif
 
 {src\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -D?MODEL=flat $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
@@ -167,23 +169,23 @@ $(OUTD)\$(NAME).lib: $(OBJFILES)
 	@$(LIB) -q -b -n $(OUTD)\$(NAME).lib $(OBJFILES)
 
 !if !$(DYNAMIC)
-$(OUTD)/ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)/cthw20k1.obj:  src\hw\cthw20k1.c
-$(OUTD)/cthw20k2.obj:  src\hw\cthw20k2.c
-$(OUTD)/dmabuff.obj:   src\hw\dmabuff.c
-$(OUTD)/physmem.obj:   src\hw\physmem.c
-$(OUTD)/pcibios.obj:   src\hw\pcibios.c
-$(OUTD)/sblive24.obj:  src\hw\sblive24.c
-$(OUTD)/sblive.obj:    src\hw\sblive.c
-$(OUTD)/sc_cs4281.obj: src\hw\sc_cs4281.c
-$(OUTD)/sc_e1370.obj:  src\hw\sc_e1370.c
-$(OUTD)/sc_e1371.obj:  src\hw\sc_e1371.c
-$(OUTD)/sc_ich.obj:    src\hw\sc_ich.c
-$(OUTD)/sc_inthd.obj:  src\hw\sc_inthd.c
-$(OUTD)/sc_sbgen.obj:  src\hw\sc_sbgen.c
-$(OUTD)/sc_sbxfi.obj:  src\hw\sc_sbxfi.c
-$(OUTD)/sc_via82.obj:  src\hw\sc_via82.c
-$(OUTD)/timer.obj:     src\hw\timer.c
+$(OUTD)/ac97mix.obj:   srcdrv\ac97mix.c
+$(OUTD)/cthw20k1.obj:  srcdrv\cthw20k1.c
+$(OUTD)/cthw20k2.obj:  srcdrv\cthw20k2.c
+$(OUTD)/dmabuff.obj:   srcdrv\dmabuff.c
+$(OUTD)/physmem.obj:   srcdrv\physmem.c
+$(OUTD)/pcibios.obj:   srcdrv\pcibios.c
+$(OUTD)/sblive24.obj:  srcdrv\sblive24.c
+$(OUTD)/sblive.obj:    srcdrv\sblive.c
+$(OUTD)/sc_cs4281.obj: srcdrv\sc_cs4281.c
+$(OUTD)/sc_e1370.obj:  srcdrv\sc_e1370.c
+$(OUTD)/sc_e1371.obj:  srcdrv\sc_e1371.c
+$(OUTD)/sc_ich.obj:    srcdrv\sc_ich.c
+$(OUTD)/sc_inthd.obj:  srcdrv\sc_inthd.c
+$(OUTD)/sc_sbgen.obj:  srcdrv\sc_sbgen.c
+$(OUTD)/sc_sbxfi.obj:  srcdrv\sc_sbxfi.c
+$(OUTD)/sc_via82.obj:  srcdrv\sc_via82.c
+$(OUTD)/timer.obj:     srcdrv\timer.c
 !else
 $(OUTD)/loaddrv.obj:   src\loaddrv.asm
 !endif

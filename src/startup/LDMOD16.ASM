@@ -2,6 +2,8 @@
 ;*** for 16-bit variant: load and setup a mz binary;
 ;--- the binary is assumed to run in protected-mode,
 ;--- code 32-bit. Both cs and ss segments are <= 64kB.
+;--- v2.1: this code was used by vsbhda16.exe to load
+;--- sndcard.drv - it's now "legacy".
 
 	.386
 	.model small

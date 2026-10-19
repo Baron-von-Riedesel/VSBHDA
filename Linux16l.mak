@@ -84,7 +84,7 @@ ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
 
-INCLUDES=-I$(WATCOM)/h
+INCLUDES=-I$(WATCOM)/h -Iinclude
 LIBS=
 
 $(OUTD)/%.obj: src/%.ASM
@@ -96,8 +96,8 @@ $(OUTD)/%.obj: src/%.C
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
-$(OUTD)/%.obj: src/hw/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc/hw -Isrc $(INCLUDES) -fo=$@ $<
+$(OUTD)/%.obj: srcdrv/%.C
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -DNOTFLAT -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
@@ -134,26 +134,27 @@ $(OUTD)/$(NAME).lib: $(OBJFILES)
 $(OUTD)/$(NAME2).lib: $(OBJFILES2)
 	@$(LIB) -q -b -n $(OUTD)/$(NAME2).lib $(OBJFILES2)
 
-$(OUTD)/AC97MIX.obj:   src/hw/AC97MIX.C
-$(OUTD)/CTHW20K1.obj:  src/hw/CTHW20K1.C
-$(OUTD)/CTHW20K2.obj:  src/hw/CTHW20K2.C
-$(OUTD)/DMABUFF.obj:   src/hw/DMABUFF.C
-$(OUTD)/PHYSMEM.obj:   src/hw/PHYSMEM.C
-$(OUTD)/PCIBIOS.obj:   src/hw/PCIBIOS.C
-$(OUTD)/SBLIVE24.obj:  src/hw/SBLIVE24.C
-$(OUTD)/SBLIVE.obj:    src/hw/SBLIVE.C
-$(OUTD)/SC_CS4281.obj: src/hw/SC_CS4281.C
-$(OUTD)/SC_E1370.obj:  src/hw/SC_E1370.C
-$(OUTD)/SC_E1371.obj:  src/hw/SC_E1371.C
-$(OUTD)/SC_ICH.obj:    src/hw/SC_ICH.C
-$(OUTD)/SC_INTHD.obj:  src/hw/SC_INTHD.C
-$(OUTD)/SC_SBGEN.obj:  src/hw/SC_SBGEN.C
-$(OUTD)/SC_SBXFI.obj:  src/hw/SC_SBXFI.C
-$(OUTD)/SC_VIA82.obj:  src/hw/SC_VIA82.C
-$(OUTD)/TIMER.obj:     src/hw/TIMER.C
+$(OUTD)/AC97MIX.obj:   srcdrv/AC97MIX.C
+$(OUTD)/CTHW20K1.obj:  srcdrv/CTHW20K1.C
+$(OUTD)/CTHW20K2.obj:  srcdrv/CTHW20K2.C
+$(OUTD)/DMABUFF.obj:   srcdrv/DMABUFF.C
+$(OUTD)/PHYSMEM.obj:   srcdrv/PHYSMEM.C
+$(OUTD)/PCIBIOS.obj:   srcdrv/PCIBIOS.C
+$(OUTD)/SBLIVE24.obj:  srcdrv/SBLIVE24.C
+$(OUTD)/SBLIVE.obj:    srcdrv/SBLIVE.C
+$(OUTD)/SC_CS4281.obj: srcdrv/SC_CS4281.C
+$(OUTD)/SC_E1370.obj:  srcdrv/SC_E1370.C
+$(OUTD)/SC_E1371.obj:  srcdrv/SC_E1371.C
+$(OUTD)/SC_ICH.obj:    srcdrv/SC_ICH.C
+$(OUTD)/SC_INTHD.obj:  srcdrv/SC_INTHD.C
+$(OUTD)/SC_SBGEN.obj:  srcdrv/SC_SBGEN.C
+$(OUTD)/SC_SBXFI.obj:  srcdrv/SC_SBXFI.C
+$(OUTD)/SC_VIA82.obj:  srcdrv/SC_VIA82.C
+$(OUTD)/TIMER.obj:     srcdrv/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C
 $(OUTD)/AU_CARDS.obj:  src/AU_CARDS.C
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -DFARAU -fo=$@ $<
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
 $(OUTD)/DPMI.obj:      src/DPMI.ASM

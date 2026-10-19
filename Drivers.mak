@@ -54,17 +54,17 @@ C_FLAGS=-q -oxa -ms -ecc -5s -fp5 -fpi87 -wcd=111
 C_EXTRA_FLAGS=-DNOTFLAT
 LD_FLAGS=
 
-INCLUDES=-I$(WATCOM)\h 
+INCLUDES=-Iinclude -I$(WATCOM)\h
 LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 
-{src\startup}.asm{$(OUTD)}.obj
+{srcdrv\startup}.asm{$(OUTD)}.obj
 	@$(ASM) -q -zcw -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
-{src\hw}.asm{$(OUTD)}.obj
-	@$(ASM) -q -D?MODEL=tiny -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
+{srcdrv}.asm{$(OUTD)}.obj
+	@$(ASM) -q -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
 
-{src\hw}.c{$(OUTD)}.obj
-	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrc\hw -Isrc $(INCLUDES) -fo=$@ $<
+{srcdrv}.c{$(OUTD)}.obj
+	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)\CS4281.DRV $(OUTD)\ES1370.DRV $(OUTD)\ES1371.DRV $(OUTD)\ICH.DRV $(OUTD)\HDA.DRV $(OUTD)\SBGEN.DRV $(OUTD)\SBXFI.DRV $(OUTD)\VIA82.DRV
 
@@ -160,33 +160,33 @@ op q,statics,m=$*.map,nodefaultlibs
 $(OUTD)/drvhlp.lib: $(HLPOBJ)
 	@$(LIB) -q -b -n $@ $(HLPOBJ)
 
-$(OUTD)\sc_cs4281.obj: src\hw\sc_cs4281.c
-$(OUTD)\sc_e1370.obj:  src\hw\sc_e1370.c
-$(OUTD)\sc_e1371.obj:  src\hw\sc_e1371.c
-$(OUTD)\sc_ich.obj:    src\hw\sc_ich.c
-$(OUTD)\sc_inthd.obj:  src\hw\sc_inthd.c
-$(OUTD)\sc_sbgen.obj:  src\hw\sc_sbgen.c
-$(OUTD)\sc_sbxfi.obj:  src\hw\sc_sbxfi.c
-$(OUTD)\sc_via82.obj:  src\hw\sc_via82.c
+$(OUTD)\sc_cs4281.obj: srcdrv\sc_cs4281.c
+$(OUTD)\sc_e1370.obj:  srcdrv\sc_e1370.c
+$(OUTD)\sc_e1371.obj:  srcdrv\sc_e1371.c
+$(OUTD)\sc_ich.obj:    srcdrv\sc_ich.c
+$(OUTD)\sc_inthd.obj:  srcdrv\sc_inthd.c
+$(OUTD)\sc_sbgen.obj:  srcdrv\sc_sbgen.c
+$(OUTD)\sc_sbxfi.obj:  srcdrv\sc_sbxfi.c
+$(OUTD)\sc_via82.obj:  srcdrv\sc_via82.c
 
-$(OUTD)\cthw20k1.obj:  src\hw\cthw20k1.c
-$(OUTD)\cthw20k2.obj:  src\hw\cthw20k2.c
-$(OUTD)\sblive.obj:    src\hw\sblive.c
-$(OUTD)\sblive24.obj:  src\hw\sblive24.c
+$(OUTD)\cthw20k1.obj:  srcdrv\cthw20k1.c
+$(OUTD)\cthw20k2.obj:  srcdrv\cthw20k2.c
+$(OUTD)\sblive.obj:    srcdrv\sblive.c
+$(OUTD)\sblive24.obj:  srcdrv\sblive24.c
 
-$(OUTD)\ac97mix.obj:   src\hw\ac97mix.c
-$(OUTD)\dmabuff.obj:   src\hw\dmabuff.c
-$(OUTD)\pcibios.obj:   src\hw\pcibios.c
-$(OUTD)\physmem.obj:   src\hw\physmem.c
-$(OUTD)\timer.obj:     src\hw\timer.c
+$(OUTD)\ac97mix.obj:   srcdrv\ac97mix.c
+$(OUTD)\dmabuff.obj:   srcdrv\dmabuff.c
+$(OUTD)\pcibios.obj:   srcdrv\pcibios.c
+$(OUTD)\physmem.obj:   srcdrv\physmem.c
+$(OUTD)\timer.obj:     srcdrv\timer.c
 
-$(OUTD)\dpmidrv.obj:   src\hw\dpmidrv.asm
+$(OUTD)\dpmidrv.obj:   srcdrv\dpmidrv.asm
 
-$(OUTD)\dprintf.obj:   src\startup\dprintf.asm
-$(OUTD)\libmain32.obj: src\startup\libmain32.asm
-$(OUTD)\malloc.obj:    src\startup\malloc.asm
-$(OUTD)\sbrk.obj:      src\startup\sbrk.asm
-$(OUTD)\vioout.obj:    src\startup\vioout.asm
+$(OUTD)\dprintf.obj:   srcdrv\startup\dprintf.asm
+$(OUTD)\libmain32.obj: srcdrv\startup\libmain32.asm
+$(OUTD)\malloc.obj:    srcdrv\startup\malloc.asm
+$(OUTD)\sbrk.obj:      srcdrv\startup\sbrk.asm
+$(OUTD)\vioout.obj:    srcdrv\startup\vioout.asm
 
 clean: .SYMBOLIC
 	@del $(OUTD)\*.drv

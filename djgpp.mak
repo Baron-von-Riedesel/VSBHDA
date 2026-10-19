@@ -37,11 +37,11 @@ C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 endif
 
-vpath_src=src src/hw
+vpath_src=src srcdrv
 vpath %.c $(vpath_src)
 vpath %.cpp $(vpath_src)
 vpath %.asm $(vpath_src)
-vpath_header=src src/hw
+vpath_header=src srcdrv
 vpath %.h $(vpath_header)
 vpath_obj=./$(OUTD)/
 vpath %.o $(vpath_obj)
@@ -73,11 +73,12 @@ OBJFILES += \
 endif
 
 ifeq ($(DYNAMIC),0)
-INCLUDE_DIRS=src src/hw
+INCLUDE_DIRS=src srcdrv include
 else
-INCLUDE_DIRS=src
+INCLUDE_DIRS=src include
 endif
-SRC_DIRS=src src/hw
+
+#SRC_DIRS=src srcdrv
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables
 C_EXTRA_FLAGS=-march=i586 -fshort-enums
@@ -104,7 +105,7 @@ $(OUTD)/%.o: src/%.asm
 $(OUTD)/%.o: src/startup/%.asm
 	$(COMPILE2.asm.o)
 
-$(OUTD)/%.o: src/hw/%.c
+$(OUTD)/%.o: srcdrv/%.c
 	$(COMPILE.c.o)
 
 all:: $(OUTD) $(OUTD)/$(NAME)D.EXE
@@ -138,7 +139,7 @@ $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
 $(OUTD)/sblive24.o:: sblive24.c  auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h ca0106.h
 $(OUTD)/sblive.o::   sblive.c    auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h emu10k1.h
-$(OUTD)/sc_cs4281.o:: src/hw/sc_cs4281.c auistruc.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
+$(OUTD)/sc_cs4281.o:: srcdrv/sc_cs4281.c auistruc.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
 $(OUTD)/sc_e1371.o:: sc_e1371.c  auistruc.h dmabuff.h pcibios.h ac97mix.h
 $(OUTD)/sc_e1370.o:: sc_e1370.c  auistruc.h dmabuff.h pcibios.h ak4531.h
 $(OUTD)/sc_ich.o::   sc_ich.c    auistruc.h dmabuff.h pcibios.h ac97mix.h
@@ -152,19 +153,19 @@ $(OUTD)/loaddrv.o::  loaddrv.asm
 endif
 
 $(OUTD)/adpcm.o::    adpcm.c     adpcm.h
-$(OUTD)/au_cards.o:: au_cards.c  auistruc.h config.h
+$(OUTD)/au_cards.o:: au_cards.c  include/auistruc.h config.h
 $(OUTD)/dbopl.o::    dbopl.cpp   dbopl.h
-$(OUTD)/linear.o::   linear.c    linear.h platform.h
-$(OUTD)/main.o::     main.c      linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au_cards.h version.h
+$(OUTD)/linear.o::   linear.c    include/linear.h platform.h
+$(OUTD)/main.o::     main.c      include/linear.h platform.h ptrap.h vopl3.h pic.h config.h vsb.h vdma.h virq.h au_cards.h version.h
 $(OUTD)/pic.o::      pic.c       pic.h platform.h ptrap.h
-$(OUTD)/ptrap.o::    ptrap.c     linear.h platform.h ptrap.h config.h
-$(OUTD)/sndisr.o::   sndisr.c    linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au_cards.h
+$(OUTD)/ptrap.o::    ptrap.c     include/linear.h platform.h ptrap.h config.h
+$(OUTD)/sndisr.o::   sndisr.c    include/linear.h platform.h vopl3.h pic.h config.h vsb.h vdma.h virq.h adpcm.h au_cards.h
 $(OUTD)/tsf.o::      tsf.c       src/tsf/tsf.h
-$(OUTD)/vdma.o::     vdma.c      linear.h platform.h ptrap.h vdma.h config.h
-$(OUTD)/virq.o::     virq.c      linear.h platform.h pic.h ptrap.h virq.h config.h
+$(OUTD)/vdma.o::     vdma.c      include/linear.h platform.h ptrap.h vdma.h config.h
+$(OUTD)/virq.o::     virq.c      include/linear.h platform.h pic.h ptrap.h virq.h config.h
 $(OUTD)/vopl3.o::    vopl3.cpp   dbopl.h vopl3.h config.h
-$(OUTD)/vsb.o::      vsb.c       linear.h platform.h vsb.h config.h
-$(OUTD)/vmpu.o::     vmpu.c      linear.h platform.h vmpu.h config.h
+$(OUTD)/vsb.o::      vsb.c       include/linear.h platform.h vsb.h config.h
+$(OUTD)/vmpu.o::     vmpu.c      include/linear.h platform.h vmpu.h config.h
 
 $(OUTD)/dpmi.o::     dpmi.asm
 $(OUTD)/dpmiisr.o::  dpmiisr.asm
