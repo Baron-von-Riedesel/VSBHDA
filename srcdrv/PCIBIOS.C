@@ -25,10 +25,15 @@
 #include "DPMIDRV.H"
 #include "PCIBIOS.H"
 
+#ifdef DJGPP
+#define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
+#define _my_rmstksiz() _go32_info_block.size_of_transfer_buffer
+#else
 extern unsigned int _linear_psp;
 extern unsigned int _linear_rmstack;
 #define _my_rmstack()  _linear_rmstack
 #define _my_rmstksiz() 0x400
+#endif
 
 /* PCIBIOSACCESS 1 requires a 1 kB real-mode stack ( it's either the go32
  * transfer buffer [DJGPP] or a separately allocated DOS memory [OW] ).
@@ -162,9 +167,9 @@ uint8_t pcibios_search_devices(const struct pci_device_s devices[], struct pci_c
 static uint32_t access_config( struct pci_config_s * ppkey, uint16_t wAdr, uint8_t bFunc, uint32_t data )
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
-#ifdef DJGPP
+#if 0 //def DJGPP
 	if ( _my_rmstksiz() == 0 )
-        fatal_error( 1 );
+		fatal_error( 1 );
 #endif
 	regs.h.ah = PCI_FUNCTION_ID;
 	regs.h.al = bFunc;

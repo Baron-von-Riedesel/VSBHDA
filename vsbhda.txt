@@ -110,7 +110,7 @@
      /BS     : Set resampling buffer size
      /SD     : Set slowdown factor
      /O      : Set output connector (HDA & SB Live/Audigy only)
-     /DEV    : Set start index for device scan (HDA only)
+     /DEV    : Set start index for device scan (HDA & SB Live/Audigy only)
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit for MPU synthesizer
      /CF     : Set compatibility flags

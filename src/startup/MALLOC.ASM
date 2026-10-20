@@ -8,6 +8,7 @@
 
 	.386
 	.model ?MODEL
+	option casemap:none
 
 	include DEBUG.INC
 

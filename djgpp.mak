@@ -37,22 +37,25 @@ C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 endif
 
-vpath_src=src srcdrv
-vpath %.c $(vpath_src)
-vpath %.cpp $(vpath_src)
-vpath %.asm $(vpath_src)
-vpath_header=src srcdrv
-vpath %.h $(vpath_header)
-vpath_obj=./$(OUTD)/
-vpath %.o $(vpath_obj)
-
 ifndef NOFM
 FMOBJS=$(OUTD)/dbopl.o	$(OUTD)/vopl3.o
 endif
 
 ifeq ($(DYNAMIC),1)
 LOADDRVOBJ=$(OUTD)/loaddrv.o
+vpath_src=src
+vpath_header=src
+else
+vpath_src=src srcdrv
+vpath_header=src srcdrv
 endif
+
+vpath %.c $(vpath_src)
+vpath %.cpp $(vpath_src)
+vpath %.asm $(vpath_src)
+vpath %.h $(vpath_header)
+vpath_obj=./$(OUTD)/
+vpath %.o $(vpath_obj)
 
 OBJFILES = \
 	$(OUTD)/main.o		$(OUTD)/sndisr.o	$(OUTD)/ptrap.o		$(OUTD)/linear.o	$(OUTD)/pic.o \
@@ -105,8 +108,10 @@ $(OUTD)/%.o: src/%.asm
 $(OUTD)/%.o: src/startup/%.asm
 	$(COMPILE2.asm.o)
 
+ifeq ($(DYNAMIC),0)
 $(OUTD)/%.o: srcdrv/%.c
 	$(COMPILE.c.o)
+endif
 
 all:: $(OUTD) $(OUTD)/$(NAME)D.EXE
 
@@ -131,23 +136,23 @@ $(OUTD)/rmwrap.o:: rmwrap.asm rmcode1.asm rmcode2.asm
 	jwasm.exe -q -djgpp -D?MODEL=small -DOUTD=$(OUTD) -Fo$@ src/rmwrap.asm
 
 ifeq ($(DYNAMIC),0)
-$(OUTD)/ac97mix.o::  ac97mix.c   auistruc.h ac97mix.h
+$(OUTD)/ac97mix.o::  ac97mix.c   include/auistruc.h ac97mix.h
 $(OUTD)/cthw20k1.o:: cthw20k1.c  cthw20kx.h
 $(OUTD)/cthw20k2.o:: cthw20k2.c  cthw20kx.h
-$(OUTD)/dmabuff.o::  dmabuff.c   auistruc.h dmabuff.h
+$(OUTD)/dmabuff.o::  dmabuff.c   include/auistruc.h dmabuff.h
 $(OUTD)/pcibios.o::  pcibios.c   pcibios.h
 $(OUTD)/physmem.o::  physmem.c
-$(OUTD)/sblive24.o:: sblive24.c  auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h ca0106.h
-$(OUTD)/sblive.o::   sblive.c    auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h emu10k1.h
-$(OUTD)/sc_cs4281.o:: srcdrv/sc_cs4281.c auistruc.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
-$(OUTD)/sc_e1371.o:: sc_e1371.c  auistruc.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_e1370.o:: sc_e1370.c  auistruc.h dmabuff.h pcibios.h ak4531.h
-$(OUTD)/sc_ich.o::   sc_ich.c    auistruc.h dmabuff.h pcibios.h ac97mix.h
-$(OUTD)/sc_inthd.o:: sc_inthd.c  auistruc.h dmabuff.h pcibios.h hda.h
-$(OUTD)/sc_sbgen.o:: sc_sbgen.c  auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h 
-$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  auistruc.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
-$(OUTD)/sc_via82.o:: sc_via82.c  auistruc.h dmabuff.h pcibios.h ac97.h
-$(OUTD)/timer.o::    timer.c     auistruc.h timer.h
+$(OUTD)/sblive24.o:: sblive24.c  include/auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h ca0106.h
+$(OUTD)/sblive.o::   sblive.c    include/auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h emu10k1.h
+$(OUTD)/sc_cs4281.o:: srcdrv/sc_cs4281.c include/auistruc.h dmabuff.h pcibios.h ac97mix.h dpmi.h linear.h
+$(OUTD)/sc_e1371.o:: sc_e1371.c  include/auistruc.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_e1370.o:: sc_e1370.c  include/auistruc.h dmabuff.h pcibios.h ak4531.h
+$(OUTD)/sc_ich.o::   sc_ich.c    include/auistruc.h dmabuff.h pcibios.h ac97mix.h
+$(OUTD)/sc_inthd.o:: sc_inthd.c  include/auistruc.h dmabuff.h pcibios.h hda.h
+$(OUTD)/sc_sbgen.o:: sc_sbgen.c  include/auistruc.h dmabuff.h pcibios.h ac97mix.h sc_sbgen.h 
+$(OUTD)/sc_sbxfi.o:: sc_sbxfi.c  include/auistruc.h dmabuff.h pcibios.h ac97mix.h cthw20kx.h
+$(OUTD)/sc_via82.o:: sc_via82.c  include/auistruc.h dmabuff.h pcibios.h ac97.h
+$(OUTD)/timer.o::    timer.c     include/auistruc.h timer.h
 else
 $(OUTD)/loaddrv.o::  loaddrv.asm
 endif

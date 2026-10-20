@@ -4,7 +4,7 @@
 ;--- for OW, assemble with -zcw
 
 	.386
-	.model ?MODEL
+	.model tiny
 	option casemap:none
 	option proc:private
 
@@ -21,7 +21,7 @@ __GETDS proto near
 endif
 
 VioPutChar proto
-externdef c _bOMode:byte
+externdef syscall _bOMode:byte
 
 	.data
 
@@ -293,14 +293,14 @@ _dprintf ENDP
 endif
 
 ;--- in case the CRT printf is NOT to be used, activate the switch below
-ifndef DJGPP	; for Open Watcom only
+;ifndef DJGPP	; for Open Watcom only
 
-printf proc syscall public fstr:ptr, args:vararg
+printf proc c public fstr:ptr, args:vararg
 	invoke vprintf, fstr, addr args
 	ret
 printf endp
 
-endif
+;endif
 
 if SETBORDER
 _SetBorder proc c public bColor:byte

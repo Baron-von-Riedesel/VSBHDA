@@ -6,7 +6,8 @@
 ;--- and sufficient for this kind of app.
 
 	.386
-	.model ?MODEL
+	.model tiny
+	option casemap:none
 
 	include DEBUG.INC
 

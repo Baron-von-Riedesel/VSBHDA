@@ -81,81 +81,92 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 ///////////////////////////////////////////////////////
 {
 	struct emu10k1_card *card = aui->card_private_data;
-    const struct emu_card_version_s *version;
+	const struct emu_card_version_s *version;
+	unsigned int devidx;
 	int i;
 
 	dbgprintf(("SBALL_adetect\n"));
-	if (pcibios_search_devices( creative_devices, &card->pci_dev) != PCI_SUCCESSFUL ) {
-		dbgprintf(("SBALL_adetect: pcibios_search_devices failed\n"));
-		goto err_adetect;
-	}
-	dbgprintf(("SBALL_adetect: found device vendor=%X device=%X\n", card->pci_dev.vendor_id, card->pci_dev.device_id));
-	pcibios_enable_BM_IO(&card->pci_dev);
 
-	/* v1.8: according to PCI specs, an I/O base address may have bits 2-3 set! */
-	//card->iobase = pcibios_ReadConfig_Dword(card->pci_dev, PCIR_NAMBAR) & 0xfff0;
-	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) & 0xfffc;
-	if (!card->iobase) {
-		dbgprintf(("SBALL_adetect: no IO port in PCI address bar\n"));
-		goto err_adetect;
-	}
+	/* v2.1: using FindDeviceClass() instead of search_devices();
+	 * this allows to start the search with an index, thus ignoring
+	 * cards. This may be useful if multiple SB PCI cards are
+	 * installed and one wants vsbhda to select a specific one.
+	 */
+	//if (pcibios_search_devices( creative_devices, &card->pci_dev) != PCI_SUCCESSFUL ) {
+	//	dbgprintf(("SBALL_adetect: pcibios_search_devices failed\n"));
+	//	goto err_adetect;
+	//}
+	for ( devidx = aui->card_devidx; ; devidx++ ) {
+		if( pcibios_FindDeviceClass( 4, 1, 0, devidx, creative_devices, &card->pci_dev) != PCI_SUCCESSFUL )
+			break;
+		dbgprintf(("SBALL_adetect(%u): found device vendor=%X device=%X\n", devidx, card->pci_dev.vendor_id, card->pci_dev.device_id));
+		if ( card->pci_dev.vendor_id != PCI_VENDOR_ID_CREATIVE )
+			continue;
 
-	//aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
-	aui->card_irq = card->pci_dev.bIrq;
-	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID); /* revision ID */
-	card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);  /* subsys model */
-	card->serial = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_SSVID); /* subsys vendorID + model */
+		card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID); /* revision ID */
+		card->model  = pcibios_ReadConfig_Word(&card->pci_dev, PCIR_SSID);	/* subsys model */
+		card->serial = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_SSVID); /* subsys vendorID + model */
 
-	/* check for the SB variants that are supported */
-	for ( version = cardtable[card->pci_dev.device_type]; version->longname; version++ ) {
-		if (( version->subsystem == card->serial)
+		/* check for the SB variants that are supported */
+		for ( version = cardtable[card->pci_dev.device_type]; version->longname; version++ ) {
+			if (( version->subsystem == card->serial)
 				|| (version->revision && (version->revision == card->chiprev)) /* this is to detect "Audigy 2 [unknown]" */
 				|| (!version->revision && !version->subsystem) ) {// "catch all" - unknown but supported card
-			card->card_capabilities = version;
-			break;
-		}
-	}
-
-	if (NULL == card->card_capabilities) { /* this should never be true, since all tables have a "catch all" last entry */
-		dbgprintf(("SBALL_adetect: SB variant (dev/subs/rev=%X/%u/%u) unknown\n", card->pci_dev.device_id, card->serial, card->chiprev ));
-		goto err_adetect;
-	}
-
-	card->chip_select = card->chips = card->card_capabilities->chips;
-	/* v1.7: set the detailed card name */
-	SBGEN_sndcard_info.shortname = version->longname;
-
-	/* check the "families": 10k1, 10k2, p16v, audigyls, live24 */
-	for ( i = 0; i < sizeof( emu_driver_all_funcs ) / sizeof( emu_driver_all_funcs[0] ); i++ ) {
-		if ( emu_driver_all_funcs[i]->selector(card,aui) ) {
-			if ( !emu_driver_all_funcs[i]->buffer_init(card,aui) ) {
-				dbgprintf(("SBALL_adetect: buffer_init() failed\n" ));
+				card->card_capabilities = version;
 				break;
 			}
-			card->driver_funcs = emu_driver_all_funcs[i];
-			break;
 		}
+		if (NULL == card->card_capabilities) { /* this should never be true, since all tables have a "catch all" last entry */
+			dbgprintf(("SBALL_adetect: SB variant (dev/subs/rev=%X/%u/%u) unknown\n", card->pci_dev.device_id, card->serial, card->chiprev ));
+			continue;
+		}
+
+		pcibios_enable_BM_IO(&card->pci_dev);
+
+		card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+		/* must be an I/O address */
+		if (!(card->iobase & 1)) {
+			dbgprintf(("SBALL_adetect(%u): invalid IO port %X in PCI address bar\n", devidx, card->iobase));
+			continue;
+		}
+		card->iobase &= 0xfff0;
+
+		card->chip_select = card->chips = card->card_capabilities->chips;
+
+		/* check the "families": 10k1, 10k2, p16v, audigyls, live24 */
+		for ( i = 0; i < sizeof( emu_driver_all_funcs ) / sizeof( emu_driver_all_funcs[0] ); i++ ) {
+			if ( emu_driver_all_funcs[i]->selector(card,aui) ) {
+				if ( !emu_driver_all_funcs[i]->buffer_init(card,aui) ) {
+					dbgprintf(("SBALL_adetect: buffer_init() failed\n" ));
+					break;
+				}
+				card->driver_funcs = emu_driver_all_funcs[i];
+				break;
+			}
+		}
+
+		if ( !card->driver_funcs ) {
+			dbgprintf(("SBALL_adetect: SB variant (dev/subs/rev=%X/%u/%u) rejected, no driver_funcs\n", card->pci_dev.device_id, card->serial, card->chiprev ));
+			continue;
+		}
+		//aui->card_irq = card->irq = pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_INTR_LN);
+		aui->card_irq = card->pci_dev.bIrq;
+		aui->card_pDmaBuffer = card->pcmout_buffer;
+
+		if (card->driver_funcs->hw_init)
+			card->driver_funcs->hw_init( card, aui );
+
+		/* v1.7: set the detailed card name */
+		SBGEN_sndcard_info.shortname       = card->card_capabilities->longname;
+		SBGEN_sndcard_info.cardbuf_getpos  = card->driver_funcs->pcm_pointer_playback;
+		SBGEN_sndcard_info.irq_routine     = card->driver_funcs->interrupt_isr;
+		SBGEN_sndcard_info.card_mixerchans = card->driver_funcs->mixerset;
+
+		dbgprintf(("SBALL_adetect: card ok, name=%s, subsys=%X, rev=%u, base=%X, irq=%u\n", card->card_capabilities->longname, card->serial, card->chiprev, card->iobase, aui->card_irq ));
+
+		return 1;
 	}
-
-	if ( !card->driver_funcs ) {
-		dbgprintf(("SBALL_adetect: SB variant (dev/subs/rev=%X/%u/%u) rejected\n", card->pci_dev.device_id, card->serial, card->chiprev ));
-		goto err_adetect;
-	}
-
-	aui->card_pDmaBuffer = card->pcmout_buffer;
-
-	if (card->driver_funcs->hw_init)
-		card->driver_funcs->hw_init( card, aui );
-
-	SBGEN_sndcard_info.cardbuf_getpos  = card->driver_funcs->pcm_pointer_playback;
-	SBGEN_sndcard_info.irq_routine     = card->driver_funcs->interrupt_isr;
-	SBGEN_sndcard_info.card_mixerchans = card->driver_funcs->mixerset;
-
-	dbgprintf(("SBALL_adetect: card ok, name=%s, subsys=%X, rev=%u, base=%X, irq=%u\n", card->card_capabilities->longname, card->serial, card->chiprev, card->iobase, aui->card_irq ));
-
-	return 1;
-
-err_adetect:
+//err_adetect:
 	SBALL_close(aui);
 	return 0;
 }

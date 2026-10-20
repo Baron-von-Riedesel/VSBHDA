@@ -30,6 +30,10 @@
 
 #define snd_card emu20kx_card_s
 
+#ifndef min
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 /*-----------------------------------------------------------*/
 /* cthw20k1.h */
 

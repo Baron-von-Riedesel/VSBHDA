@@ -41,6 +41,10 @@
 #include "PCIBIOS.H"
 #include "AC97MIX.H"
 
+#ifndef min
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 #define SETUPIRQ 0 /* 1=set PCI irq to 11 if not defined - v2.0: obsolete */
 #define PCIR_CFG 0x41 // ICH4-7
 

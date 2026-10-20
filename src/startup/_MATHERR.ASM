@@ -4,6 +4,7 @@
 
 	.386
 	.model ?MODEL
+	option casemap:none
 
 	.code
 

@@ -4,13 +4,13 @@
 ;--- memory models.
 
 	.386
-	.model ?MODEL
+	.model tiny
 	option casemap:none
 
 	.data
 
 if @Model ne 7
-externdef c _DSBase:dword
+externdef syscall _DSBase:dword
  ifdef DJGPP
 PREFIX textequ <cs:>
  else

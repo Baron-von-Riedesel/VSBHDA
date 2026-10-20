@@ -4,7 +4,7 @@
 ;--- DPMI memory allocation must be done while program is current client!
 
 	.386
-	.model ?MODEL
+	.model tiny
 	option casemap:none
 
 ENOMEM equ 5

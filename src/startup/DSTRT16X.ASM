@@ -9,6 +9,7 @@
 	.386
 	.model small
 	.dosseg
+	option casemap:none
 
 LFN equ 0
 EXIT equ 0

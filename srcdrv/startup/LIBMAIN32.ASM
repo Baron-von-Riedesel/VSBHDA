@@ -89,11 +89,7 @@ __linear_rmstack dd ?
 _curbrk dd 0
 _dynend dd 0
 basediff dd 0
-ifdef _DEBUG
-_bOMode db OM_DEBUGGER
-else
 _bOMode db OM_DOS
-endif
 
 	.code
 
@@ -211,6 +207,14 @@ LibMain proc far c public uses ebx baseaddr:dword, heapsize:dword, rmstack:dword
 	mov _DSBase,eax
 	sub eax, baseaddr
 	mov basediff, eax
+ifdef _DEBUG
+_IsDebuggerPresent proto c
+	call _IsDebuggerPresent
+	and eax, eax
+	jz @F
+	mov _bOMode,OM_DEBUGGER
+@@:
+endif
 	mov eax, offset cardinfo
 	ret
 

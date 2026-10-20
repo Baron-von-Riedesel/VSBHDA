@@ -1,6 +1,6 @@
 
 /* CA20K2 registers;
- * source: ALSA ctxfi/ct20k1reg.h
+ * source: ALSA ctxfi/ct20k2reg.h
  */
 
 #ifndef _20K2REGISTERS_H_

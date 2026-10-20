@@ -27,6 +27,10 @@
 #define AUCARDS_DMABUFSIZE_MAX    131072
 #define AUCARDS_DMABUFSIZE_BLOCK  512    /* default page (=period) size */
 
+#ifndef min
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
+
 /* alloc physical memory block (it's always an XMS EMB, aligned to 1kB ) */
 
 int MDma_alloc_cardmem( struct cardmem_s *dm, unsigned int buffsize)

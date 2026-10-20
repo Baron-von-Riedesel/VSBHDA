@@ -521,6 +521,7 @@ dyn_adetect proc c aui:ptr AUI
 	@dprintf CStr("lddrv.adetect: loading %s driver, rmstack=%X",10), edx, _linear_rmstack
 	invoke _LoadDriver, edx
 	.if eax
+int 3
 		@dprintf CStr("lddrv.adetect: calling LibMain()",10)
 		push ds
 		push es

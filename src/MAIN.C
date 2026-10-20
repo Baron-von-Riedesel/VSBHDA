@@ -144,7 +144,7 @@ static const struct {
     "SD",  "Set slowdown factor [def 0]", &gvars.slowdown,
 #endif
     "O",   "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
-    "DEV", "Set start index for device scan (HDA only) [def 0]", &gvars.device,
+    "DEV", "Set start index for device scan (HDA/SB Live|Audigy) [def 0]", &gvars.device,
     "PS",  "Set period size [def 512]", &gvars.period_size,
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,

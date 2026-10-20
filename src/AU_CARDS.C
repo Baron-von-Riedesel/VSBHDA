@@ -79,7 +79,7 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 
 #define NUMCARDS sizeof(sndcard_info_table)/sizeof(sndcard_info_table[0])
 
-#ifdef DPMI16
+#ifdef FARAU
 extern uint8_t bOMode;
 #endif
 
@@ -113,7 +113,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	struct audioout_info_s *aui;
 	int i;
 
-#ifdef DPMI16
+#ifdef FARAU
 # ifdef _DEBUG
 	if ( gvars->logfile )
 		bOMode = OM_BUFFERED;
@@ -235,7 +235,7 @@ void FAREXP AU_start( struct audioout_info_s *aui )
 			aui->card_handler->card_start( aui );
 		aui->card_infobits |= AUI_CARDINFOBIT_PLAYING;
 	}
-#ifdef DPMI16
+#ifdef FARAU
 	if ( bOMode == OM_DOS ) bOMode = OM_DIRECT;  /* no DOS output anymore */
 #endif
 	dbgprintf(("AU_start: card ctrlbits=%X infobits=%X\n", aui->card_ctrlbits, aui->card_infobits));

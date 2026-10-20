@@ -2143,6 +2143,7 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 		dma_set_mask_and_coherent(&pci->dev, DMA_BIT_MASK(32));
 #endif
 
+	pcibios_enable_BM_MM(pci);
 	hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR);
 	/* check if it's an I/O base. If not, the address range has to be mapped */
 	if ( 0 == (hw->io_base & 1)) {
@@ -2154,6 +2155,7 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 				return -1;
 			}
 		}
+		dbgprintf(("hw_card_start: ok, io_base=%X\n", hw->io_base));
 		info.address = hw->io_base & 0xfffffff8;
 		info.size = 0x200000; /* 2 MB */
 		if (__dpmi_physical_address_mapping(&info)) {
@@ -2185,8 +2187,9 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 		hw->card->sync_irq = hw->irq;
 	}
 
-	pci_set_master(pci);
 #endif
+	//pci_set_master(pci);
+	dbgprintf(("hw_card_start: ok, mem_base=%X\n", hw->mem_base));
 	return 0;
 
 #if 0

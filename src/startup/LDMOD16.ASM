@@ -7,6 +7,7 @@
 
 	.386
 	.model small
+	option casemap:none
 
 	include DEBUG.INC
 

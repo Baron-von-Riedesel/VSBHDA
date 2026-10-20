@@ -34,11 +34,11 @@ LINK=$(WATCOM)/binl/wlink
 endif
 
 ifeq ($(DEBUG),1)
-OUTD=driverd
+OUTD=owdrvd
 C_DEBUG_FLAGS=-D_DEBUG
 A_DEBUG_FLAGS=-D_DEBUG -Fl$* -Sg
 else
-OUTD=driver
+OUTD=owdrv
 C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 endif
@@ -61,10 +61,10 @@ HLPOBJ = \
 	$(OUTD)/SBRK.obj
 
 $(OUTD)/%.obj: srcdrv/%.ASM
-	@$(ASM) -q -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: srcdrv/startup/%.ASM
-	@$(ASM) -q -zcw -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: srcdrv/%.C
 	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<

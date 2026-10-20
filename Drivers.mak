@@ -41,11 +41,11 @@ LINK=$(WATCOM)\binnt\wlink.exe
 !endif
 
 !if $(DEBUG)
-OUTD=driverd
+OUTD=owdrvd
 C_DEBUG_FLAGS=-D_DEBUG
 A_DEBUG_FLAGS=-D_DEBUG -Fl$* -Sg
 !else
-OUTD=driver
+OUTD=owdrv
 C_DEBUG_FLAGS=
 A_DEBUG_FLAGS=
 !endif
@@ -58,10 +58,10 @@ INCLUDES=-Iinclude -I$(WATCOM)\h
 LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 
 {srcdrv\startup}.asm{$(OUTD)}.obj
-	@$(ASM) -q -zcw -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {srcdrv}.asm{$(OUTD)}.obj
-	@$(ASM) -q -D?MODEL=tiny $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {srcdrv}.c{$(OUTD)}.obj
 	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<

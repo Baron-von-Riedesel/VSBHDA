@@ -33,6 +33,7 @@
 	.386
 	.model flat
 	.dosseg
+	option casemap:none
 
 PEHDR struct
 sig                 dd ?
@@ -215,7 +216,7 @@ _cstart_ proc
 	int 2Fh
 	cmp al,0
 	jz dosext
-	mov esi,offset szNoDOSExt	; __do_exit_with_msg() cannot be used without DOS extender!
+	mov esi,offset szNoDosExt	; __do_exit_with_msg() cannot be used without DOS extender!
 @@:
 	lodsb
 	and al,al

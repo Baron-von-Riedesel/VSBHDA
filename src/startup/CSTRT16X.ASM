@@ -7,6 +7,7 @@
 	.386
 	.model small
 	.dosseg
+	option casemap:none
 
 FINI_PRIORITY_EXIT equ 16
 
@@ -230,7 +231,7 @@ around:
 	pop es
 	cmp al,0
 	jz dosext
-	mov esi,offset szNoDOSExt	; __do_exit_with_msg() cannot be used without DOS extender!
+	mov esi,offset szNoDosExt	; __do_exit_with_msg() cannot be used without DOS extender!
 @@:
 	lodsb
 	and al,al

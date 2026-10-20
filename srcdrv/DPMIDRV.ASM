@@ -2,7 +2,7 @@
 ;--- DPMI functions called by drivers.
 
 	.386
-	.MODEL ?MODEL
+	.MODEL tiny
 	option casemap:none
 	option proc:private
 
