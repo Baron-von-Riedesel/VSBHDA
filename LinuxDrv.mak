@@ -57,7 +57,7 @@ $(OUTD):
 
 HLPOBJ = \
 	$(OUTD)/PHYSMEM.obj   $(OUTD)/DMABUFF.obj  $(OUTD)/PCIBIOS.obj  $(OUTD)/TIMER.obj   $(OUTD)/AC97MIX.obj \
-	$(OUTD)/LIBMAIN32.obj $(OUTD)/DPMIDRV.obj  $(OUTD)/DPMI30X.obj  $(OUTD)/DPMI507.obj $(OUTD)/DPMI80X.obj \
+	$(OUTD)/LIBMAIN32.obj $(OUTD)/DPMI30X.obj  $(OUTD)/DPMI507.obj $(OUTD)/DPMI80X.obj \
 	$(OUTD)/DPRINTF.obj $(OUTD)/VIOOUT.obj     $(OUTD)/MALLOC.obj   $(OUTD)/SBRK.obj
 
 $(OUTD)/%.obj: srcdrv/%.ASM
