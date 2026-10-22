@@ -157,8 +157,9 @@
      BLASTER variable or the /P cmdline option.
    - /MV: setting a voice limit of 0 will trigger dynamic allocation - this
      is the most flexible setting, but may not work for all applications.
-   - /O: for SB Live/Audify cards, /O1 enables the "speaker" or "rear" jack;
-     value /O2 has no meaning for these cards.
+   - /O: HDA - selects lineOut, headphone or speaker.
+         SB Live/Audigy - /O1 enables the "speaker" or "rear" jack.
+         SB Live 24, Audigy LS/SE - /O1 enables S/PDIF output.
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
             0 = interrupt will be triggered delayed.

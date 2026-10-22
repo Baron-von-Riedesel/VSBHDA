@@ -33,7 +33,7 @@ vpath %.o $(vpath_obj)
 HLPOBJ = \
 	$(OUTD)/physmem.o   $(OUTD)/dmabuff.o  $(OUTD)/pcibios.o  $(OUTD)/timer.o   $(OUTD)/ac97mix.o \
 	$(OUTD)/cthw20k1.o  $(OUTD)/cthw20k2.o $(OUTD)/sblive.o   $(OUTD)/sblive24.o \
-	$(OUTD)/dpmidrv.o   $(OUTD)/dprintf.o  $(OUTD)/vioout.o \
+	$(OUTD)/dpmi30x.o   $(OUTD)/dpmi80x.o  $(OUTD)/dpmi507.o  $(OUTD)/dprintf.o  $(OUTD)/vioout.o \
 	$(OUTD)/libmain32.o $(OUTD)/malloc.o   $(OUTD)/sbrk.o     $(OUTD)/djcompat.o
 
 C_OPT_FLAGS=-Os -fno-asynchronous-unwind-tables

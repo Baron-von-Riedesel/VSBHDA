@@ -42,11 +42,16 @@ struct emu_driver_func_s{
  const struct aucards_mixerchan_s **mixerset;
 };
 
+/* note: card struct name prefix is emu10k1,
+ * although CA0106 cards have no EMU10K1 chip
+ */
+
 struct emu10k1_card {
  unsigned long   iobase;
  unsigned long   serial; /* PCI PCIR_SSVID */
  //unsigned int    irq; /* v2.0: obsolete */
  unsigned short  model; /* PCI PCIR_SSID */
+ unsigned short  spi_dac; /* v2.1: Audigy SE (different DAC) */
  unsigned char   chiprev; /* PCI PCIR_RID */
  unsigned char   chips; /* copied from card_capabilities.chips, unmodified */
  unsigned char   chip_select; /* copied from card_capabilities.chips, modified */

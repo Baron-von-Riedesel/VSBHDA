@@ -1217,6 +1217,7 @@ struct trn_conf {
 };
 
 static int hw_daio_init(struct hw *hw, const struct daio_conf *info)
+////////////////////////////////////////////////////////////////////
 {
 	unsigned int data;
 	int i;
@@ -1307,6 +1308,7 @@ static int hw_daio_init(struct hw *hw, const struct daio_conf *info)
 
 /* TRANSPORT operations */
 static int hw_trn_init(struct hw *hw, const struct trn_conf *info)
+//////////////////////////////////////////////////////////////////
 {
 	unsigned int vmctl, data;
 	unsigned int ptp_phys_low, ptp_phys_high;
@@ -1376,6 +1378,7 @@ static int hw_trn_init(struct hw *hw, const struct trn_conf *info)
 #define PLLSTAT_NCA 0x00400000
 
 static int hw_pll_init(struct hw *hw, unsigned int rsr)
+///////////////////////////////////////////////////////
 {
 	unsigned int pllenb;
 	unsigned int pllctl;
@@ -1403,20 +1406,16 @@ static int hw_pll_init(struct hw *hw, unsigned int rsr)
 		if (get_field(pllstat, PLLSTAT_PD))
 			continue;
 
-		if (get_field(pllstat, PLLSTAT_B) !=
-					get_field(pllctl, PLLCTL_B))
+		if (get_field(pllstat, PLLSTAT_B) != get_field(pllctl, PLLCTL_B))
 			continue;
 
-		if (get_field(pllstat, PLLSTAT_CCS) !=
-					get_field(pllctl, PLLCTL_SRC))
+		if (get_field(pllstat, PLLSTAT_CCS) != get_field(pllctl, PLLCTL_SRC))
 			continue;
 
-		if (get_field(pllstat, PLLSTAT_CRD) !=
-					get_field(pllctl, PLLCTL_RD))
+		if (get_field(pllstat, PLLSTAT_CRD) != get_field(pllctl, PLLCTL_RD))
 			continue;
 
-		if (get_field(pllstat, PLLSTAT_CFD) !=
-					get_field(pllctl, PLLCTL_FD))
+		if (get_field(pllstat, PLLSTAT_CFD) != get_field(pllctl, PLLCTL_FD))
 			continue;
 
 		break;
@@ -1430,6 +1429,7 @@ static int hw_pll_init(struct hw *hw, unsigned int rsr)
 }
 
 static int hw_auto_init(struct hw *hw)
+//////////////////////////////////////
 {
 	unsigned int gctl;
 	int i;
@@ -1498,6 +1498,7 @@ static int hw20k2_i2c_lock_chip(struct hw *hw)
 }
 
 static int hw20k2_i2c_init(struct hw *hw, unsigned char dev_id, unsigned char addr_size, unsigned char data_size)
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	struct hw20k2 *hw20k2 = (struct hw20k2 *)hw;
 	int err;
@@ -1676,6 +1677,7 @@ struct regs_cs4382 {
 };
 
 static int hw_dac_init(struct hw *hw, const struct dac_conf *info)
+//////////////////////////////////////////////////////////////////
 {
 	int err;
 	unsigned int data;
@@ -1936,6 +1938,7 @@ static void hw_adc_reset(struct hw *hw)
 }
 
 static int hw_adc_init(struct hw *hw, const struct adc_conf *info)
+//////////////////////////////////////////////////////////////////
 {
 	int err;
 	unsigned int data, ctl;
@@ -2162,6 +2165,15 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 			dbgprintf(("hw_card_start: ERROR, phys. address mapping [%X] failed\n", info.address));
 			return -1;
 		}
+#if 1
+		/* use new feature of hdpmi v3.24 (for DPMI function 0x800): set page attr to PCD/PWT;
+		 * usually this isn't needed, since memory mapped I/O addresses are "uncacheable" by MTRR,
+		 * but this isn't 100% safe to assume.
+		 */
+		if (__dpmi_set_page_attr(info.address, 0x130000, 0xD0, (3 | 0x88))) {
+			dbgprintf(("hw_card_start: ERROR, setting page attributes to 'cache disabled' failed\n"));
+		}
+#endif
 		hw->mem_base = (char volatile *)NearPtr(info.address);
 	} else {
 		dbgprintf(("hw_card_start: ERROR, PCI address 0 is an I/O address (%X)\n", hw->io_base));
@@ -2207,6 +2219,7 @@ error1:
 
 #if 0
 static int hw_card_stop(struct hw *hw)
+//////////////////////////////////////
 {
 	unsigned int data;
 
@@ -2222,6 +2235,7 @@ static int hw_card_stop(struct hw *hw)
 }
 
 static int hw_card_shutdown(struct hw *hw)
+//////////////////////////////////////////
 {
 	if (hw->irq >= 0)
 		free_irq(hw->irq, hw);
@@ -2242,6 +2256,7 @@ static int hw_card_shutdown(struct hw *hw)
 #endif
 
 static int hw_card_init(struct hw *hw, struct card_conf *info)
+//////////////////////////////////////////////////////////////
 {
 	int err;
 	unsigned int gctl;

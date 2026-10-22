@@ -55,6 +55,7 @@ typedef struct {
 
 int __dpmi_simulate_real_mode_interrupt(int _vector, __dpmi_regs *_regs);
 int __dpmi_simulate_real_mode_procedure_retf(__dpmi_regs *_regs);
+int __dpmi_set_page_attr( unsigned long handle, unsigned long ofs, unsigned long pages, short attr);
 int __dpmi_physical_address_mapping(__dpmi_meminfo *_info);
 int __dpmi_free_physical_address_mapping(__dpmi_meminfo *_info);
 

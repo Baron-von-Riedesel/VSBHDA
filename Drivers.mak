@@ -74,7 +74,7 @@ $(OUTD):
 HLPOBJ = &
 	$(OUTD)\physmem.obj   $(OUTD)\dmabuff.obj  $(OUTD)\pcibios.obj  $(OUTD)\timer.obj   $(OUTD)\ac97mix.obj &
 	$(OUTD)\cthw20k1.obj  $(OUTD)\cthw20k2.obj $(OUTD)\sblive.obj   $(OUTD)\sblive24.obj &
-	$(OUTD)\dpmidrv.obj   $(OUTD)\dprintf.obj  $(OUTD)\vioout.obj &
+	$(OUTD)\dpmi30x.obj   $(OUTD)\dpmi507.obj  $(OUTD)\dpmi80x.obj  $(OUTD)\dprintf.obj  $(OUTD)\vioout.obj &
 	$(OUTD)\libmain32.obj $(OUTD)\malloc.obj   $(OUTD)\sbrk.obj
 
 $(OUTD)/CS4281.DRV: $(OUTD)\sc_cs4281.obj  $(OUTD)\drvhlp.lib
@@ -180,7 +180,9 @@ $(OUTD)\pcibios.obj:   srcdrv\pcibios.c
 $(OUTD)\physmem.obj:   srcdrv\physmem.c
 $(OUTD)\timer.obj:     srcdrv\timer.c
 
-$(OUTD)\dpmidrv.obj:   srcdrv\dpmidrv.asm
+$(OUTD)\dpmi30x.obj:   srcdrv\dpmi30x.asm
+$(OUTD)\dpmi507.obj:   srcdrv\dpmi507.asm
+$(OUTD)\dpmi80x.obj:   srcdrv\dpmi80x.asm
 
 $(OUTD)\dprintf.obj:   srcdrv\startup\dprintf.asm
 $(OUTD)\libmain32.obj: srcdrv\startup\libmain32.asm
