@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "CONFIG.H"
-#include "AU.H"
+#include "AU_CARDS.H"
 #include "VSB.H"
 #include "VOPL3.H"
 #include "VMPU.H"

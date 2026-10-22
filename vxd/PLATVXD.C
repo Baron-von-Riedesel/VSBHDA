@@ -190,6 +190,17 @@ int __dpmi_free_physical_address_mapping( __dpmi_meminfo *info )
 	return 0;
 }
 
+/* the drivers of srcdrv convert with LinearAddr()/NearPtr(): flat, base 0 */
+uint32_t DSBase = 0;
+
+/* DPMI 0507h (CTHW20K2: MMIO "cache disabled"): _MapPhysToLinear maps
+ * device memory, which the MTRRs keep uncacheable; nothing to change */
+int __dpmi_set_page_attr( unsigned long handle, unsigned long ofs, unsigned long pages, short attr )
+{
+	(void)handle; (void)ofs; (void)pages; (void)attr;
+	return 0;
+}
+
 /* --- delay (TIMER.C): PIT channel 0, 1.19318 MHz ------------------ */
 
 static uint16_t pitcount( void )

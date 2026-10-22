@@ -17,12 +17,16 @@ export WATCOM
 CC  := $(WATCOM)/binl/wcc386
 CPP := $(WATCOM)/binl/wpp386
 SRC := ../src
+DRV := ../srcdrv
 OUT ?= ../build/vxd
 
 # flat, cdecl, stack calling, inline FPU, no stack checks, no default libs
 COPT := -q -mf -oxa -ecc -5s -fp5 -fpi87 -s -zl -zls -wcd=111 -wcd=303 -DVSBVXD
 CPPOPT := -q -mf -oxa -bc -5s -fp5 -fpi87 -s -zl -zls -DVSBVXD
-INC := -I. -I$(SRC) -I$(SRC)/hw -I$(WATCOM)/h
+# the emulation and VSBVXD itself: src; the sound hardware drivers: srcdrv
+# (their own LINEAR.H, DEBUG.H and DPMIDRV.H); vxd first in both
+INC := -I. -I$(SRC) -I$(DRV) -I../include -I$(WATCOM)/h
+DRVINC := -I. -I$(DRV) -I../include -I$(WATCOM)/h
 
 VXDOBJS := VSBVXD.obj VSBRMI.obj VXDMAIN.obj VXDLOG.obj PCIVXD.obj PLATVXD.obj \
 	PTRAPVXD.obj VDMAVXD.obj VIRQVXD.obj CPPRT.obj RTVXD.obj VXDWAVE.obj
@@ -30,10 +34,11 @@ VXDOBJS := VSBVXD.obj VSBRMI.obj VXDMAIN.obj VXDLOG.obj PCIVXD.obj PLATVXD.obj \
 # VSBHDA emulation (src)
 EMUOBJS := SNDISR.obj VSB.obj ADPCM.obj VMPU.obj VOPL3.obj DBOPL.obj
 
-# VSBHDA sound hardware drivers (src/hw)
-HWOBJS  := AU_CARDS.obj DMABUFF.obj AC97MIX.obj AK4531MIX.obj SC_INTHD.obj SC_ICH.obj \
-	SC_E1370.obj SC_E1371.obj SC_CS4281.obj SC_VIA82.obj SC_SBLIV.obj SC_SBL24.obj \
-	SC_SBXFI.obj CTHW20K1.obj CTHW20K2.obj
+# VSBHDA sound hardware drivers (srcdrv), linked in as with DYNAMIC=0;
+# AU_CARDS.C (src) is their table
+HWOBJS  := AU_CARDS.obj DMABUFF.obj AC97MIX.obj SC_INTHD.obj SC_ICH.obj \
+	SC_E1370.obj SC_E1371.obj SC_CS4281.obj SC_VIA82.obj SC_SBGEN.obj SBLIVE.obj \
+	SBLIVE24.obj SC_SBXFI.obj CTHW20K1.obj CTHW20K2.obj
 
 OBJS := $(addprefix $(OUT)/,$(VXDOBJS) $(EMUOBJS) $(HWOBJS))
 
@@ -51,8 +56,8 @@ $(OUT)/%.obj: %.C VXDLIB.H CONFIG.H | $(OUT)
 $(OUT)/%.obj: $(SRC)/%.C | $(OUT)
 	$(CC) $(COPT) $(INC) -fo=$@ $<
 
-$(OUT)/%.obj: $(SRC)/hw/%.C | $(OUT)
-	$(CC) $(COPT) $(INC) -fo=$@ $<
+$(OUT)/%.obj: $(DRV)/%.C | $(OUT)
+	$(CC) $(COPT) $(DRVINC) -fo=$@ $<
 
 $(OUT)/%.obj: %.CPP | $(OUT)
 	$(CPP) $(CPPOPT) $(INC) -fo=$@ $<

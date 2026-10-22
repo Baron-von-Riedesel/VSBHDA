@@ -103,8 +103,11 @@
    6. Implementation notes
 
    - The emulation (src/VSB.C, SNDISR.C, VOPL3.CPP, ...) and the sound
-     hardware drivers (src/hw) are used unchanged except SNDISR.C (a few
-     #ifdef VSBVXD). The DPMI parts are replaced by vxd/: port traps with
+     hardware drivers (srcdrv, linked in like VSBHDA's DYNAMIC=0 build with
+     the table of src/AU_CARDS.C) are used unchanged except SNDISR.C (a few
+     #ifdef VSBVXD). The drivers' platform functions (DPMIDRV.H, PHYSMEM.H,
+     TIMER.H, PCIBIOS.H, DSBase of LINEAR.H) come from vxd/PLATVXD.C and
+     vxd/PCIVXD.C. The DPMI parts are replaced by vxd/: port traps with
      Install_IO_Handler (all VMs), the SB DMA channels virtualized with VDMAD,
      the SB interrupt with VPICD (requested in the VM that used the SB last),
      the sound hardware interrupt with VPICD, PCI via configuration
