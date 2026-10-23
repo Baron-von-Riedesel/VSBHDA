@@ -61,14 +61,6 @@
  */
 #define CS4281_MAX_IRQ_TENTHS_MS 117
 
-/* Value of aui->card_buffers when the user did NOT give /B. AU_init() (src/AU_CARDS.C)
- * stores HW_BUFFERS_DEFAULT there in that case:
- *     aui->card_buffers = (gvars->buffers > 1) ? gvars->buffers : HW_BUFFERS_DEFAULT;
- * Older cores stored the raw /B value (0 = not given). HW_BUFFERS_DEFAULT is defined in
- * src/CONFIG.H, which driver modules don't see - keep this copy in sync with it.
- */
-#define CS4281_HW_BUFFERS_DEFAULT 8
-
 //-------------------------------------------------------------------------
 // BA0 register offsets/bits actually used by this (playback-only) driver.
 // Full register set is much larger - see the ALSA driver for anything not
@@ -771,10 +763,9 @@ static void CS4281_close( struct audioout_info_s *aui )
 }
 
 /* Size of the DMA ring actually used (never more than what was allocated).
- * If the user gave /B explicitly (a value other than the default) it is used as is.
- * Otherwise the ring is cut so
- * that the interval between card interrupts (= half a ring) does not exceed
- * CS4281_MAX_IRQ_TENTHS_MS at the current rate: 4096 bytes at 44100/48000 Hz
+ * If the user gave /B explicitly it is used as is (even /B8). Otherwise the ring
+ * is cut so that the interval between card interrupts (= half a ring) does not
+ * exceed CS4281_MAX_IRQ_TENTHS_MS at the current rate: 4096 bytes at 44100/48000 Hz
  * (unchanged), 2048 at 22050, 1024 at 11025/16000, ... Never less than two pages.
  */
 static unsigned int cs4281_ring_size(struct audioout_info_s *aui, struct cs4281_card_s *card)
@@ -784,14 +775,14 @@ static unsigned int cs4281_ring_size(struct audioout_info_s *aui, struct cs4281_
 	unsigned int page = aui->card_period_size ? aui->card_period_size : CS4281_DMABUF_ALIGN;
 	unsigned long limit;
 
-	/* /B given with a non-default value: the user decides. The core now fills in the
-	 * default (8) when /B is absent, so "card_buffers > 1" is always true and must not be
-	 * used to detect an explicit /B - that silently disabled this whole adjustment and
-	 * brought back the long IRQ interval (echo/distortion) at low sample rates.
-	 * Consequence: an explicit /B8 is indistinguishable from the default and gets the
-	 * adjusted ring too; use any other value (e.g. /B9) to force a bigger ring.
+	/* /B given: the user decides. The core copies the default (HW_BUFFERS_DEFAULT) into
+	 * card_buffers when /B is absent, so card_buffers alone can't tell the two cases apart
+	 * ("card_buffers > 1" is then always true); it flags that case with
+	 * AUI_CARDINFOBIT_DEF_BUFFERS instead. Testing card_buffers here silently disabled this
+	 * whole adjustment and brought back the long IRQ interval (echo/distortion) at low
+	 * sample rates.
 	 */
-	if (aui->card_buffers > 1 && aui->card_buffers != CS4281_HW_BUFFERS_DEFAULT)
+	if (!(aui->card_infobits & AUI_CARDINFOBIT_DEF_BUFFERS))
 		return size;
 	/* ring bytes = 2 (halves) * frames per interrupt interval * 4 (16-bit stereo) */
 	limit = (unsigned long)aui->freq_card * CS4281_MAX_IRQ_TENTHS_MS / 10000UL * 2 * 4;

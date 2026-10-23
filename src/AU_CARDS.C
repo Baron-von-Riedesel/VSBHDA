@@ -142,7 +142,12 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	/* v1.7: global settings can be accessed directly - card_select_ variables removed
 	 * v2.1: for better module isolation removed gvars from aui.
 	 */
-	aui->card_buffers = (gvars->buffers > 1) ? gvars->buffers : HW_BUFFERS_DEFAULT;
+	if ( gvars->buffers > 1 )
+		aui->card_buffers = gvars->buffers;
+	else {
+		aui->card_buffers = HW_BUFFERS_DEFAULT;
+		aui->card_infobits |= AUI_CARDINFOBIT_DEF_BUFFERS; /* let the driver know that /B was not given */
+	}
 	aui->card_period_size = gvars->period_size;
 	aui->card_devidx = gvars->device;
 	aui->card_outdev = gvars->pin;
