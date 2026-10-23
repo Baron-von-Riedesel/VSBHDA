@@ -43,6 +43,8 @@ struct globalvars gvars = {
 	44100,               /* Freq (Windows wave output) */
 };
 
+char *driver_name;       /* VSBHDA option /DF:, not used by the VxD */
+
 static struct {
 	void *hAU;
 	unsigned hwirqh;     /* VPICD handle of the sound hardware IRQ */

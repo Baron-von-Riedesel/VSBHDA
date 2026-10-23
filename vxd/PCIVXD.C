@@ -106,8 +106,8 @@ uint8_t pcibios_FindDevice( uint16_t wVendor, uint16_t wDevice, struct pci_confi
 	return scan( match_id, &c, ppkey ) ? PCI_SUCCESSFUL : PCI_DEVICE_NOTFOUND;
 }
 
-uint8_t pcibios_FindDeviceClass( uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex,
-                                 const struct pci_device_s devices[], struct pci_config_s *ppkey )
+uint8_t pcibios_FindDeviceClass( struct pci_config_s *ppkey, uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex,
+                                 const struct pci_device_s devices[] )
 {
 	struct findctx c;
 	int i;
