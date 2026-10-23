@@ -233,6 +233,9 @@ TSFDEF int tsf_channel_set_pressure(tsf* f, int channel, float pressure);
 TSFDEF int tsf_channel_note_on(tsf* f, int channel, int key, float vel);
 TSFDEF void tsf_channel_note_off(tsf* f, int channel, int key);
 TSFDEF void tsf_channel_note_off_all(tsf* f, int channel); //end with sustain and release
+TSFDEF void tsf_channel_release_loops(tsf* f, int channel, int key); //vsbhda: release looping voices of a key (one-shot percussion)
+TSFDEF void tsf_set_postgain(tsf* f, float gain); //vsbhda: linear gain applied to the rendered output (live, affects sounding notes too)
+TSFDEF void tsf_set_voice_cap(tsf* f, int cap); //vsbhda: drop surplus voices so that at most cap voices are active (cheapest victims first)
 TSFDEF void tsf_channel_sounds_off_all(tsf* f, int channel); //end immediately
 
 // Apply a MIDI control change to the channel (not all controllers are supported!)
@@ -1249,6 +1252,12 @@ static void tsf_voice_calcpitchratio(struct tsf_voice* v, float pitchShift, floa
 	v->pitchOutputFactor = v->region->sample_rate / (tsf_timecents2Secsd(v->region->pitch_keycenter * 100.0) * outSampleRate);
 }
 
+/* vsbhda: a voice which is in its release phase and has faded below this level ( -60 dB ) is
+ * inaudible but would still use up a voice and cpu time for the rest of the ( often long ) release. */
+#ifndef TSF_RELEASE_CUTOFF
+#define TSF_RELEASE_CUTOFF 0.001f
+#endif
+
 static void tsf_voice_render(tsf* f, struct tsf_voice* v, float* outputBuffer, int numSamples)
 {
 	struct tsf_region* region = v->region;
@@ -1306,6 +1315,12 @@ static void tsf_voice_render(tsf* f, struct tsf_voice* v, float* outputBuffer, i
 			noteGain = tsf_decibelsToGain(v->noteGainDB + (v->modlfo.level * tmpModLfoToVolume));
 
 		gainMono = noteGain * v->ampenv.level;
+
+		if (v->ampenv.segment == TSF_SEGMENT_RELEASE && gainMono < TSF_RELEASE_CUTOFF)
+		{
+			tsf_voice_kill(v);
+			return;
+		}
 
 		// Update EG.
 		tsf_voice_envelope_process(&v->ampenv, blockSamples, tmpSampleRate);
@@ -1684,6 +1699,18 @@ TSFDEF int tsf_note_on(tsf* f, int preset_index, int key, float vel)
 					}
 				}
 				if (!voice)
+				{
+					// vsbhda: no voice is in its release phase. Dropping the new note would leave stuck
+					// notes playing forever, so steal the oldest voice (never one of this very note).
+					int oldestPlayIndex = 0x7FFFFFFF;
+					for (v = f->voices; v != vEnd; v++)
+						if (v->playingPreset != -1 && v->playIndex != voicePlayIndex && v->playIndex < oldestPlayIndex)
+						{
+							oldestPlayIndex = v->playIndex;
+							voice = v;
+						}
+				}
+				if (!voice)
 					continue;
 				tsf_voice_kill(voice);
 			}
@@ -1797,6 +1824,47 @@ TSFDEF int tsf_active_voice_count(tsf* f)
 	return count;
 }
 
+/* vsbhda: peak limiter for the synthesizer output.
+ * Summing many voices easily exceeds full scale. Hard clipping (or a static waveshaper) then
+ * creates harsh harmonic distortion, which is what "saturated" sounds like. Instead the gain is
+ * lowered smoothly: the peak of each block is known before it is converted, so the gain reaches
+ * the needed value within a few frames (a rare sample inside that short ramp may still touch
+ * full scale and is caught by the final clamp) and recovers slowly afterwards.
+ * Signals below the ceiling are passed through bit-exact and without any extra cost. */
+#ifndef TSF_LIMITER_CEILING
+#define TSF_LIMITER_CEILING 0.9f   /* max. output level, 1.0 = full scale */
+#endif
+#ifndef TSF_LIMITER_RELEASE
+#define TSF_LIMITER_RELEASE 0.004f /* gain recovered per block (<= 128 frames) */
+#endif
+static float tsf_limiter_gain = 1.0f;
+static float tsf_post_gain = 1.0f;
+
+TSFDEF void tsf_set_postgain(tsf* f, float gain)
+{
+	(void)f;
+	tsf_post_gain = (gain < 0.0f ? 0.0f : gain);
+}
+
+static void tsf_limit_block(float* s, int n)
+{
+	float peak = 0.0f, need = 1.0f, g0 = tsf_limiter_gain, g1, step;
+	int i, ramp;
+	for (i = 0; i < n; i++)
+	{
+		float a = (s[i] < 0.0f ? -s[i] : s[i]);
+		if (a > peak) peak = a;
+	}
+	if (peak > TSF_LIMITER_CEILING) need = TSF_LIMITER_CEILING / peak;
+	if (need < g0) { g1 = need; ramp = (n < 64 ? n : 64); }            /* attack: fast */
+	else { g1 = g0 + TSF_LIMITER_RELEASE; if (g1 > need) g1 = need; ramp = n; } /* release: slow */
+	tsf_limiter_gain = g1;
+	if (g0 == 1.0f && g1 == 1.0f) return;
+	step = (g1 - g0) / (float)ramp;
+	for (i = 0; i < ramp; i++) s[i] *= g0 + step * (float)i;
+	for (; i < n; i++) s[i] *= g1;
+}
+
 TSFDEF void tsf_render_short(tsf* f, short* buffer, int samples, int flag_mixing)
 {
 	float outputSamples[TSF_RENDER_SHORTBUFFERBLOCK];
@@ -1807,6 +1875,12 @@ TSFDEF void tsf_render_short(tsf* f, short* buffer, int samples, int flag_mixing
 		short* bufferEnd = buffer + channelSamples * channels;
 		float *floatSamples = outputSamples;
 		tsf_render_float(f, floatSamples, channelSamples, TSF_FALSE);
+		if (tsf_post_gain != 1.0f)
+		{
+			int i, n = channelSamples * channels;
+			for (i = 0; i < n; i++) floatSamples[i] *= tsf_post_gain;
+		}
+		tsf_limit_block(floatSamples, channelSamples * channels);
 		samples -= channelSamples;
 
 		if (flag_mixing)
@@ -2065,26 +2139,25 @@ TSFDEF int tsf_channel_note_on(tsf* f, int channel, int key, float vel)
 		tsf_channel_note_off(f, channel, key);
 		return 1;
 	}
+	// vsbhda: a key that is struck again while it is still held is a retrigger. Release the old
+	// voices of this key first, otherwise every retrigger without a matching note off (very
+	// common with games written for the MT-32) leaves one more voice sounding forever.
+	tsf_channel_note_off(f, channel, key);
 	return tsf_note_on(f, f->channels->channels[channel].presetIndex, key, vel);
 }
 
 TSFDEF void tsf_channel_note_off(tsf* f, int channel, int key)
 {
-	int sustain = f->channels->channels[channel].sustain;
-	struct tsf_voice *v = f->voices, *vEnd = v + f->voiceNum, *vMatchFirst = TSF_NULL, *vMatchLast = TSF_NULL;
+	// vsbhda: release *all* voices of this channel/key, not only the ones of the oldest note on.
+	// With the original behaviour N note ons on the same key needed N note offs, so any
+	// unbalanced stream left voices stuck in their sustain phase until all voices ran out.
+	struct tsf_voice *v = f->voices, *vEnd = v + f->voiceNum;
+	int sustain;
+	if (!f->channels || channel >= f->channels->channelNum) return;
+	sustain = f->channels->channels[channel].sustain;
 	for (; v != vEnd; v++)
 	{
-		//Find the first and last entry in the voices list with matching channel, key and look up the smallest play index
 		if (v->playingPreset == -1 || v->playingChannel != channel || v->playingKey != key || v->ampenv.segment >= TSF_SEGMENT_RELEASE || v->heldSustain) continue;
-		else if (!vMatchFirst || v->playIndex < vMatchFirst->playIndex) vMatchFirst = vMatchLast = v;
-		else if (v->playIndex == vMatchFirst->playIndex) vMatchLast = v;
-	}
-	if (!vMatchFirst) return;
-	for (v = vMatchFirst; v <= vMatchLast; v++)
-	{
-		//Stop all voices with matching channel, key and the smallest play index which was enumerated above
-		if (v != vMatchFirst && v != vMatchLast &&
-			(v->playIndex != vMatchFirst->playIndex || v->playingPreset == -1 || v->playingChannel != channel || v->playingKey != key || v->ampenv.segment >= TSF_SEGMENT_RELEASE)) continue;
 		// Don't turn off if sustain is active, just mark as held by sustain so we don't forget it
 		if (sustain)
 			v->heldSustain = 1;
@@ -2099,6 +2172,66 @@ TSFDEF void tsf_channel_note_off_all(tsf* f, int channel)
 	struct tsf_voice *v = f->voices, *vEnd = v + f->voiceNum;
 	for (; v != vEnd; v++)
 		if (v->playingPreset != -1 && v->playingChannel == channel && v->ampenv.segment < TSF_SEGMENT_RELEASE)
+			tsf_voice_end(f, v);
+}
+
+TSFDEF void tsf_set_voice_cap(tsf* f, int cap)
+{
+	// vsbhda: CPU governor support. Victims, cheapest to lose first: voices that are already fading
+	// out (quietest first, killed at once), then the oldest sustained voices (fast release, no click).
+	char picked[512];
+	int active = tsf_active_voice_count(f), nrelease = 0, maxrelease = cap / 4;
+	struct tsf_voice *v, *vEnd, *victim;
+	if (cap < 1 || f->voiceNum > (int)sizeof(picked)) return;
+	if (maxrelease < 6) maxrelease = 6;
+	memset(picked, 0, sizeof(picked));
+	vEnd = f->voices + f->voiceNum;
+	// Release tails of notes which are already over ( long ones, like piano, and several layers per
+	// note ) can take most of the voices and are mostly masked by the new notes. Keep only the
+	// loudest few; the quietest ones go first.
+	for (v = f->voices; v != vEnd; v++)
+		if (v->playingPreset != -1 && v->ampenv.segment >= TSF_SEGMENT_RELEASE) nrelease++;
+	while (nrelease > maxrelease)
+	{
+		float bestLevel = 0.0f;
+		victim = TSF_NULL;
+		for (v = f->voices; v != vEnd; v++)
+			if (v->playingPreset != -1 && v->ampenv.segment >= TSF_SEGMENT_RELEASE && (!victim || v->ampenv.level < bestLevel))
+				victim = v, bestLevel = v->ampenv.level;
+		if (!victim) break;
+		tsf_voice_kill(victim);
+		nrelease--; active--;
+	}
+	for (; active > cap; )
+	{
+		float bestLevel = 0.0f; int bestIndex = 0x7FFFFFFF;
+		victim = TSF_NULL;
+		for (v = f->voices; v != vEnd; v++)
+			if (v->playingPreset != -1 && !picked[v - f->voices] && v->ampenv.segment >= TSF_SEGMENT_RELEASE && (!victim || v->ampenv.level < bestLevel))
+				victim = v, bestLevel = v->ampenv.level;
+		if (victim)
+		{
+			tsf_voice_kill(victim);
+			active--;
+			continue;
+		}
+		for (v = f->voices; v != vEnd; v++)
+			if (v->playingPreset != -1 && !picked[v - f->voices] && v->playIndex < bestIndex)
+				victim = v, bestIndex = v->playIndex;
+		if (!victim) break;
+		picked[victim - f->voices] = 1;
+		tsf_voice_endquick(f, victim);
+		active--; // it is still rendered for a few ms, but is gone for the cap
+	}
+}
+
+TSFDEF void tsf_channel_release_loops(tsf* f, int channel, int key)
+{
+	// vsbhda: percussion that is fire-and-forget (the MT-32 rhythm part ignores note offs) must not
+	// loop forever. Release the looping voices of this key, non looping ones end by themselves.
+	struct tsf_voice *v = f->voices, *vEnd = v + f->voiceNum;
+	for (; v != vEnd; v++)
+		if (v->playingPreset != -1 && v->playingChannel == channel && v->playingKey == key && v->ampenv.segment < TSF_SEGMENT_RELEASE && v->loopStart < v->loopEnd)
 			tsf_voice_end(f, v);
 }
 

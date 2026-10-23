@@ -193,6 +193,12 @@ int FAREXP AU_getfreq( struct audioout_info_s *aui )
 	return( aui->freq_card );
 }
 
+int FAREXP AU_getringframes( struct audioout_info_s *aui )
+///////////////////////////////////////////////////////////
+{
+	return( aui->card_bytespersign ? (int)( aui->card_dmasize / aui->card_bytespersign ) : 0 );
+}
+
 int FAREXP AU_isirq( struct audioout_info_s *aui )
 //////////////////////////////////////////////////
 {
