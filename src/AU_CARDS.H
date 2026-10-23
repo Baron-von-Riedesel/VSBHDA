@@ -41,6 +41,7 @@ typedef int16_t PCM_CV_TYPE_S;
 extern void *AU_init( struct globalvars * );
 extern int  AU_getirq( void * );
 extern int  AU_getfreq( void * );
+extern int  AU_getringframes( void * ); /* size of the card's dma buffer in frames */
 extern char *AU_getshortname( void * );
 extern int  AU_isirq( void * );
 //extern void AU_setoutbytes( void * );

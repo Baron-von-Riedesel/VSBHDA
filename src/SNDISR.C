@@ -63,6 +63,38 @@ void writepcm16data(short);
 //extern tsf* tsfrenderer;
 extern void* tsfrenderer;
 void tsf_render_short(void *, short *, int, int);
+void tsf_set_postgain(void *, float);
+void tsf_set_voice_cap(void *, int);
+#ifdef _DEBUG
+int tsf_active_voice_count(void *);
+#endif
+
+/* CPU governor for the synthesizer.
+ * The sound IRQ is only acknowledged at the very end of the ISR and it runs with interrupts enabled,
+ * so the time it needs is taken away from the program. If rendering all voices takes too long, the
+ * next IRQ finds even more free buffer space to fill, the ISR gets longer, and so on: the program
+ * slows down more and more and finally seems to hang. To prevent this the share of the CPU used by
+ * the ISR is measured ( TSC ticks in ISR / TSC ticks since previous ISR; the CPU frequency isn't
+ * needed ) and the number of voices is reduced while it is too high and raised again ( up to the
+ * /MV limit ) when there's plenty of time left.
+ */
+#define MPUGOVERNOR 1
+#define GOV_HIGH    50  /* % of cpu time used by the ISR which triggers a reduction */
+#define GOV_LOW     25  /* % below which the voice limit may grow again */
+#define GOV_MINVOICES 8
+#define GOV_CALM    16  /* # of consecutive calm interrupts before the limit grows */
+#ifdef FARAU /* legacy 16-bit build with far AU_ entries: the new function isn't in its export tables */
+#define GOV_RINGFRAMES 0 /* unknown: the governor then uses the cpu usage only */
+#else
+#define GOV_RINGFRAMES AU_getringframes( isr.hAU )
+#endif
+
+/* Level of the soundfont synthesizer relative to the SB mixer's MIDI volume.
+ * Soundfont samples are normalized to (nearly) full scale, the OPL emulation is not, so at the
+ * same mixer setting the synthesizer was much louder than FM and PCM. 0.5 = -6 dB headroom.
+ * Raise it (up to 1.0) if the MIDI output is too quiet for your soundfont.
+ */
+#define MIDI_HEADROOM 0.5f
 #endif
 
 #define SUP16BITUNSIGNED 1 /* support 16-bit unsigned format */
@@ -253,9 +285,126 @@ static void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples
 extern void cv_channels_1_to_2( PCM_CV_TYPE_S *pcm_sample, unsigned int nSamples );
 #endif
 
+#if MPUGOVERNOR && SOUNDFONT
+/* GOV_BEGIN ( this region is extracted by the offline test, keep it self contained ) */
+static struct {
+    uint64_t prevstart;  /* TSC at start of previous ISR */
+    uint64_t firstStart; /* TSC at start of first ISR */
+    uint64_t frames;     /* total # of frames rendered by the ISRs before the current one */
+    int cap;             /* current voice limit */
+    int max;             /* user limit ( /MV ) */
+    int calm;            /* consecutive interrupts with low load */
+    int over;            /* consecutive interrupts with too high load */
+    int minCap;          /* lowest limit reached ( debug info ) */
+    int peakPct;         /* highest cpu usage in % ( debug info ) */
+    int peakRingPct;     /* longest ISR in % of the dma buffer ( debug info ) */
+#ifdef _DEBUG
+    int prevSamples;     /* # of frames rendered by the previous ISR */
+    int peakVoices;      /* highest # of active voices */
+    int nSlow;           /* # of slow ISRs seen */
+    int nLate;           /* # of ISRs which started when more than 3/4 of the dma buffer was already played */
+#endif
+} gov;
+
+/* called at the end of each ISR which rendered nSamples frames with the synthesizer.
+ * tscStart/tscEnd: TSC at start/end of the ISR; ringFrames: size of the card's dma buffer in frames;
+ * voices: # of active voices ( debug only ).
+ * Updates gov.cap, the voice limit to be applied by the next ISR.
+ *
+ * The synthesizer is too expensive if
+ * - the ISR needs more than GOV_HIGH % of the cpu time, or
+ * - a single ISR takes more than 1/4 of the time the dma buffer needs to be played ( small buffers
+ *   and high frequencies: a delay of the ISR of just a few ms then causes an underrun, which is
+ *   heard as crackling/distortion ).
+ */
+static void gov_update( uint64_t tscStart, uint64_t tscEnd, int nSamples, uint32_t freq, int ringFrames, int voices )
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+{
+    if ( gov.max == 0 ) { /* first time */
+        gov.max = gov.cap = gov.minCap = ( gvars.voices ? gvars.voices : 256 );
+    }
+    if ( gov.prevstart && tscStart > gov.prevstart ) {
+        uint64_t used   = tscEnd - tscStart;
+        uint64_t period = tscStart - gov.prevstart;
+        int pct = ( used >= period ) ? 100 : (int)( used * 100 / period );
+        int overload, calm;
+        uint32_t usedFrames = 0, gapFrames = 0;
+        int ringKnown = 0;
+        if ( pct > gov.peakPct ) gov.peakPct = pct;
+        /* The TSC frequency is unknown, but the sound hw is the clock: over a longer time the ISRs
+         * render exactly the frames the hw has played. So ticks per frame = elapsed ticks / frames,
+         * which allows to express the ISR duration and the gap between ISRs in frames.
+         */
+        if ( gov.frames > 8192 ) {
+            uint64_t tpf = ( tscStart - gov.firstStart ) / gov.frames; /* ticks per frame */
+            if ( tpf ) {
+                usedFrames = (uint32_t)( used / tpf );
+                gapFrames  = (uint32_t)( period / tpf );
+                ringKnown = ( ringFrames > 0 );
+            }
+        }
+        overload = ( pct > GOV_HIGH );
+        calm     = ( pct < GOV_LOW );
+        if ( ringKnown ) {
+            int ringPct = (int)( (uint64_t)usedFrames * 100 / (uint32_t)ringFrames );
+            if ( ringPct > gov.peakRingPct ) gov.peakRingPct = ringPct;
+            if ( usedFrames * 4 > (uint32_t)ringFrames ) overload = 1;
+            if ( usedFrames * 8 > (uint32_t)ringFrames ) calm = 0;
+        }
+#ifdef _DEBUG
+        if ( voices > gov.peakVoices ) gov.peakVoices = voices;
+        if ( ringKnown ) {
+            int late = ( gapFrames * 4 > (uint32_t)ringFrames * 3 );
+            if ( late ) gov.nLate++;
+            if ( overload ) gov.nSlow++;
+            /* 'slow': the synthesizer takes too long. 'late' with a short duration points to something
+             * else blocking interrupts. Limited to 300 lines.
+             */
+            if ( ( overload || late ) && ( gov.nSlow + gov.nLate ) <= 300 )
+                dbgprintf(( "gov: isr used=%u frames (%u ms) of %u, gap=%u frames (%u ms), ring=%u, cpu=%u%%, voices=%u, cap=%u%s%s\n",
+                           usedFrames, (uint32_t)( (uint64_t)usedFrames * 1000 / freq ), nSamples,
+                           gapFrames, (uint32_t)( (uint64_t)gapFrames * 1000 / freq ), ringFrames,
+                           pct, voices, gov.cap, overload ? " SLOW" : "", late ? " LATE" : "" ));
+        }
+        gov.prevSamples = nSamples;
+#endif
+        if ( overload && ++gov.over >= 2 ) { /* a single long ISR ( e.g. a burst of notes ) is tolerated */
+            int newcap = gov.cap - gov.cap / 8 - 1;
+            if ( newcap < GOV_MINVOICES ) newcap = GOV_MINVOICES;
+            gov.calm = 0;
+            if ( newcap < gov.cap ) {
+                dbgprintf(( "gov: voice limit %u -> %u\n", gov.cap, newcap ));
+                gov.cap = newcap;
+                if ( newcap < gov.minCap ) gov.minCap = newcap;
+            }
+        } else if ( overload ) {
+            gov.calm = 0;
+        } else if ( calm && gov.cap < gov.max ) {
+            gov.over = 0;
+            if ( ++gov.calm >= GOV_CALM ) {
+                gov.cap += 2 + gov.cap / 8;
+                if ( gov.cap > gov.max ) gov.cap = gov.max;
+                gov.calm = 0;
+                dbgprintf(( "gov: voice limit raised to %u\n", gov.cap ));
+            }
+        } else {
+            gov.calm = 0;
+            gov.over = 0;
+        }
+    }
+    if ( gov.firstStart == 0 ) gov.firstStart = tscStart;
+    gov.frames += nSamples; /* from now on: frames of all ISRs before the next one */
+    gov.prevstart = tscStart;
+}
+/* GOV_END */
+#endif
+
 static int SNDISR_Interrupt( void )
 ///////////////////////////////////
 {
+#if MPUGOVERNOR && SOUNDFONT
+    uint64_t tscStart;
+#endif
     uint32_t mastervol;
     uint32_t voicevol;
     uint32_t midivol;
@@ -278,6 +427,9 @@ static int SNDISR_Interrupt( void )
     /* check if the sound hw does request an interrupt. */
     if( !AU_isirq( isr.hAU ) )
         return(0);
+#if MPUGOVERNOR && SOUNDFONT
+    tscStart = rdtsc();
+#endif
 
 #if COMPAT4 && SETIF
     /* v1.8: /CF4 */
@@ -706,12 +858,30 @@ static int SNDISR_Interrupt( void )
         unsigned char fpu_buffer[FPU_SRSIZE];
         fpu_save( fpu_buffer );
         VMPU_Process_Messages();
+        /* the synthesizer must obey the SB mixer ( master/MIDI volume ) like FM and PCM do;
+         * midivol is 0x100 for unity gain.
+         */
+        tsf_set_postgain(tsfrenderer, (float)midivol * (MIDI_HEADROOM / 256.0f));
+#if MPUGOVERNOR
+        if ( gov.max )
+            tsf_set_voice_cap(tsfrenderer, gov.cap);
+#endif
         //tsf_set_samplerate_output(tsfrenderer, AU_getfreq( isr.hAU ));
         tsf_render_short(tsfrenderer, isr.pPCM, nSamples, 1);
         fpu_restore( fpu_buffer );
     }
 #endif
     AU_writedata( isr.hAU, isr.pPCM, nSamples * 2 );
+
+#if MPUGOVERNOR && SOUNDFONT
+    if ( tsfrenderer ) {
+# ifdef _DEBUG
+        gov_update( tscStart, rdtsc(), nSamples, freq, GOV_RINGFRAMES, tsf_active_voice_count( tsfrenderer ) );
+# else
+        gov_update( tscStart, rdtsc(), nSamples, freq, GOV_RINGFRAMES, 0 );
+# endif
+    }
+#endif
 
 #if SLOWDOWN
     if ( gvars.slowdown )
@@ -805,6 +975,12 @@ bool SNDISR_Exit( void )
     printf("SNDISR_Exit: max PCM buffer usage=%u\n", isr.dwMaxBytes );
 #endif
     dbgprintf(("SNDISR_Exit: cnt total/voice=%u/%u max/avg samples=%u/%u\n", isr.cntTotal, isr.cntDigital, isr.max_samples, isr.cntTotal ? isr.total_samples / isr.cntTotal : 0 ));
+#if MPUGOVERNOR && SOUNDFONT
+    dbgprintf(("SNDISR_Exit: governor: peak isr cpu usage=%u%%, longest isr=%u%% of dma buffer, voice limit min/max=%u/%u\n", gov.peakPct, gov.peakRingPct, gov.minCap, gov.max ));
+# ifdef _DEBUG
+    dbgprintf(("SNDISR_Exit: governor: peak voices=%u, slow isrs (cpu>%u%%)=%u, late isrs=%u\n", gov.peakVoices, GOV_HIGH, gov.nSlow, gov.nLate ));
+# endif
+#endif
     return ( _SND_UninstallISR( PIC_IRQ2VEC( AU_getirq( isr.hAU ) ) ) );
 }
 

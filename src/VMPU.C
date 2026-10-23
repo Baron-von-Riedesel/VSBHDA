@@ -27,6 +27,7 @@ struct VMPU_s {
     int didx;           /* index for current msg data */
     unsigned char status;
     unsigned char channel;
+    unsigned char prog[16]; /* current program of each channel, 0xff=unknown */
     unsigned char data[32]; /* data for current msg */
     unsigned char buffer[4096];
 };
@@ -62,8 +63,13 @@ static void VMPU_Write(uint16_t port, uint8_t value)
 			bUART = 1;
 	} else {
 #if SOUNDFONT
-		vmpu.buffer[vmpu.widx++] = value;
-		vmpu.widx &= 0xfff;
+		/* if the buffer is full the new byte is dropped; the old code wrapped widx
+		 * onto ridx, which made the buffer look empty and lost all pending data.
+		 */
+		if ( ((vmpu.widx + 1) & 0xfff) != vmpu.ridx ) {
+			vmpu.buffer[vmpu.widx++] = value;
+			vmpu.widx &= 0xfff;
+		}
 #endif
 	}
 	return;
@@ -132,6 +138,7 @@ static uint8_t VMPU_Acc(uint16_t port, uint8_t val, uint16_t flags)
 static void reset(void)
 ///////////////////////
 {
+    memset(vmpu.prog, 0xff, sizeof(vmpu.prog));
     tsf_reset(tsfrenderer);
     tsf_channel_set_bank_preset(tsfrenderer, 9, 128, 0);
     tsf_set_volume(tsfrenderer, 1.0f);
@@ -146,6 +153,15 @@ void VMPU_Process_Messages(void)
 ////////////////////////////////
 {
     for ( ;vmpu.ridx != vmpu.widx; vmpu.ridx++, vmpu.ridx &= 0xfff ) {
+        /* system realtime messages (clock, active sensing, ...) may appear anywhere,
+         * even inside another message, and must not change the current status.
+         * 0xFF is kept as "reset" (see below).
+         */
+        if ( vmpu.buffer[vmpu.ridx] >= 0xF8 && vmpu.buffer[vmpu.ridx] != 0xFF )
+            continue;
+        /* a stray end-of-sysex without a running sysex is ignored */
+        if ( vmpu.buffer[vmpu.ridx] == 0xF7 && vmpu.status != 0xF )
+            continue;
         if ( (vmpu.buffer[vmpu.ridx] & 0x80) && vmpu.buffer[vmpu.ridx] != 0xF7 ) {
             vmpu.status = vmpu.buffer[vmpu.ridx] >> 4;
             vmpu.channel = vmpu.buffer[vmpu.ridx] & 0xf;
@@ -176,6 +192,11 @@ void VMPU_Process_Messages(void)
                     vmpu.data[0] = vmpu.buffer[vmpu.ridx];
                 else {
                     tsf_channel_note_on(tsfrenderer, vmpu.channel, vmpu.data[0], vmpu.buffer[vmpu.ridx] / 127.0f);
+                    /* the MT-32 rhythm part (channel 10) ignores note offs and many games never send
+                     * them for drums. Don't let looping drum samples sound forever.
+                     */
+                    if ( vmpu.channel == 9 && vmpu.buffer[vmpu.ridx] )
+                        tsf_channel_release_loops(tsfrenderer, vmpu.channel, vmpu.data[0]);
                     vmpu.didx = -1;
                 }
                 break;
@@ -188,6 +209,17 @@ void VMPU_Process_Messages(void)
                 }
                 break;
             case 0xC: /* program change +1 */
+                /* Games written for the MT-32 start sound effects without ever sending a note off,
+                 * because the MT-32 effect timbres decay by themselves. With a General MIDI sound
+                 * font these notes sustain/loop forever. A *different* program on the channel means
+                 * the old notes are finished, so release them (normal release, no cut-off).
+                 * Some games resend the same program all the time (tens of thousands of times in a
+                 * log); this must not touch the notes which are still sounding.
+                 */
+                if ( vmpu.prog[vmpu.channel] != vmpu.buffer[vmpu.ridx] ) {
+                    vmpu.prog[vmpu.channel] = vmpu.buffer[vmpu.ridx];
+                    tsf_channel_note_off_all(tsfrenderer, vmpu.channel);
+                }
                 tsf_channel_set_presetnumber(tsfrenderer, vmpu.channel, vmpu.buffer[vmpu.ridx], vmpu.channel == 0x9);
                 break;
             case 0xB:
@@ -230,6 +262,16 @@ void VMPU_Process_Messages(void)
                             }
 #ifdef _DEBUG
                             else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X (unhandled)\n", vmpu.data[1], addr ));
+#endif
+                        } else if (vmpu.didx > 8 && vmpu.data[0] == 0x41 && vmpu.data[2] == 0x16 && vmpu.data[3] == 0x12 ) {
+                            /* Roland MT-32 (model id 0x16); 7f 00 00 = reset all parameters */
+                            uint32_t addr = ((uint32_t)vmpu.data[4] << 16) + ((uint32_t)vmpu.data[5] << 8) + (uint32_t)vmpu.data[6];
+                            if ( addr == 0x7f0000 ) {
+                                reset();
+                                dbgprintf(("sysex msg 0xF0: 41 %X 16 12 7f0000 (MT-32 reset)\n", vmpu.data[1] ));
+                            }
+#ifdef _DEBUG
+                            else dbgprintf(("sysex msg 0xF0: 41 %X 16 12 %6X (MT-32, unhandled)\n", vmpu.data[1], addr ));
 #endif
                         } else if (vmpu.didx > 5 && vmpu.data[0] == 0x7f && vmpu.data[1] == 0x7f && vmpu.data[2] == 0x04 && vmpu.data[3] == 0x01) {
                             /* msg 7f 7f 04 01 ll mm? */
@@ -283,6 +325,7 @@ void VMPU_Init( int freq )
     else if ( tsfrenderer = tsf_load_filename(gvars.soundfont) ) {
         int channel = 0;
         memset( &vmpu, 0, sizeof (vmpu ) );
+        memset( vmpu.prog, 0xff, sizeof(vmpu.prog) );
         printf("TSF: soundfont %s [presets=%d]\n", gvars.soundfont, tsf_get_presetcount(tsfrenderer) );
         if (gvars.voices != VOICES_DEFAULT)
             printf("TSF: voice limit=%d\n", gvars.voices);
