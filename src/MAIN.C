@@ -83,7 +83,9 @@ extern uint32_t STACKTOP;
 #endif
 
 uint8_t bOMode; /* see enum OM_xxx in config.h */
-
+#ifndef NODYN
+char *driver_name;
+#endif
 struct MAIN_s {
 	void *hAU;  /* handle audioout_info; we don't want to know mpxplay internals */
 	bool bISR;  /* 1=ISR installed */
@@ -146,6 +148,9 @@ static const struct {
     "O",   "Set output (HDA/SB Live) [0=lineout|1=speaker|2=hp, def 0]", &gvars.pin,
     "DEV", "Set start index for device scan (HDA/SB Live|Audigy) [def 0]", &gvars.device,
     "PS",  "Set period size [def 512]", &gvars.period_size,
+#ifndef NODYN
+    "DF:", "Set driver file name to load", (int *)&driver_name,
+#endif
 #if SOUNDFONT
     "SF:", "Set sound font file name", (int *)&gvars.soundfont,
     "MV",  "Set voice limit [0-256, def 64]", &gvars.voices,

@@ -12,6 +12,7 @@
     dynamically by VSBHDA; SNDCARD.DRV obsolete and removed.
   - fixed driver code for SB Live 24/Audigy SE/LE.
   - option /DEV supported by SB Live/Audigy driver.
+  - cmdline option /DF: added to load a specific external driver.
 
   v2.0, 04.09.2026
   - fixed: DSP play cmds unconditionally started sound, ignoring state

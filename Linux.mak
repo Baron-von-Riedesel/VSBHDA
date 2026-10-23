@@ -49,6 +49,8 @@ endif
 
 NAME=VSBHDA
 
+C_EXTRA_FLAGS=
+
 ifeq ($(DEBUG),1)
 OUTD=owd
 OUTD16=ow16d
@@ -69,6 +71,7 @@ ifeq ($(DYNAMIC),1)
 LOADDRVOBJ=$(OUTD)/LOADDRV.obj
 MAKE16=Linux16.mak
 else
+C_EXTRA_FLAGS=-DFLAT
 MAKE16=Linux16l.mak
 endif
 
@@ -97,7 +100,6 @@ endif
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -oxa -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS=
 ifdef NOFM
 C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
 endif
@@ -111,14 +113,14 @@ $(OUTD)/%.obj: src/%.ASM
 	@$(ASM) -q -D?MODEL=flat -Isrc/startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 ifeq ($(DYNAMIC),0)
 $(OUTD)/%.obj: srcdrv/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 endif
 
 $(OUTD)/%.obj: src/startup/%.ASM

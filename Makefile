@@ -83,11 +83,14 @@ A_DEBUG_FLAGS=
 OW19=-DOW19
 !endif
 
+C_EXTRA_FLAGS=
+
 !if $(DYNAMIC)
 LOADDRVOBJ=$(OUTD)/loaddrv.obj
 MAKE16=ow16.mak
 !else
 MAKE16=ow16l.mak
+C_EXTRA_FLAGS=-DFLAT
 !endif
 
 !ifndef NOFM
@@ -116,9 +119,8 @@ OBJFILES += &
 C_OPT_FLAGS=-q -mf -oxa -ecc -5s -fp5 -fpi87 -wcd=111
 # OW's wpp386 doesn't like the -ecc option
 CPP_OPT_FLAGS=-q -oxa -mf -bc -5s -fp5 -fpi87 
-C_EXTRA_FLAGS= 
 !ifdef NOFM
-C_EXTRA_FLAGS= $(C_EXTRA_FLAGS) -DNOFM
+C_EXTRA_FLAGS=$(C_EXTRA_FLAGS) -DNOFM
 !endif
 LD_FLAGS=
 LD_EXTRA_FLAGS=op M=$(OUTD)/$(NAME).map
@@ -130,14 +132,14 @@ LIBS=
 	@$(ASM) -q -D?MODEL=flat -Isrc\startup $(A_DEBUG_FLAGS) -Fo$@ $<
 
 {src}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 {src}.cpp{$(OUTD)}.obj
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 !if !$(DYNAMIC)
 {srcdrv}.c{$(OUTD)}.obj
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 !endif
 
 {src\startup}.asm{$(OUTD)}.obj
