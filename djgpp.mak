@@ -93,8 +93,8 @@ LIBS=$(addprefix -l,stdcxx m)
 
 COMPILE.asm.o=jwasm.exe -q -djgpp -Isrc/startup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
 COMPILE2.asm.o=jwasm.exe -q -zcw -djgpp -Isrc/startup -D?MODEL=small -DDJGPP $(A_DEBUG_FLAGS) -Fo=$@ $<
-COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
-COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CPPFLAGS) $(INCLUDES) -c $< -o $@
+COMPILE.c.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -c $< -o $@
+COMPILE.cpp.o=gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -c $< -o $@
 
 $(OUTD)/%.o: src/%.c
 	$(COMPILE.c.o)

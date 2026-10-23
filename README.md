@@ -11,8 +11,8 @@ Works with unmodified HDPMI binaries, making it compatible with HX.
  * SB based on ES1371/73 or CT5580 ( AudioPCI '97, Sound Blaster PCI 64/128 )
  * SB based on EMU10Kx ( SB Live, SB Audigy )
  * SB based on CA0106 ( Audigy LS/SE, Life 24, X-Fi Xtreme Audio [SB0790] )
- * SB based on EMU20Kx ( SB X-Fi, SB X-Fi Titanium [untested] ) 
- * VIA VT82C686, VT8233/35/37 (not VT8233A)
+ * SB based on EMU20Kx ( SB X-Fi, SB X-Fi Titanium ) 
+ * VIA VT82C686, VT8233/35/37 [not VT8233A]
 
 Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also supports cards based on CMI 8338/8738.
 

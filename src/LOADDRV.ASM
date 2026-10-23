@@ -341,6 +341,7 @@ endif
 	ret
 
 if 1
+
 nomem:
 nodesc:
 	mov ax, 109
@@ -357,10 +358,12 @@ err_with_close:
 	pop eax
 open_err:
 	@dprintf CStr("LoadDriver failed, ax=%X",10), ax
-	mov edx, eax
-	xor eax, eax
+	movzx eax,ax
+	neg eax
 	ret
+
 else
+
 	.const
 
 errstr1 db "open error",13,10,'$'
@@ -389,7 +392,7 @@ nomem:
 	jmp err_with_close
 fmt_err:
 	push offset errstr5
-errexit2:
+err_with_close:
 	push eax
 	mov bx, wFile
 	mov ah, 3Eh
@@ -520,7 +523,7 @@ dyn_adetect proc c aui:ptr AUI
 	mov edx, [edx].SNDCARD_INFO.shortname
 	@dprintf CStr("lddrv.adetect: loading %s driver, rmstack=%X",10), edx, _linear_rmstack
 	invoke _LoadDriver, edx
-	.if eax
+	.if sdword ptr eax > 0
 		@dprintf CStr("lddrv.adetect: calling LibMain()",10)
 		push ds
 		push es

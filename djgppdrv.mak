@@ -43,7 +43,7 @@ INCLUDES=-Isrcdrv -Iinclude
 LIBS=$(OUTD)\drvhlp.lib
 
 $(OUTD)/%.o: srcdrv/%.c
-	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -c $< -o $@
 
 $(OUTD)/%.o: srcdrv/%.asm
 	jwasm.exe -q      -Isrcdrv/startup $(A_DEBUG_FLAGS) -Fo=$@ $<
@@ -78,9 +78,9 @@ $(OUTD)/drvhlp.lib: $(HLPOBJ)
 	jwlib -q -b -n $@ $(HLPOBJ)
 
 $(OUTD)/SC_E1370.o:: sc_e1370.c  include/auistruc.h dmabuff.h pcibios.h ac97mix.h
-	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -c $< -o $@
 $(OUTD)/SC_INTHD.o:: sc_inthd.c  include/auistruc.h dmabuff.h pcibios.h
-	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	gcc $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -c $< -o $@
 
 $(OUTD)/ac97mix.o::  ac97mix.c   include/auistruc.h ac97mix.h
 $(OUTD)/dmabuff.o::  dmabuff.c   include/auistruc.h dmabuff.h

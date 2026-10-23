@@ -91,19 +91,19 @@ $(OUTD)/%.obj: src/%.ASM
 	@$(ASM) -q -DDPMI16 -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: srcdrv/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -DDPMI16 -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/startup/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)/$(NAME).EXE $(OUTD)/$(NAME2).DRV
 
@@ -154,7 +154,7 @@ $(OUTD)/TIMER.obj:     srcdrv/TIMER.C
 
 $(OUTD)/ADPCM.obj:     src/ADPCM.C
 $(OUTD)/AU_CARDS.obj:  src/AU_CARDS.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -DFARAU -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) -DNODYN -DFARAU -Isrc $(INCLUDES) -fo=$@ $<
 $(OUTD)/AUIMP16.obj:   src/AUIMP16.ASM
 $(OUTD)/AUEXP16.obj:   src/AUEXP16.ASM
 $(OUTD)/DPMI.obj:      src/DPMI.ASM
@@ -165,6 +165,7 @@ $(OUTD)/INT31.obj:     src/INT31.ASM
 $(OUTD)/LINEAR.obj:    src/LINEAR.C
 $(OUTD)/LOGFILE.obj:   src/LOGFILE.ASM
 $(OUTD)/MAIN.obj:      src/MAIN.C
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) -DNODYN -Isrc $(INCLUDES) -fo=$@ $<
 $(OUTD)/MIXER.obj:     src/MIXER.ASM
 $(OUTD)/PIC.obj:       src/PIC.C
 $(OUTD)/PTRAP.obj:     src/PTRAP.C

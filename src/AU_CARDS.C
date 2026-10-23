@@ -18,6 +18,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#ifndef NODYN
+#include <stdio.h>
+#endif
 
 #include "CONFIG.H"
 #include "PLATFORM.H"
@@ -50,7 +53,11 @@ extern struct sndcard_info_s SBGEN_sndcard_info;
 extern struct sndcard_info_s SBXFI_sndcard_info;
 #endif
 
+#ifndef NODYN
+static struct sndcard_info_s *sndcard_info_table[] = {
+#else
 static const struct sndcard_info_s *sndcard_info_table[] = {
+#endif
 #ifndef NOES1371
 	&ES1371_sndcard_info,
 #endif
@@ -79,9 +86,7 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 
 #define NUMCARDS sizeof(sndcard_info_table)/sizeof(sndcard_info_table[0])
 
-#ifdef _DEBUG
 extern uint8_t bOMode;
-#endif
 
 #ifdef FARAU
 #define FAREXP _far
@@ -105,13 +110,17 @@ extern uint8_t bOMode;
 int max_spaceexc; /* max no of bytes exceeding free dma buffer space */
 #endif
 
+#ifndef NODYN
+extern char *driver_name;
+#endif
+
 /* scan for audio devices */
 
 void * FAREXP AU_init( const struct globalvars *gvars )
 ///////////////////////////////////////////////////////
 {
 	struct audioout_info_s *aui;
-	int i;
+	int i, err;
 
 #ifdef _DEBUG
 # ifdef FARAU
@@ -138,7 +147,15 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	aui->card_devidx = gvars->device;
 	aui->card_outdev = gvars->pin;
 
-	for ( i = 0; i < NUMCARDS; i++ ) {
+	i = 0;
+#ifndef NODYN
+	/* if option /DRV: has been set, just try to load that driver */
+	if ( driver_name ) {
+		i = NUMCARDS - 1;
+		sndcard_info_table[i]->shortname = driver_name;
+	}
+#endif
+	for ( ; i < NUMCARDS; i++ ) {
 		aui->card_handler = sndcard_info_table[i];
 		if( aui->card_handler->card_detect ) {
 			if ( aui->card_handler->private_data_size )
@@ -154,7 +171,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 			aui->card_irq = 0xff;
 			/* v2.0: buffer protection bytes is configurable now */
 			aui->card_buffer_protection = gvars->buffer_protection ? gvars->buffer_protection : BUFFER_PROTECTION_DEFAULT;
-			if ( aui->card_handler->card_detect(aui) ) {
+			if ( (err = aui->card_handler->card_detect(aui)) > 0) {
 				if( !aui->card_handler->cardbuf_getpos ) {
 					dbgprintf(("AU_init: ERROR, cardbuf_getpos==NULL!\n"));
 				} else {
@@ -168,7 +185,10 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 			aui->card_private_data = NULL;
 		}
 	}
-
+#ifndef NODYN
+	if ( driver_name )
+		printf("Error: trying to load driver %s returned errcode %u\n", driver_name, -err);
+#endif
 	dbgprintf(("AU_init: no card found\n"));
 	free( aui );
 	return(NULL);

@@ -80,7 +80,7 @@ $(OUTD)/%.obj: src/%.ASM
 	@$(ASM) -q -DDPMI16 -Isrc/startup -D?MODEL=small $(A_DEBUG_FLAGS) -Fo$@ $<
 
 $(OUTD)/%.obj: src/%.C
-	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
+	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) -os $(C_EXTRA_FLAGS) -Isrc $(INCLUDES) -fo=$@ $<
 
 $(OUTD)/%.obj: src/%.CPP
 	@$(CPP) $(C_DEBUG_FLAGS) $(CPP_OPT_FLAGS) -os $(C_EXTRA_FLAGS) $(CPPFLAGS) -Isrc $(INCLUDES) -fo=$@ $<
@@ -89,7 +89,7 @@ $(OUTD)/%.obj: src/startup/%.ASM
 	@$(ASM) -q -zcw -D?MODEL=small $(OW19) $(A_DEBUG_FLAGS) -Fo$@ $<
 
 #$(OUTD)/%.obj: src/startup/%.C
-#	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(CFLAGS) $(INCLUDES) -fo=$@ $<
+#	@$(CC) $(C_DEBUG_FLAGS) $(C_OPT_FLAGS) $(C_EXTRA_FLAGS) $(INCLUDES) -fo=$@ $<
 
 all: $(OUTD) $(OUTD)/$(NAME).EXE
 
