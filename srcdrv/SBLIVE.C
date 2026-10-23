@@ -34,6 +34,7 @@
 #include "AC97MIX.H"
 #include "SC_SBGEN.H"
 #include "EMU10K1.H"
+#include "EFXMGR.H"
 #if CA0151
 #include "P16V.H"
 #endif

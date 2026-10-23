@@ -29,7 +29,6 @@
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
 #define _my_rmstksiz() _go32_info_block.size_of_transfer_buffer
 #else
-extern unsigned int _linear_psp;
 extern unsigned int _linear_rmstack;
 #define _my_rmstack()  _linear_rmstack
 #define _my_rmstksiz() 0x400
@@ -101,14 +100,14 @@ uint8_t pcibios_FindDevice(uint16_t wVendor, uint16_t wDevice, struct pci_config
 	return regs.h.ah;
 }
 
-/* search for a specific device class ( used by SC_INTHD ), including index.
- * added for vsbhda.
- * if a device is found, scan the table ( vendor/device ) to see if a special
- * "device_type" is to be set.
+/* search for a specific device class , starting with given index.
+ * - used by INTHD and SBGEN.
+ * - if a device is found, the vendor/device table is scanned to see if a special
+ *   "device_type" is to be set.
  */
 
-uint8_t pcibios_FindDeviceClass(uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[], struct pci_config_s *ppkey)
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+uint8_t pcibios_FindDeviceClass( struct pci_config_s *ppkey, uint8_t bClass, uint8_t bSubClass, uint8_t bInterface, uint16_t wIndex, const struct pci_device_s devices[])
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 {
 	int i;
 

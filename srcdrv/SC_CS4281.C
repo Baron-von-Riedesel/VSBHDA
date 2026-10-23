@@ -690,17 +690,17 @@ static int CS4281_adetect( struct audioout_info_s *aui )
 	 * if needed) and only then sets the enable bits. Previously the enable
 	 * came first and could be lost.
 	 */
-	bar0_before = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	bar0_before = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	cs4281_set_power_d0( &card->pci_dev ); /* required - see comment above */
 	/* BAR0 lost in the transition? (only restore a plausible memory BAR) */
 	if( bar0_before != 0 && bar0_before != 0xffffffffUL && !(bar0_before & 1) &&
-	    pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) != bar0_before ) {
+		pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0) != bar0_before ) {
 		dbgprintf(("CS4281_adetect: BA0 changed across D0 transition, restoring %X\n", bar0_before));
-		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NAMBAR, bar0_before);
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_BAR0, bar0_before);
 	}
 	cs4281_enable_io_mem_bm( &card->pci_dev );
 
-	physaddr = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	physaddr = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	aui->card_irq = card->pci_dev.bIrq;
 	dbgprintf(("CS4281_adetect: vend_id=%X dev_id=%X BA0=%X irq=%u\n",
 			  card->pci_dev.vendor_id,card->pci_dev.device_id,physaddr,aui->card_irq));

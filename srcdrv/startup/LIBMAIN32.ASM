@@ -34,6 +34,10 @@ SNDCARD_INFO ends
 AUI struct
 private_data dd ?
 card_info    dd ?	;*sndcard_info 
+             dd ?
+             dd ?
+             db 8 dup (?)
+bOMode       db ?
 AUI ends
 
 calloc proto c :dword, :dword
@@ -107,6 +111,8 @@ my_adetect proc far c aui:ptr
 	mov eax, aui
 	Rebase2Intern eax
 	mov [eax].AUI.private_data, edx
+	mov dl, [eax].AUI.bOMode
+	mov _bOMode, al
 	push eax
 	call __sndcard_info.adetect
 	add esp,4
@@ -207,14 +213,6 @@ LibMain proc far c public uses ebx baseaddr:dword, heapsize:dword, rmstack:dword
 	mov _DSBase,eax
 	sub eax, baseaddr
 	mov basediff, eax
-ifdef _DEBUG
-_IsDebuggerPresent proto c
-	call _IsDebuggerPresent
-	and eax, eax
-	jz @F
-	mov _bOMode,OM_DEBUGGER
-@@:
-endif
 	mov eax, offset cardinfo
 	ret
 

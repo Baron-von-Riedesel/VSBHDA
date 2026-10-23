@@ -445,7 +445,7 @@ static int ES1370_adetect( struct audioout_info_s *aui )
 	dbgprintf(("ES1370_adetect: known card found, enable PCI io and busmaster\n"));
 	pcibios_enable_BM_IO( &card->pci_dev );
 
-	card->port = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	card->port = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	aui->card_irq = card->pci_dev.bIrq;
 
 	dbgprintf(("ES1370_adetect: vend_id=%X dev_id=%X port=%X irq=%u\n",

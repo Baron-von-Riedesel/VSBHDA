@@ -1731,9 +1731,9 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 #endif
 
 	if (hw->model == CTUAA)
-		hw->io_base = pcibios_ReadConfig_Dword(pci, 0x10 + 5*4);
+		hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_BAR0 + 5*4);
 	else
-		hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR);
+		hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_BAR0);
 	hw->io_base &= 0xfffffff8;
 
 	if(!hw->io_base) {

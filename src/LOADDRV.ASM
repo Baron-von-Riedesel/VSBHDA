@@ -521,7 +521,6 @@ dyn_adetect proc c aui:ptr AUI
 	@dprintf CStr("lddrv.adetect: loading %s driver, rmstack=%X",10), edx, _linear_rmstack
 	invoke _LoadDriver, edx
 	.if eax
-int 3
 		@dprintf CStr("lddrv.adetect: calling LibMain()",10)
 		push ds
 		push es
@@ -580,10 +579,12 @@ endif
 				mov ebx, offset my_Mixerdata
 				call translate_mixerarray
 @@:
-;--- translate the DMA buffer pointer - it has been set by the driver, but isn't used by it
-				mov edx, [esi].AUI.card_pDmaBuffer
-				Rebase2Intern edx
-				mov [esi].AUI.card_pDmaBuffer, edx
+;--- translate the DMA buffer pointer - if it has been set by the driver
+				mov ecx, [esi].AUI.card_pDmaBuffer
+				jecxz @F
+				Rebase2Intern ecx
+				mov [esi].AUI.card_pDmaBuffer, ecx
+@@:
 				pop esi
 				pop ebx
 			.endif

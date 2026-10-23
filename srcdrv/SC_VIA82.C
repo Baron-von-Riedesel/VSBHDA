@@ -327,7 +327,7 @@ static int VIA82XX_adetect(struct audioout_info_s *aui)
 		goto err_adetect;
 	pcibios_enable_BM_IO(&card->pci_dev);
 
-	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	if ( !( card->iobase & 1) || !(card->iobase & 0xfff0 ) ) {
 		printf("VIA 82XX: no base port set for AC97 controller\n");
 		dbgprintf(("VIA82XX_adetect: no base port set for AC97 controller [%X]\n", card->iobase));

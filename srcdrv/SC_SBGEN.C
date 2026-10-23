@@ -97,7 +97,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 	//	goto err_adetect;
 	//}
 	for ( devidx = aui->card_devidx; ; devidx++ ) {
-		if( pcibios_FindDeviceClass( 4, 1, 0, devidx, creative_devices, &card->pci_dev) != PCI_SUCCESSFUL )
+		if( pcibios_FindDeviceClass(&card->pci_dev, 4, 1, 0, devidx, creative_devices) != PCI_SUCCESSFUL )
 			break;
 		dbgprintf(("SBALL_adetect(%u): found device vendor=%X device=%X\n", devidx, card->pci_dev.vendor_id, card->pci_dev.device_id));
 		if ( card->pci_dev.vendor_id != PCI_VENDOR_ID_CREATIVE )
@@ -123,7 +123,7 @@ static int SBALL_adetect( struct audioout_info_s *aui )
 
 		pcibios_enable_BM_IO(&card->pci_dev);
 
-		card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+		card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 		/* must be an I/O address */
 		if (!(card->iobase & 1)) {
 			dbgprintf(("SBALL_adetect(%u): invalid IO port %X in PCI address bar\n", devidx, card->iobase));

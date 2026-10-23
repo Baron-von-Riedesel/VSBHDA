@@ -205,7 +205,7 @@
 struct ensoniq_card_s
 {
  unsigned long   infobits;/* ENSONIQ_CARD_INFOBIT_xxx flags */
- unsigned long   port;    /* PCIR_NAMBAR ( dword, config space 10 ) */
+ unsigned long   port;    /* PCI BAR0 ( dword, config space 10 ) */
  unsigned int    chiprev; /* PCIR_RID ( word, config space 08 ) */
  struct pci_config_s pci_dev;
  struct cardmem_s dm;
@@ -620,7 +620,7 @@ static int ES1371_adetect( struct audioout_info_s *aui )
 	dbgprintf(("ES1371_adetect: known card found, enable PCI io and busmaster\n"));
 	pcibios_enable_BM_IO( &card->pci_dev );
 
-	card->port = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	card->port = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 
 	aui->card_irq = card->pci_dev.bIrq;
 	card->chiprev= pcibios_ReadConfig_Byte(&card->pci_dev, PCIR_RID);

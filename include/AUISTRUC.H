@@ -89,7 +89,7 @@ struct sndcard_info_s;
 struct audioout_info_s {
  void *card_private_data;         /* card's private data - size defined by sndcard_info_s.private_data_size */
  const struct sndcard_info_s *card_handler; /* card's info block - v2.1: now here to simplify dynamic loading */
- char         *card_pDmaBuffer;   /* identical with the card's pcmout_buffer */
+ char         *card_pDmaBuffer;   /* set if the card driver doesn't want to handle PCM out data on its own */
  unsigned int  freq_card;
  unsigned char chan_card;
  unsigned char bits_card;
@@ -99,6 +99,7 @@ struct audioout_info_s {
  unsigned char card_buffers;      /* value of option /B */
  unsigned char card_devidx;       /* value of option /DEV */
    signed char card_outdev;       /* value of option /O - used by HDA and SBLIVE */
+ unsigned char bOMode;            /* bOMode value - to be used by external drivers */
  enum pcmformat card_wave_id;     /* PCM format - usually 16-bit signed */
  enum card_ctrlbits card_ctrlbits;
  enum card_infobits card_infobits;

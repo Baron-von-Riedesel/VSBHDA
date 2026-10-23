@@ -1400,9 +1400,14 @@ static int hw_pll_init(struct hw *hw, unsigned int rsr)
 	hw_write_20kx(hw, PLL_CTL, pllctl);
 	//msleep(40);
 	pds_delay_10us(40*100);
+    dbgprintf(("hw_pll_init: PLL_CTL=0x%X\n", pllctl));
 
 	for (i = 0; i < 1000; i++) {
+		pds_delay_10us(5);
 		pllstat = hw_read_20kx(hw, PLL_STAT);
+#ifdef _DEBUG
+		if ( 0 == (i % 40) ) dbgprintf(("hw_pll_init: PLL_STAT=0x%X\n", pllstat));
+#endif
 		if (get_field(pllstat, PLLSTAT_PD))
 			continue;
 
@@ -1421,7 +1426,7 @@ static int hw_pll_init(struct hw *hw, unsigned int rsr)
 		break;
 	}
 	if (i >= 1000) {
-		dbgprintf(("hw_pll_init: PLL initialization failed!!!\n"));
+		dbgprintf(("hw_pll_init: PLL initialization failed, timeout!\n"));
 		return -EBUSY;
 	}
 
@@ -2147,18 +2152,18 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 #endif
 
 	pcibios_enable_BM_MM(pci);
-	hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR);
-	/* check if it's an I/O base. If not, the address range has to be mapped */
+	hw->io_base = pcibios_ReadConfig_Dword(pci, PCIR_BAR2);
+	/* check if it's a memory address. An I/O base is an error */
 	if ( 0 == (hw->io_base & 1)) {
 		__dpmi_meminfo info;
 		if( hw->io_base & 4 ) {/* 64-bit address? then check if it's beyond 4G */
 			unsigned int tmp;
-			if ( tmp = pcibios_ReadConfig_Dword(pci, PCIR_NAMBAR+4)) {
-				dbgprintf(("hw_card_start: ERROR, PCI base addr > 4G [%X%08X]\n", tmp, hw->io_base ));
+			if ( tmp = pcibios_ReadConfig_Dword(pci, PCIR_BAR2+4)) {
+				dbgprintf(("hw_card_start: ERROR, PCI BAR 2 addr > 4G [%X%08X]\n", tmp, hw->io_base ));
 				return -1;
 			}
 		}
-		dbgprintf(("hw_card_start: ok, io_base=%X\n", hw->io_base));
+		dbgprintf(("hw_card_start: ok, address base=%X\n", hw->io_base));
 		info.address = hw->io_base & 0xfffffff8;
 		info.size = 0x200000; /* 2 MB */
 		if (__dpmi_physical_address_mapping(&info)) {
@@ -2176,9 +2181,8 @@ static int hw_card_start(struct hw *hw, struct pci_config_s *pci)
 #endif
 		hw->mem_base = (char volatile *)NearPtr(info.address);
 	} else {
-		dbgprintf(("hw_card_start: ERROR, PCI address 0 is an I/O address (%X)\n", hw->io_base));
+		dbgprintf(("hw_card_start: ERROR, PCI BAR 2 is an I/O address (%X)\n", hw->io_base));
 		return -1;
-		//hw->io_base &= 0xfffffff8;
 	}
 
 	/* Switch to 20k2 mode from UAA mode. */

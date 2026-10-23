@@ -1,5 +1,5 @@
-#ifndef __SOUND_EMU10K1_H
-#define __SOUND_EMU10K1_H
+#ifndef _EMU10K1_H
+#define _EMU10K1_H
 
 /*
  *  Copyright (c) by Jaroslav Kysela <perex@suse.cz>,
@@ -546,11 +546,11 @@
 #define TCB            0x41        /* Tank cache base register */
 #define TCB_MASK       0xfffff000  /* Physical address of the bottom of host based TRAM */
 
-#define ADCCR          0x42        /* ADC sample rate/stereo control register */
+#define ADCCR          0x42                /* ADC sample rate/stereo control register */
 #define ADCCR_RCHANENABLE    0x00000010    /* Enables right channel for writing to the host */
 #define ADCCR_LCHANENABLE    0x00000008    /* Enables left channel for writing to the host */
-                        /* NOTE: To guarantee phase coherency, both channels */
-                        /* must be disabled prior to enabling both channels. */
+                                           /* NOTE: To guarantee phase coherency, both channels */
+                                           /* must be disabled prior to enabling both channels. */
 #define A_ADCCR_RCHANENABLE    0x00000020
 #define A_ADCCR_LCHANENABLE    0x00000010
 
@@ -569,11 +569,11 @@
 #define A_ADCCR_SAMPLERATE_8    0x00000008    /* 8kHz sample rate */
 
 #define FXWC            0x43        /* FX output write channels register */
-                        /* When set, each bit enables the writing of the */
-                        /* corresponding FX output channel (internal registers  */
-                        /* 0x20-0x3f) to host memory.  This mode of recording   */
-                        /* is 16bit, 48KHz only. All 32 channels can be enabled */
-                        /* simultaneously.                    */
+                                    /* When set, each bit enables the writing of the */
+                                    /* corresponding FX output channel (internal registers */
+                                    /* 0x20-0x3f) to host memory.  This mode of recording */
+                                    /* is 16bit, 48KHz only. All 32 channels can be enabled */
+                                    /* simultaneously. */
 
 #define FXWC_DEFAULTROUTE_C     (1<<0)        /* left emu out? */
 #define FXWC_DEFAULTROUTE_B     (1<<1)        /* right emu out? */
@@ -654,9 +654,9 @@
 #define ADCBS_BUFSIZE_65536   0x0000001f
 
 
-#define CDCS              0x50        /* CD-ROM digital channel status register    */
+#define CDCS              0x50        /* CD-ROM digital channel status register */
 
-#define GPSCS             0x51        /* General Purpose SPDIF channel status register*/
+#define GPSCS             0x51        /* General Purpose SPDIF channel status register */
 
 #define DBG               0x52        /* DO NOT PROGRAM THIS REGISTER!!! MAY DESTROY CHIP */
 
@@ -670,9 +670,9 @@
 #define A_DBG_SATURATION_ADDR    0x0ffc0000
 
 // NOTE: 0x54,55,56: 64-bit
-#define SPCS0             0x54        /* SPDIF output Channel Status 0 register    */
-#define SPCS1             0x55        /* SPDIF output Channel Status 1 register    */
-#define SPCS2             0x56        /* SPDIF output Channel Status 2 register    */
+#define SPCS0             0x54        /* SPDIF output Channel Status 0 register */
+#define SPCS1             0x55        /* SPDIF output Channel Status 1 register */
+#define SPCS2             0x56        /* SPDIF output Channel Status 2 register */
 
 #define SPCS_CLKACCYMASK        0x30000000    /* Clock accuracy */
 #define SPCS_CLKACCY_1000PPM    0x00000000    /* 1000 parts per million */
@@ -698,56 +698,56 @@
 #define SPCS_NOTAUDIODATA       0x00000002    /* 0 = Digital audio, 1 = not audio */
 #define SPCS_PROFESSIONAL       0x00000001    /* 0 = Consumer (IEC-958), 1 = pro (AES3-1992) */
 
-/* The 32-bit CLIx and SOLx registers all have one bit per channel control/status              */
-#define CLIEL            0x58        /* Channel loop interrupt enable low register    */
+/* The 32-bit CLIx and SOLx registers all have one bit per channel control/status */
+#define CLIEL            0x58        /* Channel loop interrupt enable low register */
 
-#define CLIEH            0x59        /* Channel loop interrupt enable high register    */
+#define CLIEH            0x59        /* Channel loop interrupt enable high register */
 
-#define CLIPL            0x5a        /* Channel loop interrupt pending low register    */
+#define CLIPL            0x5a        /* Channel loop interrupt pending low register */
 
-#define CLIPH            0x5b        /* Channel loop interrupt pending high register    */
+#define CLIPH            0x5b        /* Channel loop interrupt pending high register */
 
-#define SOLEL            0x5c        /* Stop on loop enable low register        */
+#define SOLEL            0x5c        /* Stop on loop enable low register */
 
-#define SOLEH            0x5d        /* Stop on loop enable high register        */
+#define SOLEH            0x5d        /* Stop on loop enable high register */
 
-#define SPBYPASS        0x5e        /* SPDIF BYPASS mode register            */
-#define SPBYPASS_SPDIF0_MASK    0x00000003    /* SPDIF 0 bypass mode                */
-#define SPBYPASS_SPDIF1_MASK    0x0000000c    /* SPDIF 1 bypass mode                */
-/* bypass mode: 0 - DSP; 1 - SPDIF A, 2 - SPDIF B, 3 - SPDIF C                    */
-#define SPBYPASS_FORMAT        0x00000f00      /* If 1, SPDIF XX uses 24 bit, if 0 - 20 bit    */
+#define SPBYPASS         0x5e        /* SPDIF BYPASS mode register */
+#define SPBYPASS_SPDIF0_MASK    0x00000003    /* SPDIF 0 bypass mode */
+#define SPBYPASS_SPDIF1_MASK    0x0000000c    /* SPDIF 1 bypass mode */
+/* bypass mode: 0 - DSP; 1 - SPDIF A, 2 - SPDIF B, 3 - SPDIF C */
+#define SPBYPASS_FORMAT        0x00000f00     /* If 1, SPDIF XX uses 24 bit, if 0 - 20 bit */
 
-#define AC97SLOT        0x5f            /* additional AC97 slots enable bits        */
-#define AC97SLOT_REAR_RIGHT    0x01        /* Rear left */
-#define AC97SLOT_REAR_LEFT    0x02        /* Rear right */
-#define AC97SLOT_CNTR        0x10            /* Center enable */
-#define AC97SLOT_LFE        0x20            /* LFE enable */
+#define AC97SLOT        0x5f            /* additional AC97 slots enable bits */
+#define AC97SLOT_REAR_RIGHT 0x01        /* Rear left */
+#define AC97SLOT_REAR_LEFT  0x02        /* Rear right */
+#define AC97SLOT_CNTR       0x10        /* Center enable */
+#define AC97SLOT_LFE        0x20        /* LFE enable */
 
 // NOTE: 0x60,61,62: 64-bit
-#define CDSRCS            0x60        /* CD-ROM Sample Rate Converter status register    */
+#define CDSRCS            0x60        /* CD-ROM Sample Rate Converter status register */
 
 #define GPSRCS            0x61        /* General Purpose SPDIF sample rate cvt status */
 
-#define ZVSRCS            0x62        /* ZVideo sample rate converter status        */
-                        /* NOTE: This one has no SPDIFLOCKED field    */
-                        /* Assumes sample lock                */
+#define ZVSRCS            0x62        /* ZVideo sample rate converter status */
+                                      /* NOTE: This one has no SPDIFLOCKED field */
+                                      /* Assumes sample lock */
 
-/* These three bitfields apply to CDSRCS, GPSRCS, and (except as noted) ZVSRCS.            */
-#define SRCS_SPDIFLOCKED    0x02000000    /* SPDIF stream locked                */
-#define SRCS_RATELOCKED        0x01000000    /* Sample rate locked                */
-#define SRCS_ESTSAMPLERATE    0x0007ffff    /* Do not modify this field.            */
+/* These three bitfields apply to CDSRCS, GPSRCS, and (except as noted) ZVSRCS. */
+#define SRCS_SPDIFLOCKED    0x02000000    /* SPDIF stream locked */
+#define SRCS_RATELOCKED     0x01000000    /* Sample rate locked */
+#define SRCS_ESTSAMPLERATE  0x0007ffff    /* Do not modify this field. */
 
-/* Note that these values can vary +/- by a small amount                                        */
+/* Note that these values can vary +/- by a small amount */
 #define SRCS_SPDIFRATE_44    0x0003acd9
 #define SRCS_SPDIFRATE_48    0x00040000
 #define SRCS_SPDIFRATE_96    0x00080000
 
-#define MICIDX           0x63            /* Microphone recording buffer index register   */
-#define MICIDX_MASK      0x0000ffff      /* 16-bit value                                 */
+#define MICIDX           0x63        /* Microphone recording buffer index register */
+#define MICIDX_MASK      0x0000ffff  /* 16-bit value */
 #define MICIDX_IDX       0x10000063
 
-#define ADCIDX           0x64        /* ADC recording buffer index register        */
-#define ADCIDX_MASK      0x0000ffff  /* 16 bit index field                */
+#define ADCIDX           0x64        /* ADC recording buffer index register */
+#define ADCIDX_MASK      0x0000ffff  /* 16 bit index field */
 #define ADCIDX_IDX       0x10000064
 
 #define A_ADCIDX         0x63
@@ -774,10 +774,10 @@
 #define A_SPRA           0x6b /* SPDIF host record address */
 #define A_SPRC           0x6c /* SPDIF host record control */
 // 0x6d unused
-#define A_DICE           0x6d /* Delayed Interrupt Counter & Enable	*/
+#define A_DICE           0x6d /* Delayed Interrupt Counter & Enable */
 // 0x6e,6f - tanktable base / offset
-#define A_TTB			0x6e /* Tank Table Base	*/
-#define A_TDOF			0x6f /* Tank Delay Offset */
+#define A_TTB            0x6e /* Tank Table Base */
+#define A_TDOF           0x6f /* Tank Delay Offset */
 
 /* This is the MPU port on the card (via the game port) */
 #define A_MUDATA1        0x70
@@ -824,24 +824,24 @@
 #define A_EHC_P17V_SEL3_MASK    0x00c00000
 
 /* 0x77,0x78,0x79 "something i2s-related" - default to 0x01080000 on my audigy 2 ZS --rlrevell    */
-#define A_SRT3			0x77		/* I2S0 Sample Rate Tracker Status		*/
-#define A_SRT4			0x78		/* I2S1 Sample Rate Tracker Status		*/
-#define A_SRT5			0x79		/* I2S2 Sample Rate Tracker Status		*/
+#define A_SRT3          0x77        /* I2S0 Sample Rate Tracker Status      */
+#define A_SRT4          0x78        /* I2S1 Sample Rate Tracker Status      */
+#define A_SRT5          0x79        /* I2S2 Sample Rate Tracker Status      */
 
-#define A_SRT_ESTSAMPLERATE	0x001fffff
-#define A_SRT_RATELOCKED	0x01000000
+#define A_SRT_ESTSAMPLERATE 0x001fffff
+#define A_SRT_RATELOCKED    0x01000000
 
 /* 0x7a, 0x7b - lookup tables */
-#define A_TTDA			0x7a		/* Tank Table DMA Address			*/
-#define A_TTDD			0x7b		/* Tank Table DMA Data				*/
+#define A_TTDA          0x7a        /* Tank Table DMA Address */
+#define A_TTDD          0x7b        /* Tank Table DMA Data */
 
-#define A_FXRT2            0x7c
+#define A_FXRT2         0x7c
 #define A_FXRT_CHANNELE        0x0000003f    /* Effects send bus number for channel's effects send E    */
 #define A_FXRT_CHANNELF        0x00003f00    /* Effects send bus number for channel's effects send F    */
 #define A_FXRT_CHANNELG        0x003f0000    /* Effects send bus number for channel's effects send G    */
 #define A_FXRT_CHANNELH        0x3f000000    /* Effects send bus number for channel's effects send H    */
 
-#define A_SENDAMOUNTS        0x7d
+#define A_SENDAMOUNTS   0x7d
 #define A_FXSENDAMOUNT_E_MASK    0xFF000000
 #define A_FXSENDAMOUNT_F_MASK    0x00FF0000
 #define A_FXSENDAMOUNT_G_MASK    0x0000FF00
@@ -858,7 +858,7 @@
 
 /* Each FX general purpose register is 32 bits in length, all bits are used            */
 #define FXGPREGBASE        0x100        /* FX general purpose registers base           */
-#define A_FXGPREGBASE        0x400        /* Audigy GPRs, 0x400 to 0x5ff            */
+#define A_FXGPREGBASE      0x400        /* Audigy GPRs, 0x400 to 0x5ff            */
 
 #define A_TANKMEMCTLREGBASE    0x100        /* Tank memory control registers base - only for Audigy */
 #define A_TANKMEMCTLREG_MASK    0x1f        /* only 5 bits used - only for Audigy */
@@ -877,10 +877,10 @@
 #define TANKMEMADDRREG_WRITE     0x00200000    /* Write to tank memory */
 #define TANKMEMADDRREG_READ      0x00100000    /* Read from tank memory */
 
-#define MICROCODEBASE        0x400        /* Microcode data base address            */
+#define MICROCODEBASE        0x400        /* Microcode data base address */
 
-/* Each DSP microcode instruction is mapped into 2 doublewords                     */
-/* NOTE: When writing, always write the LO doubleword first.  Reads can be in either order.    */
+/* Each DSP microcode instruction is mapped into 2 doublewords */
+/* NOTE: When writing, always write the LO doubleword first.  Reads can be in either order. */
 #define LOWORD_OPX_MASK        0x000ffc00    /* Instruction operand X */
 #define LOWORD_OPY_MASK        0x000003ff    /* Instruction operand Y */
 #define HIWORD_OPCODE_MASK     0x00f00000    /* Instruction opcode */
@@ -1160,37 +1160,4 @@
 #define SNDRV_EMU10K1_IOCTL_SINGLE_STEP    _IOW ('H', 0x83, int)
 #define SNDRV_EMU10K1_IOCTL_DBG_READ    _IOR ('H', 0x84, int)
 
-#endif    /* __SOUND_EMU10K1_H */
-
-
-//-------------------------------------------------------------------------
-
-#ifndef _EFXMGR_H
-#define _EFXMGR_H
-
-#define VOL_8BIT 0x100
-#define VOL_7BIT 0x80
-#define VOL_6BIT 0x40
-#define VOL_5BIT 0x20
-#define VOL_4BIT 0x10
-
-#define A_WRITE_EFX(a, b, c) emu10k1_writeptr((a), A_MICROCODEBASE + (b), 0, (c))
-
-#define A_OP(op, z, w, x, y) \
-{ \
- A_WRITE_EFX(card, (pc) * 2, ((x) << 12) | (y)); \
- A_WRITE_EFX(card, (pc) * 2 + 1, ((op) << 24 ) | ((z) << 12) | (w)); \
- ++pc; \
-}
-
-#define L_WRITE_EFX(a, b, c) emu10k1_writeptr((a), MICROCODEBASE + (b), 0, (c))
-
-#define L_OP(op, z, w, x, y) \
-{ \
- L_WRITE_EFX(card, (pc) * 2, ((x) << 10) | (y)); \
- L_WRITE_EFX(card, (pc) * 2 + 1, ((op) << 20) | ((z) << 10) | (w)); \
- ++pc; \
-}
-
-#endif // _EFXMGR_H
-
+#endif    /* _EMU10K1_H */

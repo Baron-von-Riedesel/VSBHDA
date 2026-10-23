@@ -476,14 +476,14 @@ static int ICH_adetect( struct audioout_info_s *aui )
 	dbgprintf(("ICH_adetect: enable PCI io and busmaster\n"));
 	pcibios_enable_BM_IO(&card->pci_dev);
 
-	card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NABMBAR); /* PCI offset 0x14 */
+	card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR1); /* PCI offset 0x14 */
 	if (!(card->baseport_bm & 1 )) {/* must be an IO address */
-		dbgprintf(("ICH_adetect: no IO port for DMA engine set\n"));
+		dbgprintf(("ICH_adetect: no IO port for DMA engine (PCI BAR0) set\n"));
 		goto err_adetect;
 	}
 	card->baseport_bm &= ~1; /* just mask out bits 0; bits 1-5 should be 0, since IO space is 64 ports */
 
-	/* Some BIOSes don't set NAMBAR/NABMBAR at all. assign manually!?
+	/* Some BIOSes don't set BAR0/BAR1 at all. assign manually!?
 	 * Almost certainly a bad idea - we don't know what port ranges are free to use -
 	 * so if this is done, it should be done by an external tool.
 	 * Better approach may be to set PnP OS in BIOS to "NO".
@@ -492,33 +492,33 @@ static int ICH_adetect( struct audioout_info_s *aui )
 #if 0
 		int iobase = 0xF000;
 		iobase &= ~0x3F;
-		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NABMBAR, iobase);
-		card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NABMBAR) & 0xfff0;
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_BAR1, iobase);
+		card->baseport_bm = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR1) & 0xfff0;
 		if(!card->baseport_bm)
 			goto err_adetect;
 #else
-		dbgprintf(("ICH_adetect: IO addr for DMA engine (PCIR_NABMBAR) not set\n"));
+		dbgprintf(("ICH_adetect: IO addr for DMA engine (PCI BAR1) not set\n"));
 		goto err_adetect;
 #endif
 	}
 
-	card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR); /* PCI offset 0x10 */
+	card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	if (!(card->baseport_codec & 1 )) { /* must be an IO address */
-		dbgprintf(("ICH_adetect: PICR_NAMBAR=%X - not an IO port (Native Audio Mixer)\n", card->baseport_codec ));
+		dbgprintf(("ICH_adetect: PCI_BAR0=%X - not an IO port (Native Audio Mixer)\n", card->baseport_codec ));
 		goto err_adetect;
 	}
 	card->baseport_codec &= ~1; /* just mask out bit 0; bits 1-7 should be 0, since IO space is 256 ports */
 	if( card->baseport_codec == 0 ) {
 #if 0
-		/* see comment above for PCIR_NABMBAR! */
+		/* see comment above for PCIR_BAR1! */
 		iobase -= 256;
 		iobase &= ~0xFF;
-		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_NAMBAR, iobase);
-		card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR) & 0xfff0;
+		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_BAR0, iobase);
+		card->baseport_codec = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0) & 0xfff0;
 		if(!card->baseport_codec)
 			goto err_adetect;
 #else
-		dbgprintf(("ICH_adetect: IO addr for codec (PCIR_NAMBAR) not set\n"));
+		dbgprintf(("ICH_adetect: IO addr for codec (PCI BAR0) not set\n"));
 		goto err_adetect;
 #endif
 	}

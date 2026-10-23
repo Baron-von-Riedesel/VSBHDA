@@ -3521,7 +3521,7 @@ static int SBXFI_adetect(struct audioout_info_s *aui)
 	/* EMU20K1 and EMU20K2 use different PCI address slots
 	 * so the io base will be detected in cthw20k1/cthw20k2 later.
 	 */
-	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+	card->iobase = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 	card->iobase &= 0xfffffff8;
 	if(!card->iobase)
 		goto err_adetect;

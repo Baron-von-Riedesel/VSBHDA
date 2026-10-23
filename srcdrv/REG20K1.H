@@ -1,6 +1,9 @@
 
 /* CA20K1 registers;
  * source: ALSA, ctxfi/ct20k1reg.h
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * Copyright (C) 2008, Creative Technology Ltd. All Rights Reserved.
  */
 #define    PTPAHX       0x13B000 /* page table high */
 #define    PTPALX       0x13B004 /* page table low */

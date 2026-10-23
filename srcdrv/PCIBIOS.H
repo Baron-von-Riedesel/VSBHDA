@@ -34,8 +34,14 @@
 #define PCIR_RID        0x08 // chiprev
 #define PCIR_CCODE      0x0A
 #define PCIR_HEADT      0x0E // header type
-#define PCIR_NAMBAR     0x10 // AC'97: Native Audio Mixer Base Address
-#define PCIR_NABMBAR    0x14 // AC'97: Native Audio Bus Mastering Base Address
+//#define PCIR_NAMBAR     0x10 // AC'97: Native Audio Mixer Base Address
+//#define PCIR_NABMBAR    0x14 // AC'97: Native Audio Bus Mastering Base Address
+#define PCIR_BAR0       0x10
+#define PCIR_BAR1       0x14
+#define PCIR_BAR2       0x18
+#define PCIR_BAR3       0x1C
+#define PCIR_BAR4       0x20
+#define PCIR_BAR5       0x24
 #define PCIR_SSVID      0x2C // subsystem id + vendor id (serial)
 #define PCIR_SSID       0x2E // subsystem id (model)
 #define PCIR_INTR_LN    0x3C // interrupt line (1..15)
@@ -60,9 +66,9 @@ struct pci_device_s {
 };
 
 //uint8_t  pcibios_GetBus(void);
-uint8_t  pcibios_FindDevice(uint16_t, uint16_t, struct pci_config_s *);
-uint8_t  pcibios_FindDeviceClass( uint8_t, uint8_t, uint8_t, uint16_t, const struct pci_device_s devices[], struct pci_config_s *);
-uint8_t  pcibios_search_devices(const struct pci_device_s devices[], struct pci_config_s *);
+uint8_t  pcibios_FindDevice( uint16_t, uint16_t, struct pci_config_s *);
+uint8_t  pcibios_FindDeviceClass( struct pci_config_s *, uint8_t, uint8_t, uint8_t, uint16_t, const struct pci_device_s devices[]);
+uint8_t  pcibios_search_devices( const struct pci_device_s devices[], struct pci_config_s *);
 uint8_t  pcibios_ReadConfig_Byte ( struct pci_config_s *, uint16_t);
 uint16_t pcibios_ReadConfig_Word ( struct pci_config_s *, uint16_t);
 uint32_t pcibios_ReadConfig_Dword( struct pci_config_s *, uint16_t);

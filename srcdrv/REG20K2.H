@@ -1,6 +1,9 @@
 
 /* CA20K2 registers;
  * source: ALSA ctxfi/ct20k2reg.h
+ * SPDX-License-Identifier: GPL-2.0-only
+ *
+ * Copyright (C) 2008, Creative Technology Ltd. All Rights Reserved.
  */
 
 #ifndef _20K2REGISTERS_H_
@@ -8,27 +11,27 @@
 
 
 /* Timer Registers */
-#define WC              0x1b7000
-#define TIMR            0x1b7004
+#define WC                  0x1b7000
+#define TIMR                0x1b7004
 # define TIMR_IE (1<<15)
 # define TIMR_IP (1<<14)
-#define GIP             0x1b7010
-#define GIE             0x1b7014
+#define GIP                 0x1b7010
+#define GIE                 0x1b7014
 
 /* I2C Registers */
-#define I2C_IF_ADDRESS   0x1B9000
-#define I2C_IF_WDATA     0x1B9004
-#define I2C_IF_RDATA     0x1B9008
-#define I2C_IF_STATUS    0x1B900C
-#define I2C_IF_WLOCK     0x1B9010
+#define I2C_IF_ADDRESS      0x1B9000
+#define I2C_IF_WDATA        0x1B9004
+#define I2C_IF_RDATA        0x1B9008
+#define I2C_IF_STATUS       0x1B900C
+#define I2C_IF_WLOCK        0x1B9010
 
 /* Global Control Registers */
 #define GLOBAL_CNTL_GCTL    0x1B7090
 
 /* PLL Registers */
-#define PLL_CTL          0x1B7080
-#define PLL_STAT         0x1B7084
-#define PLL_ENB          0x1B7088
+#define PLL_CTL             0x1B7080
+#define PLL_STAT            0x1B7084
+#define PLL_ENB             0x1B7088
 
 /* SRC Registers */
 #define SRC_CTL             0x1A0000 /* 0x1A0000 + (256 * Chn) */

@@ -79,7 +79,7 @@ static const struct sndcard_info_s *sndcard_info_table[] = {
 
 #define NUMCARDS sizeof(sndcard_info_table)/sizeof(sndcard_info_table[0])
 
-#ifdef FARAU
+#ifdef _DEBUG
 extern uint8_t bOMode;
 #endif
 
@@ -113,8 +113,8 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	struct audioout_info_s *aui;
 	int i;
 
-#ifdef FARAU
-# ifdef _DEBUG
+#ifdef _DEBUG
+# ifdef FARAU
 	if ( gvars->logfile )
 		bOMode = OM_BUFFERED;
 # endif
@@ -125,6 +125,11 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 		dbgprintf(("AU_init: out of memory\n"));
 		return(NULL);
 	}
+#ifdef _DEBUG
+# ifndef FARAU
+	aui->bOMode = bOMode;
+# endif
+#endif
 	/* v1.7: global settings can be accessed directly - card_select_ variables removed
 	 * v2.1: for better module isolation removed gvars from aui.
 	 */

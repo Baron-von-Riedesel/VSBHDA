@@ -16,10 +16,6 @@ ifdef DJGPP
 	assume ds:_DATA
 endif
 
-ifndef DJGPP
-__GETDS proto near
-endif
-
 VioPutChar proto
 externdef syscall _bOMode:byte
 
@@ -273,10 +269,6 @@ __dprintf endp
 
 _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 
- ifndef DJGPP
-	push ds
-	call __GETDS
- endif
 	push eax
 	push ecx
 	push edx
@@ -284,9 +276,6 @@ _dprintf PROC c public fmt:ptr sbyte, args:VARARG
 	pop edx
 	pop ecx
 	pop eax
- ifndef DJGPP
-	pop ds
- endif
 	ret
 
 _dprintf ENDP

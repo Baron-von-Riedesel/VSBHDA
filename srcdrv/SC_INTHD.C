@@ -1373,15 +1373,15 @@ static int HDA_adetect( struct audioout_info_s *aui )
 		char *pReason;
 
 		card->pci_dev.device_type = AZX_DRIVER_GENERIC; /* set as default, will be changed if device is known */
-		if(pcibios_FindDeviceClass( 4, 3, 0, devidx, intelhda_devices, &card->pci_dev) != PCI_SUCCESSFUL)
+		if(pcibios_FindDeviceClass(&card->pci_dev, 4, 3, 0, devidx, intelhda_devices) != PCI_SUCCESSFUL)
 			break;
 
-		card->hdac = (struct HDAREGS_s *)pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR);
+		card->hdac = (struct HDAREGS_s *)pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0);
 		dbgprintf(("HDA_adetect(%u): PCI NAMBAR=0x%X\n", devidx, card->hdac ));
 		if( (uint32_t)card->hdac & 0x1 ) // I/O address? - shouldn't happen with HDA; memory mapping only
 			card->hdac = 0;
 		if( (uint32_t)card->hdac & 4 ) {// 64-bit address? then check if it's beyond 4G...
-			uint32_t tmp = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_NAMBAR+4);
+			uint32_t tmp = pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR1);
 			if ( tmp ) {
 				dbgprintf(("HDA_adetect(%u): card skipped - PCI base addr > 4G\n", devidx ));
 				continue;
