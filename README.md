@@ -37,3 +37,15 @@ Source of tools used by the makefiles:
  * JWasm (https://github.com/Baron-von-Riedesel/JWasm); must be at least v2.17
  * JWlink (https://github.com/Baron-von-Riedesel/jwlink); must be at least v2.0
  * Open Watcom v2 (https://github.com/open-watcom/open-watcom-v2/releases/tag/2024-03-01-Build)
+
+**AI Policy:**
+
+ With version 2.1, VSBHDA has been split in two parts: on one side the VSBHDA
+ core binary (VSBHDA.EXE, VSBHDA16.EXE), on the other side external driver
+ modules ( HDA.DRV, SBGEB.DRV, ... ). This separation is also reflected on the
+ source code tree, with two branches ( src and srcdrv ). The AI policy differs
+ for those two branches:
+
+ * for the VSBHDA core, **no** LLM assisted/generated code is accepted.
+ * for external driver modules, LLM assisted/generated code is acceptable.
+
