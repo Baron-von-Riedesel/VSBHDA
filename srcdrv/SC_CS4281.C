@@ -61,6 +61,14 @@
  */
 #define CS4281_MAX_IRQ_TENTHS_MS 117
 
+/* Value of aui->card_buffers when the user did NOT give /B. AU_init() (src/AU_CARDS.C)
+ * stores HW_BUFFERS_DEFAULT there in that case:
+ *     aui->card_buffers = (gvars->buffers > 1) ? gvars->buffers : HW_BUFFERS_DEFAULT;
+ * Older cores stored the raw /B value (0 = not given). HW_BUFFERS_DEFAULT is defined in
+ * src/CONFIG.H, which driver modules don't see - keep this copy in sync with it.
+ */
+#define CS4281_HW_BUFFERS_DEFAULT 8
+
 //-------------------------------------------------------------------------
 // BA0 register offsets/bits actually used by this (playback-only) driver.
 // Full register set is much larger - see the ALSA driver for anything not
@@ -538,19 +546,18 @@ isv_ok:
 	 * by testing, this register stayed muted and silent even with
 	 * Master and PCM both unmuted.
 	 */
-	/* LEVELS: these used to be 0x0C0C ("unmuted, some attenuation") on the
-	 * assumption that AU_setmixer_outs() would set the real level afterwards.
-	 * That never happens for drivers loaded as .DRV modules: LOADDRV.ASM hands
-	 * the core an sndcard_info with mixerchans=0, so AU_setmixer_one() bails
-	 * out ("card info invalid ... mixerchans=0" in the log) and whatever is
-	 * written here is the FINAL analog level. 0x0C0C is -18 dB on Master and
-	 * Headphone plus -6 dB on PCM, i.e. -24 dB overall - much quieter than the
-	 * ES1370 driver, which leaves its AK4531 at 0 dB. So: no attenuation.
+	/* INITIAL levels (unmuted, no attenuation). They used to be 0x0C0C (-18 dB Master/
+	 * Headphone, -6 dB PCM = -24 dB overall), which was only acceptable as long as the
+	 * core applied /VOL afterwards. For some time that never happened for .DRV modules
+	 * (LOADDRV.ASM passed mixerchans=0, so AU_setmixer_one() bailed out and these
+	 * values were the FINAL analog level: much quieter than the ES1370 driver, which
+	 * leaves its AK4531 at 0 dB). The loader now translates the mixer table
+	 * (my_Mixerdata), so AU_setmixer_outs() overrides these values at startup; they
+	 * stay at 0 dB so that nothing is attenuated if the mixer is ever not applied.
 	 * Mind that the two registers use different scales: Master/Headphone
 	 * 0x00 = 0 dB, but PCM-out 0x08 = 0 dB (0x00 would be +12 dB gain).
-	 * (If the loader ever passes the mixer table to the core, /VOL will override
-	 * these values at startup, as originally intended.)
 	 */
+
 	cs4281_ac97_write(card, AC97_MASTER_VOL_STEREO, 0x0000);
 	cs4281_ac97_write(card, AC97_PCMOUT_VOL,        0x0808);
 	cs4281_ac97_write(card, AC97_HEADPHONE_VOL,     0x0000);
@@ -694,7 +701,7 @@ static int CS4281_adetect( struct audioout_info_s *aui )
 	cs4281_set_power_d0( &card->pci_dev ); /* required - see comment above */
 	/* BAR0 lost in the transition? (only restore a plausible memory BAR) */
 	if( bar0_before != 0 && bar0_before != 0xffffffffUL && !(bar0_before & 1) &&
-		pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0) != bar0_before ) {
+	    pcibios_ReadConfig_Dword(&card->pci_dev, PCIR_BAR0) != bar0_before ) {
 		dbgprintf(("CS4281_adetect: BA0 changed across D0 transition, restoring %X\n", bar0_before));
 		pcibios_WriteConfig_Dword(&card->pci_dev, PCIR_BAR0, bar0_before);
 	}
@@ -764,7 +771,8 @@ static void CS4281_close( struct audioout_info_s *aui )
 }
 
 /* Size of the DMA ring actually used (never more than what was allocated).
- * If the user gave /B explicitly it is used as is. Otherwise the ring is cut so
+ * If the user gave /B explicitly (a value other than the default) it is used as is.
+ * Otherwise the ring is cut so
  * that the interval between card interrupts (= half a ring) does not exceed
  * CS4281_MAX_IRQ_TENTHS_MS at the current rate: 4096 bytes at 44100/48000 Hz
  * (unchanged), 2048 at 22050, 1024 at 11025/16000, ... Never less than two pages.
@@ -776,7 +784,14 @@ static unsigned int cs4281_ring_size(struct audioout_info_s *aui, struct cs4281_
 	unsigned int page = aui->card_period_size ? aui->card_period_size : CS4281_DMABUF_ALIGN;
 	unsigned long limit;
 
-	if (aui->card_buffers > 1) /* /B given: the user decides */
+	/* /B given with a non-default value: the user decides. The core now fills in the
+	 * default (8) when /B is absent, so "card_buffers > 1" is always true and must not be
+	 * used to detect an explicit /B - that silently disabled this whole adjustment and
+	 * brought back the long IRQ interval (echo/distortion) at low sample rates.
+	 * Consequence: an explicit /B8 is indistinguishable from the default and gets the
+	 * adjusted ring too; use any other value (e.g. /B9) to force a bigger ring.
+	 */
+	if (aui->card_buffers > 1 && aui->card_buffers != CS4281_HW_BUFFERS_DEFAULT)
 		return size;
 	/* ring bytes = 2 (halves) * frames per interrupt interval * 4 (16-bit stereo) */
 	limit = (unsigned long)aui->freq_card * CS4281_MAX_IRQ_TENTHS_MS / 10000UL * 2 * 4;
