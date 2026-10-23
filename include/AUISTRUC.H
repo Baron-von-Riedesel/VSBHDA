@@ -18,6 +18,7 @@ enum card_ctrlbits {
 /* r/o access for cards? */
 enum card_infobits {
     AUI_CARDINFOBIT_PLAYING = 1,
+    AUI_CARDINFOBIT_DEF_BUFFERS = 2, /* default value for buffers is used (option /B not given) */
     //AUI_CARDINFOBIT_DMAUNDERRUN = 8, /* dma buffer dried out */
     //AUI_CARDINFOBIT_DMAFULL = 16,    /* dma buffer is full */
 };
