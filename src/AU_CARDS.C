@@ -142,7 +142,12 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 	/* v1.7: global settings can be accessed directly - card_select_ variables removed
 	 * v2.1: for better module isolation removed gvars from aui.
 	 */
-	aui->card_buffers = (gvars->buffers > 1) ? gvars->buffers : HW_BUFFERS_DEFAULT;
+	if ( gvars->buffers > 1 )
+		aui->card_buffers = gvars->buffers;
+	else {
+		aui->card_buffers = HW_BUFFERS_DEFAULT;
+		aui->card_infobits |= AUI_CARDINFOBIT_DEF_BUFFERS;
+	}
 	aui->card_period_size = gvars->period_size;
 	aui->card_devidx = gvars->device;
 	aui->card_outdev = gvars->pin;
@@ -382,9 +387,11 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 		dbgprintf(("AU_setmixer_one: no card handler, exit\n" ));
 		return;
 	}
-	if(!cardinfo->card_writemixer || !cardinfo->card_readmixer || !cardinfo->card_mixerchans) {
-		dbgprintf(("AU_setmixer_one: card info invalid: writemixer=%X, readmixer=%X, mixerchans=%X\n",
-				cardinfo->card_writemixer, cardinfo->card_readmixer, cardinfo->card_mixerchans ));
+	/* v2.1: don't check readmixer vector - may be NULL if driver handles volumes on its own */
+	//if(!cardinfo->card_writemixer || !cardinfo->card_readmixer || !cardinfo->card_mixerchans) {
+	if(!cardinfo->card_writemixer || !cardinfo->card_mixerchans) {
+		dbgprintf(("AU_setmixer_one: card info invalid: writemixer=%X, mixerchans=%X\n",
+				cardinfo->card_writemixer, cardinfo->card_mixerchans ));
 		return;
 	}
 
@@ -436,8 +443,14 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 		const struct aucards_submixerchan_s *subchi = &(onechi->submixerchans[sch]); // one subchannel infos (left,right,etc.)
 		unsigned long currchval,newchval,maxchval;
 
-		/* vsbhda: if card handles mixer setting on its own then don't check subchannel settings */
-		if( !( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) ) {
+		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL set, let the card handle the volume.
+		/* also don't check subchannel settings then;
+		 * Thus the values submixch_bits and submixch_shift aren't used.
+		 */
+		if ( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) {
+			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u, %u)\n", subchi->submixch_register, newpercentval ));
+			cardinfo->card_writemixer( aui, subchi->submixch_register, newpercentval );
+		} else {
 			maxchval = (1 << subchi->submixch_bits) - 1;
 			/* invalid subchannel infos? */
 			if((subchi->submixch_register > AU_MIXERCHAN_MAX_REGISTER) || !maxchval || (subchi->submixch_shift > AU_MIXERCHAN_MAX_BITS)) {
@@ -445,15 +458,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 						   subchi->submixch_register, maxchval, subchi->submixch_shift ));
 				continue;
 			}
-		}
 
-		/* vsbhda: if SUBMIXCH_INFOBIT_CARD_SETVOL set, let the card handle the volume.
-		 * Thus the values submixch_bits and submixch_shift aren't used.
-		 */
-		if ( subchi->submixch_infobits & SUBMIXCH_INFOBIT_CARD_SETVOL ) {
-			dbgprintf(("AU_setmixer_one: calling card_writemixer(%u, %u)\n", subchi->submixch_register, newpercentval ));
-			cardinfo->card_writemixer( aui, subchi->submixch_register, newpercentval );
-		} else {
 			/* vsbhda: don't use floats here - function isn't called by interrupt handler, but still... */
 			//newchval=(long)(((float)newpercentval * (float)subchi->submixch_max + ((float)((maxpercentval >> 1) - 1)))/(float)maxpercentval);   // percent to chval (rounding up)
 			newchval = (((int64_t)newpercentval * maxchval + (((maxpercentval >> 1) - 1))) / maxpercentval);   // percent to chval (rounding up)
@@ -467,6 +472,11 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 			newchval <<= subchi->submixch_shift;                             // shift to position
 			dbgprintf(("AU_setmixer_one: newchval=%X after shift\n", newchval ));
 
+			/* v2.1: check readmixer for each subchannel */
+			if ( !cardinfo->card_readmixer ) {
+				dbgprintf(("AU_setmixer_one, subchannel=%u: card_readmixer = NULL, subchannel ignored\n", sch ));
+				continue;
+			}
 			currchval = cardinfo->card_readmixer( aui, subchi->submixch_register);// read current value
 			dbgprintf(("AU_setmixer_one: called card_readmixer(%X)=%X (max=%X, shift=%u)\n", subchi->submixch_register, currchval, maxchval, subchi->submixch_shift ));
 			currchval &= ~(maxchval << subchi->submixch_shift);  // unmask
@@ -475,7 +485,7 @@ void FAREXP AU_setmixer_one( struct audioout_info_s *aui, unsigned int channel, 
 			dbgprintf(("AU_setmixer_one: calling card_writemixer(%X, %X) [currchval=%X]\n", subchi->submixch_register, newchval, currchval ));
 			cardinfo->card_writemixer( aui, subchi->submixch_register, newchval);  // write it back
 		}
-	}
+	} /* end for */
 
 	if( function == AU_MIXCHANFUNC_VOLUME )
 		aui->card_mixer_values[channel] = newpercentval;
