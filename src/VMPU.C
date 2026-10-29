@@ -30,7 +30,7 @@ struct VMPU_s {
     unsigned char status;
     unsigned char channel;
     unsigned char data_in; /* byte to be read from data port */
-    unsigned char rsvd;    /* alignment */
+    unsigned char cnt;     /* data in byte count */
     unsigned char data[32]; /* data for current msg */
     unsigned char buffer[BUFSIZE];
 };
@@ -57,10 +57,11 @@ static void VMPU_Write(uint16_t port, uint8_t value)
 {
 	//dbgprintf(("VMPU_Write(%X, %X)\n", port, value ));
 	if ( port == gvars.mpu + 1 ) {	/* command port? */
-		if ( value == 0xff ) /* reset? */
+		/* reset or UART mode? */
+		if ( value == 0xff || value == 0x3f ) {
 			vmpu.data_in = 0xfe;
-		else if ( value == 0x3f ) /* UART mode? */
-			vmpu.data_in = 0xfe;
+			vmpu.cnt = 1;
+		}
 	} else {
 #if SOUNDFONT
 		vmpu.buffer[vmpu.widx++] = value;
@@ -79,17 +80,16 @@ static uint8_t VMPU_Read(uint16_t port)
 {
 	/* data port? */
 	if ( port == gvars.mpu ) {
-		unsigned char data = vmpu.data_in;
-		vmpu.data_in = 0;
+		vmpu.cnt = 0;
 		/* reading port 0x330 should reset MPU-401 interrupt status bit in mixer reg 0x82! */
-		//dbgprintf(("VMPU_Read(%X)=0\n", port ));
-		return data;
+		//dbgprintf(("VMPU_Read(%X)=%x\n", port, vmpu.data_in ));
+		return vmpu.data_in;
 	} else {
 		/* status port
 		 * bit 6: 1=interface busy, don't write
 		 * bit 7: 1=no data to read
 		 */
-		uint8_t rc = vmpu.data_in ? 0 : 0x80;
+		uint8_t rc = vmpu.cnt ? 0x3f : 0xbf;
 #if SOUNDFONT
 		return rc | (( vmpu.widx - vmpu.ridx ) == -1 ? 0x40 : 0);
 #else
