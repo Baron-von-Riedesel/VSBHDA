@@ -24,14 +24,16 @@ Fork VSBCMI (https://github.com/drivelling-spinel/VSBCMI/tree/main) also support
  * JEMM386/JEMMEX - V86 monitor with port trapping; v86-mode
  
 VSBHDA uses source code from:
- * MPXPlay: https://mpxplay.sourceforge.net/ - sound hardware access
+ * MPXPlay: https://mpxplay.sourceforge.net/ - sound hardware access (mostly based on ALSA driver source)
  * DOSBox: https://www.dosbox.com/ - OPL3 FM emulation & ADPCM decoding
  * TinySoundFont: https://github.com/schellingb/TinySoundFont - MIDI synthesizer emulation
 
-A few **makefiles** are supplied to create the binaries:
+**Creating the binaries**: A few makefiles are supplied for binary creation:
  * Makefile/OW16.mak/Drivers.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * Linux.mak/Linux16.mak/LinuxDrv.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * djgpp.mak: for DOS using DJGPP v2.05 and JWasm; cannot create the 16-bit variant of VSBHDA
+
+Some may need some (minor) adjustments.
 
 Source of tools used by the makefiles:
  * JWasm (https://github.com/Baron-von-Riedesel/JWasm); must be at least v2.17
@@ -42,10 +44,10 @@ Source of tools used by the makefiles:
 
  With version 2.1, VSBHDA has been split in two parts: on one side the VSBHDA
  core binary (VSBHDA.EXE, VSBHDA16.EXE), on the other side external driver
- modules ( HDA.DRV, SBGEB.DRV, ... ). This separation is also reflected on the
+ modules ( HDA.DRV, SBGEN.DRV, ... ). This separation is also reflected on the
  source code tree, with two branches ( src and srcdrv ). The AI policy differs
  for those two branches:
 
  * for the VSBHDA core, **no** LLM assisted/generated code is accepted.
- * for external driver modules, LLM assisted/generated code is acceptable.
+ * for external driver modules, LLM assisted/generated code is acceptable if it complies with the licence of this project.
 

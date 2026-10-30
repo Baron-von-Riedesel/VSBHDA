@@ -18,6 +18,8 @@
 
 extern struct globalvars gvars;
 
+#define BUFSIZE 4096
+
 #if SOUNDFONT
 tsf* tsfrenderer = NULL;
 
@@ -27,8 +29,10 @@ struct VMPU_s {
     int didx;           /* index for current msg data */
     unsigned char status;
     unsigned char channel;
+    unsigned char data_in; /* byte to be read from data port */
+    unsigned char cnt;     /* data in byte count */
     unsigned char data[32]; /* data for current msg */
-    unsigned char buffer[4096];
+    unsigned char buffer[BUFSIZE];
 };
 static struct VMPU_s vmpu;
 
@@ -48,22 +52,24 @@ static const unsigned char gm_reset[4] = { 0x7E, 0x7F, 0x09, 0x01 };
  *  0x3f: set to UART mode - triggers ACK (FE) to be read from data port
  */
 
-static bool bReset = false;
-static uint8_t bUART = 0;
-
 static void VMPU_Write(uint16_t port, uint8_t value)
 ////////////////////////////////////////////////////
 {
-	dbgprintf(("VMPU_Write(%X, %X)\n", port, value ));
+	//dbgprintf(("VMPU_Write(%X, %X)\n", port, value ));
 	if ( port == gvars.mpu + 1 ) {	/* command port? */
-		if ( value == 0xff ) /* reset? */
-			bReset = true;
-		else if ( value == 0x3f ) /* UART mode? */
-			bUART = 1;
+		/* reset or UART mode? */
+		if ( value == 0xff || value == 0x3f ) {
+			vmpu.data_in = 0xfe;
+			vmpu.cnt = 1;
+		}
 	} else {
 #if SOUNDFONT
 		vmpu.buffer[vmpu.widx++] = value;
-		vmpu.widx &= 0xfff;
+		vmpu.widx &= BUFSIZE-1;
+# ifdef _DEBUG
+		if ( vmpu.widx == vmpu.ridx )
+			dbgprintf(("VMPU_Write(%X, %X): buffer overflow at index %u\n", port, value, vmpu.widx));
+# endif
 #endif
 	}
 	return;
@@ -74,33 +80,16 @@ static uint8_t VMPU_Read(uint16_t port)
 {
 	/* data port? */
 	if ( port == gvars.mpu ) {
+		vmpu.cnt = 0;
 		/* reading port 0x330 should reset MPU-401 interrupt status bit in mixer reg 0x82! */
-		if ( bReset ) {
-			dbgprintf(("VMPU_Read(%X)=0xfe (reset)\n", port ));
-			bReset = false;
-			bUART = 0;
-			return 0xfe;
-		} else if ( bUART == 1 ) {
-			dbgprintf(("VMPU_Read(%X)=0xfe (UART mode)\n", port ));
-			bUART = 2;
-			return 0xfe;
-		}
-		dbgprintf(("VMPU_Read(%X)=0\n", port ));
-		return 0;
+		//dbgprintf(("VMPU_Read(%X)=%x\n", port, vmpu.data_in ));
+		return vmpu.data_in;
 	} else {
 		/* status port
-		 * bit 6: 1=interface busy
-		 * bit 7: 1=no data
+		 * bit 6: 1=interface busy, don't write
+		 * bit 7: 1=no data to read
 		 */
-		uint8_t rc = 0;
-		if ( bReset ) {
-			dbgprintf(("VMPU_Read(%X)=0\n", port ));
-			return rc;
-		} else if ( bUART == 1 ) {
-			dbgprintf(("VMPU_Read(%X)=0\n", port ));
-			return rc;
-		}
-		rc |= 0x80; /* no data to read */
+		uint8_t rc = vmpu.cnt ? 0x3f : 0xbf;
 #if SOUNDFONT
 		return rc | (( vmpu.widx - vmpu.ridx ) == -1 ? 0x40 : 0);
 #else
@@ -145,7 +134,10 @@ static void reset(void)
 void VMPU_Process_Messages(void)
 ////////////////////////////////
 {
-    for ( ;vmpu.ridx != vmpu.widx; vmpu.ridx++, vmpu.ridx &= 0xfff ) {
+#ifdef _DEBUG
+    int oldridx = vmpu.ridx;
+#endif
+    for ( ;vmpu.ridx != vmpu.widx; vmpu.ridx++, vmpu.ridx &= BUFSIZE-1 ) {
         if ( (vmpu.buffer[vmpu.ridx] & 0x80) && vmpu.buffer[vmpu.ridx] != 0xF7 ) {
             vmpu.status = vmpu.buffer[vmpu.ridx] >> 4;
             vmpu.channel = vmpu.buffer[vmpu.ridx] & 0xf;
@@ -212,25 +204,38 @@ void VMPU_Process_Messages(void)
                     if ( vmpu.didx == 0 )
                         memset( vmpu.data, 0, sizeof( vmpu.data ) );
                     if (vmpu.buffer[vmpu.ridx] == 0xF7) {
-                        /* sysex msg (41 xx 42 12 aaaaaa dd cc F7? (41=Roland, 42=GS synth, 12=sending) */
-                        if (vmpu.didx > 8 && vmpu.data[0] == 0x41 && vmpu.data[2] == 0x42 && vmpu.data[3] == 0x12 ) {
+                        /* sysex msg (41 xx 42 12 aaaaaa dd cc F7? (41=Roland, 42=GS synth, 12=sending)
+                         * v2.1: also handle 41 xx 16 12 ... (16=MT-32?)
+                         */
+                        //if (vmpu.didx > 8 && vmpu.data[0] == 0x41 && vmpu.data[2] == 0x42 && vmpu.data[3] == 0x12 ) {
+                        if (vmpu.didx > 8 && vmpu.data[0] == 0x41 && (vmpu.data[2] == 0x42 || vmpu.data[2] == 0x16 ) && vmpu.data[3] == 0x12 ) {
                             uint32_t addr = ((uint32_t)vmpu.data[4] << 16) + ((uint32_t)vmpu.data[5] << 8) + (uint32_t)vmpu.data[6];
-                            if ( addr == 0x400004 ) {
+                            dbgprintf(("sysex msg 0xF0: 41 %X %X 12 %6X %X", vmpu.data[1], vmpu.data[2], addr, vmpu.data[7] ));
+                            switch( addr ) {
+                            case 0x400004:
                                 tsf_set_volume(tsfrenderer, ((vmpu.data[7] > 127) ? 127 : vmpu.data[7]) / 127.f);
-                                dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (set GS volume)\n", vmpu.data[1], addr, vmpu.data[7] ));
-                            } else if ( addr == 0x40007f ) {
+                                dbgprintf((" (set GS volume)\n"));
+                                break;
+#ifdef _DEBUG
+                            case 0x100000: dbgprintf((" (MT-32 set master tune, unsupported)\n")); break;
+                            case 0x100001: dbgprintf((" (MT-32 set reverb mode, unsupported)\n")); break;
+                            case 0x100002: dbgprintf((" (MT-32 set reverb time, unsupported)\n")); break;
+                            case 0x100003: dbgprintf((" (MT-32 set reverb level, unsupported)\n"));break;
+#endif
+                            case 0x7f0000:
+                                reset();
+                                dbgprintf((" (MT-32 reset)\n"));
+                            	break;
+                            case 0x40007f:
                                 if ( vmpu.data[7] == 0 ) { /* 0=GS reset (enter GS mode), 7F=gs "rereset" (exit GS mode) */
                                     reset();
-                                    dbgprintf(("sysex msg 0xF0: 41 %X 42 12 40007f (GS reset)\n", vmpu.data[1] ));
+                                    dbgprintf((" (GS reset)\n"));
+                                    break;
                                 }
-#ifdef _DEBUG
-                                else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X %X (unhandled)\n", vmpu.data[1], addr, vmpu.data[7] ));
-#endif
-
+                            default:
+                                dbgprintf((" (unhandled)\n"));
+                                break;
                             }
-#ifdef _DEBUG
-                            else dbgprintf(("sysex msg 0xF0: 41 %X 42 12 %6X (unhandled)\n", vmpu.data[1], addr ));
-#endif
                         } else if (vmpu.didx > 5 && vmpu.data[0] == 0x7f && vmpu.data[1] == 0x7f && vmpu.data[2] == 0x04 && vmpu.data[3] == 0x01) {
                             /* msg 7f 7f 04 01 ll mm? */
                             tsf_set_volume(tsfrenderer, vmpu.data[5] / 127.f);
@@ -241,11 +246,15 @@ void VMPU_Process_Messages(void)
                             dbgprintf(("sysex msg 0xF0: %X %X %X %X (GM reset)\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3]));
                         }
 #ifdef _DEBUG
-                        else dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3]));
+                        else
+                            dbgprintf(("unknown sysex msg 0xF0: %X %X %X %X\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3]));
 #endif
                         vmpu.didx = -1;
                     } else if ( vmpu.didx < sizeof( vmpu.data ) )
                         vmpu.data[vmpu.didx] = vmpu.buffer[vmpu.ridx];
+#ifdef _DEBUG
+                    else dbgprintf(("sysex msg 0xF0: %X %X %X %X [...] too long, %X ignored\n", vmpu.data[0], vmpu.data[1], vmpu.data[2], vmpu.data[3], vmpu.buffer[vmpu.ridx] ));
+#endif
                     break;
                 case 0xF: /* 0xff - in a midi file it's supposed to be start of a "meta event"! */
                     reset();
@@ -265,6 +274,11 @@ void VMPU_Process_Messages(void)
             vmpu.didx++;
         } /* end if() */
     } /* end for() */
+# ifdef _DEBUG
+    if ( oldridx != vmpu.ridx ) {
+        dbgprintf(("VMPU_Process_Msg: %u bytes processed, new ridx=%u\n", (vmpu.ridx > oldridx ? vmpu.ridx : vmpu.ridx+BUFSIZE) - oldridx, vmpu.ridx));
+    }
+# endif
 }
 #endif
 
