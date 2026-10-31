@@ -42,8 +42,8 @@
    - HDA
    - SB Live and SB Audigy (EMU10K1, EMU10K2)
    - SB PCI cards based on ES1371/ES1373/CT5580
-   - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS) [untested]
-   - SB X-Fi cards based on CA20K1 and CA20K2 [CA20K2 untested]
+   - SB PCI cards based on CA0106 (SB Live24, SB Audigy LS)
+   - SB X-Fi cards based on CA20K1 and CA20K2
    - VIA VT82C686, VT8233/35/37, but not VT8233A
 
 
@@ -110,6 +110,7 @@
      /BS     : Set resampling buffer size
      /SD     : Set slowdown factor
      /O      : Set output connector (HDA & SB Live/Audigy only)
+     /DF:fn  : Set sound driver filename to load
      /DEV    : Set start index for device scan (HDA & SB Live/Audigy only)
      /SF:fn  : Set sound font filename to load
      /MV     : Set voice limit for MPU synthesizer
@@ -160,6 +161,10 @@
    - /O: HDA - selects lineOut, headphone or speaker.
          SB Live/Audigy - /O1 enables the "speaker" or "rear" jack.
          SB Live 24, Audigy LS/SE - /O1 enables S/PDIF output.
+   - /DF: if /DF: option is set, VSBHDA will try to load that driver only;
+          OTOH, if option is not set, an internal list of driver files will
+          be loaded sequentially until a known sound hardware is detected;
+          if none is found, an error will be displayed.
    - /CF: defines up to 32 bits to fine tune VSBHDA's behavior.
      Bit 0: 1 = DSP cmds 0xF2/0xF3 will trigger an interrupt instantly;
             0 = interrupt will be triggered delayed.

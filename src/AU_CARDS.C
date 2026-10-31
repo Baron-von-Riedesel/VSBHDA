@@ -191,7 +191,7 @@ void * FAREXP AU_init( const struct globalvars *gvars )
 		}
 	}
 #ifndef NODYN
-	if ( driver_name )
+	if ( driver_name && err )
 		printf("Error: trying to load driver %s returned errcode %u\n", driver_name, -err);
 #endif
 	dbgprintf(("AU_init: no card found\n"));

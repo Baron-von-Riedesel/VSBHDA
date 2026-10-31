@@ -23,6 +23,11 @@ NULL equ 0
 	include DEBUG.INC
 
 HEAPSIZE equ 2000h	;additional memory behind stack
+ifdef DPMI16
+STACKSIZE equ 2000h
+else
+STACKSIZE equ 0
+endif
 
 ifdef DJGPP
 ;--- problem with DJGPP is that this format (a variant of COFF)
@@ -67,6 +72,9 @@ if @Model ne 7
 ImgDiff dd ?	;difference of image bases
 endif
 card_info dd ?	;address of cardinfo returned by LibMain(), translated
+if STACKSIZE
+stack df ?		;if a full stack switch is required
+endif
 LDPARMS ends
 
 ;--- not really necessary, since INVOKE isn't used to call the member function
@@ -224,8 +232,8 @@ local mzhdr:IMAGE_DOS_HEADER
 	add eax, 4-1	; ensure the size is dword aligned
 	and al, 0fch
 	mov dwSizeAll, eax
-if HEAPSIZE
-	add eax, HEAPSIZE
+if HEAPSIZE+STACKSIZE
+	add eax, HEAPSIZE+STACKSIZE
 endif
 
 ;--- alloc mem for code, data, bss, heap
@@ -253,8 +261,11 @@ endif
 	mov ax, 7
 	int 31h
 	mov eax, dwSizeAll
-if HEAPSIZE
-	add eax, HEAPSIZE
+if HEAPSIZE+STACKSIZE
+	add eax, HEAPSIZE+STACKSIZE
+ if STACKSIZE
+	mov dword ptr params.stack+0, eax	;note: the heap is between _end ( end of BSS ) and start of stack!
+ endif
 endif
 	dec eax
 	push eax
@@ -316,15 +327,23 @@ endif
 	or ch, 40h
 	mov ax, 9
 	int 31h
-;--- set data descriptor to data, 32-bit
+
+;--- set data descriptor to data, 32-bit for VSBHDA;
+;--- for VSBHDA16, the data descriptor of both vsbhda and driver have D bit cleared;
+;--- so a full stack switch is needed there, no rebase possible!
+
 	push ebx
 	add ebx, 8
+ifndef DPMI16
 	mov ecx, ds
 	lar ecx, ecx
 	shr ecx, 8
 	or ch, 40h
 	mov ax, 9
 	int 31h
+else
+	mov word ptr params.stack+4,bx
+endif
 	pop ebx
 
 	movzx eax, mzhdr.e_ip
@@ -424,6 +443,44 @@ _FreeDriver proc c uses ebx esi edi
 	ret
 _FreeDriver endp
 
+ifdef DPMI16
+
+;--- do a full stack switch in vsbhda16
+
+@CallMember macro member:req,arg1:req,arg2,arg3
+	push es
+	push ds
+	mov edx, ss
+	mov eax, esp
+	lss esp, params.stack
+	push edx
+	push eax
+	mov edx, params.card_info
+	mov eax, ss
+	push dword ptr params.wCs
+	push [edx].SNDCARD_INFO.member
+?ARGS = 1
+ifnb <arg3>
+?ARGS = ?ARGS+1
+	push ds:arg3
+endif
+ifnb <arg2>
+?ARGS = ?ARGS+1
+	push ds:arg2
+endif
+	push ds:arg1
+	mov ds, eax
+	mov es, eax
+	call fword ptr [esp+4*?ARGS]
+	lss esp,[esp+(2+?ARGS)*4]   ;get old ss:esp, skip eip,cs,arg1,arg2,arg3
+	pop ds
+	pop es
+endm
+
+else
+
+;--- in 32-bit, use vsbhda's stack - must be "rebased"
+
 @CallMember macro member:req,arg1:req,arg2,arg3
 	push es
 	push ss
@@ -454,6 +511,8 @@ endif
 	Rebase2Intern esp
 	pop es
 endm
+
+endif
 
 ;--- call the module's adetect() function;
 ;--- that adetect() function, however, is a member of the card_info returned by LibMain(),
