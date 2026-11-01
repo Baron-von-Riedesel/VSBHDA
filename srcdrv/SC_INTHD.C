@@ -400,7 +400,7 @@ static int hda_codec_write(struct intelhd_card_s *chip, hda_nid_t nid, unsigned 
 	/* wait till cmd has been sent */
 	for ( timeout = 2000; timeout && (corbrp == chip->hdac->corbrp & 0xFF ); timeout--, pds_delay_10us(100) );
 #ifdef _DEBUG
-	if (!timeout) dbgprintf(("hda_codec_write: timeout error!\n"));
+	if (!timeout) dbgprintf(("hda_codec_write(nid=%d, verb=%X, parm=%X): CORB index=%u - timeout error!\n", nid, verb, parm, corbindex));
 #endif
 	return timeout;
 }
@@ -963,9 +963,9 @@ static int hda_mixer_init(struct intelhd_card_s *card)
 			//hda_master_vol.submixerchans[i].submixch_max = (card->pcm_vols[i].node->amp_out_caps >> AC_AMPCAP_NUM_STEPS_SHIFT ) & AC_AMPCAP_NUM_STEPS_MASK;
 		}
 
-    /* this is the important log if something goes wrong with the volume;
-     * the card->pcm_vols should be DACs or Mixer widgets.
-     */
+	/* this is the important log if something goes wrong with the volume;
+	 * the card->pcm_vols should be DACs or Mixer widgets.
+	 */
 	dbgprintf(("hda_mixer_init: nodes dac[0]=%d dac[1]=%d out[0]=%d out[1]=%d vol[0]=%d vol[1]=%d\n",
 				(int)((card->dac_node[0]) ? card->dac_node[0]->nid: 0),
 				(int)((card->dac_node[1]) ? card->dac_node[1]->nid: 0),

@@ -18,14 +18,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#ifdef DJGPP
+#if defined(DJGPP) && !defined(DYNAMIC)
 #include <go32.h>
 #endif
 
 #include "DPMIDRV.H"
 #include "PCIBIOS.H"
 
-#ifdef DJGPP
+#if defined(DJGPP) && !defined(DYNAMIC)
 #define _my_rmstack() _go32_info_block.linear_address_of_transfer_buffer
 #define _my_rmstksiz() _go32_info_block.size_of_transfer_buffer
 #else

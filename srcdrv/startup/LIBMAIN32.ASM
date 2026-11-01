@@ -5,8 +5,10 @@
 ;--- 32-bit tiny model (non-zero-based flat).
 
 	.386
-	.model tiny
+	.model ?MODEL
+ifndef DJGPP
 	.dosseg
+endif
 	option proc:private
 	option casemap:none
 
@@ -195,6 +197,11 @@ endif
 ;--- LibMain; returns address of local card_info struct (functions with RETF!)
 ;--- baseaddr: caller's base address.
 ;--- setup heap variables, DSBase and basediff.
+
+ifdef DJGPP
+	public start
+start:    
+endif
 
 LibMain proc far c public uses ebx baseaddr:dword, heapsize:dword, rmstack:dword
 

@@ -4,7 +4,7 @@
 ;--- memory models.
 
 	.386
-	.model tiny
+	.model ?MODEL
 	option casemap:none
 
 	.data

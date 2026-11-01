@@ -4,7 +4,7 @@
 ;--- for OW, assemble with -zcw
 
 	.386
-	.model tiny
+	.model ?MODEL
 	option casemap:none
 	option proc:private
 
@@ -283,6 +283,10 @@ endif
 
 ;--- in case the CRT printf is NOT to be used, activate the switch below
 ;ifndef DJGPP	; for Open Watcom only
+
+;--- gcc may change a printf() to a puts() (sc_via82.c)
+puts proc c public strng:ptr, args:vararg
+puts endp
 
 printf proc c public fstr:ptr, args:vararg
 	invoke vprintf, fstr, addr args

@@ -191,8 +191,8 @@ my_Mixerdata dd 9 dup (0)
 
 _LoadDriver proc c uses ebx esi edi pName:ptr
 
-local hFile:word
-local wCodeSel:word
+local hFile:dword
+local wCodeSel:dword
 local dwSizeAll:dword	; code, data, bss (no stack!)
 local dwSizeImg:dword
 local dwImgBase:dword
@@ -203,7 +203,7 @@ local mzhdr:IMAGE_DOS_HEADER
 	mov ax, 3D00h
 	int 21h
 	jc open_err
-	mov hFile, ax
+	mov hFile, eax
 	mov ebx, eax
 	mov ecx, sizeof mzhdr
 	lea edx, mzhdr
@@ -237,29 +237,38 @@ if HEAPSIZE+STACKSIZE
 endif
 
 ;--- alloc mem for code, data, bss, heap
-	mov cx, ax
+	mov ecx, eax
 	shr eax,16
-	mov bx, ax
-	mov ax,501h
+	mov ebx, eax
+	mov ax, 501h
 	int 31h
 	jc nomem
-	mov word ptr dwImgBase+0, cx
+	mov dwImgBase, ecx
 	mov word ptr dwImgBase+2, bx
-	mov word ptr params.memhdl+0,di
-	mov word ptr params.memhdl+2,si
+	mov params.memhdl, edi
+	mov word ptr params.memhdl+2, si
 	@dprintf CStr("LoadDriver: image base/size=%X/%X, full size=%X",10), dwImgBase, dwSizeImg, dwSizeAll
 
 ;--- alloc descriptors for code & data
-	mov cx,2
-	xor ax, ax
+	mov cx, 2
+	xor eax, eax
 	int 31h
 	jc nodesc
-	mov wCodeSel, ax
+	mov wCodeSel, eax
 	mov ebx, eax
-	mov dx, word ptr dwImgBase+0
+
+;--- set base of descriptors
+	mov edx, dwImgBase+0
 	mov cx, word ptr dwImgBase+2
 	mov ax, 7
 	int 31h
+	push ebx
+	add ebx, 8
+	mov ax, 7
+	int 31h
+	pop ebx
+
+;--- set limit of descriptors
 	mov eax, dwSizeAll
 if HEAPSIZE+STACKSIZE
 	add eax, HEAPSIZE+STACKSIZE
@@ -275,27 +284,23 @@ endif
 	int 31h		;set limit of code seg
 	jc nodesc
 
-	add bx,8
-	mov dx, word ptr dwImgBase+0
-	mov cx, word ptr dwImgBase+2
-	mov ax, 7
-	int 31h
 	or dx, -1	;size of data seg is 4G
 	or cx, -1
+	add ebx, 8
 	mov ax, 8
 	int 31h		;set limit of data (=-1)
 
 ;--- read image
 
-	mov bx, hFile
+	mov ebx, hFile
 	mov dx, mzhdr.e_cparhdr
 	shl dx, 4
-	xor cx, cx
+	xor ecx, ecx
 	mov ax, 4200h
 	int 21h
 	jc seek_err
 	push ds
-	mov ds, wCodeSel
+	mov ds, wCodeSel	;wCodeSel is still data here!
 	xor edx, edx
 	mov ecx, dwSizeImg
 	mov ax, 3F00h
@@ -320,7 +325,7 @@ endif
 	int 21h
 
 ;--- set code descriptor to code, 32-bit
-	mov bx, wCodeSel
+	mov ebx, wCodeSel
 	mov ecx, cs
 	lar ecx, ecx
 	shr ecx, 8
@@ -371,7 +376,7 @@ seek_err:
 read_err:
 err_with_close:
 	push eax
-	mov bx, hFile
+	mov ebx, hFile
 	mov ah, 3Eh
 	int 21h
 	pop eax
@@ -434,10 +439,10 @@ _FreeDriver proc c uses ebx esi edi
 	mov bx, params.wCs
 	mov ax,1
 	int 31h
-	add bx,8
+	add ebx,8
 	int 31h
-	mov di,word ptr params.memhdl+0
-	mov si,word ptr params.memhdl+2
+	mov edi, params.memhdl
+	shld esi, edi, 16
 	mov ax,502h
 	int 31h
 	ret

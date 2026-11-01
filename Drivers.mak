@@ -58,7 +58,7 @@ INCLUDES=-Iinclude -I$(WATCOM)\h
 LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 
 {srcdrv\startup}.asm{$(OUTD)}.obj
-	@$(ASM) -q -zcw $(A_DEBUG_FLAGS) -Fo$@ $<
+	@$(ASM) -q -zcw $(A_DEBUG_FLAGS) -D?MODEL=tiny -Fo$@ $<
 
 {srcdrv}.asm{$(OUTD)}.obj
 	@$(ASM) -q $(A_DEBUG_FLAGS) -Fo$@ $<
@@ -66,7 +66,7 @@ LIBS=$(OUTD)\drvhlp.lib $(WATCOM)\lib386\dos\clib3s.lib
 {srcdrv}.c{$(OUTD)}.obj
 	@$(CC) $(C_FLAGS) $(C_DEBUG_FLAGS) $(C_EXTRA_FLAGS) -Isrcdrv $(INCLUDES) -fo=$@ $<
 
-all: $(OUTD) $(OUTD)\CS4281.DRV $(OUTD)\ES1370.DRV $(OUTD)\ES1371.DRV $(OUTD)\ICH.DRV $(OUTD)\HDA.DRV $(OUTD)\SBGEN.DRV $(OUTD)\SBXFI.DRV $(OUTD)\VIA82.DRV
+all: $(OUTD) $(OUTD)\CS4281.DRV $(OUTD)\ES1370.DRV $(OUTD)\ES1371.DRV $(OUTD)\HDA.DRV $(OUTD)\ICH.DRV $(OUTD)\SBGEN.DRV $(OUTD)\SBXFI.DRV $(OUTD)\VIA82.DRV
 
 $(OUTD):
 	@mkdir $(OUTD)
@@ -107,21 +107,21 @@ disable 1014
 op q,statics,m=$*.map,nodefaultlibs
 <<
 
-$(OUTD)/ICH.DRV: $(OUTD)\sc_ich.obj  $(OUTD)\drvhlp.lib
-	@jwlink format dos @<<
-file $(OUTD)\sc_ich.obj
-name $@
-alias __sndcard_info=_ICH_sndcard_info
-lib { $(LIBS) }
-disable 1014
-op q,statics,m=$*.map,nodefaultlibs
-<<
-
 $(OUTD)/HDA.DRV: $(OUTD)\sc_inthd.obj  $(OUTD)\drvhlp.lib
 	@jwlink format dos @<<
 file $(OUTD)\sc_inthd.obj
 name $@
 alias __sndcard_info=_HDA_sndcard_info
+lib { $(LIBS) }
+disable 1014
+op q,statics,m=$*.map,nodefaultlibs
+<<
+
+$(OUTD)/ICH.DRV: $(OUTD)\sc_ich.obj  $(OUTD)\drvhlp.lib
+	@jwlink format dos @<<
+file $(OUTD)\sc_ich.obj
+name $@
+alias __sndcard_info=_ICH_sndcard_info
 lib { $(LIBS) }
 disable 1014
 op q,statics,m=$*.map,nodefaultlibs

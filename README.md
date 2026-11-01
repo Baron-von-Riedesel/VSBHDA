@@ -31,7 +31,7 @@ VSBHDA uses source code from:
 **Creating the binaries**: A few makefiles are supplied for binary creation:
  * Makefile/OW16.mak/Drivers.mak: for Windows/DOS using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
  * Linux.mak/Linux16.mak/LinuxDrv.mak: for Linux using Open Watcom (v1.9 or v2.0) and JWasm/JWlink
- * djgpp.mak: for DOS using DJGPP v2.05 and JWasm; cannot create the 16-bit variant of VSBHDA
+ * djgpp.mak/djdrv.mak: for DOS using DJGPP v2.05 and JWasm/JWlink; cannot create the 16-bit variant of VSBHDA
 
 Some may need some (minor) adjustments.
 

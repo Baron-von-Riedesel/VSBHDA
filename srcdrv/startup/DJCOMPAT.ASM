@@ -2,17 +2,18 @@
 ;--- a few adjustments in case the drivers are compiled with djgpp.
 
 	.386
-	.model tiny
+	.model ?MODEL
 	option casemap:none
 	option dotname
 
 ;--- force jwlink to add .text to dgroup
 
-.text segment dword public 'CODE'
-.text ends
+;.text segment dword public 'CODE'
+;.text ends
+;DGROUP group .text
 
-DGROUP group .text
-
+if 0
+	public c _go32_info_block
 _Go32_Info_Block struct
 	dd ?,?,?
 linear_address_of_transfer_buffer dd ?
@@ -23,13 +24,15 @@ linear_address_of_transfer_buffer dd ?
 linear_address_of_original_psp dd ?
 	dw ?,?
 _Go32_Info_Block ends
+endif
 
-	public c _go32_info_block
 	public errno
 
 	.data
 
+if 0
 _go32_info_block _Go32_Info_Block <>
+endif
 errno dd 0
 
 	.code
@@ -67,9 +70,34 @@ memset proc syscall uses edi dst:ptr, value:byte, size_:dword
 	mov edi, dst
 	mov al,value
 	mov ecx, size_
-	rep stosd
+	rep stosb
 	ret
 memset endp
+
+memcmp proc c uses esi edi src1:ptr, src2:ptr, size_:dword
+	cld
+	mov esi, src1
+	mov edi, src2
+	mov ecx, size_
+	repz cmpsb
+	setnz al
+	movzx eax, al
+	ret
+memcmp endp
+
+ifdef _DEBUG
+strcpy proc c uses esi edi dst:ptr, src:ptr
+	cld
+	mov edi,dst
+	mov esi,src
+@@:
+	lodsb
+	stosb
+	and al,al
+	jnz @B
+	ret
+strcpy endp
+endif
 
 	end
 
