@@ -7,9 +7,6 @@
  *    was based on ALSA driver code, probably from ~2005.
  **************************************************************************/
 
-// status: EMU20K1 tested
-//         EMU20K2 untested
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>

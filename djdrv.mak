@@ -52,44 +52,44 @@ $(OUTD):
 # 2 link steps used; LD links a relocatable binary, jwlink links it to a DOS MZ binary.
 
 $(OUTD)/CS4281.DRV: $(OUTD)/sc_cs4281.o  $(LIBS)
-	@ld -r $(OUTD)/sc_cs4281.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_CS4281_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_cs4281.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_CS4281_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/ES1370.DRV: $(OUTD)/sc_e1370.o  $(LIBS)
-	@ld -r $(OUTD)/sc_e1370.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ES1370_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_e1370.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ES1370_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/ES1371.DRV: $(OUTD)/sc_e1371.o  $(LIBS)
-	@ld -r $(OUTD)/sc_e1371.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ES1371_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_e1371.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ES1371_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/HDA.DRV: $(OUTD)/sc_inthd.o  $(LIBS)
-	@ld -r $(OUTD)/sc_inthd.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_HDA_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_inthd.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_HDA_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/ICH.DRV: $(OUTD)/sc_ich.o  $(LIBS)
-	@ld -r $(OUTD)/sc_ich.o   $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ICH_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_ich.o   $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_ICH_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/SBGEN.DRV: $(OUTD)/sc_sbgen.o  $(LIBS)
-	@ld -r $(OUTD)/sc_sbgen.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_SBGEN_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_sbgen.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_SBGEN_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/SBXFI.DRV: $(OUTD)/sc_sbxfi.o  $(LIBS)
-	@ld -r $(OUTD)/sc_sbxfi.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_SBXFI_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_sbxfi.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_SBXFI_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/VIA82.DRV: $(OUTD)/sc_via82.o  $(LIBS)
-	@ld -r $(OUTD)/sc_via82.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_VIA82XX_sndcard_info
-	@jwlink format dos f $(OUTD)/tmp. n $@ disable 1014 op q,m=$@.map,start=start
-	@del $(OUTD)\tmp
+	@ld -r $(OUTD)/sc_via82.o $(OUTD)/LibMain32.o $(LIBS) -o $(OUTD)/tmp.o -T djdrv.ld -Map $@.mp --defsym __sndcard_info=_VIA82XX_sndcard_info
+	@jwlink format dos f $(OUTD)/tmp.o. n $@ disable 1014 op q,m=$@.map,start=start
+	@del $(OUTD)\tmp.o
 
 $(OUTD)/drvhlp.ar: $(HLPOBJ)
 	@ar --target=coff-go32 r $@ $(HLPOBJ)
